@@ -1,0 +1,14 @@
+{
+  "name": "grooveshare-server",
+  "version": "1.0.0",
+  "description": "Pure Node backend for GrooveShare",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "dev": "node --watch server.js",
+    "start": "node server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
