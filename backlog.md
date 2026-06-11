@@ -10,6 +10,32 @@
 
 - [ ] Build local project metadata foundation
   Create the first Phase 1 data model for GrooveShare projects using a local JSON metadata file and pure Node API routes for creating and reading projects.
+  - [x] Convert backend to TypeScript
+    Move the pure Node backend from `server.js` to `src/server.ts` and add a simple TypeScript dev setup before building the project metadata store.
+  - [ ] Create local JSON data store
+    Add a `server/data/db.json` file that acts as a temporary Phase 1 database with top-level `projects` and `tracks` collections.
+  - [ ] Define initial project metadata shape
+    Decide the first project object structure, including ID, title, description, created date, updated date, and an empty tracks list.
+  - [ ] Create local data folder and metadata file
+    Add a `server/data/projects.json` file that will act as the temporary Phase 1 metadata store.
+  - [ ] Add metadata read/write helpers
+    Create small server-side helper functions for reading project metadata from JSON and writing updated metadata back to the file.
+  - [ ] Add project creation route
+    Add a pure Node `POST /api/projects` route that accepts project data, creates a new project object, saves it to JSON, and returns the created project.
+  - [ ] Add projects list route
+    Add a pure Node `GET /api/projects` route that reads the JSON metadata file and returns the current list of projects.
+  - [ ] Add single project route
+    Add a pure Node `GET /api/projects/:projectId` route that returns one project by ID or a clear error if the project does not exist.
+  - [ ] Add frontend project creation form
+    Add a simple form in the Vite frontend for entering a project title and description and submitting it to the backend.
+  - [ ] Add frontend project display
+    Show created projects in the browser using data returned from the backend.
+  - [ ] Add basic API error handling
+    Display readable frontend messages when project creation or project loading fails.
+  - [ ] Manually test project metadata flow
+    Confirm that projects can be created, saved to `projects.json`, loaded from the backend, and displayed in the frontend after a refresh.
+  - [ ] Update backlog and architecture notes
+    Mark completed project metadata work and update architecture notes if the implemented data shape or route names differ from the plan.
 
 ## Next Up
 
