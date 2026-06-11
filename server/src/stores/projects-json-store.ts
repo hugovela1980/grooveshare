@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { CreateProjectInput, Database, Project } from "../types.js";
 
-type ProjectsStore = {
+export type ProjectsStore = {
   getProjects: () => Promise<Project[]>;
   getProjectById: (projectId: string) => Promise<Project | null>;
   createProject: (projectInput: CreateProjectInput) => Promise<Project>;

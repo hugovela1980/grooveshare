@@ -7,7 +7,6 @@
 - Development branch: `develop`
 
 ## Current Focus
-- [x] Add backend test runner
 
 - [ ] Build local project metadata foundation
   Create the first Phase 1 data model for GrooveShare projects using a local JSON metadata file and pure Node API routes for creating and reading projects.
@@ -21,11 +20,11 @@
     Add a `server/data/projects.json` file that will act as the temporary Phase 1 metadata store.
   - [x] Add metadata read/write helpers
     Create small server-side helper functions for reading project metadata from JSON and writing updated metadata back to the file.
-  - [ ] Add project creation route
+  - [x] Add project creation route
     Add a pure Node `POST /api/projects` route that accepts project data, creates a new project object, saves it to JSON, and returns the created project.
-  - [ ] Add projects list route
+  - [x] Add projects list route
     Add a pure Node `GET /api/projects` route that reads the JSON metadata file and returns the current list of projects.
-  - [ ] Add single project route
+  - [x] Add single project route
     Add a pure Node `GET /api/projects/:projectId` route that returns one project by ID or a clear error if the project does not exist.
   - [ ] Add frontend project creation form
     Add a simple form in the Vite frontend for entering a project title and description and submitting it to the backend.
@@ -134,3 +133,4 @@
 * [x] Set up project skeleton
   Create the initial Vite + Vanilla TypeScript frontend and pure Node backend, including a basic health endpoint and frontend/backend connection test.
 
+- [x] Add backend test runner
