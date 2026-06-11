@@ -7,18 +7,19 @@
 - Development branch: `develop`
 
 ## Current Focus
+- [x] Add backend test runner
 
 - [ ] Build local project metadata foundation
   Create the first Phase 1 data model for GrooveShare projects using a local JSON metadata file and pure Node API routes for creating and reading projects.
   - [x] Convert backend to TypeScript
     Move the pure Node backend from `server.js` to `src/server.ts` and add a simple TypeScript dev setup before building the project metadata store.
-  - [ ] Create local JSON data store
+  - [x] Create local JSON data store
     Add a `server/data/db.json` file that acts as a temporary Phase 1 database with top-level `projects` and `tracks` collections.
-  - [ ] Define initial project metadata shape
+  - [x] Define initial project metadata shape
     Decide the first project object structure, including ID, title, description, created date, updated date, and an empty tracks list.
-  - [ ] Create local data folder and metadata file
+  - [x] Create local data folder and metadata file
     Add a `server/data/projects.json` file that will act as the temporary Phase 1 metadata store.
-  - [ ] Add metadata read/write helpers
+  - [x] Add metadata read/write helpers
     Create small server-side helper functions for reading project metadata from JSON and writing updated metadata back to the file.
   - [ ] Add project creation route
     Add a pure Node `POST /api/projects` route that accepts project data, creates a new project object, saves it to JSON, and returns the created project.
