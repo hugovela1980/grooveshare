@@ -1,0 +1,4 @@
+import "./test-runner/tester.test.js";
+import { tester } from "./test-runner/tester.js";
+
+await tester.run();
