@@ -221,4 +221,70 @@ tester.describe("project form controller", () => {
     tester.expect(form.getResetCallCount()).toBe(1);
     tester.expect(statusElement.textContent).toBe("Project created.");
   });
+
+    tester.it("shows an error message when loading projects fails", async () => {
+    const form = createFakeForm();
+    const titleInput = createFakeInput();
+    const descriptionInput = createFakeInput();
+    const projectListElement = createFakeContainer();
+    const statusElement = createFakeTextElement();
+
+    const controller = createProjectFormController({
+      form,
+      titleInput,
+      descriptionInput,
+      projectListElement,
+      statusElement,
+      projectsApi: {
+        async getProjects() {
+          throw new Error("Backend unavailable");
+        },
+        async createProject() {
+          return createProject();
+        },
+      },
+      renderProjectList(projectsToRender: Project[]) {
+        return projectsToRender.map((project) => project.title).join(", ");
+      },
+    });
+
+    await controller.init();
+
+    tester.expect(projectListElement.innerHTML).toBe("");
+    tester.expect(statusElement.textContent).toBe("Could not load projects.");
+  });
+
+  tester.it("shows an error message when project creation fails", async () => {
+    const form = createFakeForm();
+    const titleInput = createFakeInput("Chorus Riff Idea");
+    const descriptionInput = createFakeInput("Guitar riff with scratch drums");
+    const projectListElement = createFakeContainer();
+    const statusElement = createFakeTextElement();
+
+    const controller = createProjectFormController({
+      form,
+      titleInput,
+      descriptionInput,
+      projectListElement,
+      statusElement,
+      projectsApi: {
+        async getProjects() {
+          return [];
+        },
+        async createProject() {
+          throw new Error("Failed to fetch");
+        },
+      },
+      renderProjectList(projectsToRender: Project[]) {
+        return projectsToRender.map((project) => project.title).join(", ");
+      },
+    });
+
+    await controller.init();
+    await form.submit();
+
+    tester.expect(projectListElement.innerHTML).toBe("");
+    tester.expect(form.getResetCallCount()).toBe(0);
+    tester.expect(statusElement.textContent).toBe("Could not create project.");
+  });
 });

@@ -45,8 +45,14 @@ export function createProjectFormController({
   renderProjectList,
 }: ProjectFormControllerOptions) {
   async function loadProjects(): Promise<void> {
-    const projects = await projectsApi.getProjects();
-    projectListElement.innerHTML = renderProjectList(projects);
+    try {
+      const projects = await projectsApi.getProjects();
+      projectListElement.innerHTML = renderProjectList(projects);
+      statusElement.textContent = "";
+    } catch (error) {
+      console.error(error);
+      statusElement.textContent = "Could not load projects.";
+    }
   }
 
   async function handleSubmit(event: { preventDefault: () => void }): Promise<void> {
@@ -60,15 +66,20 @@ export function createProjectFormController({
       return;
     }
 
-    await projectsApi.createProject({
-      title,
-      description,
-    });
+    try {
+      await projectsApi.createProject({
+        title,
+        description,
+      });
 
-    form.reset();
-    await loadProjects();
+      form.reset();
+      await loadProjects();
 
-    statusElement.textContent = "Project created.";
+      statusElement.textContent = "Project created.";
+    } catch (error) {
+      console.error(error);
+      statusElement.textContent = "Could not create project.";
+    }
   }
 
   async function init(): Promise<void> {
@@ -77,8 +88,6 @@ export function createProjectFormController({
     });
 
     await loadProjects();
-
-    statusElement.textContent = "";
   }
 
   return {

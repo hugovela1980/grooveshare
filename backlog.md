@@ -26,13 +26,13 @@
     Add a pure Node `GET /api/projects` route that reads the JSON metadata file and returns the current list of projects.
   - [x] Add single project route
     Add a pure Node `GET /api/projects/:projectId` route that returns one project by ID or a clear error if the project does not exist.
-  - [ ] Add frontend project creation form
+  - [x] Add frontend project creation form
     Add a simple form in the Vite frontend for entering a project title and description and submitting it to the backend.
-  - [ ] Add frontend project display
+  - [x] Add frontend project display
     Show created projects in the browser using data returned from the backend.
-  - [ ] Add basic API error handling
+  - [x] Add basic API error handling
     Display readable frontend messages when project creation or project loading fails.
-  - [ ] Manually test project metadata flow
+  - [x] Manually test project metadata flow
     Confirm that projects can be created, saved to `projects.json`, loaded from the backend, and displayed in the frontend after a refresh.
   - [ ] Update backlog and architecture notes
     Mark completed project metadata work and update architecture notes if the implemented data shape or route names differ from the plan.
