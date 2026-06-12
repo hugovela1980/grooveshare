@@ -1,4 +1,8 @@
+import { projectsApi } from "./api/projects-api.js";
+import { createProjectFormController } from "./controllers/project-controller.js";
 import "./style.css";
+import { createAppShell } from "./templates/app-shell.js";
+import { renderProjectList } from "./templates/project-list.js";
 
 const app = document.querySelector<HTMLDivElement>("#app");
 
@@ -6,43 +10,32 @@ if (!app) {
   throw new Error("Could not find #app element");
 }
 
-app.innerHTML = `
-  <main class="app-shell">
-    <section class="hero">
-      <p class="eyebrow">GrooveShare</p>
-      <h1>Share rough tracks with your bandmates.</h1>
-      <p class="description">
-        A lightweight music collaboration tool for sharing stems,
-        practicing parts, and sending rough recordings back.
-      </p>
-    </section>
+app.innerHTML = createAppShell();
 
-    <section class="status-card">
-      <h2>Backend connection</h2>
-      <p id="api-status">Checking API status...</p>
-    </section>
-  </main>
-`;
+const form = document.querySelector<HTMLFormElement>("#project-form");
+const titleInput = document.querySelector<HTMLInputElement>("#project-title");
+const descriptionInput = document.querySelector<HTMLTextAreaElement>("#project-description");
+const projectListElement = document.querySelector<HTMLDivElement>("#project-list");
+const statusElement = document.querySelector<HTMLParagraphElement>("#project-status");
 
-const statusElement = document.querySelector<HTMLParagraphElement>("#api-status");
+if (
+  !form ||
+  !titleInput ||
+  !descriptionInput ||
+  !projectListElement ||
+  !statusElement
+) {
+  throw new Error("Could not find project form elements.");
+};
 
-async function checkApiHealth() {
-  if (!statusElement) return;
+const projectFormController = createProjectFormController({
+  form,
+  titleInput,
+  descriptionInput,
+  projectListElement,
+  statusElement,
+  projectsApi,
+  renderProjectList,
+});
 
-  try {
-    const response = await fetch("http://localhost:3000/api/health");
-
-    if (!response.ok) {
-      throw new Error(`API responded with ${response.status}`);
-    }
-
-    const data = await response.json();
-
-    statusElement.textContent = data.message;
-  } catch (error) {
-    console.error(error);
-    statusElement.textContent = "Could not connect to the GrooveShare API.";
-  }
-}
-
-checkApiHealth();
+await projectFormController.init();
