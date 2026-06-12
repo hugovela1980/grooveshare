@@ -1,26 +1,4 @@
 {
-  "projects": [
-    {
-      "id": "6633eea7-cfef-4f52-b635-57413def67ec",
-      "title": "Heavy guitar riff",
-      "description": "Guitar with heavy distortion",
-      "createdAt": "2026-06-12T00:01:00.185Z",
-      "updatedAt": "2026-06-12T00:01:00.185Z"
-    },
-    {
-      "id": "f9b8c843-5316-4086-88f5-ec1e508ef6d4",
-      "title": "Keys Groove",
-      "description": "Don't overdo the drums!",
-      "createdAt": "2026-06-12T00:01:34.642Z",
-      "updatedAt": "2026-06-12T00:01:34.642Z"
-    },
-    {
-      "id": "f1547673-47b7-4ec3-88d7-f8a797d8699f",
-      "title": "asdf",
-      "description": "qwerzxcv v fasd sdf",
-      "createdAt": "2026-06-12T00:11:06.960Z",
-      "updatedAt": "2026-06-12T00:11:06.960Z"
-    }
-  ],
+  "projects": [],
   "tracks": []
 }

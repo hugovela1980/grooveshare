@@ -1,31 +1,15 @@
-import { readFile, writeFile } from "node:fs/promises";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-import type { CreateProjectInput, Database, Project } from "../types.js";
+import type { CreateProjectInput, Project } from "../types.js";
+import {
+  DEFAULT_DB_FILE_PATH,
+  readDatabase,
+  writeDatabase,
+} from "./json-db.js";
 
 export type ProjectsStore = {
   getProjects: () => Promise<Project[]>;
   getProjectById: (projectId: string) => Promise<Project | null>;
   createProject: (projectInput: CreateProjectInput) => Promise<Project>;
 };
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const DEFAULT_DB_FILE_PATH = path.join(__dirname, "../../data/db.json");
-
-async function readDatabase(dbFilePath: string): Promise<Database> {
-  const fileContents = await readFile(dbFilePath, "utf-8");
-  return JSON.parse(fileContents) as Database;
-}
-
-async function writeDatabase(
-  dbFilePath: string,
-  database: Database,
-): Promise<void> {
-  const json = JSON.stringify(database, null, 2);
-  await writeFile(dbFilePath, `${json}\n`, "utf-8");
-}
 
 export function createProjectsJsonStore(
   dbFilePath = DEFAULT_DB_FILE_PATH,
