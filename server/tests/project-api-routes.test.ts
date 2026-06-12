@@ -451,4 +451,85 @@ tester.describe("project API routes", () => {
       await closeServer(server);
     }
   });
+
+  tester.it("returns tracks for a project", async () => {
+    const { baseUrl, server } = await createTestServer();
+    const boundary = "----GrooveShareBoundary";
+
+    try {
+      const createProjectResponse = await fetch(`${baseUrl}/api/projects`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: "Chorus Riff Idea",
+          description: "Guitar riff with scratch drums",
+        }),
+      });
+
+      const createProjectBody =
+        (await createProjectResponse.json()) as ApiResponse<Project>;
+
+      const projectId = createProjectBody.data?.id;
+
+      if (!projectId) {
+        throw new Error("Created project did not include an ID.");
+      }
+
+      const multipartBody = createMultipartBody({
+        boundary,
+        parts: [
+          createTextPart({
+            boundary,
+            name: "trackName",
+            value: "Guitar",
+          }),
+          createFilePart({
+            boundary,
+            fieldName: "audioFile",
+            filename: "guitar-riff.wav",
+            mimeType: "audio/wav",
+            data: Buffer.from("fake wav data", "utf-8"),
+          }),
+        ],
+      });
+
+      await fetch(`${baseUrl}/api/projects/${projectId}/tracks`, {
+        method: "POST",
+        headers: {
+          "Content-Type": `multipart/form-data; boundary=${boundary}`,
+        },
+        body: bufferToArrayBuffer(multipartBody),
+      });
+
+      const response = await fetch(`${baseUrl}/api/projects/${projectId}/tracks`);
+      const body = (await response.json()) as ApiResponse<Track[]>;
+
+      tester.expect(response.status).toBe(200);
+      tester.expect(body.ok).toBe(true);
+      tester.expect(body.data?.length).toBe(1);
+      tester.expect(body.data?.[0].projectId).toBe(projectId);
+      tester.expect(body.data?.[0].name).toBe("Guitar");
+      tester.expect(body.data?.[0].originalFilename).toBe("guitar-riff.wav");
+      tester.expect(body.data?.[0].mimeType).toBe("audio/wav");
+    } finally {
+      await closeServer(server);
+    }
+  });
+
+  tester.it("returns 404 when listing tracks for a missing project", async () => {
+    const { baseUrl, server } = await createTestServer();
+
+    try {
+      const response = await fetch(`${baseUrl}/api/projects/not-real/tracks`);
+      const body = (await response.json()) as ApiResponse<unknown>;
+
+      tester.expect(response.status).toBe(404);
+      tester.expect(body.ok).toBe(false);
+      tester.expect(body.error).toBe("Project not found.");
+    } finally {
+      await closeServer(server);
+    }
+  });
 });

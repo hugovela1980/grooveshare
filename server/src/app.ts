@@ -74,7 +74,7 @@ function isCreateProjectInput(data: unknown): data is CreateProjectInput {
   );
 }
 
-function getTrackUploadProjectId(url: string | undefined): string | null {
+function getTracksRouteProjectId(url: string | undefined): string | null {
   if (!url) {
     return null;
   }
@@ -210,6 +210,39 @@ export function createAppServer({
     );
   }
 
+  async function handleGetProjectTracks(
+    res: ServerResponse,
+    projectId: string,
+  ): Promise<void> {
+    const project = await projectsStore.getProjectById(projectId);
+
+    if (!project) {
+      sendJson(
+        res,
+        404,
+        {
+          ok: false,
+          error: "Project not found.",
+        },
+        clientOrigin,
+      );
+
+      return;
+    }
+
+    const tracks = await tracksStore.getTracksByProjectId(projectId);
+
+    sendJson(
+      res,
+      200,
+      {
+        ok: true,
+        data: tracks,
+      },
+      clientOrigin,
+    );
+  }
+
   async function handleRequest(
     req: IncomingMessage,
     res: ServerResponse,
@@ -262,10 +295,15 @@ export function createAppServer({
         return;
       }
 
-      const trackUploadProjectId = getTrackUploadProjectId(req.url);
+      const tracksRouteProjectId = getTracksRouteProjectId(req.url);
 
-      if (req.method === "POST" && trackUploadProjectId) {
-        await handleTrackUpload(req, res, trackUploadProjectId);
+      if (req.method === "POST" && tracksRouteProjectId) {
+        await handleTrackUpload(req, res, tracksRouteProjectId);
+        return;
+      }
+
+      if (req.method === "GET" && tracksRouteProjectId) {
+        await handleGetProjectTracks(res, tracksRouteProjectId);
         return;
       }
 

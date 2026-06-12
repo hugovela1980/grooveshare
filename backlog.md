@@ -20,16 +20,16 @@
   - [x] Add tested track store helpers
     Add JSON store functions for creating a track record and reading tracks by project ID, using the existing local `db.json` structure.
 
-  - [ ] Create local uploads folder structure
+  - [x] Create local uploads folder structure
     Store uploaded files under a project-specific folder such as `server/uploads/projects/:projectId/`.
 
-  - [ ] Add multipart upload handling
+  - [x] Add multipart upload handling
     Add backend support for receiving an uploaded audio file through a pure Node request without Express or Multer.
 
-  - [ ] Add track upload API route
+  - [x] Add track upload API route
     Add a `POST /api/projects/:projectId/tracks` route that accepts an audio file, saves it locally, creates track metadata, and returns the saved track.
 
-  - [ ] Add track list API route
+  - [x] Add track list API route
     Add a `GET /api/projects/:projectId/tracks` route that returns track metadata for a specific project.
 
   - [ ] Add basic upload validation
