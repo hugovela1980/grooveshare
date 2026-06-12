@@ -10,10 +10,11 @@ export type Track = {
     id: string;
     projectId: string;
     name: string;
-    orignalFilename: string;
+    originalFilename: string;
     filePath: string;
     mimeType: string;
-    createdAt: string;    
+    fileSize: number;
+    createdAt: string;
 };
 
 export type Database = {
@@ -24,4 +25,13 @@ export type Database = {
 export type CreateProjectInput = {
     title: string;
     description: string;
+};
+
+export type CreateTrackInput = {
+    projectId: string;
+    name: string;
+    originalFilename: string;
+    filePath: string;
+    mimeType: string;
+    fileSize: number;
 };
