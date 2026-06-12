@@ -11,10 +11,13 @@
 - [ ] Add local audio file upload
   Allow a user to upload an audio file to a local project folder and save the track information in JSON metadata.
 
-  - [ ] Define initial track metadata shape
+  - [x] Define initial track metadata shape
     Decide the first track object structure, including ID, project ID, track name, original filename, local file path, MIME type, file size, and created date.
 
-  - [ ] Add tested track store helpers
+  - [x] Separate JSON store concerns
+    Extract shared JSON database read/write helpers and keep project and track store functions in separate store modules.
+
+  - [x] Add tested track store helpers
     Add JSON store functions for creating a track record and reading tracks by project ID, using the existing local `db.json` structure.
 
   - [ ] Create local uploads folder structure

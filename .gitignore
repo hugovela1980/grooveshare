@@ -31,3 +31,6 @@ lerna-debug.log*
 
 # Test temp files
 server/tests/.tmp/
+
+# Local uploaded files
+server/uploads/
