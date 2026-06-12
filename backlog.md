@@ -8,50 +8,49 @@
 
 ## Current Focus
 
-- [ ] Build local project metadata foundation
-  Create the first Phase 1 data model for GrooveShare projects using a local JSON metadata file and pure Node API routes for creating and reading projects.
-  - [x] Convert backend to TypeScript
-    Move the pure Node backend from `server.js` to `src/server.ts` and add a simple TypeScript dev setup before building the project metadata store.
-  - [x] Create local JSON data store
-    Add a `server/data/db.json` file that acts as a temporary Phase 1 database with top-level `projects` and `tracks` collections.
-  - [x] Define initial project metadata shape
-    Decide the first project object structure, including ID, title, description, created date, updated date, and an empty tracks list.
-  - [x] Create local data folder and metadata file
-    Add a `server/data/projects.json` file that will act as the temporary Phase 1 metadata store.
-  - [x] Add metadata read/write helpers
-    Create small server-side helper functions for reading project metadata from JSON and writing updated metadata back to the file.
-  - [x] Add project creation route
-    Add a pure Node `POST /api/projects` route that accepts project data, creates a new project object, saves it to JSON, and returns the created project.
-  - [x] Add projects list route
-    Add a pure Node `GET /api/projects` route that reads the JSON metadata file and returns the current list of projects.
-  - [x] Add single project route
-    Add a pure Node `GET /api/projects/:projectId` route that returns one project by ID or a clear error if the project does not exist.
-  - [x] Add frontend project creation form
-    Add a simple form in the Vite frontend for entering a project title and description and submitting it to the backend.
-  - [x] Add frontend project display
-    Show created projects in the browser using data returned from the backend.
-  - [x] Add basic API error handling
-    Display readable frontend messages when project creation or project loading fails.
-  - [x] Manually test project metadata flow
-    Confirm that projects can be created, saved to `projects.json`, loaded from the backend, and displayed in the frontend after a refresh.
-  - [ ] Update backlog and architecture notes
-    Mark completed project metadata work and update architecture notes if the implemented data shape or route names differ from the plan.
-
-## Next Up
-
-- [ ] Define the project metadata shape
-  Decide the initial JSON structure for a GrooveShare project, including project ID, title, description, created date, and an empty tracks list.
-
-- [ ] Add project API routes
-  Add pure Node backend routes for creating a project and reading existing project metadata from the local JSON file.
-
-- [ ] Add basic project UI
-  Add a simple frontend form for creating a project and a basic project list or project view that displays data returned from the backend.
-
-## Backlog
-
 - [ ] Add local audio file upload
   Allow a user to upload an audio file to a local project folder and save the track information in JSON metadata.
+
+  - [ ] Define initial track metadata shape
+    Decide the first track object structure, including ID, project ID, track name, original filename, local file path, MIME type, file size, and created date.
+
+  - [ ] Add tested track store helpers
+    Add JSON store functions for creating a track record and reading tracks by project ID, using the existing local `db.json` structure.
+
+  - [ ] Create local uploads folder structure
+    Store uploaded files under a project-specific folder such as `server/uploads/projects/:projectId/`.
+
+  - [ ] Add multipart upload handling
+    Add backend support for receiving an uploaded audio file through a pure Node request without Express or Multer.
+
+  - [ ] Add track upload API route
+    Add a `POST /api/projects/:projectId/tracks` route that accepts an audio file, saves it locally, creates track metadata, and returns the saved track.
+
+  - [ ] Add track list API route
+    Add a `GET /api/projects/:projectId/tracks` route that returns track metadata for a specific project.
+
+  - [ ] Add basic upload validation
+    Reject uploads when the project does not exist, no file is provided, the file type is unsupported, or the file is too large.
+
+  - [ ] Add tested upload API behavior
+    Add backend tests for successful upload, missing project, missing file, unsupported file type, and saved metadata.
+
+  - [ ] Add frontend upload form
+    Add a project track upload form that lets the user choose an audio file and submit it for the current project.
+
+  - [ ] Add frontend track display
+    Show uploaded track metadata in the project UI after upload, including track name, original filename, and file type.
+
+  - [ ] Add frontend upload error handling
+    Display readable frontend messages when an upload fails because of missing file, invalid file type, missing project, or backend failure.
+
+  - [ ] Manually test local upload flow
+    Confirm that an audio file can be uploaded, saved to the local uploads folder, written to `db.json`, and displayed in the frontend.
+
+  - [ ] Update backlog and architecture notes
+    Mark completed upload work and update architecture notes if the implemented upload folder, track shape, or route names differ from the plan.
+
+## Next Up
 
 - [ ] Save track metadata
   Store each uploaded track’s ID, name, original filename, local file path, MIME type, upload date, and related project ID.
@@ -61,6 +60,8 @@
 
 - [ ] Build single-track playback
   Add the first basic audio player behavior so one uploaded track can be loaded and played in the browser.
+
+## Backlog
 
 - [ ] Build multitrack playback
   Allow multiple uploaded tracks in the same project to play together from a shared start point.
@@ -133,4 +134,9 @@
 * [x] Set up project skeleton
   Create the initial Vite + Vanilla TypeScript frontend and pure Node backend, including a basic health endpoint and frontend/backend connection test.
 
-- [x] Add backend test runner
+* [x] Add backend test runner
+  Added a custom TypeScript test runner for the backend, based on the lightweight testing pattern from the split-timer project, including support for grouped tests, assertions, setup callbacks, and mock functions.
+
+* [x] Build local project metadata foundation
+  Created the first full project metadata flow using a local JSON data store, TypeScript backend types, tested store helpers, tested API routes, and a frontend project creation UI that can create, save, load, and display projects.
+
