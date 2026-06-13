@@ -62,3 +62,16 @@ export function createFakeForm() {
     },
   };
 }
+
+export function createFakeSelect(initialValue = "") {
+  return {
+    value: initialValue,
+    innerHTML: "",
+  };
+}
+
+export function createFakeFileInput(files: File[] = []) {
+  return {
+    files,
+  };
+}
