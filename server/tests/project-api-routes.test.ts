@@ -69,11 +69,12 @@ async function createTestServer(): Promise<{
   const projectsStore = createProjectsJsonStore(TEST_DB_FILE_PATH);
   const tracksStore = createTracksJsonStore(TEST_DB_FILE_PATH);
 
-  const server = createAppServer({
+    const server = createAppServer({
     projectsStore,
     tracksStore,
     clientOrigin: "http://localhost:5173",
     uploadRoot: TEST_UPLOAD_ROOT,
+    maxUploadFileSizeBytes: 20,
   });
 
   const baseUrl = await listenOnRandomPort(server);
@@ -447,6 +448,128 @@ tester.describe("project API routes", () => {
       tester.expect(response.status).toBe(400);
       tester.expect(body.ok).toBe(false);
       tester.expect(body.error).toBe("Audio file is required.");
+    } finally {
+      await closeServer(server);
+    }
+  });
+
+  tester.it("returns 415 when uploaded file type is unsupported", async () => {
+    const { baseUrl, server } = await createTestServer();
+    const boundary = "----GrooveShareBoundary";
+
+    try {
+      const createProjectResponse = await fetch(`${baseUrl}/api/projects`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: "Chorus Riff Idea",
+          description: "Guitar riff with scratch drums",
+        }),
+      });
+
+      const createProjectBody =
+        (await createProjectResponse.json()) as ApiResponse<Project>;
+
+      const projectId = createProjectBody.data?.id;
+
+      if (!projectId) {
+        throw new Error("Created project did not include an ID.");
+      }
+
+      const multipartBody = createMultipartBody({
+        boundary,
+        parts: [
+          createTextPart({
+            boundary,
+            name: "trackName",
+            value: "Not Audio",
+          }),
+          createFilePart({
+            boundary,
+            fieldName: "audioFile",
+            filename: "notes.txt",
+            mimeType: "text/plain",
+            data: Buffer.from("not audio", "utf-8"),
+          }),
+        ],
+      });
+
+      const response = await fetch(`${baseUrl}/api/projects/${projectId}/tracks`, {
+        method: "POST",
+        headers: {
+          "Content-Type": `multipart/form-data; boundary=${boundary}`,
+        },
+        body: bufferToArrayBuffer(multipartBody),
+      });
+
+      const body = (await response.json()) as ApiResponse<unknown>;
+
+      tester.expect(response.status).toBe(415);
+      tester.expect(body.ok).toBe(false);
+      tester.expect(body.error).toBe("Unsupported audio file type.");
+    } finally {
+      await closeServer(server);
+    }
+  });
+
+  tester.it("returns 413 when uploaded file is too large", async () => {
+    const { baseUrl, server } = await createTestServer();
+    const boundary = "----GrooveShareBoundary";
+
+    try {
+      const createProjectResponse = await fetch(`${baseUrl}/api/projects`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: "Chorus Riff Idea",
+          description: "Guitar riff with scratch drums",
+        }),
+      });
+
+      const createProjectBody =
+        (await createProjectResponse.json()) as ApiResponse<Project>;
+
+      const projectId = createProjectBody.data?.id;
+
+      if (!projectId) {
+        throw new Error("Created project did not include an ID.");
+      }
+
+      const multipartBody = createMultipartBody({
+        boundary,
+        parts: [
+          createTextPart({
+            boundary,
+            name: "trackName",
+            value: "Big Guitar File",
+          }),
+          createFilePart({
+            boundary,
+            fieldName: "audioFile",
+            filename: "big-guitar.wav",
+            mimeType: "audio/wav",
+            data: Buffer.from("this file is too large for this test", "utf-8"),
+          }),
+        ],
+      });
+
+      const response = await fetch(`${baseUrl}/api/projects/${projectId}/tracks`, {
+        method: "POST",
+        headers: {
+          "Content-Type": `multipart/form-data; boundary=${boundary}`,
+        },
+        body: bufferToArrayBuffer(multipartBody),
+      });
+
+      const body = (await response.json()) as ApiResponse<unknown>;
+
+      tester.expect(response.status).toBe(413);
+      tester.expect(body.ok).toBe(false);
+      tester.expect(body.error).toBe("Audio file is too large.");
     } finally {
       await closeServer(server);
     }

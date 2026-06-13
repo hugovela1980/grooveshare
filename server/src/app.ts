@@ -9,6 +9,10 @@ import {
   DEFAULT_UPLOAD_ROOT,
   ensureProjectUploadDir,
 } from "./uploads/upload-paths.js";
+import {
+  DEFAULT_MAX_AUDIO_FILE_SIZE_BYTES,
+  validateAudioUploadFile,
+} from "./uploads/upload-validation.js";
 
 type JsonResponse = Record<string, unknown>;
 
@@ -17,6 +21,7 @@ type AppOptions = {
   tracksStore: TracksStore;
   clientOrigin?: string;
   uploadRoot?: string;
+  maxUploadFileSizeBytes?: number;
 };
 
 function sendJson(
@@ -92,6 +97,7 @@ export function createAppServer({
   tracksStore,
   clientOrigin = "http://localhost:5173",
   uploadRoot = DEFAULT_UPLOAD_ROOT,
+  maxUploadFileSizeBytes = DEFAULT_MAX_AUDIO_FILE_SIZE_BYTES,
 }: AppOptions): http.Server {
   async function handleCreateProject(
     req: IncomingMessage,
@@ -169,6 +175,24 @@ export function createAppServer({
         {
           ok: false,
           error: "Audio file is required.",
+        },
+        clientOrigin,
+      );
+
+      return;
+    }
+
+    const audioFileValidation = validateAudioUploadFile(audioFile, {
+      maxFileSizeBytes: maxUploadFileSizeBytes,
+    });
+
+    if (!audioFileValidation.ok) {
+      sendJson(
+        res,
+        audioFileValidation.statusCode,
+        {
+          ok: false,
+          error: audioFileValidation.error,
         },
         clientOrigin,
       );
