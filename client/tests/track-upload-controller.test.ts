@@ -371,4 +371,124 @@ tester.describe("track upload controller", () => {
       "Guitar | guitar-riff.wav | audio/wav",
     );
   });
+
+  tester.it("shows backend error message when uploaded file type is unsupported", async () => {
+    const form = createFakeForm();
+    const projectSelect = createFakeSelect("project-1");
+    const trackNameInput = createFakeInput("Guitar");
+    const audioFileInput = createFakeFileInput([createAudioFile()]);
+    const statusElement = createFakeTextElement();
+    const trackListElement = createFakeContainer();
+
+    const controller = createTrackUploadController({
+      form,
+      projectSelect,
+      trackNameInput,
+      audioFileInput,
+      statusElement,
+      trackListElement,
+      projectsApi: {
+        async getProjects() {
+          return [createProject()];
+        },
+      },
+      tracksApi: {
+        async getTracksByProjectId() {
+          return [];
+        },
+        async uploadTrack() {
+          throw new Error("Unsupported audio file type.");
+        },
+      },
+      renderTrackList(tracksToRender: Track[]) {
+        return tracksToRender.map((track) => track.name).join(", ");
+      },
+    });
+
+    await controller.init();
+    await form.submit();
+
+    tester.expect(form.getResetCallCount()).toBe(0);
+    tester.expect(statusElement.textContent).toBe("Unsupported audio file type.");
+  });
+
+  tester.it("shows backend error message when uploaded file is too large", async () => {
+    const form = createFakeForm();
+    const projectSelect = createFakeSelect("project-1");
+    const trackNameInput = createFakeInput("Guitar");
+    const audioFileInput = createFakeFileInput([createAudioFile()]);
+    const statusElement = createFakeTextElement();
+    const trackListElement = createFakeContainer();
+
+    const controller = createTrackUploadController({
+      form,
+      projectSelect,
+      trackNameInput,
+      audioFileInput,
+      statusElement,
+      trackListElement,
+      projectsApi: {
+        async getProjects() {
+          return [createProject()];
+        },
+      },
+      tracksApi: {
+        async getTracksByProjectId() {
+          return [];
+        },
+        async uploadTrack() {
+          throw new Error("Audio file is too large.");
+        },
+      },
+      renderTrackList(tracksToRender: Track[]) {
+        return tracksToRender.map((track) => track.name).join(", ");
+      },
+    });
+
+    await controller.init();
+    await form.submit();
+
+    tester.expect(form.getResetCallCount()).toBe(0);
+    tester.expect(statusElement.textContent).toBe("Audio file is too large.");
+  });
+
+  tester.it("shows backend error message when project no longer exists", async () => {
+    const form = createFakeForm();
+    const projectSelect = createFakeSelect("project-1");
+    const trackNameInput = createFakeInput("Guitar");
+    const audioFileInput = createFakeFileInput([createAudioFile()]);
+    const statusElement = createFakeTextElement();
+    const trackListElement = createFakeContainer();
+
+    const controller = createTrackUploadController({
+      form,
+      projectSelect,
+      trackNameInput,
+      audioFileInput,
+      statusElement,
+      trackListElement,
+      projectsApi: {
+        async getProjects() {
+          return [createProject()];
+        },
+      },
+      tracksApi: {
+        async getTracksByProjectId() {
+          return [];
+        },
+        async uploadTrack() {
+          throw new Error("Project not found.");
+        },
+      },
+      renderTrackList(tracksToRender: Track[]) {
+        return tracksToRender.map((track) => track.name).join(", ");
+      },
+    });
+
+    await controller.init();
+    await form.submit();
+
+    tester.expect(form.getResetCallCount()).toBe(0);
+    tester.expect(statusElement.textContent).toBe("Project not found.");
+  });
 });

@@ -74,6 +74,25 @@ function getSelectedFile(fileInput: FileInputLike): File | null {
   return fileInput.files?.[0] ?? null;
 }
 
+function getUploadErrorMessage(error: unknown): string {
+  if (!(error instanceof Error)) {
+    return "Could not upload track.";
+  }
+
+  const readableBackendMessages = new Set([
+    "Audio file is required.",
+    "Unsupported audio file type.",
+    "Audio file is too large.",
+    "Project not found.",
+  ]);
+
+  if (readableBackendMessages.has(error.message)) {
+    return error.message;
+  }
+
+  return "Could not upload track.";
+}
+
 export function createTrackUploadController({
   form,
   projectSelect,
@@ -141,8 +160,8 @@ export function createTrackUploadController({
       form.reset();
 
       statusElement.textContent = "Track uploaded.";
-    } catch {
-      statusElement.textContent = "Could not upload track.";
+    } catch (error) {
+      statusElement.textContent = getUploadErrorMessage(error);
     }
   }
 

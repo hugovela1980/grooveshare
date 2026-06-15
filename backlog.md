@@ -41,10 +41,10 @@
   - [x] Add frontend upload form
     Add a project track upload form that lets the user choose an audio file and submit it for the current project.
 
-  - [ ] Add frontend track display
+  - [x] Add frontend track display
     Show uploaded track metadata in the project UI after upload, including track name, original filename, and file type.
 
-  - [ ] Add frontend upload error handling
+  - [x] Add frontend upload error handling
     Display readable frontend messages when an upload fails because of missing file, invalid file type, missing project, or backend failure.
 
   - [ ] Manually test local upload flow
