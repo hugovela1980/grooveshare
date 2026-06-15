@@ -137,10 +137,23 @@ h3 {
   color: #a3a3a3;
 }
 
-/* 
+.track-list {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+}
 
-Heavy guitar riff
+.track-card {
+  padding: 1rem;
+  border: 1px solid #3f3f46;
+  border-radius: 0.875rem;
+  background: #171717;
+}
 
-Guitar with heavy distortion
+.track-card p {
+  color: #d4d4d4;
+}
 
-*/
+.track-card small {
+  color: #a3a3a3;
+}

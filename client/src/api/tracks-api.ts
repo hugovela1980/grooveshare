@@ -18,6 +18,11 @@ async function parseApiResponse<T>(response: Response): Promise<T> {
     return body.data;
 }
 
+export async function getTracksByProjectId(projectId: string): Promise<Track[]> {
+    const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}/tracks`);
+    return parseApiResponse<Track[]>(response);
+}
+
 export async function uploadTrack({
     projectId,
     trackName,
@@ -37,5 +42,6 @@ export async function uploadTrack({
 }
 
 export const tracksApi = {
+    getTracksByProjectId,
     uploadTrack,
 };

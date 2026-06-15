@@ -25,11 +25,16 @@ type TextElementLike = {
   textContent: string | null;
 };
 
+type ContainerLike = {
+  innerHTML: string;
+};
+
 type ProjectsApi = {
   getProjects: () => Promise<Project[]>;
 };
 
 type TracksApi = {
+  getTracksByProjectId: (projectId: string) => Promise<Track[]>;
   uploadTrack: (input: UploadTrackInput) => Promise<Track>;
 };
 
@@ -39,8 +44,10 @@ type TrackUploadControllerOptions = {
   trackNameInput: InputLike;
   audioFileInput: FileInputLike;
   statusElement: TextElementLike;
+  trackListElement: ContainerLike;
   projectsApi: ProjectsApi;
   tracksApi: TracksApi;
+  renderTrackList: (tracks: Track[]) => string;
 };
 
 function escapeHtml(value: string): string {
@@ -73,14 +80,31 @@ export function createTrackUploadController({
   trackNameInput,
   audioFileInput,
   statusElement,
+  trackListElement,
   projectsApi,
   tracksApi,
+  renderTrackList,
 }: TrackUploadControllerOptions) {
+  async function loadTracksForProject(projectId: string): Promise<void> {
+    const tracks = await tracksApi.getTracksByProjectId(projectId);
+    trackListElement.innerHTML = renderTrackList(tracks);
+  }
+
+  async function loadTracksForSelectedProject(): Promise<void> {
+    if (!projectSelect.value) {
+      trackListElement.innerHTML = renderTrackList([]);
+      return;
+    }
+
+    await loadTracksForProject(projectSelect.value);
+  }
+
   async function loadProjects(): Promise<void> {
     try {
       const projects = await projectsApi.getProjects();
       projectSelect.innerHTML = renderProjectOptions(projects);
       statusElement.textContent = "";
+      await loadTracksForSelectedProject();
     } catch {
       statusElement.textContent = "Could not load projects for upload.";
     }
@@ -112,7 +136,10 @@ export function createTrackUploadController({
         audioFile,
       });
 
+      await loadTracksForProject(projectId);
+
       form.reset();
+
       statusElement.textContent = "Track uploaded.";
     } catch {
       statusElement.textContent = "Could not upload track.";

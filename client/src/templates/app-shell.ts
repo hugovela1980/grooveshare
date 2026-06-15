@@ -41,7 +41,7 @@ export function createAppShell(): string {
         </form>
       </section>
 
-            <section class="panel">
+      <section class="panel">
         <h2>Upload a track</h2>
 
         <form id="track-upload-form" class="project-form">
@@ -76,6 +76,8 @@ export function createAppShell(): string {
           <button type="submit">Upload track</button>
 
           <p id="track-upload-status" class="status-message" aria-live="polite"></p>
+
+          <div id="track-list"></div>
         </form>
       </section>
 

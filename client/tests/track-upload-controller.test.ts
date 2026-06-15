@@ -1,6 +1,7 @@
 import { createTrackUploadController } from "../src/controllers/track-upload-controller.js";
 import type { Project, Track, UploadTrackInput } from "../src/types.js";
 import {
+  createFakeContainer,
   createFakeFileInput,
   createFakeForm,
   createFakeInput,
@@ -47,6 +48,7 @@ tester.describe("track upload controller", () => {
     const trackNameInput = createFakeInput();
     const audioFileInput = createFakeFileInput();
     const statusElement = createFakeTextElement();
+    const trackListElement = createFakeContainer();
 
     const controller = createTrackUploadController({
       form,
@@ -54,6 +56,7 @@ tester.describe("track upload controller", () => {
       trackNameInput,
       audioFileInput,
       statusElement,
+      trackListElement,
       projectsApi: {
         async getProjects() {
           return [
@@ -65,9 +68,15 @@ tester.describe("track upload controller", () => {
         },
       },
       tracksApi: {
+        async getTracksByProjectId() {
+          return [];
+        },
         async uploadTrack() {
           throw new Error("uploadTrack should not be called during init.");
         },
+      },
+      renderTrackList(tracksToRender: Track[]) {
+        return tracksToRender.map((track) => track.name).join(", ");
       },
     });
 
@@ -87,6 +96,7 @@ tester.describe("track upload controller", () => {
     const trackNameInput = createFakeInput("Guitar");
     const audioFileInput = createFakeFileInput([audioFile]);
     const statusElement = createFakeTextElement();
+    const trackListElement = createFakeContainer();
 
     const uploadTrackCalls: UploadTrackInput[] = [];
 
@@ -96,12 +106,16 @@ tester.describe("track upload controller", () => {
       trackNameInput,
       audioFileInput,
       statusElement,
+      trackListElement,
       projectsApi: {
         async getProjects() {
           return [createProject()];
         },
       },
       tracksApi: {
+        async getTracksByProjectId() {
+          return [];
+        },
         async uploadTrack(input: UploadTrackInput) {
           uploadTrackCalls.push(input);
           return createTrack({
@@ -112,6 +126,9 @@ tester.describe("track upload controller", () => {
             fileSize: input.audioFile.size,
           });
         },
+      },
+      renderTrackList(tracksToRender: Track[]) {
+        return tracksToRender.map((track) => track.name).join(", ");
       },
     });
 
@@ -131,6 +148,7 @@ tester.describe("track upload controller", () => {
     const trackNameInput = createFakeInput("Guitar");
     const audioFileInput = createFakeFileInput([createAudioFile()]);
     const statusElement = createFakeTextElement();
+    const trackListElement = createFakeContainer();
 
     let uploadCallCount = 0;
 
@@ -140,16 +158,23 @@ tester.describe("track upload controller", () => {
       trackNameInput,
       audioFileInput,
       statusElement,
+      trackListElement,
       projectsApi: {
         async getProjects() {
           return [createProject()];
         },
       },
       tracksApi: {
+        async getTracksByProjectId() {
+          return [];
+        },
         async uploadTrack() {
           uploadCallCount += 1;
           return createTrack();
         },
+      },
+      renderTrackList(tracksToRender: Track[]) {
+        return tracksToRender.map((track) => track.name).join(", ");
       },
     });
 
@@ -166,6 +191,7 @@ tester.describe("track upload controller", () => {
     const trackNameInput = createFakeInput("Guitar");
     const audioFileInput = createFakeFileInput([]);
     const statusElement = createFakeTextElement();
+    const trackListElement = createFakeContainer();
 
     let uploadCallCount = 0;
 
@@ -175,16 +201,23 @@ tester.describe("track upload controller", () => {
       trackNameInput,
       audioFileInput,
       statusElement,
+      trackListElement,
       projectsApi: {
         async getProjects() {
           return [createProject()];
         },
       },
       tracksApi: {
+        async getTracksByProjectId() {
+          return [];
+        },
         async uploadTrack() {
           uploadCallCount += 1;
           return createTrack();
         },
+      },
+      renderTrackList(tracksToRender: Track[]) {
+        return tracksToRender.map((track) => track.name).join(", ");
       },
     });
 
@@ -201,6 +234,7 @@ tester.describe("track upload controller", () => {
     const trackNameInput = createFakeInput("Guitar");
     const audioFileInput = createFakeFileInput([createAudioFile()]);
     const statusElement = createFakeTextElement();
+    const trackListElement = createFakeContainer();
 
     const controller = createTrackUploadController({
       form,
@@ -208,15 +242,22 @@ tester.describe("track upload controller", () => {
       trackNameInput,
       audioFileInput,
       statusElement,
+      trackListElement,
       projectsApi: {
         async getProjects() {
           return [createProject()];
         },
       },
       tracksApi: {
+        async getTracksByProjectId() {
+          return [];
+        },
         async uploadTrack() {
           return createTrack();
         },
+      },
+      renderTrackList(tracksToRender: Track[]) {
+        return tracksToRender.map((track) => track.name).join(", ");
       },
     });
 
@@ -233,6 +274,7 @@ tester.describe("track upload controller", () => {
     const trackNameInput = createFakeInput("Guitar");
     const audioFileInput = createFakeFileInput([createAudioFile()]);
     const statusElement = createFakeTextElement();
+    const trackListElement = createFakeContainer();
 
     const controller = createTrackUploadController({
       form,
@@ -240,15 +282,22 @@ tester.describe("track upload controller", () => {
       trackNameInput,
       audioFileInput,
       statusElement,
+      trackListElement,
       projectsApi: {
         async getProjects() {
           return [createProject()];
         },
       },
       tracksApi: {
+        async getTracksByProjectId() {
+          return [];
+        },
         async uploadTrack() {
           throw new Error("Upload failed");
         },
+      },
+      renderTrackList(tracksToRender: Track[]) {
+        return tracksToRender.map((track) => track.name).join(", ");
       },
     });
 
@@ -257,5 +306,69 @@ tester.describe("track upload controller", () => {
 
     tester.expect(form.getResetCallCount()).toBe(0);
     tester.expect(statusElement.textContent).toBe("Could not upload track.");
+  });
+
+  tester.it("loads tracks for the selected project after upload", async () => {
+    const form = createFakeForm();
+    const projectSelect = createFakeSelect("project-1");
+    const trackNameInput = createFakeInput("Guitar");
+    const audioFileInput = createFakeFileInput([createAudioFile()]);
+    const statusElement = createFakeTextElement();
+    const trackListElement = createFakeContainer();
+
+    let getTracksCallCount = 0;
+
+    const controller = createTrackUploadController({
+      form,
+      projectSelect,
+      trackNameInput,
+      audioFileInput,
+      statusElement,
+      trackListElement,
+      projectsApi: {
+        async getProjects() {
+          return [createProject()];
+        },
+      },
+      tracksApi: {
+        async getTracksByProjectId(projectId: string) {
+          getTracksCallCount += 1;
+
+          if (projectId !== "project-1") {
+            throw new Error("Unexpected project ID.");
+          }
+
+          if (getTracksCallCount === 1) {
+            return [];
+          }
+
+          return [
+            createTrack({
+              name: "Guitar",
+              originalFilename: "guitar-riff.wav",
+              mimeType: "audio/wav",
+            }),
+          ];
+        },
+        async uploadTrack() {
+          return createTrack();
+        },
+      },
+      renderTrackList(tracksToRender: Track[]) {
+        return tracksToRender
+          .map((track) => {
+            return `${track.name} | ${track.originalFilename} | ${track.mimeType}`;
+          })
+          .join(", ");
+      },
+    });
+
+    await controller.init();
+    await form.submit();
+
+    tester.expect(getTracksCallCount).toBe(2);
+    tester.expect(trackListElement.innerHTML).toBe(
+      "Guitar | guitar-riff.wav | audio/wav",
+    );
   });
 });
