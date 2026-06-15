@@ -130,7 +130,9 @@ The frontend is responsible for:
 * Displaying project data returned from the backend
 * Displaying readable loading/error/status messages
 * Managing project creation UI
-* Eventually managing upload forms
+* Managing project creation UI
+* Managing track upload UI
+* Displaying uploaded track metadata
 * Eventually managing browser audio playback
 * Eventually managing microphone recording through browser APIs
 
@@ -164,7 +166,9 @@ The backend is responsible for:
 * Handling API requests from the frontend
 * Reading and writing local JSON metadata
 * Creating and serving project data
-* Eventually receiving audio uploads
+* Receiving local audio uploads
+* Saving uploaded files to project-specific local folders
+* Creating track metadata records for uploaded files
 * Eventually serving uploaded audio files from local storage
 * Returning clear JSON responses and error messages
 * Handling CORS for the local Vite frontend
@@ -282,7 +286,10 @@ The backend should use store functions instead of placing raw JSON read/write lo
 Current JSON store pattern:
 
 ```txt
-server/src/stores/projects-json-store.ts
+server/src/stores/
+  json-db.ts
+  projects-json-store.ts
+  tracks-json-store.ts
 ```
 
 Current project store functions include:
@@ -291,6 +298,13 @@ Current project store functions include:
 getProjects()
 getProjectById(projectId)
 createProject(projectInput)
+```
+
+Current track store functions include:
+
+```txt
+getTracksByProjectId(projectId)
+createTrack(trackInput)
 ```
 
 The route layer should call these functions without needing to know whether data comes from a JSON file or a future database.
@@ -337,7 +351,7 @@ type CreateProjectInput = {
 
 A track represents one uploaded audio file connected to a project.
 
-Planned track shape:
+Current track shape:
 
 ```ts
 type Track = {
@@ -367,13 +381,13 @@ GET  /api/health
 GET  /api/projects
 POST /api/projects
 GET  /api/projects/:projectId
+POST /api/projects/:projectId/tracks
+GET  /api/projects/:projectId/tracks
 ```
 
 Likely next routes:
 
 ```txt
-POST /api/projects/:projectId/tracks
-GET  /api/projects/:projectId/tracks
 GET  /api/projects/:projectId/tracks/:trackId/audio
 ```
 
@@ -399,19 +413,21 @@ Error response shape:
 
 ## File Upload Direction
 
-Phase 1 will support local audio uploads using pure Node.
+Phase 1 supports local audio uploads using pure Node.
 
-The upload flow should:
+The current upload flow:
 
-* Receive an audio file from the frontend.
-* Validate that the project exists.
-* Validate that a file was provided.
-* Validate that the file type is supported.
-* Save the file to a local project-specific upload folder.
-* Create a track metadata record in `server/data/db.json`.
-* Return the created track metadata to the frontend.
+* Receives an audio file from the frontend.
+* Validates that the project exists.
+* Validates that a file was provided.
+* Validates that the file type is supported.
+* Validates that the file is not too large.
+* Saves the file to a local project-specific upload folder.
+* Creates a track metadata record in `server/data/db.json`.
+* Returns the created track metadata to the frontend.
+* Displays uploaded track metadata in the client UI.
 
-Planned local upload structure:
+Current local upload structure:
 
 ```txt
 server/
@@ -420,8 +436,6 @@ server/
       project-id/
         track-id-original-filename.wav
 ```
-
-The exact folder and filename pattern may change during implementation.
 
 The upload implementation should stay modular so the local file-writing behavior can later be replaced with cloud object storage.
 
@@ -540,6 +554,16 @@ The project currently has:
 * Readable frontend error handling for project loading and creation failures
 * Custom backend test runner
 * Custom client test runner
+* Track metadata types
+* Tested JSON track store
+* Tested upload path helpers
+* Tested multipart form data parser
+* Tested upload validation
+* Tested track upload API route
+* Tested project track list API route
+* Frontend track upload form wired to the API
+* Frontend uploaded track metadata display
+* Frontend upload error handling
 
 ## Current Limitations
 
@@ -547,17 +571,17 @@ The app is still early in Version 1.
 
 Current limitations:
 
-* No audio uploads yet
-* No track metadata creation yet
-* No uploaded audio serving yet
-* No audio playback yet
-* No project detail page yet
-* No share links yet
-* No recording yet
-* No authentication yet
-* No database yet
-* No cloud storage yet
-* No production deployment yet
+* Uploaded audio files are saved locally but cannot yet be played in the browser.
+* Uploaded audio files are not yet served through an audio file route.
+* No single-track playback yet.
+* No multitrack playback yet.
+* No project detail page yet.
+* No share links yet.
+* No recording yet.
+* No authentication yet.
+* No database yet.
+* No cloud storage yet.
+* No production deployment yet.
 
 These limitations are intentional for Phase 1.
 

@@ -8,55 +8,9 @@
 
 ## Current Focus
 
-- [ ] Add local audio file upload
-  Allow a user to upload an audio file to a local project folder and save the track information in JSON metadata.
 
-  - [x] Define initial track metadata shape
-    Decide the first track object structure, including ID, project ID, track name, original filename, local file path, MIME type, file size, and created date.
-
-  - [x] Separate JSON store concerns
-    Extract shared JSON database read/write helpers and keep project and track store functions in separate store modules.
-
-  - [x] Add tested track store helpers
-    Add JSON store functions for creating a track record and reading tracks by project ID, using the existing local `db.json` structure.
-
-  - [x] Create local uploads folder structure
-    Store uploaded files under a project-specific folder such as `server/uploads/projects/:projectId/`.
-
-  - [x] Add multipart upload handling
-    Add backend support for receiving an uploaded audio file through a pure Node request without Express or Multer.
-
-  - [x] Add track upload API route
-    Add a `POST /api/projects/:projectId/tracks` route that accepts an audio file, saves it locally, creates track metadata, and returns the saved track.
-
-  - [x] Add track list API route
-    Add a `GET /api/projects/:projectId/tracks` route that returns track metadata for a specific project.
-
-  - [x] Add basic upload validation
-    Reject uploads when the project does not exist, no file is provided, the file type is unsupported, or the file is too large.
-
-  - [x] Add tested upload API behavior
-    Add backend tests for successful upload, missing project, missing file, unsupported file type, and saved metadata.
-
-  - [x] Add frontend upload form
-    Add a project track upload form that lets the user choose an audio file and submit it for the current project.
-
-  - [x] Add frontend track display
-    Show uploaded track metadata in the project UI after upload, including track name, original filename, and file type.
-
-  - [x] Add frontend upload error handling
-    Display readable frontend messages when an upload fails because of missing file, invalid file type, missing project, or backend failure.
-
-  - [ ] Manually test local upload flow
-    Confirm that an audio file can be uploaded, saved to the local uploads folder, written to `db.json`, and displayed in the frontend.
-
-  - [ ] Update backlog and architecture notes
-    Mark completed upload work and update architecture notes if the implemented upload folder, track shape, or route names differ from the plan.
 
 ## Next Up
-
-- [ ] Save track metadata
-  Store each uploaded track’s ID, name, original filename, local file path, MIME type, upload date, and related project ID.
 
 - [ ] Serve uploaded audio files
   Add a backend route that allows the frontend audio player to request and play uploaded audio files from local storage.
@@ -143,3 +97,8 @@
 * [x] Build local project metadata foundation
   Created the first full project metadata flow using a local JSON data store, TypeScript backend types, tested store helpers, tested API routes, and a frontend project creation UI that can create, save, load, and display projects.
 
+- [ ] Save track metadata
+  Store each uploaded track’s ID, name, original filename, local file path, MIME type, upload date, and related project ID.
+
+* [x] Add local audio file upload
+  Added the first full local audio upload workflow, including track metadata types, separated JSON store helpers, tested track store functions, pure Node multipart upload handling, local project-specific upload folders, upload validation, tested upload/list API routes, a frontend upload form, uploaded track metadata display, and readable upload error handling.
