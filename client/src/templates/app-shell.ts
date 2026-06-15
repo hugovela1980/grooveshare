@@ -41,6 +41,44 @@ export function createAppShell(): string {
         </form>
       </section>
 
+            <section class="panel">
+        <h2>Upload a track</h2>
+
+        <form id="track-upload-form" class="project-form">
+          <label>
+            <span>Project</span>
+            <select id="upload-project-select" name="projectId" required>
+              <option value="">Select a project</option>
+            </select>
+          </label>
+
+          <label>
+            <span>Track name</span>
+            <input
+              id="track-name"
+              name="trackName"
+              type="text"
+              placeholder="Guitar"
+            />
+          </label>
+
+          <label>
+            <span>Audio file</span>
+            <input
+              id="audio-file"
+              name="audioFile"
+              type="file"
+              accept="audio/*"
+              required
+            />
+          </label>
+
+          <button type="submit">Upload track</button>
+
+          <p id="track-upload-status" class="status-message" aria-live="polite"></p>
+        </form>
+      </section>
+
       <section class="panel">
         <h2>Projects</h2>
         <div id="project-list"></div>

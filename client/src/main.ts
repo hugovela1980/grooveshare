@@ -1,5 +1,7 @@
 import { projectsApi } from "./api/projects-api.js";
+import { tracksApi } from "./api/tracks-api.js";
 import { createProjectFormController } from "./controllers/project-controller.js";
+import { createTrackUploadController } from "./controllers/track-upload-controller.js";
 import "./style.css";
 import { createAppShell } from "./templates/app-shell.js";
 import { renderProjectList } from "./templates/project-list.js";
@@ -12,6 +14,7 @@ if (!app) {
 
 app.innerHTML = createAppShell();
 
+// project form
 const form = document.querySelector<HTMLFormElement>("#project-form");
 const titleInput = document.querySelector<HTMLInputElement>("#project-title");
 const descriptionInput = document.querySelector<HTMLTextAreaElement>("#project-description");
@@ -39,3 +42,35 @@ const projectFormController = createProjectFormController({
 });
 
 await projectFormController.init();
+
+// track upload form
+const trackUploadForm =
+  document.querySelector<HTMLFormElement>("#track-upload-form");
+const uploadProjectSelect =
+  document.querySelector<HTMLSelectElement>("#upload-project-select");
+const trackNameInput = document.querySelector<HTMLInputElement>("#track-name");
+const audioFileInput = document.querySelector<HTMLInputElement>("#audio-file");
+const trackUploadStatus =
+  document.querySelector<HTMLParagraphElement>("#track-upload-status");
+
+if (
+  !trackUploadForm ||
+  !uploadProjectSelect ||
+  !trackNameInput ||
+  !audioFileInput ||
+  !trackUploadStatus
+) {
+  throw new Error("Could not find track upload form elements.");
+}
+
+const trackUploadController = createTrackUploadController({
+  form: trackUploadForm,
+  projectSelect: uploadProjectSelect,
+  trackNameInput,
+  audioFileInput,
+  statusElement: trackUploadStatus,
+  projectsApi,
+  tracksApi,
+});
+
+await trackUploadController.init();

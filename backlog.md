@@ -32,13 +32,13 @@
   - [x] Add track list API route
     Add a `GET /api/projects/:projectId/tracks` route that returns track metadata for a specific project.
 
-  - [ ] Add basic upload validation
+  - [x] Add basic upload validation
     Reject uploads when the project does not exist, no file is provided, the file type is unsupported, or the file is too large.
 
-  - [ ] Add tested upload API behavior
+  - [x] Add tested upload API behavior
     Add backend tests for successful upload, missing project, missing file, unsupported file type, and saved metadata.
 
-  - [ ] Add frontend upload form
+  - [x] Add frontend upload form
     Add a project track upload form that lets the user choose an audio file and submit it for the current project.
 
   - [ ] Add frontend track display
