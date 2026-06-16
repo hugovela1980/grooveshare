@@ -8,53 +8,7 @@
 
 ## Current Focus
 
-- [ ] Add simple client-side page routing
-  Replace the single all-in-one app shell with separate renderable pages for Project Menu, Create Project, Confirm Project Creation, and Audio Player.
 
-  - [x] Define Version 1 route names and page states
-    Decide the first client-side routes/screens, including Project Menu, Create Project, Confirm Project Creation, and Audio Player.
-
-  - [x] Add simple router module
-    Create a lightweight client-side router that tracks the current page and renders the correct page into `#app`.
-
-  - [x] Split app shell into page templates
-    Replace the current all-in-one `createAppShell()` structure with separate page render functions for each main Version 1 screen.
-
-  - [x] Wire router to page templates
-    Use the simple router to render the Project Menu page first and initialize page-specific controllers after each page render.
-
-  - [ ] Add page navigation behavior
-    Wire Add Project and Back buttons so the routed app can move between Project Menu and Create Project.
-
-  - [ ] Add page-specific controller initialization
-  Reconnect the project creation and track upload controllers on the Create Project page.
-
-  - [ ] Build Project Menu page
-    Show the list of projects and an Add Project button that navigates to the Create Project page.
-
-  - [ ] Build Create Project page
-    Move the project creation form and initial track upload form into a dedicated project creation screen.
-
-  - [ ] Build Confirm Project Creation page
-    Show newly created project details and a submit/continue action that returns the user to the Project Menu.
-
-  - [ ] Build first Audio Player page shell
-    Create a focused player screen that can show the selected project name, uploaded tracks, and a placeholder player area.
-
-  - [ ] Add page navigation behavior
-    Wire buttons and project clicks so the user can move through the Version 1 flows without reloading the browser.
-
-  - [ ] Preserve existing project and upload behavior
-    Ensure project creation, track upload, project listing, and uploaded track display still work after moving them into separate screens.
-
-  - [ ] Add routing/controller tests
-    Add frontend tests for basic page navigation, including Add Project, return to Project Menu, clicking a project, and back navigation from the Audio Player page.
-
-  - [ ] Manually test Version 1 page flow
-    Confirm Flow 1 and Flow 2 work in the browser: creating a project returns to the Project Menu, and opening a project shows the Audio Player page.
-
-  - [ ] Update backlog and architecture notes
-    Document the move from one all-in-one rendered shell to a simple Vanilla TypeScript single-page app with separate screens.
 
 ## Next Up
 
