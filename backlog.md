@@ -14,7 +14,7 @@
 - [x] Navigate to Confirm Project after creation
   After a project is created, store the created project in app state and show the Confirm Project page.
 
-- [ ] Return to Project Menu after confirmation
+- [x] Return to Project Menu after confirmation
   Clicking Submit on Confirm Project should return to Project Menu and show the new project at the top.
 
 - [ ] Reconnect track upload later

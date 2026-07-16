@@ -1,5 +1,6 @@
 import { projectsApi } from "./api/projects-api.js";
 import { createCreateProjectPageController } from "./page-controllers/create-project-page-controller.js";
+import { createProjectMenuPageController } from "./page-controllers/project-menu-page-controller.js";
 import { renderConfirmProjectPage } from "./pages/confirm-project-page.js";
 import { renderCreateProjectPage } from "./pages/create-project-page.js";
 import { renderProjectMenuPage } from "./pages/project-menu-page.js";
@@ -8,6 +9,7 @@ import {
   createAppRouter,
   type AppScreen,
 } from "./router/app-router.js";
+import { renderProjectList } from "./templates/project-list.js";
 import type { Project } from "./types.js";
 
 type AppElementLike = {
@@ -43,6 +45,23 @@ function initializeProjectMenuPage({
   addProjectButton?.addEventListener("click", () => {
     navigateTo("create-project");
   });
+
+  const projectListElement = getElement<HTMLDivElement>(
+    appElement,
+    "#project-list",
+  );
+
+  if (!projectListElement) {
+    return;
+  }
+
+  const controller = createProjectMenuPageController({
+    projectListElement,
+    projectsApi,
+    renderProjectList,
+  });
+
+  void controller.init();
 }
 
 function initializeCreateProjectPage({
@@ -93,6 +112,23 @@ function initializeCreateProjectPage({
   controller.init();
 }
 
+function initializeConfirmProjectPage({
+  appElement,
+  navigateTo,
+}: {
+  appElement: AppElementLike;
+  navigateTo: (screen: AppScreen) => void;
+}): void {
+  const confirmProjectButton = getElement<HTMLButtonElement>(
+    appElement,
+    "#confirm-project-button",
+  );
+
+  confirmProjectButton?.addEventListener("click", () => {
+    navigateTo("project-menu");
+  });
+}
+
 function initializeCurrentPage({
   appElement,
   currentScreen,
@@ -118,6 +154,15 @@ function initializeCurrentPage({
       appElement,
       navigateTo,
       setCreatedProject,
+    });
+
+    return;
+  }
+
+  if (currentScreen === "confirm-project") {
+    initializeConfirmProjectPage({
+      appElement,
+      navigateTo,
     });
   }
 }
