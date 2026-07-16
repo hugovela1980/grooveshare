@@ -8,20 +8,7 @@
 
 ## Current Focus
 
-- [x] Reconnect Create Project form only
-  Reconnect only the project creation form on the Create Project page and confirm it writes to `server/data/db.json`.
 
-- [x] Navigate to Confirm Project after creation
-  After a project is created, store the created project in app state and show the Confirm Project page.
-
-- [x] Return to Project Menu after confirmation
-  Clicking Submit on Confirm Project should return to Project Menu and show the new project at the top.
-
-- [x] Open selected project in Project Player
-  Let a user click a project from the Project Menu, store that project in app state, and render the Project Player page for that project.
-
-- [x] Reconnect track upload in Project Player
-  Let the selected project upload a track from the Project Player page and reload that project’s track list.
 
 ## Next Up
 
@@ -115,3 +102,6 @@
 
 * [x] Add local audio file upload
   Added the first full local audio upload workflow, including track metadata types, separated JSON store helpers, tested track store functions, pure Node multipart upload handling, local project-specific upload folders, upload validation, tested upload/list API routes, a frontend upload form, uploaded track metadata display, and readable upload error handling.
+
+* [x] Refactor the frontend
+  Refactor so that `main.ts` starts the app only and `app.ts` does routing coordination, app state, and page initialization.  Create and add directories and files to handle screen changes (`router/`), render page HTML templates (`pages/`), and handle page-specific behavior (`page-controllers/`) 

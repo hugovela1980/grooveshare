@@ -8,16 +8,45 @@ The goal is not to build a full DAW. The goal is to build a simple, practical wo
 
 GrooveShare is currently in **Phase 1: Local Pure Node Prototype**.
 
-This phase is focused on learning and building the full frontend/backend flow with simple local tools before moving to a production-style backend.
+This phase is focused on building the full frontend/backend flow with simple local tools before moving to a production-style backend.
 
 Current development state:
 
-* The backend has project metadata routes.
-* The backend has local audio upload and track metadata routes.
-* The frontend has API modules and controller modules for project creation and track upload.
-* The frontend is being refactored from one large app shell into simple routed page templates.
-* The routed UI is not fully reconnected yet.
-* Audio files can be uploaded through the backend flow, but uploaded audio cannot yet be served and played in the browser.
+* The backend can create and read projects.
+* The backend can upload local audio files and save track metadata.
+* The frontend now uses a simple routed screen structure.
+* The main routed flow is reconnected:
+
+  * Project Menu
+  * Create Project
+  * Confirm Project
+  * Project Player
+* A user can create a project, confirm it, return to the Project Menu, open a selected project, and upload a track from the Project Player page.
+* Uploaded track metadata can be displayed.
+* Uploaded audio files are not playable in the browser yet.
+
+## Current App Flow
+
+The current working flow is:
+
+```txt
+Project Menu
+→ Add Project
+→ Create Project
+→ Confirm Project
+→ Project Menu
+→ Open selected project
+→ Project Player
+→ Upload track
+```
+
+The next major goal is:
+
+```txt
+Serve uploaded audio files
+→ Load one uploaded track in the browser
+→ Play that track
+```
 
 ## What GrooveShare Is
 
@@ -26,19 +55,18 @@ GrooveShare is intended to become a simple stem-player workflow for musicians.
 A future Version 1 flow should look like this:
 
 ```txt
-Project Menu
-→ Create Project
-→ Confirm Project
-→ Project Player
-→ Upload tracks
-→ Play tracks in browser
+Project owner creates a project
+→ uploads guitar, drums, bass, click, or vocal tracks
+→ opens the Project Player
+→ plays uploaded tracks
+→ adjusts a basic practice mix
 ```
 
 A later collaboration flow may look like this:
 
 ```txt
 Project owner creates a project
-→ uploads guitar, drums, bass, click, or vocal tracks
+→ uploads stems or rough tracks
 → shares a project link
 → collaborator opens the project
 → listens and adjusts the practice mix
@@ -89,6 +117,7 @@ grooveshare/
     src/
       api/
       controllers/
+      page-controllers/
       pages/
       router/
       templates/
@@ -117,38 +146,68 @@ grooveshare/
   README.md
 ```
 
-## Main Folders
+## Frontend Structure
 
-### `client/`
-
-The browser app.
-
-The client is responsible for:
-
-* Rendering the UI
-* Calling backend API routes
-* Creating projects from the browser
-* Uploading tracks from the browser
-* Displaying project and track metadata
-* Eventually playing uploaded audio files
-* Eventually handling browser-based recording
-
-Current frontend direction:
+The frontend has been refactored into smaller responsibilities.
 
 ```txt
-client/src/
-  api/          API calls to the backend
-  controllers/  Testable UI behavior modules
-  pages/        Routed page templates
-  router/       Simple client-side screen router
-  templates/    Reusable markup templates
+client/src/main.ts
 ```
 
-### `server/`
+Starts the browser app.
 
-The local backend API.
+```txt
+client/src/app.ts
+```
 
-The server is responsible for:
+Coordinates app state, routing, and page-specific initialization.
+
+```txt
+client/src/router/
+```
+
+Contains the simple client-side screen router.
+
+```txt
+client/src/pages/
+```
+
+Contains page-level HTML templates.
+
+Current screens:
+
+```txt
+project-menu
+create-project
+confirm-project
+project-player
+```
+
+```txt
+client/src/page-controllers/
+```
+
+Contains page-specific behavior.
+
+Current page controllers:
+
+```txt
+create-project-page-controller.ts
+project-menu-page-controller.ts
+project-player-page-controller.ts
+```
+
+```txt
+client/src/templates/
+```
+
+Contains smaller reusable rendering helpers, such as project lists and track lists.
+
+## Backend Structure
+
+The backend is a pure Node TypeScript server.
+
+It is responsible for:
 
 * Creating and reading projects
 * Creating and reading track metadata
@@ -157,20 +216,6 @@ The server is responsible for:
 * Writing metadata to `server/data/db.json`
 * Returning JSON responses
 * Handling local CORS for the Vite frontend
-
-### `docs/`
-
-Project documentation.
-
-Current documentation:
-
-```txt
-docs/architecture.md
-```
-
-### `backlog.md`
-
-Tracks current focus, next steps, future work, and completed milestones.
 
 ## Local Development Setup
 
@@ -235,7 +280,7 @@ http://localhost:5173
 
 ### Client scripts
 
-Run from `client/`:
+Run from `client/`.
 
 ```bash
 npm run dev
@@ -269,7 +314,7 @@ Runs TypeScript type checking for the frontend tests.
 
 ### Server scripts
 
-Run from `server/`:
+Run from `server/`.
 
 ```bash
 npm run dev
@@ -421,15 +466,49 @@ client/tests/
 server/tests/
 ```
 
-The testing style is intentionally simple and inspired by the earlier `split-timer` project.
+The testing style is intentionally simple and inspired by an earlier lightweight test-runner pattern.
 
 Current testing goals:
 
 * Keep modules small and testable.
-* Use dependency injection where possible.
+* Use dependency injection where practical.
 * Avoid needing a full browser test environment.
 * Test DOM-related behavior with fake DOM helpers.
 * Test backend behavior with disposable test data files.
+
+## Manual Test Flow
+
+After starting both the backend and frontend, the current main manual test is:
+
+```txt
+Project Menu
+→ click Add Project
+→ create a project
+→ Confirm Project page appears
+→ click Submit
+→ Project Menu appears
+→ new project appears in the list
+→ click the project
+→ Project Player appears
+→ upload an audio file
+→ uploaded track appears in the Tracks list
+```
+
+Then check:
+
+```txt
+server/data/db.json
+```
+
+You should see the saved project inside `projects` and the uploaded track inside `tracks`.
+
+You can also check:
+
+```txt
+server/uploads/
+```
+
+You should see the uploaded audio file saved under the selected project’s upload folder.
 
 ## Development Workflow
 
@@ -449,48 +528,50 @@ Typical workflow:
 
 ```txt
 feature branch
-→ pull request into develop
-→ pull request into main when stable
+→ pull request or merge into develop
+→ merge develop into main when stable
 ```
 
 ## Current Development Note
 
-The current routed frontend is in the middle of a refactor.
+The current routing/page-controller refactor is complete enough to merge back into `develop` after tests and manual checks pass.
 
-The app has started moving toward these screens:
-
-```txt
-project-menu
-create-project
-confirm-project
-project-player
-```
-
-The next frontend task should be done surgically:
+The app now has separated concerns:
 
 ```txt
-Reconnect Create Project form only
-→ confirm it writes to server/data/db.json
-→ navigate to Confirm Project after creation
-→ return to Project Menu
-→ reconnect track upload later
+main.ts
+→ starts the app only
+
+app.ts
+→ coordinates routing, state, and page setup
+
+router/
+→ handles screen navigation
+
+pages/
+→ renders page markup
+
+page-controllers/
+→ handles page-specific behavior
+
+templates/
+→ renders reusable smaller UI pieces
 ```
 
-Do not reconnect project creation and track upload at the same time. The previous attempt tried to reconnect too much at once and made the app harder to reason about.
+This refactor was done so `main.ts` would no longer be responsible for rendering the full app, querying all DOM elements, and initializing all behavior.
 
 ## Next Planned Tasks
 
 Recommended next tasks:
 
-1. Reconnect the Create Project form only.
-2. Confirm that project creation writes to `server/data/db.json`.
-3. Navigate to the Confirm Project page after successful project creation.
-4. Return from Confirm Project to Project Menu.
-5. Reconnect track upload after the project creation flow is stable.
-6. Add a backend route to serve uploaded audio files.
-7. Build single-track playback in the browser.
-8. Build basic multitrack playback.
-9. Add volume, mute, solo, and pan controls.
+1. Serve uploaded audio files from the backend.
+2. Add a frontend audio URL helper.
+3. Load one uploaded track into an `<audio>` element.
+4. Build single-track playback in the Project Player.
+5. Build basic multitrack playback.
+6. Add per-track volume, mute, solo, and pan controls.
+7. Improve loading and error states.
+8. Improve responsive layout for phone-sized screens.
 
 ## Version Plan
 
@@ -510,7 +591,7 @@ Add browser microphone recording so a collaborator can record a rough part.
 
 ### Version 3: Sync Tools
 
-Add practical tools for rough remote recordings:
+Add practical tools for making rough remote recordings usable:
 
 * Count-in
 * Manual offset controls
