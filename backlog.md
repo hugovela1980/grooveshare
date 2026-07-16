@@ -8,7 +8,17 @@
 
 ## Current Focus
 
+- [ ] Reconnect Create Project form only
+  Reconnect only the project creation form on the Create Project page and confirm it writes to `server/data/db.json`.
 
+- [ ] Navigate to Confirm Project after creation
+  After a project is created, store the created project in app state and show the Confirm Project page.
+
+- [ ] Return to Project Menu after confirmation
+  Clicking Submit on Confirm Project should return to Project Menu and show the new project at the top.
+
+- [ ] Reconnect track upload later
+  Reintroduce track upload only after the project creation flow is stable.
 
 ## Next Up
 
