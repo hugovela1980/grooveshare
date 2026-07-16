@@ -22,11 +22,25 @@ tester.describe("page templates", () => {
     tester.expect(html.includes("track-upload-form")).toBe(false);
   });
 
-  tester.it("renders the Confirm Project page", () => {
+  tester.it("renders the Confirm Project page without a project", () => {
     const html = renderConfirmProjectPage();
 
     tester.expect(html.includes("Confirm Project")).toBe(true);
     tester.expect(html.includes("confirm-project")).toBe(true);
+    tester.expect(html.includes("Project confirmation details will appear here.")).toBe(true);
+  });
+
+  tester.it("renders created project details on the Confirm Project page", () => {
+    const html = renderConfirmProjectPage({
+      id: "project-1",
+      title: "Bass Groove",
+      description: "Practice loop",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    });
+
+    tester.expect(html.includes("Bass Groove")).toBe(true);
+    tester.expect(html.includes("Practice loop")).toBe(true);
   });
 
   tester.it("renders the Project Player page", () => {

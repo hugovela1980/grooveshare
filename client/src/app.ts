@@ -8,6 +8,7 @@ import {
   createAppRouter,
   type AppScreen,
 } from "./router/app-router.js";
+import type { Project } from "./types.js";
 
 type AppElementLike = {
   innerHTML: string;
@@ -47,9 +48,11 @@ function initializeProjectMenuPage({
 function initializeCreateProjectPage({
   appElement,
   navigateTo,
+  setCreatedProject,
 }: {
   appElement: AppElementLike;
   navigateTo: (screen: AppScreen) => void;
+  setCreatedProject: (project: Project) => void;
 }): void {
   const backButton = getElement<HTMLButtonElement>(
     appElement,
@@ -81,6 +84,10 @@ function initializeCreateProjectPage({
     descriptionInput,
     statusElement,
     projectsApi,
+    onProjectCreated(project) {
+      setCreatedProject(project);
+      navigateTo("confirm-project");
+    },
   });
 
   controller.init();
@@ -90,10 +97,12 @@ function initializeCurrentPage({
   appElement,
   currentScreen,
   navigateTo,
+  setCreatedProject,
 }: {
   appElement: AppElementLike;
   currentScreen: AppScreen;
   navigateTo: (screen: AppScreen) => void;
+  setCreatedProject: (project: Project) => void;
 }): void {
   if (currentScreen === "project-menu") {
     initializeProjectMenuPage({
@@ -108,6 +117,7 @@ function initializeCurrentPage({
     initializeCreateProjectPage({
       appElement,
       navigateTo,
+      setCreatedProject,
     });
   }
 }
@@ -116,13 +126,19 @@ export function createGrooveShareApp({
   appElement,
   initialScreen = "project-menu",
 }: GrooveShareAppOptions) {
+  let createdProject: Project | null = null;
+
+  function setCreatedProject(project: Project): void {
+    createdProject = project;
+  }
+
   const router = createAppRouter({
     appElement,
     initialScreen,
     pageRenderers: {
       "project-menu": renderProjectMenuPage,
       "create-project": renderCreateProjectPage,
-      "confirm-project": renderConfirmProjectPage,
+      "confirm-project": () => renderConfirmProjectPage(createdProject),
       "project-player": renderProjectPlayerPage,
     },
   });
@@ -134,6 +150,7 @@ export function createGrooveShareApp({
       appElement,
       currentScreen: router.getCurrentScreen(),
       navigateTo,
+      setCreatedProject,
     });
   }
 
@@ -144,6 +161,7 @@ export function createGrooveShareApp({
       appElement,
       currentScreen: router.getCurrentScreen(),
       navigateTo,
+      setCreatedProject,
     });
   }
 
