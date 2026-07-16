@@ -1,4 +1,23 @@
 {
-  "projects": [],
-  "tracks": []
+  "projects": [
+    {
+      "id": "35fb5f25-5223-4263-9837-39d3958542a6",
+      "title": "Newish Rock Riff",
+      "description": "This one is a new one",
+      "createdAt": "2026-07-16T22:28:01.828Z",
+      "updatedAt": "2026-07-16T22:28:01.828Z"
+    }
+  ],
+  "tracks": [
+    {
+      "id": "fca0d2b2-4646-492f-832e-290d1e3adaf6",
+      "projectId": "35fb5f25-5223-4263-9837-39d3958542a6",
+      "name": "2-Audio 0001 [2025-04-03 102421].wav",
+      "originalFilename": "2-Audio 0001 [2025-04-03 102421].wav",
+      "filePath": "uploads\\projects\\35fb5f25-5223-4263-9837-39d3958542a6\\d2793bc5-a7a1-4ae8-a7cb-50fa7385704a-2-Audio-0001--2025-04-03-102421-.wav",
+      "mimeType": "audio/wav",
+      "fileSize": 18042668,
+      "createdAt": "2026-07-16T22:29:31.160Z"
+    }
+  ]
 }

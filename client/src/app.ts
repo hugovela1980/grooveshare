@@ -1,10 +1,13 @@
 import { projectsApi } from "./api/projects-api.js";
+import { tracksApi } from "./api/tracks-api.js";
 import { createCreateProjectPageController } from "./page-controllers/create-project-page-controller.js";
 import { createProjectMenuPageController } from "./page-controllers/project-menu-page-controller.js";
+import { createProjectPlayerPageController } from "./page-controllers/project-player-page-controller.js";
 import { renderConfirmProjectPage } from "./pages/confirm-project-page.js";
 import { renderCreateProjectPage } from "./pages/create-project-page.js";
 import { renderProjectMenuPage } from "./pages/project-menu-page.js";
 import { renderProjectPlayerPage } from "./pages/project-player-page.js";
+import { renderTrackList } from "./templates/track-list.js";
 import {
   createAppRouter,
   type AppScreen,
@@ -138,9 +141,11 @@ function initializeConfirmProjectPage({
 function initializeProjectPlayerPage({
   appElement,
   navigateTo,
+  selectedProject,
 }: {
   appElement: AppElementLike;
   navigateTo: (screen: AppScreen) => void;
+  selectedProject: Project | null;
 }): void {
   const backButton = getElement<HTMLButtonElement>(
     appElement,
@@ -159,6 +164,54 @@ function initializeProjectPlayerPage({
   menuButton?.addEventListener("click", () => {
     navigateTo("project-menu");
   });
+
+  if (!selectedProject) {
+    return;
+  }
+
+  const form = getElement<HTMLFormElement>(
+    appElement,
+    "#player-track-upload-form",
+  );
+  const trackNameInput = getElement<HTMLInputElement>(
+    appElement,
+    "#player-track-name",
+  );
+  const audioFileInput = getElement<HTMLInputElement>(
+    appElement,
+    "#player-audio-file",
+  );
+  const statusElement = getElement<HTMLParagraphElement>(
+    appElement,
+    "#player-track-upload-status",
+  );
+  const trackListElement = getElement<HTMLDivElement>(
+    appElement,
+    "#player-track-list",
+  );
+
+  if (
+    !form ||
+    !trackNameInput ||
+    !audioFileInput ||
+    !statusElement ||
+    !trackListElement
+  ) {
+    return;
+  }
+
+  const controller = createProjectPlayerPageController({
+    project: selectedProject,
+    form,
+    trackNameInput,
+    audioFileInput,
+    statusElement,
+    trackListElement,
+    tracksApi,
+    renderTrackList,
+  });
+
+  void controller.init();
 }
 
 function initializeCurrentPage({
@@ -167,12 +220,14 @@ function initializeCurrentPage({
   navigateTo,
   setCreatedProject,
   setSelectedProject,
+  selectedProject,
 }: {
   appElement: AppElementLike;
   currentScreen: AppScreen;
   navigateTo: (screen: AppScreen) => void;
   setCreatedProject: (project: Project) => void;
   setSelectedProject: (project: Project) => void;
+  selectedProject: Project | null;
 }): void {
   if (currentScreen === "project-menu") {
     initializeProjectMenuPage({
@@ -207,6 +262,7 @@ function initializeCurrentPage({
     initializeProjectPlayerPage({
       appElement,
       navigateTo,
+      selectedProject,
     });
   }
 }
@@ -246,6 +302,7 @@ export function createGrooveShareApp({
       navigateTo,
       setCreatedProject,
       setSelectedProject,
+      selectedProject,
     });
   }
 
@@ -258,6 +315,7 @@ export function createGrooveShareApp({
       navigateTo,
       setCreatedProject,
       setSelectedProject,
+      selectedProject,
     });
   }
 

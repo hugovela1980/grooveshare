@@ -20,8 +20,8 @@
 - [x] Open selected project in Project Player
   Let a user click a project from the Project Menu, store that project in app state, and render the Project Player page for that project.
 
-- [ ] Reconnect track upload later
-  Reintroduce track upload only after the project creation flow is stable.
+- [x] Reconnect track upload in Project Player
+  Let the selected project upload a track from the Project Player page and reload that project’s track list.
 
 ## Next Up
 
