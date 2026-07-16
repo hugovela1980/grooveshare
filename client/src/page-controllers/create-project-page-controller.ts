@@ -65,7 +65,7 @@ export function createCreateProjectPageController({
                 await onProjectCreated(project);
             }
         } catch (error) {
-            console.error(error);
+            // console.error(error);
             statusElement.textContent = "Could not create project.";
         }
     }

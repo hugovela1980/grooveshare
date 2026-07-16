@@ -34,7 +34,7 @@ export function createProjectMenuPageController({
 
             projectListElement.innerHTML = renderProjectList(sortedProjects);
         } catch (error) {
-            console.error(error);
+            // console.error(error);
             projectListElement.innerHTML =
                 '<p class="empty-state">Could not load projects.</p>';
         }

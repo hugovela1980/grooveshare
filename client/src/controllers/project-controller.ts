@@ -50,7 +50,7 @@ export function createProjectFormController({
       projectListElement.innerHTML = renderProjectList(projects);
       statusElement.textContent = "";
     } catch (error) {
-      console.error(error);
+      // console.error(error);
       statusElement.textContent = "Could not load projects.";
     }
   }
@@ -77,7 +77,7 @@ export function createProjectFormController({
 
       statusElement.textContent = "Project created.";
     } catch (error) {
-      console.error(error);
+      // console.error(error);
       statusElement.textContent = "Could not create project.";
     }
   }
