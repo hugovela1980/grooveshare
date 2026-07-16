@@ -19,7 +19,7 @@ tester.describe("page templates", () => {
     tester.expect(html.includes("Create Project")).toBe(true);
     tester.expect(html.includes("project-form")).toBe(true);
     tester.expect(html.includes("project-title")).toBe(true);
-    tester.expect(html.includes("track-upload-form")).toBe(true);
+    tester.expect(html.includes("track-upload-form")).toBe(false);
   });
 
   tester.it("renders the Confirm Project page", () => {
