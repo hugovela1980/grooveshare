@@ -8,9 +8,37 @@
 
 ## Current Focus
 
+### Delete individual tracks
+
+* [ ] Add backend support for deleting a track.
+
+  * Add a track store helper for deleting by `trackId`.
+  * Remove the track metadata from `server/data/db.json`.
+  * Delete the uploaded audio file from `server/uploads/`.
+  * Add `DELETE /api/projects/:projectId/tracks/:trackId`.
+
+* [ ] Add backend tests for track deletion.
+
+  * Test successful deletion.
+  * Test missing project or missing track.
+  * Test that the uploaded file is removed when the track is deleted.
+
+* [ ] Add frontend support for deleting a track.
+
+  * Add a `deleteTrack(projectId, trackId)` API helper.
+  * Add a Delete button to each track in the Project Player.
+  * Wire the Delete button in the Project Player controller.
+
+* [ ] Refresh the Project Player after track deletion.
+
+  * Reload the selected project’s track list after a successful delete.
+  * Show a simple error message if deletion fails.
+  * Manually test uploading a track, deleting it, and confirming it disappears from the UI and `db.json`.
 
 
 ## Next Up
+
+- [ ] Delete projects and linked tracks
 
 - [ ] Serve uploaded audio files
   Add a backend route that allows the frontend audio player to request and play uploaded audio files from local storage.
