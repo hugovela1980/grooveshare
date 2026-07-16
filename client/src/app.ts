@@ -33,9 +33,11 @@ function getElement<T>(appElement: AppElementLike, selector: string): T | null {
 function initializeProjectMenuPage({
   appElement,
   navigateTo,
+  setSelectedProject,
 }: {
   appElement: AppElementLike;
   navigateTo: (screen: AppScreen) => void;
+  setSelectedProject: (project: Project) => void;
 }): void {
   const addProjectButton = getElement<HTMLButtonElement>(
     appElement,
@@ -59,6 +61,10 @@ function initializeProjectMenuPage({
     projectListElement,
     projectsApi,
     renderProjectList,
+    onProjectSelected(project) {
+      setSelectedProject(project);
+      navigateTo("project-player");
+    },
   });
 
   void controller.init();
@@ -129,21 +135,50 @@ function initializeConfirmProjectPage({
   });
 }
 
+function initializeProjectPlayerPage({
+  appElement,
+  navigateTo,
+}: {
+  appElement: AppElementLike;
+  navigateTo: (screen: AppScreen) => void;
+}): void {
+  const backButton = getElement<HTMLButtonElement>(
+    appElement,
+    "#player-back-button",
+  );
+
+  backButton?.addEventListener("click", () => {
+    navigateTo("project-menu");
+  });
+
+  const menuButton = getElement<HTMLButtonElement>(
+    appElement,
+    "#player-menu-button",
+  );
+
+  menuButton?.addEventListener("click", () => {
+    navigateTo("project-menu");
+  });
+}
+
 function initializeCurrentPage({
   appElement,
   currentScreen,
   navigateTo,
   setCreatedProject,
+  setSelectedProject,
 }: {
   appElement: AppElementLike;
   currentScreen: AppScreen;
   navigateTo: (screen: AppScreen) => void;
   setCreatedProject: (project: Project) => void;
+  setSelectedProject: (project: Project) => void;
 }): void {
   if (currentScreen === "project-menu") {
     initializeProjectMenuPage({
       appElement,
       navigateTo,
+      setSelectedProject,
     });
 
     return;
@@ -164,6 +199,15 @@ function initializeCurrentPage({
       appElement,
       navigateTo,
     });
+
+    return;
+  }
+
+  if (currentScreen === "project-player") {
+    initializeProjectPlayerPage({
+      appElement,
+      navigateTo,
+    });
   }
 }
 
@@ -172,9 +216,14 @@ export function createGrooveShareApp({
   initialScreen = "project-menu",
 }: GrooveShareAppOptions) {
   let createdProject: Project | null = null;
+  let selectedProject: Project | null = null;
 
   function setCreatedProject(project: Project): void {
     createdProject = project;
+  }
+
+  function setSelectedProject(project: Project): void {
+    selectedProject = project;
   }
 
   const router = createAppRouter({
@@ -184,7 +233,7 @@ export function createGrooveShareApp({
       "project-menu": renderProjectMenuPage,
       "create-project": renderCreateProjectPage,
       "confirm-project": () => renderConfirmProjectPage(createdProject),
-      "project-player": renderProjectPlayerPage,
+      "project-player": () => renderProjectPlayerPage(selectedProject),
     },
   });
 
@@ -196,6 +245,7 @@ export function createGrooveShareApp({
       currentScreen: router.getCurrentScreen(),
       navigateTo,
       setCreatedProject,
+      setSelectedProject,
     });
   }
 
@@ -207,6 +257,7 @@ export function createGrooveShareApp({
       currentScreen: router.getCurrentScreen(),
       navigateTo,
       setCreatedProject,
+      setSelectedProject,
     });
   }
 

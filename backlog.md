@@ -17,6 +17,9 @@
 - [x] Return to Project Menu after confirmation
   Clicking Submit on Confirm Project should return to Project Menu and show the new project at the top.
 
+- [x] Open selected project in Project Player
+  Let a user click a project from the Project Menu, store that project in app state, and render the Project Player page for that project.
+
 - [ ] Reconnect track upload later
   Reintroduce track upload only after the project creation flow is stable.
 

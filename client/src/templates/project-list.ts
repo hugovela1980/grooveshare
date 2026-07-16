@@ -11,24 +11,31 @@ function escapeHtml(value: string): string {
 
 export function renderProjectList(projects: Project[]): string {
   if (projects.length === 0) {
-    return /*html*/ `
-      <p class="empty-state">No projects yet. Create your first GrooveShare project.</p>
-    `;
+    return '<p class="empty-state">No projects yet.</p>';
   }
 
   return /*html*/ `
-    <div class="project-list">
+    <ul class="project-list">
       ${projects
         .map((project) => {
+          const description = project.description.trim()
+            ? escapeHtml(project.description)
+            : "No description provided.";
+
           return /*html*/ `
-            <article class="project-card">
-              <h3>${escapeHtml(project.title)}</h3>
-              <p>${escapeHtml(project.description || "No description yet.")}</p>
-              <small>Created ${new Date(project.createdAt).toLocaleString()}</small>
-            </article>
-          `;
+              <li class="project-list__item">
+                <button
+                  class="project-list__button"
+                  type="button"
+                  data-project-id="${escapeHtml(project.id)}"
+                >
+                  <span class="project-list__title">${escapeHtml(project.title)}</span>
+                  <span class="project-list__description">${description}</span>
+                </button>
+              </li>
+            `;
         })
         .join("")}
-    </div>
+    </ul>
   `;
 }

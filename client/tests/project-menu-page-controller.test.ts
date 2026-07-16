@@ -20,6 +20,54 @@ function createProject({
     };
 }
 
+function createClickableProjectListElement() {
+    let clickHandler:
+        | ((event: {
+            target: {
+                closest: (
+                    selector: string,
+                ) => { getAttribute: (name: string) => string | null } | null;
+            };
+        }) => void)
+        | null = null;
+
+    return {
+        innerHTML: "",
+
+        addEventListener(eventName: string, handler: typeof clickHandler) {
+            if (eventName === "click") {
+                clickHandler = handler;
+            }
+        },
+
+        clickProject(projectId: string) {
+            if (!clickHandler) {
+                throw new Error("No click handler was registered.");
+            }
+
+            clickHandler({
+                target: {
+                    closest(selector: string) {
+                        if (selector !== "[data-project-id]") {
+                            return null;
+                        }
+
+                        return {
+                            getAttribute(name: string) {
+                                if (name !== "data-project-id") {
+                                    return null;
+                                }
+
+                                return projectId;
+                            },
+                        };
+                    },
+                },
+            });
+        },
+    };
+}
+
 tester.describe("project menu page controller", () => {
     tester.it("loads and renders projects", async () => {
         const projectListElement = {
@@ -113,5 +161,38 @@ tester.describe("project menu page controller", () => {
         tester.expect(projectListElement.innerHTML).toBe(
             '<p class="empty-state">Could not load projects.</p>',
         );
+    });
+
+    tester.it("calls onProjectSelected when a rendered project is clicked", async () => {
+        const projectListElement = createClickableProjectListElement();
+
+        let selectedProjectTitle = "";
+
+        const controller = createProjectMenuPageController({
+            projectListElement,
+            projectsApi: {
+                async getProjects() {
+                    return [
+                        createProject({
+                            id: "project-1",
+                            title: "Bass Groove",
+                            createdAt: "2026-01-01T00:00:00.000Z",
+                        }),
+                    ];
+                },
+            },
+            renderProjectList(projects) {
+                return projects.map((project) => project.title).join(", ");
+            },
+            onProjectSelected(project) {
+                selectedProjectTitle = project.title;
+            },
+        });
+
+        await controller.init();
+
+        projectListElement.clickProject("project-1");
+
+        tester.expect(selectedProjectTitle).toBe("Bass Groove");
     });
 });
