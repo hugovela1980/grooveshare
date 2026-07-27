@@ -4,6 +4,7 @@ import { createCreateProjectPageController } from "./page-controllers/create-pro
 import { createPendingTrackSelectionController } from "./page-controllers/pending-track-selection-controller.js";
 import { createProjectMenuPageController } from "./page-controllers/project-menu-page-controller.js";
 import { createProjectPlayerPageController } from "./page-controllers/project-player-page-controller.js";
+import { createConfirmProjectPageController } from "./page-controllers/confirm-project-page-controller.js";
 import { renderConfirmProjectPage } from "./pages/confirm-project-page.js";
 import { renderCreateProjectPage } from "./pages/create-project-page.js";
 import { renderProjectMenuPage } from "./pages/project-menu-page.js";
@@ -115,9 +116,8 @@ function initializeCreateProjectPage({
       titleInput,
       descriptionInput,
       statusElement,
-      projectsApi,
-      onProjectCreated(project) {
-        setCreatedProject(project);
+      onProjectDraftReady(projectDraft) {
+        projectDraftState.setProjectDraft(projectDraft);
         navigateTo("confirm-project");
       },
     });
@@ -170,18 +170,41 @@ function initializeCreateProjectPage({
 function initializeConfirmProjectPage({
   appElement,
   navigateTo,
+  setSelectedProject,
+  projectDraftState,
 }: {
   appElement: AppElementLike;
   navigateTo: (screen: AppScreen) => void;
+  setSelectedProject: (project: Project) => void;
+  projectDraftState: ProjectDraftState;
 }): void {
   const confirmProjectButton = getElement<HTMLButtonElement>(
     appElement,
     "#confirm-project-button",
   );
 
-  confirmProjectButton?.addEventListener("click", () => {
-    navigateTo("project-menu");
+  const statusElement = getElement<HTMLParagraphElement>(
+    appElement,
+    "#confirm-project-status",
+  );
+
+  if (!confirmProjectButton || !statusElement) {
+    return;
+  }
+
+  const controller = createConfirmProjectPageController({
+    submitButton: confirmProjectButton,
+    statusElement,
+    projectDraftState,
+    projectsApi,
+    tracksApi,
+    onProjectSubmitted(project) {
+      setSelectedProject(project);
+      navigateTo("project-player");
+    },
   });
+
+  controller.init();
 }
 
 function initializeProjectPlayerPage({
@@ -302,6 +325,8 @@ function initializeCurrentPage({
     initializeConfirmProjectPage({
       appElement,
       navigateTo,
+      setSelectedProject,
+      projectDraftState,
     });
 
     return;
@@ -338,7 +363,7 @@ export function createGrooveShareApp({
     pageRenderers: {
       "project-menu": renderProjectMenuPage,
       "create-project": renderCreateProjectPage,
-      "confirm-project": () => renderConfirmProjectPage(createdProject),
+      "confirm-project": () => renderConfirmProjectPage(projectDraftState.getSnapshot()),
       "project-player": () => renderProjectPlayerPage(selectedProject),
     },
   });

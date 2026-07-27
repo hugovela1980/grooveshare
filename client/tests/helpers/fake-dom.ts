@@ -75,3 +75,40 @@ export function createFakeFileInput(files: File[] = []) {
     files,
   };
 }
+
+type ButtonClickEvent = {
+  preventDefault: () => void;
+};
+
+type ButtonClickHandler = (
+  event: ButtonClickEvent,
+) => void | Promise<void>;
+
+export function createFakeButton() {
+  let clickHandler: ButtonClickHandler | null = null;
+  let preventDefaultCallCount = 0;
+
+  return {
+    addEventListener(eventName: string, handler: ButtonClickHandler) {
+      if (eventName === "click") {
+        clickHandler = handler;
+      }
+    },
+
+    async click() {
+      if (!clickHandler) {
+        throw new Error("No click handler was registered.");
+      }
+
+      await clickHandler({
+        preventDefault() {
+          preventDefaultCallCount += 1;
+        },
+      });
+    },
+
+    getPreventDefaultCallCount() {
+      return preventDefaultCallCount;
+    },
+  };
+}

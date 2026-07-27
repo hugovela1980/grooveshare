@@ -1,4 +1,4 @@
-import type { CreateProjectInput, Project } from "../types.js";
+import type { CreateProjectInput } from "../types.js";
 
 type SubmitEventLike = {
     preventDefault: () => void;
@@ -9,7 +9,6 @@ type FormLike = {
         eventName: string,
         handler: (event: SubmitEventLike) => void | Promise<void>,
     ) => void;
-    reset: () => void;
 };
 
 type InputLike = {
@@ -20,17 +19,12 @@ type TextElementLike = {
     textContent: string | null;
 };
 
-type ProjectsApi = {
-    createProject: (input: CreateProjectInput) => Promise<Project>;
-};
-
 type CreateProjectPageControllerOptions = {
     form: FormLike;
     titleInput: InputLike;
     descriptionInput: InputLike;
     statusElement: TextElementLike;
-    projectsApi: ProjectsApi;
-    onProjectCreated?: (project: Project) => void | Promise<void>;
+    onProjectDraftReady: (input: CreateProjectInput) => void | Promise<void>;
 };
 
 export function createCreateProjectPageController({
@@ -38,8 +32,7 @@ export function createCreateProjectPageController({
     titleInput,
     descriptionInput,
     statusElement,
-    projectsApi,
-    onProjectCreated,
+    onProjectDraftReady,
 }: CreateProjectPageControllerOptions) {
     async function handleSubmit(event: SubmitEventLike): Promise<void> {
         event.preventDefault();
@@ -52,22 +45,10 @@ export function createCreateProjectPageController({
             return;
         }
 
-        try {
-            const project = await projectsApi.createProject({
-                title,
-                description,
-            });
-
-            form.reset();
-            statusElement.textContent = "Project created.";
-
-            if (onProjectCreated) {
-                await onProjectCreated(project);
-            }
-        } catch (error) {
-            // console.error(error);
-            statusElement.textContent = "Could not create project.";
-        }
+        await onProjectDraftReady({
+            title,
+            description,
+        });
     }
 
     function init(): void {

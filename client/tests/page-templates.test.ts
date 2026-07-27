@@ -33,15 +33,41 @@ tester.describe("page templates", () => {
 
   tester.it("renders created project details on the Confirm Project page", () => {
     const html = renderConfirmProjectPage({
-      id: "project-1",
-      title: "Bass Groove",
-      description: "Practice loop",
-      createdAt: "2026-01-01T00:00:00.000Z",
-      updatedAt: "2026-01-01T00:00:00.000Z",
+      project: {
+        title: "Bass Groove",
+        description: "Practice loop",
+      },
+      pendingTracks: [],
     });
 
     tester.expect(html.includes("Bass Groove")).toBe(true);
     tester.expect(html.includes("Practice loop")).toBe(true);
+  });
+
+  tester.it("renders pending tracks on the Confirm Project page", () => {
+    const html = renderConfirmProjectPage({
+      project: {
+        title: "Bass Groove",
+        description: "Practice loop",
+      },
+      pendingTracks: [
+        {
+          id: "pending-track-1",
+          trackName: "Lead Guitar",
+          audioFile: {
+            name: "guitar.wav",
+            type: "audio/wav",
+            size: 123,
+          } as unknown as File,
+          originalFilename: "guitar.wav",
+          mimeType: "audio/wav",
+          fileSize: 123,
+        },
+      ],
+    });
+
+    tester.expect(html.includes("Lead Guitar")).toBe(true);
+    tester.expect(html.includes("guitar.wav")).toBe(true);
   });
 
   tester.it("renders the Project Player page", () => {

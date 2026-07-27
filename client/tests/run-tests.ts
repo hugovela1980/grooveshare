@@ -11,6 +11,7 @@ import "./project-player-page-controller.test.js";
 import "./project-draft-state.test.js";
 import "./pending-track-list-template.test.js";
 import "./pending-track-selection-controller.test.js";
+import "./confirm-project-page-controller.test.js";
 import { tester } from "./test-runner/tester.js";
 
 await tester.run();
