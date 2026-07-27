@@ -37,6 +37,9 @@ tester.describe("page templates", () => {
     tester.expect(html.includes("Confirm Project")).toBe(true);
     tester.expect(html.includes("confirm-project")).toBe(true);
     tester.expect(html.includes("Project confirmation details will appear here.")).toBe(true);
+    tester.expect(html.includes("edit-project-button")).toBe(true);
+    tester.expect(html.includes("confirm-project-button")).toBe(true);
+    tester.expect(html.includes("confirm-project-panel")).toBe(true);
   });
 
   tester.it("renders created project details on the Confirm Project page", () => {

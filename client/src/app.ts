@@ -161,6 +161,15 @@ function initializeConfirmProjectPage({
     "#confirm-project-button",
   );
 
+  const editProjectButton = getElement<HTMLButtonElement>(
+    appElement,
+    "#edit-project-button",
+  );
+
+  editProjectButton?.addEventListener("click", () => {
+    navigateTo("create-project");
+  });
+
   const statusElement = getElement<HTMLParagraphElement>(
     appElement,
     "#confirm-project-status",

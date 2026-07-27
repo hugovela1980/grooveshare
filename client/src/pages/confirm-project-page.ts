@@ -29,7 +29,7 @@ function renderProjectDetails(project: ProjectDraft | null): string {
     : "No description provided.";
 
   return /*html*/ `
-    <dl class="project-summary">
+    <dl class="project-summary confirm-project-summary">
       <div>
         <dt>Title</dt>
         <dd>${escapeHtml(project.title)}</dd>
@@ -49,11 +49,11 @@ function renderPendingTracks(pendingTracks: PendingTrackDraft[]): string {
   }
 
   return /*html*/ `
-    <ul class="track-list">
+    <ul class="track-list confirm-track-list">
       ${pendingTracks
       .map((track) => {
         return /*html*/ `
-            <li class="track-list__item">
+            <li class="track-list__item confirm-track-list__item">
               <strong>${escapeHtml(track.trackName)}</strong>
               <span>${escapeHtml(track.originalFilename)}</span>
             </li>
@@ -72,8 +72,8 @@ export function renderConfirmProjectPage({
     pendingTracks: [],
   }): string {
   return /*html*/ `
-    <main class="app-shell" data-page="confirm-project">
-      <header class="page-header">
+    <main class="app-shell confirm-project-page" data-page="confirm-project">
+      <header class="page-header confirm-project-header">
         <p class="eyebrow">Review Project</p>
         <h1>Confirm Project</h1>
         <p class="description">
@@ -81,23 +81,31 @@ export function renderConfirmProjectPage({
         </p>
       </header>
 
-      <section class="panel" id="confirm-project">
-        <h2>Project details</h2>
-        <div id="confirm-project-details">
-          ${renderProjectDetails(project)}
-        </div>
-      </section>
+      <section class="panel confirm-project-panel" id="confirm-project">
+        <section class="confirm-project-panel__section">
+          <h2>Project details</h2>
+          <div id="confirm-project-details">
+            ${renderProjectDetails(project)}
+          </div>
+        </section>
 
-      <section class="panel">
-        <h2>Tracks to upload</h2>
-        <div id="confirm-pending-track-list">
-          ${renderPendingTracks(pendingTracks)}
-        </div>
-      </section>
+        <section class="confirm-project-panel__section">
+          <h2>Tracks to upload</h2>
+          <div id="confirm-pending-track-list">
+            ${renderPendingTracks(pendingTracks)}
+          </div>
+        </section>
 
-      <section class="panel">
-        <button id="confirm-project-button" type="button">Submit</button>
-        <p id="confirm-project-status" class="status-message" aria-live="polite"></p>
+        <div class="confirm-project-actions">
+          <button id="edit-project-button" type="button">Edit</button>
+          <button id="confirm-project-button" type="button">Submit</button>
+        </div>
+
+        <p
+          id="confirm-project-status"
+          class="status-message"
+          aria-live="polite"
+        ></p>
       </section>
     </main>
   `;

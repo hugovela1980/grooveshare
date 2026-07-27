@@ -324,3 +324,72 @@ h3 {
     width: 100%;
   }
 }
+
+/* Confirm Project Page */
+
+.confirm-project-page {
+  width: min(100%, 46rem);
+  margin: 0 auto;
+}
+
+.confirm-project-header {
+  margin-bottom: 1.5rem;
+}
+
+.confirm-project-panel {
+  display: grid;
+  gap: 1.5rem;
+  padding: 2rem;
+}
+
+.confirm-project-panel__section {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.confirm-project-panel__section h2 {
+  margin: 0;
+}
+
+.confirm-project-summary {
+  margin: 0;
+}
+
+.confirm-project-summary div {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.confirm-project-summary dt {
+  font-weight: 700;
+}
+
+.confirm-project-summary dd {
+  margin: 0 0 0 2rem;
+}
+
+.confirm-track-list {
+  margin: 0;
+  padding-left: 1.5rem;
+}
+
+.confirm-track-list__item {
+  padding: 0;
+}
+
+.confirm-project-actions {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+@media (max-width: 40rem) {
+  .confirm-project-panel {
+    padding: 1.25rem;
+  }
+
+  .confirm-project-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
