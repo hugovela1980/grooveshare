@@ -1,23 +1,23 @@
 {
   "projects": [
     {
-      "id": "fc863b9b-7400-4643-84dd-b28cfd4b00a6",
-      "title": "Reggae Groove",
-      "description": "Guitar and bass",
-      "createdAt": "2026-07-27T16:39:04.082Z",
-      "updatedAt": "2026-07-27T16:39:04.082Z"
+      "id": "8ebc2175-7e39-46f7-a2e4-d73f5d747f48",
+      "title": "asdf",
+      "description": "asdf",
+      "createdAt": "2026-07-27T19:24:04.871Z",
+      "updatedAt": "2026-07-27T19:24:04.871Z"
     }
   ],
   "tracks": [
     {
-      "id": "eb5004be-59f9-4b5f-b044-b58b76f5a209",
-      "projectId": "fc863b9b-7400-4643-84dd-b28cfd4b00a6",
-      "name": "rhythm guitar",
-      "originalFilename": "2 Rhythm Guitar 0012 [2025-04-07 233058].wav",
-      "filePath": "uploads\\projects\\fc863b9b-7400-4643-84dd-b28cfd4b00a6\\c75e29f3-315f-4d7a-a5d6-5000e0585320-2-Rhythm-Guitar-0012--2025-04-07-233058-.wav",
+      "id": "76abdc2b-9d62-4fb4-9af3-af38a8386cd8",
+      "projectId": "8ebc2175-7e39-46f7-a2e4-d73f5d747f48",
+      "name": "asdf",
+      "originalFilename": "2 Rhythm Guitar 0010 [2025-04-07 233015].wav",
+      "filePath": "uploads\\projects\\8ebc2175-7e39-46f7-a2e4-d73f5d747f48\\b932994d-00aa-4bde-b5fd-5009b682c0f4-2-Rhythm-Guitar-0010--2025-04-07-233015-.wav",
       "mimeType": "audio/wav",
-      "fileSize": 15311660,
-      "createdAt": "2026-07-27T16:39:04.157Z"
+      "fileSize": 4141100,
+      "createdAt": "2026-07-27T19:24:04.913Z"
     }
   ]
 }

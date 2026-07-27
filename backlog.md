@@ -8,41 +8,7 @@
 
 ## Current Focus
 
-### Move track selection into Create Project flow
 
-- [ ] Add project draft state.
-  - Store draft project title and description before saving to the backend.
-  - Store selected pending tracks in memory before upload.
-  - Use this state when rendering the Confirm Project page.
-
-- [ ] Move the track selection UI to the Create Project page.
-  - Add track name and audio file fields to the Create Project screen.
-  - Add an “Add track” button that adds the selected file to a pending track list.
-  - Show the pending tracks before the user continues to confirmation.
-
-- [ ] Change Create Project behavior from “save immediately” to “review first.”
-  - The Create Project form should no longer call `projectsApi.createProject()` immediately.
-  - It should validate the project title.
-  - It should store the draft project and pending tracks.
-  - It should navigate to the Confirm Project page.
-
-- [ ] Update Confirm Project behavior.
-  - Show project title, description, and pending track names.
-  - On Submit, create the project.
-  - After the project is created, upload each pending track using the new project id.
-  - Show a clear error if project creation or track upload fails.
-
-- [ ] Simplify the Project Player page.
-  - Remove the upload form from Project Player.
-  - Keep the selected project heading.
-  - Keep the track list.
-  - Keep the audio player placeholder.
-
-- [ ] Add tests and manual checks.
-  - Test project draft creation.
-  - Test adding pending tracks.
-  - Test Confirm Project submission creates the project and uploads pending tracks.
-  - Manually verify `server/data/db.json` contains the project and tracks after confirmation.
 
 
 ## Next Up

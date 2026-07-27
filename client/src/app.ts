@@ -1,7 +1,6 @@
 import { projectsApi } from "./api/projects-api.js";
 import { tracksApi } from "./api/tracks-api.js";
 import { createCreateProjectPageController } from "./page-controllers/create-project-page-controller.js";
-import { createPendingTrackSelectionController } from "./page-controllers/pending-track-selection-controller.js";
 import { createProjectMenuPageController } from "./page-controllers/project-menu-page-controller.js";
 import { createProjectPlayerPageController } from "./page-controllers/project-player-page-controller.js";
 import { createConfirmProjectPageController } from "./page-controllers/confirm-project-page-controller.js";
@@ -14,7 +13,6 @@ import {
   createAppRouter,
   type AppScreen,
 } from "./router/app-router.js";
-import { renderPendingTrackList } from "./templates/pending-track-list.js";
 import { renderProjectList } from "./templates/project-list.js";
 import { renderTrackList } from "./templates/track-list.js";
 import type { Project } from "./types.js";
@@ -43,10 +41,12 @@ function initializeProjectMenuPage({
   appElement,
   navigateTo,
   setSelectedProject,
+  projectDraftState,
 }: {
   appElement: AppElementLike;
   navigateTo: (screen: AppScreen) => void;
   setSelectedProject: (project: Project) => void;
+  projectDraftState: ProjectDraftState;
 }): void {
   const addProjectButton = getElement<HTMLButtonElement>(
     appElement,
@@ -54,6 +54,7 @@ function initializeProjectMenuPage({
   );
 
   addProjectButton?.addEventListener("click", () => {
+    projectDraftState.clear();
     navigateTo("create-project");
   });
 
@@ -111,59 +112,36 @@ function initializeCreateProjectPage({
   );
 
   if (form && titleInput && descriptionInput && statusElement) {
+    const pendingTrackNameInput = getElement<HTMLInputElement>(
+      appElement,
+      "#pending-track-name",
+    );
+
+    const pendingAudioFileInput = getElement<HTMLInputElement>(
+      appElement,
+      "#pending-audio-file",
+    );
+
     const controller = createCreateProjectPageController({
       form,
       titleInput,
       descriptionInput,
       statusElement,
-      onProjectDraftReady(projectDraft) {
+      trackNameInput: pendingTrackNameInput ?? undefined,
+      audioFileInput: pendingAudioFileInput ?? undefined,
+      onProjectDraftReady(projectDraft, pendingTrack) {
+        projectDraftState.clear();
         projectDraftState.setProjectDraft(projectDraft);
+
+        if (pendingTrack) {
+          projectDraftState.addPendingTrack(pendingTrack);
+        }
+
         navigateTo("confirm-project");
       },
     });
 
     controller.init();
-  }
-
-  const pendingTrackForm = getElement<HTMLFormElement>(
-    appElement,
-    "#pending-track-form",
-  );
-  const pendingTrackNameInput = getElement<HTMLInputElement>(
-    appElement,
-    "#pending-track-name",
-  );
-  const pendingAudioFileInput = getElement<HTMLInputElement>(
-    appElement,
-    "#pending-audio-file",
-  );
-  const pendingTrackStatusElement = getElement<HTMLParagraphElement>(
-    appElement,
-    "#pending-track-status",
-  );
-  const pendingTrackListElement = getElement<HTMLDivElement>(
-    appElement,
-    "#pending-track-list",
-  );
-
-  if (
-    pendingTrackForm &&
-    pendingTrackNameInput &&
-    pendingAudioFileInput &&
-    pendingTrackStatusElement &&
-    pendingTrackListElement
-  ) {
-    const pendingTrackController = createPendingTrackSelectionController({
-      form: pendingTrackForm,
-      trackNameInput: pendingTrackNameInput,
-      audioFileInput: pendingAudioFileInput,
-      statusElement: pendingTrackStatusElement,
-      pendingTrackListElement,
-      projectDraftState,
-      renderPendingTrackList,
-    });
-
-    pendingTrackController.init();
   }
 }
 
@@ -279,6 +257,7 @@ function initializeCurrentPage({
       appElement,
       navigateTo,
       setSelectedProject,
+      projectDraftState,
     });
 
     return;
