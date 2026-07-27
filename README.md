@@ -287,3 +287,33 @@ Likely next steps:
 * Load one uploaded track into an audio element
 * Add basic playback controls
 * Later, add delete actions for tracks and projects
+
+## Long-Term Goals
+
+GrooveShare is being built in stages. The long-term goal is to move from a simple local stem player into a practical remote music collaboration tool.
+
+For more detail, see the full [architecture notes](./docs/architecture.md).
+
+### Version 1: Stem Player
+
+The first useful version of GrooveShare is a browser-based stem player.
+
+The goal is for a user to create a project, upload multiple audio files, open a project player, and play the uploaded tracks. This version should eventually support basic track controls such as volume, mute, solo, and pan.
+
+### Version 2: Record a Take
+
+After the stem player works, the next goal is browser-based recording.
+
+A collaborator should be able to listen to the uploaded tracks, record a rough part through the browser, save that recording, and make it available to the project owner.
+
+### Version 3: Sync Tools
+
+After recording is possible, GrooveShare should add tools that make rough remote recordings more usable.
+
+This may include count-in behavior, manual offset controls, nudge controls, waveform preview, and trimming.
+
+### Version 4: Collaboration Polish
+
+The final long-term goal is to make GrooveShare feel more like a real remote band workflow.
+
+This may include private share links, authentication, collaborator permissions, comments, notifications, version history, collaborator names, and project status.
