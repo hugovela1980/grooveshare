@@ -393,3 +393,51 @@ h3 {
     align-items: stretch;
   }
 }
+
+/* Project Player Page */
+
+.project-player-page {
+  width: min(100%, 56rem);
+  margin: 0 auto;
+}
+
+.project-player-header {
+  margin-bottom: 1.5rem;
+}
+
+.project-player-header h1 {
+  margin-top: 0.5rem;
+}
+
+.player-placeholder {
+  display: grid;
+  min-height: 18rem;
+  margin-bottom: 2rem;
+  place-items: center;
+  border: 2px solid #bbf7d0;
+}
+
+.player-placeholder h2 {
+  margin: 0;
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-weight: 500;
+  text-align: center;
+}
+
+.project-player-tracks-panel {
+  padding: 1.5rem;
+}
+
+.project-player-tracks-panel h2 {
+  margin-top: 0;
+}
+
+@media (max-width: 40rem) {
+  .player-placeholder {
+    min-height: 14rem;
+  }
+
+  .project-player-tracks-panel {
+    padding: 1.25rem;
+  }
+}

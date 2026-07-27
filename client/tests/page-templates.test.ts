@@ -85,37 +85,26 @@ tester.describe("page templates", () => {
     const html = renderProjectPlayerPage();
 
     tester.expect(html.includes("Project Player")).toBe(true);
-    tester.expect(html.includes("player-track-list")).toBe(true);
+    tester.expect(html.includes("Audio Player Placeholder")).toBe(true);
     tester.expect(html.includes("player-area")).toBe(true);
-  });
-
-  tester.it("renders selected project details on the Project Player page", () => {
-    const html = renderProjectPlayerPage({
-      id: "project-1",
-      title: "Bass Groove",
-      description: "Practice loop",
-      createdAt: "2026-01-01T00:00:00.000Z",
-      updatedAt: "2026-01-01T00:00:00.000Z",
-    });
-
-    tester.expect(html.includes("Project Player")).toBe(true);
-    tester.expect(html.includes("Bass Groove")).toBe(true);
-    tester.expect(html.includes("Practice loop")).toBe(true);
-  });
-
-  tester.it("renders selected project details on the Project Player page", () => {
-    const html = renderProjectPlayerPage({
-      id: "project-1",
-      title: "Bass Groove",
-      description: "Practice loop",
-      createdAt: "2026-01-01T00:00:00.000Z",
-      updatedAt: "2026-01-01T00:00:00.000Z",
-    });
-
-    tester.expect(html.includes("Project Player")).toBe(true);
-    tester.expect(html.includes("Bass Groove")).toBe(true);
-    tester.expect(html.includes("Practice loop")).toBe(true);
-    tester.expect(html.includes("player-track-upload-form")).toBe(false);
     tester.expect(html.includes("player-track-list")).toBe(true);
+  });
+
+  tester.it("renders selected project details on the Project Player page", () => {
+    const html = renderProjectPlayerPage({
+      id: "project-1",
+      title: "Reggae groove",
+      description: "guitar and bass",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    });
+
+    tester.expect(html.includes("Project Player")).toBe(true);
+    tester.expect(html.includes("Reggae groove")).toBe(true);
+    tester.expect(html.includes("guitar and bass")).toBe(true);
+    tester.expect(html.includes("Audio Player Placeholder")).toBe(true);
+    tester.expect(html.includes("player-area")).toBe(true);
+    tester.expect(html.includes("player-track-list")).toBe(true);
+    tester.expect(html.includes("player-track-upload-form")).toBe(false);
   });
 });

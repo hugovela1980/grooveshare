@@ -25,8 +25,8 @@ export function renderProjectPlayerPage(project: Project | null = null): string 
   const heading = project ? escapeHtml(project.title) : "Project Player";
 
   return /*html*/ `
-    <main class="app-shell" data-page="project-player">
-      <header class="page-header">
+    <main class="app-shell project-player-page" data-page="project-player">
+      <header class="page-header project-player-header">
         <button id="player-back-button" type="button">Back</button>
 
         <div>
@@ -36,20 +36,19 @@ export function renderProjectPlayerPage(project: Project | null = null): string 
             ${renderProjectDescription(project)}
           </p>
         </div>
-
-        <button id="player-menu-button" type="button">Menu</button>
       </header>
 
-      <section class="panel">
-        <h2>Tracks</h2>
-        <div id="player-track-list"></div>
+      <section
+        class="panel player-placeholder"
+        id="player-area"
+        aria-labelledby="audio-player-heading"
+      >
+        <h2 id="audio-player-heading">Audio Player Placeholder</h2>
       </section>
 
-      <section class="panel" id="player-area">
-        <h2>Audio Player</h2>
-        <p class="empty-state">
-          Single-track playback will be added here.
-        </p>
+      <section class="panel project-player-tracks-panel">
+        <h2>Tracks</h2>
+        <div id="player-track-list"></div>
       </section>
     </main>
   `;

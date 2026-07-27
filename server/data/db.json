@@ -1,40 +1,4 @@
 {
-  "projects": [
-    {
-      "id": "8ebc2175-7e39-46f7-a2e4-d73f5d747f48",
-      "title": "asdf",
-      "description": "asdf",
-      "createdAt": "2026-07-27T19:24:04.871Z",
-      "updatedAt": "2026-07-27T19:24:04.871Z"
-    },
-    {
-      "id": "1204704d-a459-4cac-a81b-b8fcf51dcdd6",
-      "title": "zxcv",
-      "description": "zxcv",
-      "createdAt": "2026-07-27T19:56:27.946Z",
-      "updatedAt": "2026-07-27T19:56:27.946Z"
-    }
-  ],
-  "tracks": [
-    {
-      "id": "76abdc2b-9d62-4fb4-9af3-af38a8386cd8",
-      "projectId": "8ebc2175-7e39-46f7-a2e4-d73f5d747f48",
-      "name": "asdf",
-      "originalFilename": "2 Rhythm Guitar 0010 [2025-04-07 233015].wav",
-      "filePath": "uploads\\projects\\8ebc2175-7e39-46f7-a2e4-d73f5d747f48\\b932994d-00aa-4bde-b5fd-5009b682c0f4-2-Rhythm-Guitar-0010--2025-04-07-233015-.wav",
-      "mimeType": "audio/wav",
-      "fileSize": 4141100,
-      "createdAt": "2026-07-27T19:24:04.913Z"
-    },
-    {
-      "id": "b66c5a95-2a91-46ea-b162-0e8d06c079f4",
-      "projectId": "1204704d-a459-4cac-a81b-b8fcf51dcdd6",
-      "name": "zxcv",
-      "originalFilename": "2 Rhythm Guitar 0010 [2025-04-07 233015].wav",
-      "filePath": "uploads\\projects\\1204704d-a459-4cac-a81b-b8fcf51dcdd6\\00716c62-3728-4764-85a7-a5a31ea73e72-2-Rhythm-Guitar-0010--2025-04-07-233015-.wav",
-      "mimeType": "audio/wav",
-      "fileSize": 4141100,
-      "createdAt": "2026-07-27T19:56:27.983Z"
-    }
-  ]
+  "projects": [],
+  "tracks": []
 }
