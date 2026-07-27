@@ -238,43 +238,17 @@ function initializeProjectPlayerPage({
     return;
   }
 
-  const form = getElement<HTMLFormElement>(
-    appElement,
-    "#player-track-upload-form",
-  );
-  const trackNameInput = getElement<HTMLInputElement>(
-    appElement,
-    "#player-track-name",
-  );
-  const audioFileInput = getElement<HTMLInputElement>(
-    appElement,
-    "#player-audio-file",
-  );
-  const statusElement = getElement<HTMLParagraphElement>(
-    appElement,
-    "#player-track-upload-status",
-  );
   const trackListElement = getElement<HTMLDivElement>(
     appElement,
     "#player-track-list",
   );
 
-  if (
-    !form ||
-    !trackNameInput ||
-    !audioFileInput ||
-    !statusElement ||
-    !trackListElement
-  ) {
+  if (!trackListElement) {
     return;
   }
 
   const controller = createProjectPlayerPageController({
     project: selectedProject,
-    form,
-    trackNameInput,
-    audioFileInput,
-    statusElement,
     trackListElement,
     tracksApi,
     renderTrackList,

@@ -1,23 +1,23 @@
 {
   "projects": [
     {
-      "id": "35fb5f25-5223-4263-9837-39d3958542a6",
-      "title": "Newish Rock Riff",
-      "description": "This one is a new one",
-      "createdAt": "2026-07-16T22:28:01.828Z",
-      "updatedAt": "2026-07-16T22:28:01.828Z"
+      "id": "fc863b9b-7400-4643-84dd-b28cfd4b00a6",
+      "title": "Reggae Groove",
+      "description": "Guitar and bass",
+      "createdAt": "2026-07-27T16:39:04.082Z",
+      "updatedAt": "2026-07-27T16:39:04.082Z"
     }
   ],
   "tracks": [
     {
-      "id": "fca0d2b2-4646-492f-832e-290d1e3adaf6",
-      "projectId": "35fb5f25-5223-4263-9837-39d3958542a6",
-      "name": "2-Audio 0001 [2025-04-03 102421].wav",
-      "originalFilename": "2-Audio 0001 [2025-04-03 102421].wav",
-      "filePath": "uploads\\projects\\35fb5f25-5223-4263-9837-39d3958542a6\\d2793bc5-a7a1-4ae8-a7cb-50fa7385704a-2-Audio-0001--2025-04-03-102421-.wav",
+      "id": "eb5004be-59f9-4b5f-b044-b58b76f5a209",
+      "projectId": "fc863b9b-7400-4643-84dd-b28cfd4b00a6",
+      "name": "rhythm guitar",
+      "originalFilename": "2 Rhythm Guitar 0012 [2025-04-07 233058].wav",
+      "filePath": "uploads\\projects\\fc863b9b-7400-4643-84dd-b28cfd4b00a6\\c75e29f3-315f-4d7a-a5d6-5000e0585320-2-Rhythm-Guitar-0012--2025-04-07-233058-.wav",
       "mimeType": "audio/wav",
-      "fileSize": 18042668,
-      "createdAt": "2026-07-16T22:29:31.160Z"
+      "fileSize": 15311660,
+      "createdAt": "2026-07-27T16:39:04.157Z"
     }
   ]
 }

@@ -104,7 +104,7 @@ tester.describe("page templates", () => {
     tester.expect(html.includes("Project Player")).toBe(true);
     tester.expect(html.includes("Bass Groove")).toBe(true);
     tester.expect(html.includes("Practice loop")).toBe(true);
-    tester.expect(html.includes("player-track-upload-form")).toBe(true);
+    tester.expect(html.includes("player-track-upload-form")).toBe(false);
     tester.expect(html.includes("player-track-list")).toBe(true);
   });
 });
