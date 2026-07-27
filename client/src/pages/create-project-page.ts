@@ -1,5 +1,5 @@
 export function renderCreateProjectPage(): string {
-    return /*html*/ `
+  return /*html*/ `
     <main class="app-shell" data-page="create-project">
       <header class="page-header">
         <button id="back-to-menu-button" type="button">Back</button>
@@ -43,6 +43,43 @@ export function renderCreateProjectPage(): string {
 
           <p id="project-status" class="status-message" aria-live="polite"></p>
         </form>
+      </section>
+
+      <section class="panel">
+        <h2>Tracks to include</h2>
+
+        <form id="pending-track-form" class="project-form">
+          <label>
+            <span>Track name</span>
+            <input
+              id="pending-track-name"
+              name="trackName"
+              type="text"
+              placeholder="Guitar"
+            />
+          </label>
+
+          <label>
+            <span>Audio file</span>
+            <input
+              id="pending-audio-file"
+              name="audioFile"
+              type="file"
+              accept="audio/*"
+              required
+            />
+          </label>
+
+          <button type="submit">Add track</button>
+
+          <p
+            id="pending-track-status"
+            class="status-message"
+            aria-live="polite"
+          ></p>
+        </form>
+
+        <div id="pending-track-list"></div>
       </section>
     </main>
   `;

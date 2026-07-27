@@ -1,18 +1,21 @@
 import { projectsApi } from "./api/projects-api.js";
 import { tracksApi } from "./api/tracks-api.js";
 import { createCreateProjectPageController } from "./page-controllers/create-project-page-controller.js";
+import { createPendingTrackSelectionController } from "./page-controllers/pending-track-selection-controller.js";
 import { createProjectMenuPageController } from "./page-controllers/project-menu-page-controller.js";
 import { createProjectPlayerPageController } from "./page-controllers/project-player-page-controller.js";
 import { renderConfirmProjectPage } from "./pages/confirm-project-page.js";
 import { renderCreateProjectPage } from "./pages/create-project-page.js";
 import { renderProjectMenuPage } from "./pages/project-menu-page.js";
 import { renderProjectPlayerPage } from "./pages/project-player-page.js";
-import { renderTrackList } from "./templates/track-list.js";
+import { createProjectDraftState } from "./project-draft/project-draft-state.js";
 import {
   createAppRouter,
   type AppScreen,
 } from "./router/app-router.js";
+import { renderPendingTrackList } from "./templates/pending-track-list.js";
 import { renderProjectList } from "./templates/project-list.js";
+import { renderTrackList } from "./templates/track-list.js";
 import type { Project } from "./types.js";
 
 type AppElementLike = {
@@ -24,6 +27,8 @@ type GrooveShareAppOptions = {
   appElement: AppElementLike;
   initialScreen?: AppScreen;
 };
+
+type ProjectDraftState = ReturnType<typeof createProjectDraftState>;
 
 function getElement<T>(appElement: AppElementLike, selector: string): T | null {
   if (!appElement.querySelector) {
@@ -77,10 +82,12 @@ function initializeCreateProjectPage({
   appElement,
   navigateTo,
   setCreatedProject,
+  projectDraftState,
 }: {
   appElement: AppElementLike;
   navigateTo: (screen: AppScreen) => void;
   setCreatedProject: (project: Project) => void;
+  projectDraftState: ProjectDraftState;
 }): void {
   const backButton = getElement<HTMLButtonElement>(
     appElement,
@@ -102,23 +109,62 @@ function initializeCreateProjectPage({
     "#project-status",
   );
 
-  if (!form || !titleInput || !descriptionInput || !statusElement) {
-    return;
+  if (form && titleInput && descriptionInput && statusElement) {
+    const controller = createCreateProjectPageController({
+      form,
+      titleInput,
+      descriptionInput,
+      statusElement,
+      projectsApi,
+      onProjectCreated(project) {
+        setCreatedProject(project);
+        navigateTo("confirm-project");
+      },
+    });
+
+    controller.init();
   }
 
-  const controller = createCreateProjectPageController({
-    form,
-    titleInput,
-    descriptionInput,
-    statusElement,
-    projectsApi,
-    onProjectCreated(project) {
-      setCreatedProject(project);
-      navigateTo("confirm-project");
-    },
-  });
+  const pendingTrackForm = getElement<HTMLFormElement>(
+    appElement,
+    "#pending-track-form",
+  );
+  const pendingTrackNameInput = getElement<HTMLInputElement>(
+    appElement,
+    "#pending-track-name",
+  );
+  const pendingAudioFileInput = getElement<HTMLInputElement>(
+    appElement,
+    "#pending-audio-file",
+  );
+  const pendingTrackStatusElement = getElement<HTMLParagraphElement>(
+    appElement,
+    "#pending-track-status",
+  );
+  const pendingTrackListElement = getElement<HTMLDivElement>(
+    appElement,
+    "#pending-track-list",
+  );
 
-  controller.init();
+  if (
+    pendingTrackForm &&
+    pendingTrackNameInput &&
+    pendingAudioFileInput &&
+    pendingTrackStatusElement &&
+    pendingTrackListElement
+  ) {
+    const pendingTrackController = createPendingTrackSelectionController({
+      form: pendingTrackForm,
+      trackNameInput: pendingTrackNameInput,
+      audioFileInput: pendingAudioFileInput,
+      statusElement: pendingTrackStatusElement,
+      pendingTrackListElement,
+      projectDraftState,
+      renderPendingTrackList,
+    });
+
+    pendingTrackController.init();
+  }
 }
 
 function initializeConfirmProjectPage({
@@ -221,6 +267,7 @@ function initializeCurrentPage({
   setCreatedProject,
   setSelectedProject,
   selectedProject,
+  projectDraftState,
 }: {
   appElement: AppElementLike;
   currentScreen: AppScreen;
@@ -228,6 +275,7 @@ function initializeCurrentPage({
   setCreatedProject: (project: Project) => void;
   setSelectedProject: (project: Project) => void;
   selectedProject: Project | null;
+  projectDraftState: ProjectDraftState;
 }): void {
   if (currentScreen === "project-menu") {
     initializeProjectMenuPage({
@@ -244,6 +292,7 @@ function initializeCurrentPage({
       appElement,
       navigateTo,
       setCreatedProject,
+      projectDraftState,
     });
 
     return;
@@ -273,6 +322,7 @@ export function createGrooveShareApp({
 }: GrooveShareAppOptions) {
   let createdProject: Project | null = null;
   let selectedProject: Project | null = null;
+  const projectDraftState = createProjectDraftState();
 
   function setCreatedProject(project: Project): void {
     createdProject = project;
@@ -303,6 +353,7 @@ export function createGrooveShareApp({
       setCreatedProject,
       setSelectedProject,
       selectedProject,
+      projectDraftState,
     });
   }
 
@@ -316,6 +367,7 @@ export function createGrooveShareApp({
       setCreatedProject,
       setSelectedProject,
       selectedProject,
+      projectDraftState,
     });
   }
 

@@ -19,7 +19,8 @@ tester.describe("page templates", () => {
     tester.expect(html.includes("Create Project")).toBe(true);
     tester.expect(html.includes("project-form")).toBe(true);
     tester.expect(html.includes("project-title")).toBe(true);
-    tester.expect(html.includes("track-upload-form")).toBe(false);
+    tester.expect(html.includes("pending-track-form")).toBe(true);
+    tester.expect(html.includes("pending-track-list")).toBe(true);
   });
 
   tester.it("renders the Confirm Project page without a project", () => {
