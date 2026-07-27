@@ -15,27 +15,27 @@ export function renderProjectList(projects: Project[]): string {
   }
 
   return /*html*/ `
-    <ul class="project-list">
+    <ul class="project-list project-list--menu">
       ${projects
-        .map((project) => {
-          const description = project.description.trim()
-            ? escapeHtml(project.description)
-            : "No description provided.";
+      .map((project) => {
+        const description = project.description.trim()
+          ? escapeHtml(project.description)
+          : "No description provided.";
 
-          return /*html*/ `
-              <li class="project-list__item">
-                <button
-                  class="project-list__button"
-                  type="button"
-                  data-project-id="${escapeHtml(project.id)}"
-                >
-                  <span class="project-list__title">${escapeHtml(project.title)}</span>
-                  <span class="project-list__description">${description}</span>
-                </button>
-              </li>
-            `;
-        })
-        .join("")}
+        return /*html*/ `
+            <li class="project-list__item">
+              <button
+                class="project-list__button project-list__button--menu"
+                type="button"
+                data-project-id="${escapeHtml(project.id)}"
+              >
+                <span class="project-list__title">${escapeHtml(project.title)}</span>
+                <span class="visually-hidden">${description}</span>
+              </button>
+            </li>
+          `;
+      })
+      .join("")}
     </ul>
   `;
 }

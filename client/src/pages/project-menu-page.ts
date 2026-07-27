@@ -1,22 +1,28 @@
 export function renderProjectMenuPage(): string {
     return /*html*/ `
-        <main class="app-shell" data-page="project-menu">
-            <header class="page-header">
-                <div>
-                    <p class="eyebrow">GrooveShare</p>
-                    <h1>Project Menu</h1>
-                    <p class="description">
-                        Choose a project to open, or create a new one.
-                    </p>
-                </div>
+        <main class="project-menu-page" data-page="project-menu">
+        <header class="project-menu-hero">
+            <h1 class="project-menu-hero__title">Grooveshare</h1>
+            <p class="project-menu-hero__tagline">Share tracks. Build songs together.</p>
+        </header>
 
-                <button id="add-project-button" type="button">Add Project</button>
-            </header>
+        <section class="panel project-menu-panel" aria-labelledby="current-projects-heading">
+            <h2 id="current-projects-heading" class="project-menu-panel__title">
+            Current Projects
+            </h2>
 
-            <section class="panel">
-                <h2>Projects</h2>
-                <div id="project-list"></div>
-            </section>
+            <div id="project-list" class="project-menu-panel__list"></div>
+        </section>
+
+        <div class="project-menu-actions">
+            <button
+            id="add-project-button"
+            class="project-menu-actions__button"
+            type="button"
+            >
+            Create a New Project
+            </button>
+        </div>
         </main>
   `;
 }

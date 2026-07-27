@@ -13,8 +13,10 @@ tester.describe("GrooveShare app", () => {
         app.start();
 
         tester.expect(app.getCurrentScreen()).toBe("project-menu");
-        tester.expect(appElement.innerHTML.includes("Project Menu")).toBe(true);
-        tester.expect(appElement.innerHTML.includes("Add Project")).toBe(true);
+        tester.expect(appElement.innerHTML.includes("Grooveshare")).toBe(true);
+        tester.expect(appElement.innerHTML.includes("Current Projects")).toBe(true);
+        tester.expect(appElement.innerHTML.includes("Create a New Project")).toBe(true);
+        tester.expect(appElement.innerHTML.includes("add-project-button")).toBe(true);
     });
 
     tester.it("can render the Create Project page through the router", () => {

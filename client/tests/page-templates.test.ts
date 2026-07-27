@@ -8,9 +8,12 @@ tester.describe("page templates", () => {
   tester.it("renders the Project Menu page", () => {
     const html = renderProjectMenuPage();
 
-    tester.expect(html.includes("Project Menu")).toBe(true);
-    tester.expect(html.includes("Add Project")).toBe(true);
+    tester.expect(html.includes("Grooveshare")).toBe(true);
+    tester.expect(html.includes("Share tracks. Build songs together.")).toBe(true);
+    tester.expect(html.includes("Current Projects")).toBe(true);
+    tester.expect(html.includes("Create a New Project")).toBe(true);
     tester.expect(html.includes("project-list")).toBe(true);
+    tester.expect(html.includes("add-project-button")).toBe(true);
   });
 
   tester.it("renders the Create Project page", () => {
