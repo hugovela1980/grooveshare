@@ -19,7 +19,7 @@
   - Return a clear result for success, missing project, or missing track.
   - Add `DELETE /api/projects/:projectId/tracks/:trackId`.
 
-- [ ] Add backend tests for track deletion.
+- [x] Add backend tests for track deletion.
 
   - Test successful track deletion.
   - Test deleting a track from a missing project.
@@ -27,7 +27,7 @@
   - Test that the uploaded audio file is removed when the track is deleted.
   - Test that other tracks in the same project are not removed.
 
-- [ ] Add reusable frontend support for deleting a track.
+- [x] Add reusable frontend support for deleting a track.
 
   - Add a `deleteTrack(projectId, trackId)` API helper.
   - Keep the API helper independent from the Project Player page so it can be reused later.

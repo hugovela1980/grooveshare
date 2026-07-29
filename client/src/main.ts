@@ -1,4 +1,5 @@
 import { createGrooveShareApp } from "./app.js";
+import { mountDevToolbar } from "./dev/dev-toolbar.js";
 import "./style.css";
 
 const appElement = document.querySelector<HTMLDivElement>("#app");
@@ -12,3 +13,5 @@ const app = createGrooveShareApp({
 });
 
 app.start();
+
+mountDevToolbar();
