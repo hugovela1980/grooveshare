@@ -5,9 +5,23 @@ import {
   writeDatabase,
 } from "./json-db.js";
 
+export type DeleteTrackResult =
+  | {
+    ok: true;
+    deletedTrack: Track;
+  }
+  | {
+    ok: false;
+    reason: "project-not-found" | "track-not-found";
+  };
+
 export type TracksStore = {
   getTracksByProjectId: (projectId: string) => Promise<Track[]>;
   createTrack: (trackInput: CreateTrackInput) => Promise<Track>;
+  deleteTrackById: (
+    projectId: string,
+    trackId: string,
+  ) => Promise<DeleteTrackResult>;
 };
 
 export function createTracksJsonStore(
@@ -25,7 +39,6 @@ export function createTracksJsonStore(
     const database = await readDatabase(dbFilePath);
 
     const now = new Date().toISOString();
-
     const track: Track = {
       id: crypto.randomUUID(),
       projectId: trackInput.projectId,
@@ -44,9 +57,50 @@ export function createTracksJsonStore(
     return track;
   }
 
+  async function deleteTrackById(
+    projectId: string,
+    trackId: string,
+  ): Promise<DeleteTrackResult> {
+    const database = await readDatabase(dbFilePath);
+
+    const projectExists = database.projects.some((project) => {
+      return project.id === projectId;
+    });
+
+    if (!projectExists) {
+      return {
+        ok: false,
+        reason: "project-not-found",
+      };
+    }
+
+    const deletedTrack = database.tracks.find((track) => {
+      return track.projectId === projectId && track.id === trackId;
+    });
+
+    if (!deletedTrack) {
+      return {
+        ok: false,
+        reason: "track-not-found",
+      };
+    }
+
+    database.tracks = database.tracks.filter((track) => {
+      return !(track.projectId === projectId && track.id === trackId);
+    });
+
+    await writeDatabase(dbFilePath, database);
+
+    return {
+      ok: true,
+      deletedTrack,
+    };
+  }
+
   return {
     getTracksByProjectId,
     createTrack,
+    deleteTrackById,
   };
 }
 
@@ -54,3 +108,4 @@ export const tracksJsonStore = createTracksJsonStore();
 
 export const getTracksByProjectId = tracksJsonStore.getTracksByProjectId;
 export const createTrack = tracksJsonStore.createTrack;
+export const deleteTrackById = tracksJsonStore.deleteTrackById;

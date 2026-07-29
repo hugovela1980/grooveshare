@@ -1,4 +1,23 @@
 {
-  "projects": [],
-  "tracks": []
+  "projects": [
+    {
+      "id": "0aaf501d-f679-4f6e-9e3c-1d7537bdd275",
+      "title": "Reggae Groove",
+      "description": "Guitar and bass",
+      "createdAt": "2026-07-29T03:03:30.694Z",
+      "updatedAt": "2026-07-29T03:03:30.694Z"
+    }
+  ],
+  "tracks": [
+    {
+      "id": "85473547-1421-44ec-ac75-3c15eb3b7374",
+      "projectId": "0aaf501d-f679-4f6e-9e3c-1d7537bdd275",
+      "name": "rhythm guitar",
+      "originalFilename": "2 Rhythm Guitar 0010 [2025-04-07 233015].wav",
+      "filePath": "uploads\\projects\\0aaf501d-f679-4f6e-9e3c-1d7537bdd275\\3c88c96c-9c29-45a4-bfdb-a1ba020a51dc-2-Rhythm-Guitar-0010--2025-04-07-233015-.wav",
+      "mimeType": "audio/wav",
+      "fileSize": 4141100,
+      "createdAt": "2026-07-29T03:03:30.751Z"
+    }
+  ]
 }
