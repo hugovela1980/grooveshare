@@ -1,4 +1,4 @@
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import type http from "node:http";
 import path from "node:path";
 import { createAppServer } from "../src/app.js";
@@ -35,6 +35,21 @@ async function resetTestDatabase(): Promise<void> {
   await mkdir(TEST_UPLOAD_ROOT, { recursive: true });
 }
 
+async function readTestDatabase(): Promise<Database> {
+  const fileContents = await readFile(TEST_DB_FILE_PATH, "utf-8");
+
+  return JSON.parse(fileContents) as Database;
+}
+
+async function fileExists(filePath: string): Promise<boolean> {
+  try {
+    await access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function listenOnRandomPort(server: http.Server): Promise<string> {
   return new Promise((resolve) => {
     server.listen(0, () => {
@@ -69,7 +84,7 @@ async function createTestServer(): Promise<{
   const projectsStore = createProjectsJsonStore(TEST_DB_FILE_PATH);
   const tracksStore = createTracksJsonStore(TEST_DB_FILE_PATH);
 
-    const server = createAppServer({
+  const server = createAppServer({
     projectsStore,
     tracksStore,
     clientOrigin: "http://localhost:5173",
@@ -651,6 +666,159 @@ tester.describe("project API routes", () => {
       tester.expect(response.status).toBe(404);
       tester.expect(body.ok).toBe(false);
       tester.expect(body.error).toBe("Project not found.");
+    } finally {
+      await closeServer(server);
+    }
+  });
+
+  tester.it("deletes a track and its uploaded audio file", async () => {
+    const { baseUrl, server } = await createTestServer();
+    const boundary = "----GrooveShareBoundary";
+    const fileData = Buffer.from("fake wav data", "utf-8");
+
+    try {
+      const createProjectResponse = await fetch(`${baseUrl}/api/projects`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: "Delete Track Test",
+          description: "Testing track deletion",
+        }),
+      });
+
+      const createProjectBody =
+        (await createProjectResponse.json()) as ApiResponse<Project>;
+
+      const projectId = createProjectBody.data?.id;
+
+      if (!projectId) {
+        throw new Error("Created project did not include an ID.");
+      }
+
+      const multipartBody = createMultipartBody({
+        boundary,
+        parts: [
+          createTextPart({
+            boundary,
+            name: "trackName",
+            value: "Guitar",
+          }),
+          createFilePart({
+            boundary,
+            fieldName: "audioFile",
+            filename: "guitar-riff.wav",
+            mimeType: "audio/wav",
+            data: fileData,
+          }),
+        ],
+      });
+
+      const uploadResponse = await fetch(
+        `${baseUrl}/api/projects/${projectId}/tracks`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": `multipart/form-data; boundary=${boundary}`,
+          },
+          body: bufferToArrayBuffer(multipartBody),
+        },
+      );
+
+      const uploadBody = (await uploadResponse.json()) as ApiResponse<Track>;
+      const uploadedTrack = uploadBody.data;
+
+      if (!uploadedTrack) {
+        throw new Error("Uploaded track was missing from response.");
+      }
+
+      const absoluteUploadedFilePath = path.resolve(
+        process.cwd(),
+        uploadedTrack.filePath,
+      );
+
+      tester.expect(await fileExists(absoluteUploadedFilePath)).toBe(true);
+
+      const deleteResponse = await fetch(
+        `${baseUrl}/api/projects/${projectId}/tracks/${uploadedTrack.id}`,
+        {
+          method: "DELETE",
+        },
+      );
+
+      const deleteBody = (await deleteResponse.json()) as ApiResponse<Track>;
+
+      tester.expect(deleteResponse.status).toBe(200);
+      tester.expect(deleteBody.ok).toBe(true);
+      tester.expect(deleteBody.data).toEqual(uploadedTrack);
+
+      const database = await readTestDatabase();
+
+      tester.expect(database.tracks).toEqual([]);
+      tester.expect(await fileExists(absoluteUploadedFilePath)).toBe(false);
+    } finally {
+      await closeServer(server);
+    }
+  });
+
+  tester.it("returns 404 when deleting a track from a missing project", async () => {
+    const { baseUrl, server } = await createTestServer();
+
+    try {
+      const response = await fetch(
+        `${baseUrl}/api/projects/not-real/tracks/track-1`,
+        {
+          method: "DELETE",
+        },
+      );
+
+      const body = (await response.json()) as ApiResponse<unknown>;
+
+      tester.expect(response.status).toBe(404);
+      tester.expect(body.ok).toBe(false);
+      tester.expect(body.error).toBe("Project not found.");
+    } finally {
+      await closeServer(server);
+    }
+  });
+
+  tester.it("returns 404 when deleting a missing track from an existing project", async () => {
+    const { baseUrl, server } = await createTestServer();
+
+    try {
+      const createProjectResponse = await fetch(`${baseUrl}/api/projects`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: "Missing Track Test",
+          description: "Testing missing track deletion",
+        }),
+      });
+
+      const createProjectBody =
+        (await createProjectResponse.json()) as ApiResponse<Project>;
+
+      const projectId = createProjectBody.data?.id;
+
+      if (!projectId) {
+        throw new Error("Created project did not include an ID.");
+      }
+
+      const response = await fetch(
+        `${baseUrl}/api/projects/${projectId}/tracks/not-real`,
+        {
+          method: "DELETE",
+        },
+      );
+
+      const body = (await response.json()) as ApiResponse<unknown>;
+
+      tester.expect(response.status).toBe(404);
+      tester.expect(body.ok).toBe(false);
+      tester.expect(body.error).toBe("Track not found.");
     } finally {
       await closeServer(server);
     }

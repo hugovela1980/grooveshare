@@ -1,4 +1,4 @@
-import { writeFile } from "node:fs/promises";
+import { rm, writeFile } from "node:fs/promises";
 import http, { type IncomingMessage, type ServerResponse } from "node:http";
 import path from "node:path";
 import type { ProjectsStore } from "./stores/projects-json-store.js";
@@ -35,7 +35,7 @@ function sendJson(
   res.writeHead(statusCode, {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": clientOrigin,
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
   });
 
@@ -86,6 +86,25 @@ function getTracksRouteProjectId(url: string | undefined): string | null {
 
   const match = url.match(/^\/api\/projects\/([^/]+)\/tracks$/);
   return match?.[1] ?? null;
+}
+
+function getTrackRouteParams(
+  url: string | undefined,
+): { projectId: string; trackId: string } | null {
+  if (!url) {
+    return null;
+  }
+
+  const match = url.match(/^\/api\/projects\/([^/]+)\/tracks\/([^/]+)$/);
+
+  if (!match) {
+    return null;
+  }
+
+  return {
+    projectId: match[1],
+    trackId: match[2],
+  };
 }
 
 function sanitizeFilename(filename: string): string {
@@ -267,6 +286,62 @@ export function createAppServer({
     );
   }
 
+  async function deleteUploadedTrackFile(filePath: string): Promise<void> {
+    const absoluteFilePath = path.resolve(process.cwd(), filePath);
+
+    await rm(absoluteFilePath, {
+      force: true,
+    });
+  }
+
+  async function handleDeleteTrack(
+    res: ServerResponse,
+    projectId: string,
+    trackId: string,
+  ): Promise<void> {
+    const result = await tracksStore.deleteTrackById(projectId, trackId);
+
+    if (!result.ok) {
+      if (result.reason === "project-not-found") {
+        sendJson(
+          res,
+          404,
+          {
+            ok: false,
+            error: "Project not found.",
+          },
+          clientOrigin,
+        );
+
+        return;
+      }
+
+      sendJson(
+        res,
+        404,
+        {
+          ok: false,
+          error: "Track not found.",
+        },
+        clientOrigin,
+      );
+
+      return;
+    }
+
+    await deleteUploadedTrackFile(result.deletedTrack.filePath);
+
+    sendJson(
+      res,
+      200,
+      {
+        ok: true,
+        data: result.deletedTrack,
+      },
+      clientOrigin,
+    );
+  }
+
   async function handleRequest(
     req: IncomingMessage,
     res: ServerResponse,
@@ -275,7 +350,7 @@ export function createAppServer({
       if (req.method === "OPTIONS") {
         res.writeHead(204, {
           "Access-Control-Allow-Origin": clientOrigin,
-          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+          "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
           "Access-Control-Allow-Headers": "Content-Type",
         });
 
@@ -328,6 +403,17 @@ export function createAppServer({
 
       if (req.method === "GET" && tracksRouteProjectId) {
         await handleGetProjectTracks(res, tracksRouteProjectId);
+        return;
+      }
+
+      const trackRouteParams = getTrackRouteParams(req.url);
+
+      if (req.method === "DELETE" && trackRouteParams) {
+        await handleDeleteTrack(
+          res,
+          trackRouteParams.projectId,
+          trackRouteParams.trackId,
+        );
         return;
       }
 
