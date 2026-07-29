@@ -8,45 +8,52 @@
 
 ## Current Focus
 
-
-
-
-## Next Up
-
 ### Delete individual tracks
 
-* [ ] Add backend support for deleting a track.
+- [x] Add reusable backend support for deleting a track.
 
-  * Add a track store helper for deleting by `trackId`.
-  * Remove the track metadata from `server/data/db.json`.
-  * Delete the uploaded audio file from `server/uploads/`.
-  * Add `DELETE /api/projects/:projectId/tracks/:trackId`.
+  - Add a track store helper that deletes a track by `projectId` and `trackId`.
+  - Make the helper reusable so it can be called by other future delete features.
+  - Remove the track metadata from `server/data/db.json`.
+  - Delete the linked uploaded audio file from `server/uploads/`.
+  - Return a clear result for success, missing project, or missing track.
+  - Add `DELETE /api/projects/:projectId/tracks/:trackId`.
 
-* [ ] Add backend tests for track deletion.
+- [ ] Add backend tests for track deletion.
 
-  * Test successful deletion.
-  * Test missing project or missing track.
-  * Test that the uploaded file is removed when the track is deleted.
+  - Test successful track deletion.
+  - Test deleting a track from a missing project.
+  - Test deleting a missing track from an existing project.
+  - Test that the uploaded audio file is removed when the track is deleted.
+  - Test that other tracks in the same project are not removed.
 
-* [ ] Add frontend support for deleting a track.
+- [ ] Add reusable frontend support for deleting a track.
 
-  * Add a `deleteTrack(projectId, trackId)` API helper.
-  * Add a Delete button to each track in the Project Player.
-  * Wire the Delete button in the Project Player controller.
+  - Add a `deleteTrack(projectId, trackId)` API helper.
+  - Keep the API helper independent from the Project Player page so it can be reused later.
+  - Return a clear success or error result from the frontend API helper.
+  - Add tests for the `deleteTrack` API helper if it fits the current frontend test structure.
 
-* [ ] Refresh the Project Player after track deletion.
+- [ ] Add track delete UI to the Project Player page.
 
-  * Reload the selected project’s track list after a successful delete.
-  * Show a simple error message if deletion fails.
-  * Manually test uploading a track, deleting it, and confirming it disappears from the UI and `db.json`.
+  - Add a Delete button to each track shown in the Project Player track list.
+  - Wire each Delete button to the reusable `deleteTrack(projectId, trackId)` API helper.
+  - Keep the delete behavior in the Project Player controller rather than inside the track list template.
+  - Show a simple error message if deletion fails.
 
-- [ ] Delete projects and linked tracks
+- [ ] Refresh the Project Player after track deletion.
 
-- [ ] Serve uploaded audio files
-  Add a backend route that allows the frontend audio player to request and play uploaded audio files from local storage.
+  - Reload the selected project’s track list after a successful delete.
+  - Confirm the deleted track disappears from the Project Player.
+  - Confirm the deleted track is removed from `server/data/db.json`.
+  - Confirm the uploaded audio file is removed from `server/uploads/`.
 
-- [ ] Build single-track playback
-  Add the first basic audio player behavior so one uploaded track can be loaded and played in the browser.
+- [ ] Preserve future reuse path for deleting tracks from other screens.
+
+  - Keep the backend delete helper reusable.
+  - Keep the frontend `deleteTrack(projectId, trackId)` API helper reusable.
+  - Avoid naming controller logic in a way that only makes sense for the Project Player.
+  - Future use case: add an Edit button to projects on the Project Menu page, open a modal, list project tracks, and reuse the same delete API helper from there.
 
 ## Backlog
 
@@ -127,11 +134,14 @@
 * [x] Build local project metadata foundation
   Created the first full project metadata flow using a local JSON data store, TypeScript backend types, tested store helpers, tested API routes, and a frontend project creation UI that can create, save, load, and display projects.
 
-- [ ] Save track metadata
+- [x] Save track metadata
   Store each uploaded track’s ID, name, original filename, local file path, MIME type, upload date, and related project ID.
 
 * [x] Add local audio file upload
   Added the first full local audio upload workflow, including track metadata types, separated JSON store helpers, tested track store functions, pure Node multipart upload handling, local project-specific upload folders, upload validation, tested upload/list API routes, a frontend upload form, uploaded track metadata display, and readable upload error handling.
 
 * [x] Refactor the frontend
-  Refactor so that `main.ts` starts the app only and `app.ts` does routing coordination, app state, and page initialization.  Create and add directories and files to handle screen changes (`router/`), render page HTML templates (`pages/`), and handle page-specific behavior (`page-controllers/`) 
+  Refactor so that `main.ts` starts the app only and `app.ts` does routing coordination, app state, and page initialization.  Create and add directories and files to handle screen changes (`router/`), render page HTML templates (`pages/`), and handle page-specific behavior (`page-controllers/`)
+
+- [x] Restyled the main app pages
+  Updated the UI for the main project workflow so the app now feels more like a guided multi-page experience instead of a collection of rough development screens.
