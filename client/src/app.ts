@@ -230,6 +230,11 @@ function initializeProjectPlayerPage({
     "#player-track-list",
   );
 
+  const statusElement = getElement<HTMLParagraphElement>(
+    appElement,
+    "#project-player-status",
+  );
+
   if (!trackListElement) {
     return;
   }
@@ -237,6 +242,7 @@ function initializeProjectPlayerPage({
   const controller = createProjectPlayerPageController({
     project: selectedProject,
     trackListElement,
+    statusElement,
     tracksApi,
     renderTrackList,
   });

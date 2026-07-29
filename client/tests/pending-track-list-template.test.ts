@@ -1,4 +1,5 @@
 import type { PendingTrackDraft } from "../src/project-draft/project-draft-state.js";
+import { renderTrackList } from "../src/templates/track-list.js";
 import { renderPendingTrackList } from "../src/templates/pending-track-list.js";
 import { tester } from "./test-runner/tester.js";
 
@@ -32,5 +33,24 @@ tester.describe("pending track list template", () => {
         tester.expect(html.includes('data-pending-track-id="pending-track-1"')).toBe(
             true,
         );
+    });
+
+    tester.it("renders a delete button for each track", () => {
+        const html = renderTrackList([
+            {
+                id: "track-1",
+                projectId: "project-1",
+                name: "Guitar",
+                originalFilename: "guitar.wav",
+                filePath: "uploads/guitar.wav",
+                mimeType: "audio/wav",
+                fileSize: 100,
+                createdAt: "2026-01-01T00:00:00.000Z",
+            },
+        ]);
+
+        tester.expect(html.includes("Delete")).toBe(true);
+        tester.expect(html.includes("data-track-delete-button")).toBe(true);
+        tester.expect(html.includes('data-track-id="track-1"')).toBe(true);
     });
 });

@@ -11,24 +11,31 @@ function escapeHtml(value: string): string {
 
 export function renderTrackList(tracks: Track[]): string {
   if (tracks.length === 0) {
-    return /*html*/ `
-      <p class="empty-state">No tracks uploaded for this project yet.</p>
-    `;
+    return '<p class="empty-state">No tracks yet.</p>';
   }
 
   return /*html*/ `
-    <div class="track-list">
+    <ul class="track-list">
       ${tracks
-        .map((track) => {
-          return /*html*/ `
-            <article class="track-card">
-              <h3>${escapeHtml(track.name)}</h3>
-              <p>${escapeHtml(track.originalFilename)}</p>
-              <small>${escapeHtml(track.mimeType)}</small>
-            </article>
+      .map((track) => {
+        return /*html*/ `
+            <li class="track-list__item">
+              <div>
+                <strong>${escapeHtml(track.name)}</strong>
+                <span>${escapeHtml(track.originalFilename)}</span>
+              </div>
+
+              <button
+                type="button"
+                data-track-delete-button
+                data-track-id="${escapeHtml(track.id)}"
+              >
+                Delete
+              </button>
+            </li>
           `;
-        })
-        .join("")}
-    </div>
+      })
+      .join("")}
+    </ul>
   `;
 }

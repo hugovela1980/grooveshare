@@ -49,6 +49,11 @@ export function renderProjectPlayerPage(project: Project | null = null): string 
       <section class="panel project-player-tracks-panel">
         <h2>Tracks</h2>
         <div id="player-track-list"></div>
+        <p
+          id="project-player-status"
+          class="status-message"
+          aria-live="polite"
+      ></p>
       </section>
     </main>
   `;
