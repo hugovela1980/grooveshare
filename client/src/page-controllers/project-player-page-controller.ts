@@ -65,9 +65,14 @@ export function createProjectPlayerPageController({
     renderTrackList,
 }: ProjectPlayerPageControllerOptions) {
     async function loadTracks(): Promise<void> {
-        const tracks = await tracksApi.getTracksByProjectId(project.id);
+        try {
+            const tracks = await tracksApi.getTracksByProjectId(project.id);
 
-        trackListElement.innerHTML = renderTrackList(tracks);
+            trackListElement.innerHTML = renderTrackList(tracks);
+        } catch {
+            trackListElement.innerHTML =
+                '<p class="empty-state">Could not load tracks.</p>';
+        }
     }
 
     async function handleTrackListClick(event: ClickEventLike): Promise<void> {
