@@ -1,6 +1,7 @@
 import { rm, writeFile } from "node:fs/promises";
 import http, { type IncomingMessage, type ServerResponse } from "node:http";
 import path from "node:path";
+import { handleDevResetRoute } from "./dev/dev-reset-route.js";
 import type { ProjectsStore } from "./stores/projects-json-store.js";
 import type { TracksStore } from "./stores/tracks-json-store.js";
 import type { CreateProjectInput } from "./types.js";
@@ -62,6 +63,7 @@ async function readRequestBuffer(req: IncomingMessage): Promise<Buffer> {
 
 async function readRequestBody(req: IncomingMessage): Promise<string> {
   const body = await readRequestBuffer(req);
+
   return body.toString("utf-8");
 }
 
@@ -85,6 +87,7 @@ function getTracksRouteProjectId(url: string | undefined): string | null {
   }
 
   const match = url.match(/^\/api\/projects\/([^/]+)\/tracks$/);
+
   return match?.[1] ?? null;
 }
 
@@ -220,6 +223,7 @@ export function createAppServer({
     }
 
     const trackName = parsedForm.fields.trackName?.trim() || audioFile.filename;
+
     const uploadDir = await ensureProjectUploadDir({
       uploadRoot,
       projectId,
@@ -414,6 +418,18 @@ export function createAppServer({
           trackRouteParams.projectId,
           trackRouteParams.trackId,
         );
+
+        return;
+      }
+
+      if (req.method === "DELETE" && req.url === "/api/dev/reset") {
+        await handleDevResetRoute({
+          res,
+          sendJson,
+          clientOrigin,
+          uploadRoot,
+        });
+
         return;
       }
 
