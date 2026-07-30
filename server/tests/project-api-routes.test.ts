@@ -891,7 +891,10 @@ tester.describe("project API routes", () => {
         uploadedTrack.filePath,
       );
 
+      const projectUploadDir = path.dirname(absoluteUploadedFilePath);
+
       tester.expect(await fileExists(absoluteUploadedFilePath)).toBe(true);
+      tester.expect(await fileExists(projectUploadDir)).toBe(true);
 
       const deleteResponse = await fetch(
         `${baseUrl}/api/projects/${project.id}`,

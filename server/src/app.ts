@@ -9,6 +9,7 @@ import { parseMultipartFormData } from "./uploads/multipart-form-data.js";
 import {
   DEFAULT_UPLOAD_ROOT,
   ensureProjectUploadDir,
+  getProjectUploadDir,
 } from "./uploads/upload-paths.js";
 import {
   DEFAULT_MAX_AUDIO_FILE_SIZE_BYTES,
@@ -301,7 +302,9 @@ export function createAppServer({
   }
 
   async function deleteUploadedTrackFile(filePath: string): Promise<void> {
-    const absoluteFilePath = path.resolve(process.cwd(), filePath);
+    const absoluteFilePath = path.isAbsolute(filePath)
+      ? filePath
+      : path.resolve(process.cwd(), filePath);
 
     await rm(absoluteFilePath, {
       force: true,
@@ -381,6 +384,16 @@ export function createAppServer({
         return deleteUploadedTrackFile(track.filePath);
       }),
     );
+
+    const projectUploadDir = getProjectUploadDir({
+      uploadRoot,
+      projectId,
+    });
+
+    await rm(projectUploadDir, {
+      recursive: true,
+      force: true,
+    });
 
     sendJson(
       res,
