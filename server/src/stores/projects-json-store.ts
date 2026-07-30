@@ -1,4 +1,4 @@
-import type { CreateProjectInput, Project } from "../types.js";
+import type { CreateProjectInput, Project, Track } from "../types.js";
 import {
   DEFAULT_DB_FILE_PATH,
   readDatabase,
@@ -9,7 +9,19 @@ export type ProjectsStore = {
   getProjects: () => Promise<Project[]>;
   getProjectById: (projectId: string) => Promise<Project | null>;
   createProject: (projectInput: CreateProjectInput) => Promise<Project>;
+  deleteProjectById: (projectId: string) => Promise<DeleteProjectResult>;
 };
+
+export type DeleteProjectResult =
+  | {
+    ok: true;
+    deletedProject: Project;
+    deletedTracks: Track[];
+  }
+  | {
+    ok: false;
+    reason: "project-not-found";
+  };
 
 export function createProjectsJsonStore(
   dbFilePath = DEFAULT_DB_FILE_PATH,
@@ -51,10 +63,48 @@ export function createProjectsJsonStore(
     return project;
   }
 
+  async function deleteProjectById(
+    projectId: string,
+  ): Promise<DeleteProjectResult> {
+    const database = await readDatabase(dbFilePath);
+
+    const projectToDelete = database.projects.find((project) => {
+      return project.id === projectId;
+    });
+
+    if (!projectToDelete) {
+      return {
+        ok: false,
+        reason: "project-not-found",
+      };
+    }
+
+    const deletedTracks = database.tracks.filter((track) => {
+      return track.projectId === projectId;
+    });
+
+    database.projects = database.projects.filter((project) => {
+      return project.id !== projectId;
+    });
+
+    database.tracks = database.tracks.filter((track) => {
+      return track.projectId !== projectId;
+    });
+
+    await writeDatabase(dbFilePath, database);
+
+    return {
+      ok: true,
+      deletedProject: projectToDelete,
+      deletedTracks,
+    };
+  }
+
   return {
     getProjects,
     getProjectById,
     createProject,
+    deleteProjectById,
   };
 }
 
