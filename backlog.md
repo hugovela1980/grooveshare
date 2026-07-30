@@ -8,71 +8,7 @@
 
 ## Current Focus
 
-### Delete projects and linked tracks
 
-- [ ] Add reusable backend support for deleting a project.
-
-  - Add a project store helper for deleting a project by `projectId`.
-  - Make the helper reusable so it can be called by future route handlers or admin/dev tools.
-  - Remove the project metadata from `server/data/db.json`.
-  - Remove all track metadata linked to that project from `server/data/db.json`.
-  - Return the deleted project and linked tracks so the route layer can delete uploaded files.
-  - Return a clear result for success or missing project.
-  - Add `DELETE /api/projects/:projectId`.
-
-- [ ] Add backend tests for project deletion.
-
-  - Test successful project deletion.
-  - Test deleting a missing project.
-  - Test that linked tracks are removed from `server/data/db.json`.
-  - Test that uploaded audio files linked to the deleted project are removed from `server/uploads/`.
-  - Test that other projects are not removed.
-  - Test that tracks from other projects are not removed.
-  - Test that uploaded files from other projects are not removed.
-
-- [ ] Add reusable frontend support for deleting a project.
-
-  - Add a `deleteProject(projectId)` API helper.
-  - Keep the API helper independent from the Project Menu and Project Player pages.
-  - Return the deleted project or a clear error from the API helper.
-  - Add frontend API tests for successful deletion and backend error handling.
-
-- [ ] Add project delete UI to the Project Menu page.
-
-  - Add a Delete button to each project shown in the Project Menu project list.
-  - Wire each Delete button to the reusable `deleteProject(projectId)` API helper.
-  - Keep the delete behavior in the Project Menu controller rather than inside the project list template.
-  - Ask for confirmation before deleting a project.
-  - Reload the project list after successful deletion.
-  - Show a simple error message if deletion fails.
-  - Make sure clicking Delete does not accidentally open the project.
-
-- [ ] Add project delete UI to the Project Player page.
-
-  - Add a Delete Project button to the Project Player page.
-  - Wire the button to the reusable `deleteProject(projectId)` API helper.
-  - Ask for confirmation before deleting the project.
-  - After successful deletion, navigate back to the Project Menu.
-  - Reload the Project Menu project list so the deleted project no longer appears.
-  - Show a simple error message if deletion fails.
-
-- [ ] Preserve future reuse path for project deletion.
-
-  - Keep the backend project deletion helper reusable.
-  - Keep the frontend `deleteProject(projectId)` API helper reusable.
-  - Avoid putting project deletion logic directly inside page templates.
-  - Avoid making the delete logic depend only on the Project Menu or Project Player.
-  - Future use case: project edit modal, project settings page, or admin/dev tools should be able to reuse the same API helper.
-
-- [ ] Manually test full project deletion flow.
-
-  - Create a project with one or more tracks.
-  - Delete the project from the Project Menu.
-  - Confirm the project disappears from the Project Menu.
-  - Confirm the project is removed from `server/data/db.json`.
-  - Confirm all linked tracks are removed from `server/data/db.json`.
-  - Confirm uploaded audio files are removed from `server/uploads/`.
-  - Repeat the flow by deleting a project from the Project Player page.
 
 ## Backlog
 
@@ -167,3 +103,6 @@
 
   - [x] Added reusable track deletion
   Added backend and frontend support for deleting individual tracks, including removing track metadata from `db.json`, deleting the linked uploaded audio file from `server/uploads/`, exposing a reusable `deleteTrack(projectId, trackId)` API helper, and wiring the first delete UI into the Project Player so tracks can be removed and the track list refreshes after deletion.
+
+  - [x] Added project deletion with linked track cleanup
+  Added backend and frontend support for deleting entire projects, including removing project metadata from `db.json`, removing linked track metadata, deleting uploaded audio files and project upload folders from `server/uploads/`, exposing a reusable `deleteProject(projectId)` API helper, and wiring delete buttons into the Project Menu and Project Player flows with confirmation prompts and status messages.

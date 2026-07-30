@@ -1,4 +1,4 @@
-import { rm, writeFile } from "node:fs/promises";
+import { rm, rmdir, writeFile } from "node:fs/promises";
 import http, { type IncomingMessage, type ServerResponse } from "node:http";
 import path from "node:path";
 import { handleDevResetRoute } from "./dev/dev-reset-route.js";
@@ -311,6 +311,28 @@ export function createAppServer({
     });
   }
 
+  async function deleteProjectUploadDirIfEmpty(projectId: string): Promise<void> {
+    const projectUploadDir = getProjectUploadDir({
+      uploadRoot,
+      projectId,
+    });
+
+    try {
+      await rmdir(projectUploadDir);
+    } catch (error) {
+      const fileSystemError = error as NodeJS.ErrnoException;
+
+      if (
+        fileSystemError.code === "ENOENT" ||
+        fileSystemError.code === "ENOTEMPTY"
+      ) {
+        return;
+      }
+
+      throw error;
+    }
+  }
+
   async function handleDeleteTrack(
     res: ServerResponse,
     projectId: string,
@@ -347,6 +369,7 @@ export function createAppServer({
     }
 
     await deleteUploadedTrackFile(result.deletedTrack.filePath);
+    await deleteProjectUploadDirIfEmpty(projectId);
 
     sendJson(
       res,

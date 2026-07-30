@@ -1,4 +1,12 @@
 {
-  "projects": [],
+  "projects": [
+    {
+      "id": "83d36a41-7f21-4487-b7da-9aa7dc1e208d",
+      "title": "asdf",
+      "description": "asdf",
+      "createdAt": "2026-07-30T19:04:28.394Z",
+      "updatedAt": "2026-07-30T19:04:28.394Z"
+    }
+  ],
   "tracks": []
 }

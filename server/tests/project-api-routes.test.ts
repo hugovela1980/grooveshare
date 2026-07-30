@@ -737,8 +737,10 @@ tester.describe("project API routes", () => {
         process.cwd(),
         uploadedTrack.filePath,
       );
+      const projectUploadDir = path.dirname(absoluteUploadedFilePath);
 
       tester.expect(await fileExists(absoluteUploadedFilePath)).toBe(true);
+      tester.expect(await fileExists(projectUploadDir)).toBe(true);
 
       const deleteResponse = await fetch(
         `${baseUrl}/api/projects/${projectId}/tracks/${uploadedTrack.id}`,
@@ -757,6 +759,105 @@ tester.describe("project API routes", () => {
 
       tester.expect(database.tracks).toEqual([]);
       tester.expect(await fileExists(absoluteUploadedFilePath)).toBe(false);
+      tester.expect(await fileExists(projectUploadDir)).toBe(false);
+    } finally {
+      await closeServer(server);
+    }
+  });
+
+  tester.it("does not remove the project upload folder when deleting one track and another track still exists", async () => {
+    const { baseUrl, server } = await createTestServer();
+    const boundary = "----GrooveShareBoundary";
+    const fileData = Buffer.from("fake wav data", "utf-8");
+
+    try {
+      const createProjectResponse = await fetch(`${baseUrl}/api/projects`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: "Keep Project Folder Test",
+          description: "Testing track deletion with multiple tracks",
+        }),
+      });
+
+      const createProjectBody =
+        (await createProjectResponse.json()) as ApiResponse<Project>;
+
+      const projectId = createProjectBody.data?.id;
+
+      if (!projectId) {
+        throw new Error("Created project did not include an ID.");
+      }
+
+      async function uploadTrack(filename: string): Promise<Track> {
+        const multipartBody = createMultipartBody({
+          boundary,
+          parts: [
+            createTextPart({
+              boundary,
+              name: "trackName",
+              value: filename,
+            }),
+            createFilePart({
+              boundary,
+              fieldName: "audioFile",
+              filename,
+              mimeType: "audio/wav",
+              data: fileData,
+            }),
+          ],
+        });
+
+        const response = await fetch(`${baseUrl}/api/projects/${projectId}/tracks`, {
+          method: "POST",
+          headers: {
+            "Content-Type": `multipart/form-data; boundary=${boundary}`,
+          },
+          body: bufferToArrayBuffer(multipartBody),
+        });
+
+        const body = (await response.json()) as ApiResponse<Track>;
+
+        if (!body.data) {
+          throw new Error("Uploaded track was missing from response.");
+        }
+
+        return body.data;
+      }
+
+      const trackToDelete = await uploadTrack("delete-me.wav");
+      const trackToKeep = await uploadTrack("keep-me.wav");
+
+      const deletedFilePath = path.resolve(process.cwd(), trackToDelete.filePath);
+      const keptFilePath = path.resolve(process.cwd(), trackToKeep.filePath);
+      const projectUploadDir = path.dirname(deletedFilePath);
+
+      tester.expect(await fileExists(deletedFilePath)).toBe(true);
+      tester.expect(await fileExists(keptFilePath)).toBe(true);
+      tester.expect(await fileExists(projectUploadDir)).toBe(true);
+
+      const deleteResponse = await fetch(
+        `${baseUrl}/api/projects/${projectId}/tracks/${trackToDelete.id}`,
+        {
+          method: "DELETE",
+        },
+      );
+
+      const deleteBody = (await deleteResponse.json()) as ApiResponse<Track>;
+
+      tester.expect(deleteResponse.status).toBe(200);
+      tester.expect(deleteBody.ok).toBe(true);
+      tester.expect(deleteBody.data).toEqual(trackToDelete);
+
+      const database = await readTestDatabase();
+
+      tester.expect(database.tracks.length).toBe(1);
+      tester.expect(database.tracks[0]?.id).toBe(trackToKeep.id);
+      tester.expect(await fileExists(deletedFilePath)).toBe(false);
+      tester.expect(await fileExists(keptFilePath)).toBe(true);
+      tester.expect(await fileExists(projectUploadDir)).toBe(true);
     } finally {
       await closeServer(server);
     }
