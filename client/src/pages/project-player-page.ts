@@ -28,6 +28,13 @@ export function renderProjectPlayerPage(project: Project | null = null): string 
     <main class="app-shell project-player-page" data-page="project-player">
       <header class="page-header project-player-header">
         <button id="player-back-button" type="button">Back</button>
+        <button
+          id="delete-project-button"
+          class="button button--danger"
+          type="button"
+        >
+          Delete Project
+      </button>
 
         <div>
           <p class="eyebrow">Project Player</p>

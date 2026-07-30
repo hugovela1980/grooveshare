@@ -25,8 +25,6 @@ function createTrack(): Track {
   };
 }
 
-
-
 type FakeClickEvent = {
   target: EventTarget | null;
 };
@@ -74,6 +72,29 @@ function createFakeTrackListElement() {
 function createFakeStatusElement() {
   return {
     textContent: "",
+  };
+}
+
+function createFakeDeleteProjectButton() {
+  let clickHandler: (() => void | Promise<void>) | null = null;
+
+  return {
+    addEventListener(
+      eventName: "click",
+      handler: () => void | Promise<void>,
+    ) {
+      if (eventName === "click") {
+        clickHandler = handler;
+      }
+    },
+
+    async click(): Promise<void> {
+      if (!clickHandler) {
+        throw new Error("Click handler was not registered.");
+      }
+
+      await clickHandler();
+    },
   };
 }
 
@@ -220,5 +241,148 @@ tester.describe("project player page controller", () => {
     tester.expect(getTracksCallCount).toBe(1);
     tester.expect(trackListElement.innerHTML).toBe("Guitar");
     tester.expect(statusElement.textContent).toBe("Could not delete track.");
+  });
+
+  tester.it("deletes the current project and runs the deleted callback", async () => {
+    const trackListElement = createFakeTrackListElement();
+    const statusElement = createFakeStatusElement();
+    const deleteProjectButton = createFakeDeleteProjectButton();
+
+    let deletedProjectId = "";
+    let projectDeletedCallbackWasCalled = false;
+
+    const controller = createProjectPlayerPageController({
+      project: createProject(),
+      trackListElement,
+      statusElement,
+      deleteProjectButton,
+      tracksApi: {
+        async getTracksByProjectId() {
+          return [];
+        },
+
+        async deleteTrack() {
+          throw new Error("deleteTrack should not be called in this test.");
+        },
+      },
+      projectsApi: {
+        async deleteProject(projectId) {
+          deletedProjectId = projectId;
+
+          return createProject();
+        },
+      },
+      renderTrackList() {
+        return '<p class="empty-state">No tracks yet.</p>';
+      },
+      confirmDeleteProject() {
+        return true;
+      },
+      onProjectDeleted() {
+        projectDeletedCallbackWasCalled = true;
+      },
+    });
+
+    await controller.init();
+
+    await deleteProjectButton.click();
+
+    tester.expect(deletedProjectId).toBe("project-1");
+    tester.expect(statusElement.textContent).toBe("Project deleted.");
+    tester.expect(projectDeletedCallbackWasCalled).toBe(true);
+  });
+
+  tester.it("does not delete the current project when deletion is cancelled", async () => {
+    const trackListElement = createFakeTrackListElement();
+    const statusElement = createFakeStatusElement();
+    const deleteProjectButton = createFakeDeleteProjectButton();
+
+    let deleteProjectCallCount = 0;
+    let projectDeletedCallbackWasCalled = false;
+
+    const controller = createProjectPlayerPageController({
+      project: createProject(),
+      trackListElement,
+      statusElement,
+      deleteProjectButton,
+      tracksApi: {
+        async getTracksByProjectId() {
+          return [];
+        },
+
+        async deleteTrack() {
+          throw new Error("deleteTrack should not be called in this test.");
+        },
+      },
+      projectsApi: {
+        async deleteProject(projectId) {
+          deleteProjectCallCount += 1;
+
+          return createProject();
+        },
+      },
+      renderTrackList() {
+        return '<p class="empty-state">No tracks yet.</p>';
+      },
+      confirmDeleteProject() {
+        return false;
+      },
+      onProjectDeleted() {
+        projectDeletedCallbackWasCalled = true;
+      },
+    });
+
+    await controller.init();
+
+    await deleteProjectButton.click();
+
+    tester.expect(deleteProjectCallCount).toBe(0);
+    tester.expect(statusElement.textContent).toBe("");
+    tester.expect(projectDeletedCallbackWasCalled).toBe(false);
+  });
+
+  tester.it("shows an error message when the current project cannot be deleted", async () => {
+    const trackListElement = createFakeTrackListElement();
+    const statusElement = createFakeStatusElement();
+    const deleteProjectButton = createFakeDeleteProjectButton();
+
+    let projectDeletedCallbackWasCalled = false;
+
+    const controller = createProjectPlayerPageController({
+      project: createProject(),
+      trackListElement,
+      statusElement,
+      deleteProjectButton,
+      tracksApi: {
+        async getTracksByProjectId() {
+          return [];
+        },
+
+        async deleteTrack() {
+          throw new Error("deleteTrack should not be called in this test.");
+        },
+      },
+      projectsApi: {
+        async deleteProject() {
+          throw new Error("Project delete failed.");
+        },
+      },
+      renderTrackList() {
+        return '<p class="empty-state">No tracks yet.</p>';
+      },
+      confirmDeleteProject() {
+        return true;
+      },
+      onProjectDeleted() {
+        projectDeletedCallbackWasCalled = true;
+      },
+    });
+
+    await controller.init();
+
+    await deleteProjectButton.click();
+
+    tester.expect(statusElement.textContent).toBe("Could not delete project.");
+    tester.expect(projectDeletedCallbackWasCalled).toBe(false);
   });
 });

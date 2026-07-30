@@ -239,6 +239,11 @@ function initializeProjectPlayerPage({
     "#project-player-status",
   );
 
+  const deleteProjectButton = getElement<HTMLButtonElement>(
+    appElement,
+    "#delete-project-button",
+  );
+
   if (!trackListElement) {
     return;
   }
@@ -247,8 +252,13 @@ function initializeProjectPlayerPage({
     project: selectedProject,
     trackListElement,
     statusElement,
+    deleteProjectButton,
     tracksApi,
+    projectsApi,
     renderTrackList,
+    onProjectDeleted() {
+      navigateTo("project-menu");
+    },
   });
 
   void controller.init();

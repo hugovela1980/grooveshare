@@ -5,6 +5,10 @@ type TracksApi = {
     deleteTrack: (projectId: string, trackId: string) => Promise<Track>;
 };
 
+type ProjectsApi = {
+    deleteProject: (projectId: string) => Promise<Project>;
+};
+
 type ClickEventLike = {
     target: EventTarget | null;
 };
@@ -14,6 +18,13 @@ type TrackListElementLike = {
     addEventListener: (
         eventName: "click",
         handler: (event: ClickEventLike) => void | Promise<void>,
+    ) => void;
+};
+
+type ButtonElementLike = {
+    addEventListener: (
+        eventName: "click",
+        handler: () => void | Promise<void>,
     ) => void;
 };
 
@@ -35,8 +46,12 @@ type ProjectPlayerPageControllerOptions = {
     project: Project;
     trackListElement: TrackListElementLike;
     statusElement?: TextElementLike | null;
+    deleteProjectButton?: ButtonElementLike | null;
     tracksApi: TracksApi;
+    projectsApi?: ProjectsApi;
     renderTrackList: (tracks: Track[]) => string;
+    confirmDeleteProject?: (message: string) => boolean;
+    onProjectDeleted?: () => void;
 };
 
 function getDeleteTrackIdFromTarget(target: EventTarget | null): string | null {
@@ -61,8 +76,12 @@ export function createProjectPlayerPageController({
     project,
     trackListElement,
     statusElement,
+    deleteProjectButton,
     tracksApi,
+    projectsApi,
     renderTrackList,
+    confirmDeleteProject = globalThis.confirm,
+    onProjectDeleted,
 }: ProjectPlayerPageControllerOptions) {
     async function loadTracks(): Promise<void> {
         try {
@@ -94,9 +113,38 @@ export function createProjectPlayerPageController({
         }
     }
 
+    async function handleDeleteProjectClick(): Promise<void> {
+        if (!projectsApi) {
+            return;
+        }
+
+        const confirmed = confirmDeleteProject(
+            "Delete this project and all of its uploaded tracks?",
+        );
+
+        if (!confirmed) {
+            return;
+        }
+
+        try {
+            setStatus(statusElement, "Deleting project...");
+
+            await projectsApi.deleteProject(project.id);
+
+            setStatus(statusElement, "Project deleted.");
+            onProjectDeleted?.();
+        } catch {
+            setStatus(statusElement, "Could not delete project.");
+        }
+    }
+
     async function init(): Promise<void> {
         trackListElement.addEventListener("click", (event) => {
             return handleTrackListClick(event);
+        });
+
+        deleteProjectButton?.addEventListener("click", () => {
+            return handleDeleteProjectClick();
         });
 
         await loadTracks();
