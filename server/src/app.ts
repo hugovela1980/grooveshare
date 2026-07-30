@@ -81,6 +81,16 @@ function isCreateProjectInput(data: unknown): data is CreateProjectInput {
   );
 }
 
+function getProjectRouteId(url: string | undefined): string | null {
+  if (!url) {
+    return null;
+  }
+
+  const match = url.match(/^\/api\/projects\/([^/]+)$/);
+
+  return match?.[1] ?? null;
+}
+
 function getTracksRouteProjectId(url: string | undefined): string | null {
   if (!url) {
     return null;
@@ -346,6 +356,43 @@ export function createAppServer({
     );
   }
 
+  async function handleDeleteProject(
+    res: ServerResponse,
+    projectId: string,
+  ): Promise<void> {
+    const result = await projectsStore.deleteProjectById(projectId);
+
+    if (!result.ok) {
+      sendJson(
+        res,
+        404,
+        {
+          ok: false,
+          error: "Project not found.",
+        },
+        clientOrigin,
+      );
+
+      return;
+    }
+
+    await Promise.all(
+      result.deletedTracks.map((track) => {
+        return deleteUploadedTrackFile(track.filePath);
+      }),
+    );
+
+    sendJson(
+      res,
+      200,
+      {
+        ok: true,
+        data: result.deletedProject,
+      },
+      clientOrigin,
+    );
+  }
+
   async function handleRequest(
     req: IncomingMessage,
     res: ServerResponse,
@@ -395,6 +442,13 @@ export function createAppServer({
 
       if (req.method === "POST" && req.url === "/api/projects") {
         await handleCreateProject(req, res);
+        return;
+      }
+
+      const projectRouteId = getProjectRouteId(req.url);
+
+      if (req.method === "DELETE" && projectRouteId) {
+        await handleDeleteProject(res, projectRouteId);
         return;
       }
 

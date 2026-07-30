@@ -823,4 +823,209 @@ tester.describe("project API routes", () => {
       await closeServer(server);
     }
   });
+
+  tester.it("deletes a project, its linked track metadata, and uploaded audio files", async () => {
+    const { baseUrl, server } = await createTestServer();
+    const boundary = "----GrooveShareBoundary";
+    const fileData = Buffer.from("fake wav data", "utf-8");
+
+    try {
+      const createProjectResponse = await fetch(`${baseUrl}/api/projects`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: "Delete Project Test",
+          description: "Testing project deletion",
+        }),
+      });
+
+      const createProjectBody =
+        (await createProjectResponse.json()) as ApiResponse<Project>;
+
+      const project = createProjectBody.data;
+
+      if (!project) {
+        throw new Error("Created project was missing from response.");
+      }
+
+      const multipartBody = createMultipartBody({
+        boundary,
+        parts: [
+          createTextPart({
+            boundary,
+            name: "trackName",
+            value: "Guitar",
+          }),
+          createFilePart({
+            boundary,
+            fieldName: "audioFile",
+            filename: "guitar-riff.wav",
+            mimeType: "audio/wav",
+            data: fileData,
+          }),
+        ],
+      });
+
+      const uploadResponse = await fetch(
+        `${baseUrl}/api/projects/${project.id}/tracks`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": `multipart/form-data; boundary=${boundary}`,
+          },
+          body: bufferToArrayBuffer(multipartBody),
+        },
+      );
+
+      const uploadBody = (await uploadResponse.json()) as ApiResponse<Track>;
+      const uploadedTrack = uploadBody.data;
+
+      if (!uploadedTrack) {
+        throw new Error("Uploaded track was missing from response.");
+      }
+
+      const absoluteUploadedFilePath = path.resolve(
+        process.cwd(),
+        uploadedTrack.filePath,
+      );
+
+      tester.expect(await fileExists(absoluteUploadedFilePath)).toBe(true);
+
+      const deleteResponse = await fetch(
+        `${baseUrl}/api/projects/${project.id}`,
+        {
+          method: "DELETE",
+        },
+      );
+
+      const deleteBody = (await deleteResponse.json()) as ApiResponse<Project>;
+
+      tester.expect(deleteResponse.status).toBe(200);
+      tester.expect(deleteBody.ok).toBe(true);
+      tester.expect(deleteBody.data).toEqual(project);
+
+      const database = await readTestDatabase();
+
+      tester.expect(database.projects).toEqual([]);
+      tester.expect(database.tracks).toEqual([]);
+      tester.expect(await fileExists(absoluteUploadedFilePath)).toBe(false);
+    } finally {
+      await closeServer(server);
+    }
+  });
+
+  tester.it("returns 404 when deleting a missing project", async () => {
+    const { baseUrl, server } = await createTestServer();
+
+    try {
+      const response = await fetch(`${baseUrl}/api/projects/not-real`, {
+        method: "DELETE",
+      });
+
+      const body = (await response.json()) as ApiResponse<unknown>;
+
+      tester.expect(response.status).toBe(404);
+      tester.expect(body.ok).toBe(false);
+      tester.expect(body.error).toBe("Project not found.");
+    } finally {
+      await closeServer(server);
+    }
+  });
+
+  tester.it("does not delete other projects, tracks, or uploaded files", async () => {
+    const { baseUrl, server } = await createTestServer();
+    const boundary = "----GrooveShareBoundary";
+    const fileData = Buffer.from("fake wav data", "utf-8");
+
+    try {
+      async function createProject(title: string): Promise<Project> {
+        const response = await fetch(`${baseUrl}/api/projects`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            title,
+            description: "Testing project deletion isolation",
+          }),
+        });
+
+        const body = (await response.json()) as ApiResponse<Project>;
+
+        if (!body.data) {
+          throw new Error("Created project was missing from response.");
+        }
+
+        return body.data;
+      }
+
+      async function uploadTrack(projectId: string, filename: string): Promise<Track> {
+        const multipartBody = createMultipartBody({
+          boundary,
+          parts: [
+            createTextPart({
+              boundary,
+              name: "trackName",
+              value: filename,
+            }),
+            createFilePart({
+              boundary,
+              fieldName: "audioFile",
+              filename,
+              mimeType: "audio/wav",
+              data: fileData,
+            }),
+          ],
+        });
+
+        const response = await fetch(`${baseUrl}/api/projects/${projectId}/tracks`, {
+          method: "POST",
+          headers: {
+            "Content-Type": `multipart/form-data; boundary=${boundary}`,
+          },
+          body: bufferToArrayBuffer(multipartBody),
+        });
+
+        const body = (await response.json()) as ApiResponse<Track>;
+
+        if (!body.data) {
+          throw new Error("Uploaded track was missing from response.");
+        }
+
+        return body.data;
+      }
+
+      const projectToDelete = await createProject("Project to Delete");
+      const projectToKeep = await createProject("Project to Keep");
+
+      const trackToDelete = await uploadTrack(projectToDelete.id, "delete-me.wav");
+      const trackToKeep = await uploadTrack(projectToKeep.id, "keep-me.wav");
+
+      const deletedFilePath = path.resolve(process.cwd(), trackToDelete.filePath);
+      const keptFilePath = path.resolve(process.cwd(), trackToKeep.filePath);
+
+      tester.expect(await fileExists(deletedFilePath)).toBe(true);
+      tester.expect(await fileExists(keptFilePath)).toBe(true);
+
+      const deleteResponse = await fetch(
+        `${baseUrl}/api/projects/${projectToDelete.id}`,
+        {
+          method: "DELETE",
+        },
+      );
+
+      tester.expect(deleteResponse.status).toBe(200);
+
+      const database = await readTestDatabase();
+
+      tester.expect(database.projects).toEqual([projectToKeep]);
+      tester.expect(database.tracks).toEqual([trackToKeep]);
+      tester.expect(await fileExists(deletedFilePath)).toBe(false);
+      tester.expect(await fileExists(keptFilePath)).toBe(true);
+    } finally {
+      await closeServer(server);
+    }
+  });
 });
