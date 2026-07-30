@@ -37,7 +37,16 @@ export async function createProject(
   return parseApiResponse<Project>(response);
 }
 
+export async function deleteProject(projectId: string): Promise<Project> {
+  const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}`, {
+    method: "DELETE",
+  });
+
+  return parseApiResponse<Project>(response);
+}
+
 export const projectsApi = {
   getProjects,
   createProject,
+  deleteProject,
 };
