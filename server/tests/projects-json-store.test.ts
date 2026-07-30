@@ -1,11 +1,45 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { createProjectsJsonStore } from "../src/stores/projects-json-store.js";
-import type { Database } from "../src/types.js";
+import type { Database, Project, Track } from "../src/types.js";
 import { tester } from "./test-runner/tester.js";
 
 const TEST_DB_DIR = path.join(process.cwd(), "tests/.tmp");
 const TEST_DB_FILE_PATH = path.join(TEST_DB_DIR, "db.json");
+
+async function writeTestDatabase(database: Database): Promise<void> {
+  await mkdir(TEST_DB_DIR, { recursive: true });
+
+  await writeFile(
+    TEST_DB_FILE_PATH,
+    `${JSON.stringify(database, null, 2)}\n`,
+    "utf-8",
+  );
+}
+
+function createTestProject(id = "project-1"): Project {
+  return {
+    id,
+    title: `Project ${id}`,
+    description: "Test project",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+  };
+}
+
+function createTestTrack(overrides: Partial<Track> = {}): Track {
+  return {
+    id: "track-1",
+    projectId: "project-1",
+    name: "Guitar",
+    originalFilename: "guitar.wav",
+    filePath: "uploads/projects/project-1/track-1-guitar.wav",
+    mimeType: "audio/wav",
+    fileSize: 100,
+    createdAt: "2026-01-01T00:00:00.000Z",
+    ...overrides,
+  };
+}
 
 async function resetTestDatabase(): Promise<void> {
   const emptyDatabase: Database = {
@@ -100,6 +134,114 @@ tester.describe("projects JSON store", () => {
 
     const database = await readTestDatabase();
 
+    tester.expect(database.tracks).toEqual([]);
+  });
+
+  tester.it("deletes a project and its linked track metadata", async () => {
+    const projectToDelete = createTestProject("project-1");
+    const projectToKeep = createTestProject("project-2");
+
+    const linkedTrack = createTestTrack({
+      id: "track-1",
+      projectId: "project-1",
+    });
+
+    const otherProjectTrack = createTestTrack({
+      id: "track-2",
+      projectId: "project-2",
+      name: "Bass",
+      originalFilename: "bass.wav",
+      filePath: "uploads/projects/project-2/track-2-bass.wav",
+    });
+
+    await writeTestDatabase({
+      projects: [projectToDelete, projectToKeep],
+      tracks: [linkedTrack, otherProjectTrack],
+    });
+
+    const store = createProjectsJsonStore(TEST_DB_FILE_PATH);
+
+    const result = await store.deleteProjectById("project-1");
+
+    tester.expect(result.ok).toBe(true);
+
+    if (!result.ok) {
+      throw new Error("Expected project deletion to succeed.");
+    }
+
+    tester.expect(result.deletedProject).toEqual(projectToDelete);
+    tester.expect(result.deletedTracks).toEqual([linkedTrack]);
+
+    const database = await readTestDatabase();
+
+    tester.expect(database.projects).toEqual([projectToKeep]);
+    tester.expect(database.tracks).toEqual([otherProjectTrack]);
+  });
+
+  tester.it("does not delete anything when the project does not exist", async () => {
+    const existingProject = createTestProject("project-1");
+    const existingTrack = createTestTrack({
+      id: "track-1",
+      projectId: "project-1",
+    });
+
+    await writeTestDatabase({
+      projects: [existingProject],
+      tracks: [existingTrack],
+    });
+
+    const store = createProjectsJsonStore(TEST_DB_FILE_PATH);
+
+    const result = await store.deleteProjectById("missing-project");
+
+    tester.expect(result).toEqual({
+      ok: false,
+      reason: "project-not-found",
+    });
+
+    const database = await readTestDatabase();
+
+    tester.expect(database.projects).toEqual([existingProject]);
+    tester.expect(database.tracks).toEqual([existingTrack]);
+  });
+
+  tester.it("returns all deleted tracks linked to the deleted project", async () => {
+    const projectToDelete = createTestProject("project-1");
+
+    const guitarTrack = createTestTrack({
+      id: "track-1",
+      projectId: "project-1",
+      name: "Guitar",
+    });
+
+    const drumTrack = createTestTrack({
+      id: "track-2",
+      projectId: "project-1",
+      name: "Drums",
+      originalFilename: "drums.wav",
+      filePath: "uploads/projects/project-1/track-2-drums.wav",
+    });
+
+    await writeTestDatabase({
+      projects: [projectToDelete],
+      tracks: [guitarTrack, drumTrack],
+    });
+
+    const store = createProjectsJsonStore(TEST_DB_FILE_PATH);
+
+    const result = await store.deleteProjectById("project-1");
+
+    tester.expect(result.ok).toBe(true);
+
+    if (!result.ok) {
+      throw new Error("Expected project deletion to succeed.");
+    }
+
+    tester.expect(result.deletedTracks).toEqual([guitarTrack, drumTrack]);
+
+    const database = await readTestDatabase();
+
+    tester.expect(database.projects).toEqual([]);
     tester.expect(database.tracks).toEqual([]);
   });
 });

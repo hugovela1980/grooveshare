@@ -28,6 +28,13 @@ export function renderProjectPlayerPage(project: Project | null = null): string 
     <main class="app-shell project-player-page" data-page="project-player">
       <header class="page-header project-player-header">
         <button id="player-back-button" type="button">Back</button>
+        <button
+          id="delete-project-button"
+          class="button button--danger"
+          type="button"
+        >
+          Delete Project
+      </button>
 
         <div>
           <p class="eyebrow">Project Player</p>
@@ -49,6 +56,11 @@ export function renderProjectPlayerPage(project: Project | null = null): string 
       <section class="panel project-player-tracks-panel">
         <h2>Tracks</h2>
         <div id="player-track-list"></div>
+        <p
+          id="project-player-status"
+          class="status-message"
+          aria-live="polite"
+      ></p>
       </section>
     </main>
   `;

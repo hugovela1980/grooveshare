@@ -41,7 +41,22 @@ export async function uploadTrack({
     return parseApiResponse<Track>(response);
 }
 
+export async function deleteTrack(
+    projectId: string,
+    trackId: string,
+): Promise<Track> {
+    const response = await fetch(
+        `${API_BASE_URL}/api/projects/${projectId}/tracks/${trackId}`,
+        {
+            method: "DELETE",
+        },
+    );
+
+    return parseApiResponse<Track>(response);
+}
+
 export const tracksApi = {
     getTracksByProjectId,
     uploadTrack,
+    deleteTrack,
 };

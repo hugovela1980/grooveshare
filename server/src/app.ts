@@ -1,6 +1,7 @@
-import { writeFile } from "node:fs/promises";
+import { rm, rmdir, writeFile } from "node:fs/promises";
 import http, { type IncomingMessage, type ServerResponse } from "node:http";
 import path from "node:path";
+import { handleDevResetRoute } from "./dev/dev-reset-route.js";
 import type { ProjectsStore } from "./stores/projects-json-store.js";
 import type { TracksStore } from "./stores/tracks-json-store.js";
 import type { CreateProjectInput } from "./types.js";
@@ -8,6 +9,7 @@ import { parseMultipartFormData } from "./uploads/multipart-form-data.js";
 import {
   DEFAULT_UPLOAD_ROOT,
   ensureProjectUploadDir,
+  getProjectUploadDir,
 } from "./uploads/upload-paths.js";
 import {
   DEFAULT_MAX_AUDIO_FILE_SIZE_BYTES,
@@ -35,7 +37,7 @@ function sendJson(
   res.writeHead(statusCode, {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": clientOrigin,
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
   });
 
@@ -62,6 +64,7 @@ async function readRequestBuffer(req: IncomingMessage): Promise<Buffer> {
 
 async function readRequestBody(req: IncomingMessage): Promise<string> {
   const body = await readRequestBuffer(req);
+
   return body.toString("utf-8");
 }
 
@@ -79,13 +82,43 @@ function isCreateProjectInput(data: unknown): data is CreateProjectInput {
   );
 }
 
+function getProjectRouteId(url: string | undefined): string | null {
+  if (!url) {
+    return null;
+  }
+
+  const match = url.match(/^\/api\/projects\/([^/]+)$/);
+
+  return match?.[1] ?? null;
+}
+
 function getTracksRouteProjectId(url: string | undefined): string | null {
   if (!url) {
     return null;
   }
 
   const match = url.match(/^\/api\/projects\/([^/]+)\/tracks$/);
+
   return match?.[1] ?? null;
+}
+
+function getTrackRouteParams(
+  url: string | undefined,
+): { projectId: string; trackId: string } | null {
+  if (!url) {
+    return null;
+  }
+
+  const match = url.match(/^\/api\/projects\/([^/]+)\/tracks\/([^/]+)$/);
+
+  if (!match) {
+    return null;
+  }
+
+  return {
+    projectId: match[1],
+    trackId: match[2],
+  };
 }
 
 function sanitizeFilename(filename: string): string {
@@ -201,6 +234,7 @@ export function createAppServer({
     }
 
     const trackName = parsedForm.fields.trackName?.trim() || audioFile.filename;
+
     const uploadDir = await ensureProjectUploadDir({
       uploadRoot,
       projectId,
@@ -267,6 +301,134 @@ export function createAppServer({
     );
   }
 
+  async function deleteUploadedTrackFile(filePath: string): Promise<void> {
+    const absoluteFilePath = path.isAbsolute(filePath)
+      ? filePath
+      : path.resolve(process.cwd(), filePath);
+
+    await rm(absoluteFilePath, {
+      force: true,
+    });
+  }
+
+  async function deleteProjectUploadDirIfEmpty(projectId: string): Promise<void> {
+    const projectUploadDir = getProjectUploadDir({
+      uploadRoot,
+      projectId,
+    });
+
+    try {
+      await rmdir(projectUploadDir);
+    } catch (error) {
+      const fileSystemError = error as NodeJS.ErrnoException;
+
+      if (
+        fileSystemError.code === "ENOENT" ||
+        fileSystemError.code === "ENOTEMPTY"
+      ) {
+        return;
+      }
+
+      throw error;
+    }
+  }
+
+  async function handleDeleteTrack(
+    res: ServerResponse,
+    projectId: string,
+    trackId: string,
+  ): Promise<void> {
+    const result = await tracksStore.deleteTrackById(projectId, trackId);
+
+    if (!result.ok) {
+      if (result.reason === "project-not-found") {
+        sendJson(
+          res,
+          404,
+          {
+            ok: false,
+            error: "Project not found.",
+          },
+          clientOrigin,
+        );
+
+        return;
+      }
+
+      sendJson(
+        res,
+        404,
+        {
+          ok: false,
+          error: "Track not found.",
+        },
+        clientOrigin,
+      );
+
+      return;
+    }
+
+    await deleteUploadedTrackFile(result.deletedTrack.filePath);
+    await deleteProjectUploadDirIfEmpty(projectId);
+
+    sendJson(
+      res,
+      200,
+      {
+        ok: true,
+        data: result.deletedTrack,
+      },
+      clientOrigin,
+    );
+  }
+
+  async function handleDeleteProject(
+    res: ServerResponse,
+    projectId: string,
+  ): Promise<void> {
+    const result = await projectsStore.deleteProjectById(projectId);
+
+    if (!result.ok) {
+      sendJson(
+        res,
+        404,
+        {
+          ok: false,
+          error: "Project not found.",
+        },
+        clientOrigin,
+      );
+
+      return;
+    }
+
+    await Promise.all(
+      result.deletedTracks.map((track) => {
+        return deleteUploadedTrackFile(track.filePath);
+      }),
+    );
+
+    const projectUploadDir = getProjectUploadDir({
+      uploadRoot,
+      projectId,
+    });
+
+    await rm(projectUploadDir, {
+      recursive: true,
+      force: true,
+    });
+
+    sendJson(
+      res,
+      200,
+      {
+        ok: true,
+        data: result.deletedProject,
+      },
+      clientOrigin,
+    );
+  }
+
   async function handleRequest(
     req: IncomingMessage,
     res: ServerResponse,
@@ -275,7 +437,7 @@ export function createAppServer({
       if (req.method === "OPTIONS") {
         res.writeHead(204, {
           "Access-Control-Allow-Origin": clientOrigin,
-          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+          "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
           "Access-Control-Allow-Headers": "Content-Type",
         });
 
@@ -319,6 +481,13 @@ export function createAppServer({
         return;
       }
 
+      const projectRouteId = getProjectRouteId(req.url);
+
+      if (req.method === "DELETE" && projectRouteId) {
+        await handleDeleteProject(res, projectRouteId);
+        return;
+      }
+
       const tracksRouteProjectId = getTracksRouteProjectId(req.url);
 
       if (req.method === "POST" && tracksRouteProjectId) {
@@ -328,6 +497,29 @@ export function createAppServer({
 
       if (req.method === "GET" && tracksRouteProjectId) {
         await handleGetProjectTracks(res, tracksRouteProjectId);
+        return;
+      }
+
+      const trackRouteParams = getTrackRouteParams(req.url);
+
+      if (req.method === "DELETE" && trackRouteParams) {
+        await handleDeleteTrack(
+          res,
+          trackRouteParams.projectId,
+          trackRouteParams.trackId,
+        );
+
+        return;
+      }
+
+      if (req.method === "DELETE" && req.url === "/api/dev/reset") {
+        await handleDevResetRoute({
+          res,
+          sendJson,
+          clientOrigin,
+          uploadRoot,
+        });
+
         return;
       }
 

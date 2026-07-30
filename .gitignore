@@ -34,3 +34,5 @@ server/tests/.tmp/
 
 # Local uploaded files
 server/uploads/
+
+backlog.md
