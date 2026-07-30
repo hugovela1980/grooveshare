@@ -1,4 +1,12 @@
 {
-  "projects": [],
+  "projects": [
+    {
+      "id": "b6cd3913-26e1-4749-9258-1719f6d0131f",
+      "title": "Dev Test Project",
+      "description": "Temporary project created from the dev toolbar.",
+      "createdAt": "2026-07-30T14:40:23.809Z",
+      "updatedAt": "2026-07-30T14:40:23.809Z"
+    }
+  ],
   "tracks": []
 }

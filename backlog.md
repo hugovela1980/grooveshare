@@ -34,21 +34,21 @@
   - Return a clear success or error result from the frontend API helper.
   - Add tests for the `deleteTrack` API helper if it fits the current frontend test structure.
 
-- [ ] Add track delete UI to the Project Player page.
+- [x] Add track delete UI to the Project Player page.
 
   - Add a Delete button to each track shown in the Project Player track list.
   - Wire each Delete button to the reusable `deleteTrack(projectId, trackId)` API helper.
   - Keep the delete behavior in the Project Player controller rather than inside the track list template.
   - Show a simple error message if deletion fails.
 
-- [ ] Refresh the Project Player after track deletion.
+- [x] Refresh the Project Player after track deletion.
 
   - Reload the selected project’s track list after a successful delete.
   - Confirm the deleted track disappears from the Project Player.
   - Confirm the deleted track is removed from `server/data/db.json`.
   - Confirm the uploaded audio file is removed from `server/uploads/`.
 
-- [ ] Preserve future reuse path for deleting tracks from other screens.
+- [x] Preserve future reuse path for deleting tracks from other screens.
 
   - Keep the backend delete helper reusable.
   - Keep the frontend `deleteTrack(projectId, trackId)` API helper reusable.
