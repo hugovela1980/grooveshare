@@ -19,11 +19,13 @@ tester.describe("project list template", () => {
         tester.expect(html.includes("No projects yet.")).toBe(true);
     });
 
-    tester.it("renders project buttons with project ids", () => {
+    tester.it("renders project buttons and delete buttons with project ids", () => {
         const html = renderProjectList([createProject()]);
 
         tester.expect(html.includes("Bass Groove")).toBe(true);
         tester.expect(html.includes("Practice loop")).toBe(true);
         tester.expect(html.includes('data-project-id="project-1"')).toBe(true);
+        tester.expect(html.includes("Delete")).toBe(true);
+        tester.expect(html.includes("data-project-delete-button")).toBe(true);
     });
 });

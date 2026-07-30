@@ -12,6 +12,12 @@ export function renderProjectMenuPage(): string {
             </h2>
 
             <div id="project-list" class="project-menu-panel__list"></div>
+
+            <p
+                id="project-menu-status"
+                class="status-message"
+                aria-live="polite"
+            ></p>
         </section>
 
         <div class="project-menu-actions">
