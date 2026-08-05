@@ -1,12 +1,23 @@
 {
   "projects": [
     {
-      "id": "83d36a41-7f21-4487-b7da-9aa7dc1e208d",
+      "id": "5e3f0e13-a457-496b-afd8-659fa45170ef",
       "title": "asdf",
       "description": "asdf",
-      "createdAt": "2026-07-30T19:04:28.394Z",
-      "updatedAt": "2026-07-30T19:04:28.394Z"
+      "createdAt": "2026-08-05T18:18:45.377Z",
+      "updatedAt": "2026-08-05T18:18:45.377Z"
     }
   ],
-  "tracks": []
+  "tracks": [
+    {
+      "id": "bc5a317c-7968-42bd-abba-db81a21edddb",
+      "projectId": "5e3f0e13-a457-496b-afd8-659fa45170ef",
+      "name": "asdf",
+      "originalFilename": "2 Rhythm Guitar 0012 [2025-04-07 233058].wav",
+      "filePath": "uploads\\projects\\5e3f0e13-a457-496b-afd8-659fa45170ef\\b5101ab5-6676-4c50-a4b3-01479dc23ec8-2-Rhythm-Guitar-0012--2025-04-07-233058-.wav",
+      "mimeType": "audio/wav",
+      "fileSize": 15311660,
+      "createdAt": "2026-08-05T18:18:45.500Z"
+    }
+  ]
 }
