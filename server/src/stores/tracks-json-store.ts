@@ -22,6 +22,7 @@ export type TracksStore = {
     projectId: string,
     trackId: string,
   ) => Promise<DeleteTrackResult>;
+  getTrackById: (projectId: string, trackId: string) => Promise<Track | null>;
 };
 
 export function createTracksJsonStore(
@@ -97,8 +98,22 @@ export function createTracksJsonStore(
     };
   }
 
+  async function getTrackById(
+    projectId: string,
+    trackId: string,
+  ): Promise<Track | null> {
+    const database = await readDatabase(dbFilePath);
+
+    const track = database.tracks.find((track) => {
+      return track.projectId === projectId && track.id === trackId;
+    });
+
+    return track ?? null;
+  }
+
   return {
     getTracksByProjectId,
+    getTrackById,
     createTrack,
     deleteTrackById,
   };
@@ -107,5 +122,6 @@ export function createTracksJsonStore(
 export const tracksJsonStore = createTracksJsonStore();
 
 export const getTracksByProjectId = tracksJsonStore.getTracksByProjectId;
+export const getTrackById = tracksJsonStore.getTrackById;
 export const createTrack = tracksJsonStore.createTrack;
 export const deleteTrackById = tracksJsonStore.deleteTrackById;

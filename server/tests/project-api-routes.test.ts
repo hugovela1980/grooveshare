@@ -671,6 +671,120 @@ tester.describe("project API routes", () => {
     }
   });
 
+  tester.it("serves an uploaded audio file for a track", async () => {
+    const { baseUrl, server } = await createTestServer();
+    const boundary = "----GrooveShareBoundary";
+    const fileData = Buffer.from("fake wav data", "utf-8");
+
+    try {
+      const createProjectResponse = await fetch(`${baseUrl}/api/projects`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: "Audio Route Test",
+          description: "Testing audio file serving",
+        }),
+      });
+
+      const createProjectBody =
+        (await createProjectResponse.json()) as ApiResponse<Project>;
+
+      const projectId = createProjectBody.data?.id;
+
+      if (!projectId) {
+        throw new Error("Created project did not include an ID.");
+      }
+
+      const multipartBody = createMultipartBody({
+        boundary,
+        parts: [
+          createTextPart({
+            boundary,
+            name: "trackName",
+            value: "Guitar",
+          }),
+          createFilePart({
+            boundary,
+            fieldName: "audioFile",
+            filename: "guitar-riff.wav",
+            mimeType: "audio/wav",
+            data: fileData,
+          }),
+        ],
+      });
+
+      const uploadResponse = await fetch(
+        `${baseUrl}/api/projects/${projectId}/tracks`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": `multipart/form-data; boundary=${boundary}`,
+          },
+          body: bufferToArrayBuffer(multipartBody),
+        },
+      );
+
+      const uploadBody = (await uploadResponse.json()) as ApiResponse<Track>;
+      const uploadedTrack = uploadBody.data;
+
+      if (!uploadedTrack) {
+        throw new Error("Uploaded track was missing from response.");
+      }
+
+      const audioResponse = await fetch(
+        `${baseUrl}/api/projects/${projectId}/tracks/${uploadedTrack.id}/audio`,
+      );
+
+      const audioBody = Buffer.from(await audioResponse.arrayBuffer());
+
+      tester.expect(audioResponse.status).toBe(200);
+      tester.expect(audioResponse.headers.get("Content-Type")).toBe("audio/wav");
+      tester.expect(audioBody.toString("utf-8")).toBe(fileData.toString("utf-8"));
+    } finally {
+      await closeServer(server);
+    }
+  });
+
+  tester.it("returns 404 when serving audio for a missing track", async () => {
+    const { baseUrl, server } = await createTestServer();
+
+    try {
+      const createProjectResponse = await fetch(`${baseUrl}/api/projects`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: "Missing Audio Track Test",
+          description: "Testing missing audio route",
+        }),
+      });
+
+      const createProjectBody =
+        (await createProjectResponse.json()) as ApiResponse<Project>;
+
+      const projectId = createProjectBody.data?.id;
+
+      if (!projectId) {
+        throw new Error("Created project did not include an ID.");
+      }
+
+      const response = await fetch(
+        `${baseUrl}/api/projects/${projectId}/tracks/missing-track/audio`,
+      );
+
+      const body = (await response.json()) as ApiResponse<unknown>;
+
+      tester.expect(response.status).toBe(404);
+      tester.expect(body.ok).toBe(false);
+      tester.expect(body.error).toBe("Track not found.");
+    } finally {
+      await closeServer(server);
+    }
+  });
+
   tester.it("deletes a track and its uploaded audio file", async () => {
     const { baseUrl, server } = await createTestServer();
     const boundary = "----GrooveShareBoundary";

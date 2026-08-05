@@ -1,4 +1,4 @@
-import { rm, rmdir, writeFile } from "node:fs/promises";
+import { readFile, rm, rmdir, writeFile } from "node:fs/promises";
 import http, { type IncomingMessage, type ServerResponse } from "node:http";
 import path from "node:path";
 import { handleDevResetRoute } from "./dev/dev-reset-route.js";
@@ -110,6 +110,27 @@ function getTrackRouteParams(
   }
 
   const match = url.match(/^\/api\/projects\/([^/]+)\/tracks\/([^/]+)$/);
+
+  if (!match) {
+    return null;
+  }
+
+  return {
+    projectId: match[1],
+    trackId: match[2],
+  };
+}
+
+function getTrackAudioRouteParams(
+  url: string | undefined,
+): { projectId: string; trackId: string } | null {
+  if (!url) {
+    return null;
+  }
+
+  const match = url.match(
+    /^\/api\/projects\/([^/]+)\/tracks\/([^/]+)\/audio$/,
+  );
 
   if (!match) {
     return null;
@@ -301,6 +322,58 @@ export function createAppServer({
     );
   }
 
+  async function handleGetTrackAudio(
+    res: ServerResponse,
+    projectId: string,
+    trackId: string,
+  ): Promise<void> {
+    const project = await projectsStore.getProjectById(projectId);
+
+    if (!project) {
+      sendJson(
+        res,
+        404,
+        {
+          ok: false,
+          error: "Project not found.",
+        },
+        clientOrigin,
+      );
+
+      return;
+    }
+
+    const track = await tracksStore.getTrackById(projectId, trackId);
+
+    if (!track) {
+      sendJson(
+        res,
+        404,
+        {
+          ok: false,
+          error: "Track not found.",
+        },
+        clientOrigin,
+      );
+
+      return;
+    }
+
+    const absoluteFilePath = path.isAbsolute(track.filePath)
+      ? track.filePath
+      : path.resolve(process.cwd(), track.filePath);
+
+    const audioFile = await readFile(absoluteFilePath);
+
+    res.writeHead(200, {
+      "Content-Type": track.mimeType,
+      "Content-Length": audioFile.length,
+      "Access-Control-Allow-Origin": clientOrigin,
+    });
+
+    res.end(audioFile);
+  }
+
   async function deleteUploadedTrackFile(filePath: string): Promise<void> {
     const absoluteFilePath = path.isAbsolute(filePath)
       ? filePath
@@ -485,6 +558,18 @@ export function createAppServer({
 
       if (req.method === "DELETE" && projectRouteId) {
         await handleDeleteProject(res, projectRouteId);
+        return;
+      }
+
+      const trackAudioRouteParams = getTrackAudioRouteParams(req.url);
+
+      if (req.method === "GET" && trackAudioRouteParams) {
+        await handleGetTrackAudio(
+          res,
+          trackAudioRouteParams.projectId,
+          trackAudioRouteParams.trackId,
+        );
+
         return;
       }
 

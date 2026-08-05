@@ -292,4 +292,29 @@ tester.describe("tracks JSON store", () => {
 
     tester.expect(database.tracks).toEqual([projectTwoTrack]);
   });
+
+  tester.it("returns a track by project ID and track ID", async () => {
+    const store = createTracksJsonStore(TEST_DB_FILE_PATH);
+
+    const createdTrack = await store.createTrack({
+      projectId: "project-1",
+      name: "Guitar",
+      originalFilename: "guitar.wav",
+      filePath: "server/uploads/projects/project-1/guitar.wav",
+      mimeType: "audio/wav",
+      fileSize: 123,
+    });
+
+    const foundTrack = await store.getTrackById("project-1", createdTrack.id);
+
+    tester.expect(foundTrack).toEqual(createdTrack);
+  });
+
+  tester.it("returns null when a track cannot be found by project ID and track ID", async () => {
+    const store = createTracksJsonStore(TEST_DB_FILE_PATH);
+
+    const foundTrack = await store.getTrackById("project-1", "missing-track");
+
+    tester.expect(foundTrack).toBe(null);
+  });
 });

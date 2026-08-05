@@ -8,7 +8,20 @@
 
 ## Current Focus
 
+- [x] Serve uploaded audio files
+  Add a backend route that returns the audio file for a track.
 
+- [ ] Add single audio player template
+  Add a simple player area with play, pause/stop, progress, and timestamp.
+
+- [ ] Add single audio player controller
+  Reuse the media-control ideas from your old video player: play/pause, stop, progress update, seek, and time formatting.
+
+- [ ] Add track load/play behavior
+  Add a button to each track in the Project Player that loads that track into the audio player.
+
+- [ ] Manually test one-track playback
+  Upload a track, open the Project Player, load the track, play it, pause it, stop it, and seek through it.
 
 ## Backlog
 
