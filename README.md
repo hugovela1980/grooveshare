@@ -130,7 +130,7 @@ Project Menu
 → Project Player
 ```
 
-The user can create a project, include a track during the project creation flow, confirm the project, and then view the project in the Project Player.
+The user can create a project, include a track during the project creation flow, confirm the project, and then view the project in the Project Player. The app also supports deleting individual tracks and deleting entire projects with their linked track metadata and uploaded files.
 
 ## Project Structure
 
@@ -139,6 +139,7 @@ grooveshare/
   client/
     src/
       api/
+      dev/
       page-controllers/
       pages/
       project-draft/
@@ -154,6 +155,7 @@ grooveshare/
     data/
       db.json
     src/
+      dev/
       stores/
       uploads/
       app.ts
@@ -161,6 +163,9 @@ grooveshare/
       types.ts
     tests/
 
+  docs/
+    architecture.md
+  backlog.md
   docker-compose.yml
   README.md
 ```
@@ -170,6 +175,18 @@ grooveshare/
 The frontend uses Vite, TypeScript, and browser DOM APIs.
 
 The frontend is organized around separated responsibilities:
+
+```txt
+api/
+```
+
+Contains reusable functions for calling the backend API.
+
+```txt
+dev/
+```
+
+Contains local-only development helpers, such as the development toolbar.
 
 ```txt
 main.ts
@@ -202,6 +219,12 @@ project-draft/
 Stores temporary project details and selected tracks before the project is submitted.
 
 ```txt
+router/
+```
+
+Controls which screen is currently shown in the browser app.
+
+```txt
 templates/
 ```
 
@@ -217,8 +240,12 @@ It currently handles:
 * Reading projects
 * Uploading tracks
 * Reading track metadata
+* Deleting individual tracks
+* Deleting projects and linked tracks
+* Cleaning up uploaded audio files and empty project upload folders
 * Saving metadata to a local JSON file
 * Saving uploaded audio files locally
+* Supporting local development reset tools
 
 ## Local Data Storage
 
@@ -234,17 +261,20 @@ Uploaded audio files are stored in:
 server/uploads/
 ```
 
-The `server/uploads/` folder is ignored by Git because it contains runtime upload files.
+The `server/uploads/` folder is ignored by Git because it contains runtime upload files. When tracks or projects are deleted, the backend also cleans up the related uploaded files and removes empty project upload folders.
 
 ## Current API Routes
 
 ```txt
-GET  /api/health
-GET  /api/projects
-POST /api/projects
-GET  /api/projects/:projectId
-POST /api/projects/:projectId/tracks
-GET  /api/projects/:projectId/tracks
+GET    /api/health
+GET    /api/projects
+POST   /api/projects
+GET    /api/projects/:projectId
+DELETE /api/projects/:projectId
+POST   /api/projects/:projectId/tracks
+GET    /api/projects/:projectId/tracks
+DELETE /api/projects/:projectId/tracks/:trackId
+DELETE /api/dev/reset
 ```
 
 ## Testing
@@ -267,26 +297,28 @@ npm run typecheck
 
 ## Current Development Focus
 
-The current focus is tidying the frontend so the project is easier for collaborators to understand and work on.
+The current focus is moving from project and track management toward browser audio playback.
 
 Recent work has focused on:
 
-* Separating pages from controllers
+* Separating pages from page controllers
 * Adding a simple client-side router
 * Moving project creation into a draft flow
 * Moving track selection into the Create Project flow
 * Keeping Project Player focused on displaying the selected project and its tracks
+* Adding delete flows for individual tracks and entire projects
+* Cleaning up uploaded audio files and empty upload folders after deletions
+* Removing unused legacy frontend controller code and an unused backend utils folder
 
 ## Next Planned Work
 
 Likely next steps:
 
-* Finish polishing the page layouts
 * Serve uploaded audio files from the backend
 * Add a real audio player placeholder implementation
 * Load one uploaded track into an audio element
 * Add basic playback controls
-* Later, add delete actions for tracks and projects
+* Build toward multitrack playback from a shared start point
 
 ## Long-Term Goals
 

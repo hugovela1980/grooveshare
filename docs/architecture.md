@@ -47,6 +47,8 @@ Phase 1 includes:
 * Project metadata
 * Local audio file upload
 * Track metadata
+* Project and track deletion
+* Uploaded file and empty folder cleanup
 * Serving uploaded audio files
 * Single-track playback
 * Multitrack playback
@@ -106,6 +108,7 @@ grooveshare/
   server/
   docs/
   backlog.md
+  docker-compose.yml
   README.md
 ```
 
@@ -130,9 +133,10 @@ The frontend is responsible for:
 * Displaying project data returned from the backend
 * Displaying readable loading/error/status messages
 * Managing project creation UI
-* Managing project creation UI
 * Managing track upload UI
 * Displaying uploaded track metadata
+* Deleting individual tracks and projects through backend API calls
+* Showing confirmation, success, and error messages for destructive actions
 * Eventually managing browser audio playback
 * Eventually managing microphone recording through browser APIs
 
@@ -140,22 +144,31 @@ Current frontend direction:
 
 ```txt
 client/src/
+  api/
+  dev/
+  page-controllers/
+  pages/
+  project-draft/
+  router/
+  templates/
+  app.ts
   main.ts
   style.css
   types.ts
-  api/
-  controllers/
-  templates/
 ```
 
 The frontend is organized around small modules:
 
 * `api/` contains functions that communicate with the backend.
-* `controllers/` contains UI behavior that can be tested with fake DOM helpers.
-* `templates/` contains functions that return markup strings.
+* `dev/` contains local-only development helpers, such as the development toolbar.
+* `page-controllers/` contains page-specific behavior that can be tested with fake DOM helpers.
+* `pages/` contains page-level markup for the main app screens.
+* `project-draft/` contains temporary state for the multi-step project creation flow.
+* `router/` controls which app screen is currently shown.
+* `templates/` contains smaller reusable markup helpers.
 * `types.ts` contains shared frontend types.
 
-Markup may be created from TypeScript template strings. To keep the app organized as it grows, larger markup sections should live in focused template modules rather than being placed directly in `main.ts`.
+Markup may be created from TypeScript template strings. To keep the app organized as it grows, page-level markup should live in `pages/`, repeated markup should live in `templates/`, and page behavior should live in `page-controllers/` rather than being placed directly in `main.ts`.
 
 ## Backend Architecture
 
@@ -169,9 +182,12 @@ The backend is responsible for:
 * Receiving local audio uploads
 * Saving uploaded files to project-specific local folders
 * Creating track metadata records for uploaded files
+* Deleting individual tracks and their uploaded files
+* Deleting projects, linked track metadata, uploaded files, and project upload folders
 * Eventually serving uploaded audio files from local storage
 * Returning clear JSON responses and error messages
 * Handling CORS for the local Vite frontend
+* Supporting local development reset behavior
 
 Current backend direction:
 
@@ -180,11 +196,12 @@ server/
   data/
     db.json
   src/
+    dev/
+    stores/
+    uploads/
     app.ts
     server.ts
     types.ts
-    stores/
-    utils/
   tests/
 ```
 
@@ -195,7 +212,11 @@ The backend is separated into two startup/request layers:
 
 The backend data access layer lives in `server/src/stores/`.
 
-The current project store uses JSON storage, but it is shaped so a future database-backed store can use the same general function interface.
+Upload-related helpers live in `server/src/uploads/`.
+
+Development-only backend behavior, such as resetting local development data, lives in `server/src/dev/`.
+
+The current project and track stores use JSON storage, but they are shaped so future database-backed stores can use the same general function interfaces.
 
 ## Backend Framework Direction
 
@@ -298,6 +319,7 @@ Current project store functions include:
 getProjects()
 getProjectById(projectId)
 createProject(projectInput)
+deleteProjectById(projectId)
 ```
 
 Current track store functions include:
@@ -305,6 +327,7 @@ Current track store functions include:
 ```txt
 getTracksByProjectId(projectId)
 createTrack(trackInput)
+deleteTrackById(projectId, trackId)
 ```
 
 The route layer should call these functions without needing to know whether data comes from a JSON file or a future database.
@@ -377,12 +400,15 @@ The API should stay small and grow only as needed.
 Current routes:
 
 ```txt
-GET  /api/health
-GET  /api/projects
-POST /api/projects
-GET  /api/projects/:projectId
-POST /api/projects/:projectId/tracks
-GET  /api/projects/:projectId/tracks
+GET    /api/health
+GET    /api/projects
+POST   /api/projects
+GET    /api/projects/:projectId
+DELETE /api/projects/:projectId
+POST   /api/projects/:projectId/tracks
+GET    /api/projects/:projectId/tracks
+DELETE /api/projects/:projectId/tracks/:trackId
+DELETE /api/dev/reset
 ```
 
 Likely next routes:
@@ -426,6 +452,8 @@ The current upload flow:
 * Creates a track metadata record in `server/data/db.json`.
 * Returns the created track metadata to the frontend.
 * Displays uploaded track metadata in the client UI.
+* Deletes uploaded files when tracks are deleted.
+* Deletes linked uploaded files and project upload folders when projects are deleted.
 
 Current local upload structure:
 
@@ -434,10 +462,16 @@ server/
   uploads/
     projects/
       project-id/
-        track-id-original-filename.wav
+        random-id-sanitized-filename.wav
 ```
 
 The upload implementation should stay modular so the local file-writing behavior can later be replaced with cloud object storage.
+
+## Deletion and Cleanup Direction
+
+Deleting an individual track should remove the track metadata and the linked uploaded audio file. If that was the last uploaded file in the project folder, the backend should remove the now-empty project upload folder. If other tracks still exist in the same project, the project upload folder should remain.
+
+Deleting an entire project should remove the project metadata, all linked track metadata, all linked uploaded audio files, and the project upload folder. Project deletion should not remove metadata or files that belong to other projects.
 
 ## Audio Direction
 
@@ -491,10 +525,13 @@ The backend tests cover:
 The frontend tests cover:
 
 * The custom test runner
-* Controller behavior
+* Page controller behavior
+* Template rendering behavior
+* Frontend API helper behavior
 * Fake DOM helpers
 * Form behavior
 * Error/status messaging
+* Delete confirmation and status behavior
 
 Frontend tests should avoid requiring a full browser environment at this stage. Instead, they should use small fake DOM helpers and dependency injection, similar to the split-timer project.
 
@@ -549,7 +586,7 @@ The project currently has:
 * Project metadata types
 * Tested JSON project store
 * Tested project API routes
-* Tested frontend project form controller
+* Tested frontend page controllers
 * Project creation UI wired to the API
 * Readable frontend error handling for project loading and creation failures
 * Custom backend test runner
@@ -561,9 +598,18 @@ The project currently has:
 * Tested upload validation
 * Tested track upload API route
 * Tested project track list API route
+* Tested track deletion API route
+* Tested project deletion API route
 * Frontend track upload form wired to the API
 * Frontend uploaded track metadata display
 * Frontend upload error handling
+* Frontend track deletion UI
+* Frontend project deletion UI from the Project Menu and Project Player
+* Uploaded audio file cleanup when tracks or projects are deleted
+* Empty project upload folder cleanup when the last track is deleted
+* Local development reset route and development toolbar
+* Cleaned frontend structure with legacy controller code removed
+* Cleaned backend structure with unused utility code removed
 
 ## Current Limitations
 
@@ -575,7 +621,6 @@ Current limitations:
 * Uploaded audio files are not yet served through an audio file route.
 * No single-track playback yet.
 * No multitrack playback yet.
-* No project detail page yet.
 * No share links yet.
 * No recording yet.
 * No authentication yet.
