@@ -85,7 +85,7 @@ tester.describe("page templates", () => {
     const html = renderProjectPlayerPage();
 
     tester.expect(html.includes("Project Player")).toBe(true);
-    tester.expect(html.includes("Audio Player Placeholder")).toBe(true);
+    tester.expect(html.includes("Audio Player")).toBe(true);
     tester.expect(html.includes("player-area")).toBe(true);
     tester.expect(html.includes("player-track-list")).toBe(true);
   });
@@ -102,7 +102,7 @@ tester.describe("page templates", () => {
     tester.expect(html.includes("Project Player")).toBe(true);
     tester.expect(html.includes("Reggae groove")).toBe(true);
     tester.expect(html.includes("guitar and bass")).toBe(true);
-    tester.expect(html.includes("Audio Player Placeholder")).toBe(true);
+    tester.expect(html.includes("Audio Player")).toBe(true);
     tester.expect(html.includes("player-area")).toBe(true);
     tester.expect(html.includes("player-track-list")).toBe(true);
     tester.expect(html.includes("player-track-upload-form")).toBe(false);

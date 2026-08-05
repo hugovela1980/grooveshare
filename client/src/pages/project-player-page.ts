@@ -1,3 +1,4 @@
+import { renderAudioPlayer } from "../templates/audio-player.js";
 import type { Project } from "../types.js";
 
 function escapeHtml(value: string): string {
@@ -45,13 +46,7 @@ export function renderProjectPlayerPage(project: Project | null = null): string 
         </div>
       </header>
 
-      <section
-        class="panel player-placeholder"
-        id="player-area"
-        aria-labelledby="audio-player-heading"
-      >
-        <h2 id="audio-player-heading">Audio Player Placeholder</h2>
-      </section>
+      ${renderAudioPlayer()}
 
       <section class="panel project-player-tracks-panel">
         <h2>Tracks</h2>

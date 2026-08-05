@@ -12,6 +12,7 @@ import "./pending-track-selection-controller.test.js";
 import "./confirm-project-page-controller.test.js";
 import "./tracks-api.test.js";
 import "./projects-api.test.js";
+import "./audio-player-template.test.js";
 import { tester } from "./test-runner/tester.js";
 
 await tester.run();
