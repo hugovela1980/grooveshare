@@ -55,6 +55,11 @@ Reuse the media-control ideas from your old video player: play/pause, stop, prog
 - [ ] Add Version 1 README notes
   Document the local Phase 1 setup, current features, known limitations, and how to run the client and server locally.
 
+## Known Issues
+
+- [ ] Revisit audio progress slider seeking
+  The single-track audio player can load, play, pause, stop, and display timestamps, but slider seeking may need to be redesigned when the app moves toward simultaneous multitrack playback and streaming/range support.
+
 ## General Plan
 
 ### Phases
@@ -119,3 +124,6 @@ Reuse the media-control ideas from your old video player: play/pause, stop, prog
 
   - [x] Added project deletion with linked track cleanup
   Added backend and frontend support for deleting entire projects, including removing project metadata from `db.json`, removing linked track metadata, deleting uploaded audio files and project upload folders from `server/uploads/`, exposing a reusable `deleteProject(projectId)` API helper, and wiring delete buttons into the Project Menu and Project Player flows with confirmation prompts and status messages.
+
+  - [x] Add single-track audio playback path
+  Added backend audio serving, a single audio player template, an audio player controller, track Load buttons, and Project Player wiring so one uploaded track can be loaded and played from the browser.
