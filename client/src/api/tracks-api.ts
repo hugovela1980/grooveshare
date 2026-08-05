@@ -41,6 +41,12 @@ export async function uploadTrack({
     return parseApiResponse<Track>(response);
 }
 
+export function getTrackAudioUrl(projectId: string, trackId: string): string {
+    return `${API_BASE_URL}/api/projects/${encodeURIComponent(
+        projectId,
+    )}/tracks/${encodeURIComponent(trackId)}/audio`;
+}
+
 export async function deleteTrack(
     projectId: string,
     trackId: string,

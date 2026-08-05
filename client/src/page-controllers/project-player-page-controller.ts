@@ -13,6 +13,10 @@ type ClickEventLike = {
     target: EventTarget | null;
 };
 
+type AudioPlayerController = {
+    loadTrack: (track: { name: string; audioUrl: string }) => void;
+};
+
 type TrackListElementLike = {
     innerHTML: string;
     addEventListener: (
@@ -52,6 +56,8 @@ type ProjectPlayerPageControllerOptions = {
     renderTrackList: (tracks: Track[]) => string;
     confirmDeleteProject?: (message: string) => boolean;
     onProjectDeleted?: () => void;
+    audioPlayerController?: AudioPlayerController;
+    getTrackAudioUrl?: (projectId: string, trackId: string) => string;
 };
 
 function getDeleteTrackIdFromTarget(target: EventTarget | null): string | null {
@@ -59,6 +65,13 @@ function getDeleteTrackIdFromTarget(target: EventTarget | null): string | null {
     const deleteButton = element?.closest?.("[data-track-delete-button]");
 
     return deleteButton?.dataset?.trackId ?? null;
+}
+
+function getLoadTrackIdFromTarget(target: EventTarget | null): string | null {
+    const element = target as ClosestElementLike | null;
+    const loadButton = element?.closest?.("[data-track-load-button]");
+
+    return loadButton?.dataset?.trackId ?? null;
 }
 
 function setStatus(
@@ -82,11 +95,15 @@ export function createProjectPlayerPageController({
     renderTrackList,
     confirmDeleteProject = globalThis.confirm,
     onProjectDeleted,
+    audioPlayerController,
+    getTrackAudioUrl,
 }: ProjectPlayerPageControllerOptions) {
+    let currentTracks: Track[] = [];
+
     async function loadTracks(): Promise<void> {
         try {
             const tracks = await tracksApi.getTracksByProjectId(project.id);
-
+            currentTracks = tracks;
             trackListElement.innerHTML = renderTrackList(tracks);
         } catch {
             trackListElement.innerHTML =
@@ -94,19 +111,44 @@ export function createProjectPlayerPageController({
         }
     }
 
-    async function handleTrackListClick(event: ClickEventLike): Promise<void> {
-        const trackId = getDeleteTrackIdFromTarget(event.target);
+    function handleLoadTrack(trackId: string): void {
+        if (!audioPlayerController || !getTrackAudioUrl) {
+            return;
+        }
 
-        if (!trackId) {
+        const track = currentTracks.find((track) => track.id === trackId);
+
+        if (!track) {
+            setStatus(statusElement, "Could not load track.");
+            return;
+        }
+
+        audioPlayerController.loadTrack({
+            name: track.name,
+            audioUrl: getTrackAudioUrl(project.id, track.id),
+        });
+
+        setStatus(statusElement, `Loaded ${track.name}.`);
+    }
+
+    async function handleTrackListClick(event: ClickEventLike): Promise<void> {
+        const loadTrackId = getLoadTrackIdFromTarget(event.target);
+
+        if (loadTrackId) {
+            handleLoadTrack(loadTrackId);
+            return;
+        }
+
+        const deleteTrackId = getDeleteTrackIdFromTarget(event.target);
+
+        if (!deleteTrackId) {
             return;
         }
 
         try {
             setStatus(statusElement, "Deleting track...");
-
-            await tracksApi.deleteTrack(project.id, trackId);
+            await tracksApi.deleteTrack(project.id, deleteTrackId);
             await loadTracks();
-
             setStatus(statusElement, "Track deleted.");
         } catch {
             setStatus(statusElement, "Could not delete track.");

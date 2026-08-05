@@ -26,6 +26,15 @@ export function renderTrackList(tracks: Track[]): string {
               </div>
 
               <button
+                class="button button--secondary"
+                type="button"
+                data-track-load-button
+                data-track-id="${track.id}"
+              >
+                Load
+              </button>
+
+              <button
                 type="button"
                 data-track-delete-button
                 data-track-id="${escapeHtml(track.id)}"

@@ -29,7 +29,10 @@ type ButtonElementLike = {
 type RangeInputElementLike = {
     disabled: boolean;
     value: string;
-    addEventListener: (eventName: "input", handler: () => void) => void;
+    addEventListener: (
+        eventName: "input" | "change",
+        handler: () => void,
+    ) => void;
 };
 
 type TextElementLike = {
@@ -68,6 +71,8 @@ export function createAudioPlayerController({
     timestampElement,
     trackNameElement,
 }: AudioPlayerControllerOptions) {
+    let isSeeking = false;
+
     function setControlsEnabled(isEnabled: boolean): void {
         playPauseButton.disabled = !isEnabled;
         stopButton.disabled = !isEnabled;
@@ -91,6 +96,11 @@ export function createAudioPlayerController({
     }
 
     function updateProgress(): void {
+        if (isSeeking) {
+            updateTimestamp();
+            return;
+        }
+
         if (!isUsableDuration(audioElement.duration)) {
             progressInput.value = "0";
             updateTimestamp();
@@ -144,6 +154,16 @@ export function createAudioPlayerController({
         updateProgress();
     }
 
+    function beginSeeking(): void {
+        isSeeking = true;
+    }
+
+    function finishSeeking(): void {
+        seek();
+        isSeeking = false;
+        updateProgress();
+    }
+
     function loadTrack(track: AudioTrackForPlayer): void {
         audioElement.src = track.audioUrl;
         audioElement.currentTime = 0;
@@ -164,7 +184,9 @@ export function createAudioPlayerController({
 
         playPauseButton.addEventListener("click", () => handlePlayPauseClick());
         stopButton.addEventListener("click", stop);
-        progressInput.addEventListener("input", seek);
+        
+        progressInput.addEventListener("input", beginSeeking);
+        progressInput.addEventListener("change", finishSeeking);
 
         audioElement.addEventListener("timeupdate", updateProgress);
         audioElement.addEventListener("loadedmetadata", updateProgress);

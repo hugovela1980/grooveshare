@@ -8,7 +8,7 @@ tester.describe("track list template", () => {
         tester.expect(html.includes("No tracks yet.")).toBe(true);
     });
 
-    tester.it("renders a delete button for each track", () => {
+    tester.it("renders load and delete buttons for each track", () => {
         const html = renderTrackList([
             {
                 id: "track-1",
@@ -24,8 +24,13 @@ tester.describe("track list template", () => {
 
         tester.expect(html.includes("Guitar")).toBe(true);
         tester.expect(html.includes("guitar.wav")).toBe(true);
+
+        tester.expect(html.includes("Load")).toBe(true);
+        tester.expect(html.includes("data-track-load-button")).toBe(true);
+
         tester.expect(html.includes("Delete")).toBe(true);
         tester.expect(html.includes("data-track-delete-button")).toBe(true);
+
         tester.expect(html.includes('data-track-id="track-1"')).toBe(true);
     });
 });

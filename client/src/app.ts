@@ -4,6 +4,8 @@ import { createCreateProjectPageController } from "./page-controllers/create-pro
 import { createProjectMenuPageController } from "./page-controllers/project-menu-page-controller.js";
 import { createProjectPlayerPageController } from "./page-controllers/project-player-page-controller.js";
 import { createConfirmProjectPageController } from "./page-controllers/confirm-project-page-controller.js";
+import { createAudioPlayerController } from "./page-controllers/audio-player-controller.js";
+import { getTrackAudioUrl } from "./api/tracks-api.js";
 import { renderConfirmProjectPage } from "./pages/confirm-project-page.js";
 import { renderCreateProjectPage } from "./pages/create-project-page.js";
 import { renderProjectMenuPage } from "./pages/project-menu-page.js";
@@ -248,6 +250,58 @@ function initializeProjectPlayerPage({
     return;
   }
 
+  const audioElement = getElement<HTMLAudioElement>(
+    appElement,
+    "#project-audio-player",
+  );
+
+  const playPauseButton = getElement<HTMLButtonElement>(
+    appElement,
+    "#audio-play-pause-button",
+  );
+
+  const stopButton = getElement<HTMLButtonElement>(
+    appElement,
+    "#audio-stop-button",
+  );
+
+  const progressInput = getElement<HTMLInputElement>(
+    appElement,
+    "#audio-progress",
+  );
+
+  const timestampElement = getElement<HTMLElement>(
+    appElement,
+    "#audio-timestamp",
+  );
+
+  const trackNameElement = getElement<HTMLElement>(
+    appElement,
+    "#audio-track-name",
+  );
+
+  if (
+    !audioElement ||
+    !playPauseButton ||
+    !stopButton ||
+    !progressInput ||
+    !timestampElement ||
+    !trackNameElement
+  ) {
+    throw new Error("Project Player audio elements were not found.");
+  }
+
+  const audioPlayerController = createAudioPlayerController({
+    audioElement,
+    playPauseButton,
+    stopButton,
+    progressInput,
+    timestampElement,
+    trackNameElement,
+  });
+
+  audioPlayerController.init();
+
   const controller = createProjectPlayerPageController({
     project: selectedProject,
     trackListElement,
@@ -255,6 +309,8 @@ function initializeProjectPlayerPage({
     deleteProjectButton,
     tracksApi,
     projectsApi,
+    audioPlayerController,
+    getTrackAudioUrl,
     renderTrackList,
     onProjectDeleted() {
       navigateTo("project-menu");

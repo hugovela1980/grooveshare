@@ -63,19 +63,31 @@ function createFakeButton() {
 
 function createFakeRangeInput() {
     let inputHandler: Listener | null = null;
+    let changeHandler: Listener | null = null;
 
     return {
         disabled: true,
         value: "0",
 
-        addEventListener(eventName: "input", handler: Listener): void {
+        addEventListener(
+            eventName: "input" | "change",
+            handler: Listener,
+        ): void {
             if (eventName === "input") {
                 inputHandler = handler;
+            }
+
+            if (eventName === "change") {
+                changeHandler = handler;
             }
         },
 
         input(): void {
             inputHandler?.();
+        },
+
+        change(): void {
+            changeHandler?.();
         },
     };
 }
@@ -243,6 +255,7 @@ tester.describe("audio player controller", () => {
         progressInput.value = "50";
 
         progressInput.input();
+        progressInput.change();
 
         tester.expect(audioElement.currentTime).toBe(100);
         tester.expect(timestampElement.textContent).toBe("01:40 / 03:20");
