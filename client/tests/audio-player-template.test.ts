@@ -12,6 +12,9 @@ tester.describe("audio player template", () => {
         tester.expect(html.includes("audio-stop-button")).toBe(true);
         tester.expect(html.includes("audio-progress")).toBe(true);
         tester.expect(html.includes("audio-timestamp")).toBe(true);
+        tester.expect(html.includes("Loop")).toBe(true);
+        tester.expect(html.includes('id="audio-loop-checkbox"')).toBe(true);
+        tester.expect(html.includes("data-audio-loop-checkbox")).toBe(true);
     });
 
     tester.it("renders disabled controls before a track is loaded", () => {

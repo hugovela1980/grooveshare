@@ -40,6 +40,10 @@ type ButtonElementLike = {
     ) => void;
 };
 
+type CheckboxElementLike = {
+    checked: boolean;
+};
+
 type RangeInputElementLike = {
     disabled: boolean;
     value: string;
@@ -61,6 +65,7 @@ type AudioPlayerControllerOptions = {
     timestampElement: TextElementLike;
     trackNameElement: TextElementLike;
     createAudioElement?: () => AudioElementLike;
+    loopCheckbox: CheckboxElementLike;
 };
 
 function isUsableDuration(duration: number): boolean {
@@ -85,6 +90,7 @@ export function createAudioPlayerController({
     progressInput,
     timestampElement,
     trackNameElement,
+    loopCheckbox,
     createAudioElement = () => document.createElement("audio"),
 }: AudioPlayerControllerOptions) {
     let isSeeking = false;
@@ -179,6 +185,24 @@ export function createAudioPlayerController({
         updateProgress();
     }
 
+    async function handleAudioEnded(): Promise<void> {
+        if (!loopCheckbox.checked) {
+            stop();
+            return;
+        }
+
+        setAllAudioElementsToCurrentTime(0);
+
+        await Promise.all(
+            getLoadedAudioElements().map((loadedAudioElement) => {
+                return loadedAudioElement.play();
+            }),
+        );
+
+        setPlayButtonText();
+        updateProgress();
+    }
+
     function seek(): void {
         const primaryAudioElement = getPrimaryAudioElement();
 
@@ -265,7 +289,9 @@ export function createAudioPlayerController({
 
         audioElement.addEventListener("timeupdate", updateProgress);
         audioElement.addEventListener("loadedmetadata", updateProgress);
-        audioElement.addEventListener("ended", stop);
+        audioElement.addEventListener("ended", () => {
+            void handleAudioEnded();
+        });
     }
 
     function clampVolume(volume: number): number {

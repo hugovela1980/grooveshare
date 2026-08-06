@@ -62,6 +62,12 @@ function createFakeButton() {
     };
 }
 
+function createFakeCheckbox() {
+    return {
+        checked: false,
+    };
+}
+
 function createFakeRangeInput() {
     let inputHandler: Listener | null = null;
     let changeHandler: Listener | null = null;
@@ -105,6 +111,7 @@ function createControllerTestSetup(options: {
     const audioElement = createFakeAudioElement();
     const playPauseButton = createFakeButton();
     const stopButton = createFakeButton();
+    const loopCheckbox = createFakeCheckbox();
     const progressInput = createFakeRangeInput();
     const timestampElement = createFakeTextElement();
     const trackNameElement = createFakeTextElement();
@@ -116,6 +123,7 @@ function createControllerTestSetup(options: {
         progressInput,
         timestampElement,
         trackNameElement,
+        loopCheckbox,
         createAudioElement: options.createAudioElement,
     });
 
@@ -126,6 +134,7 @@ function createControllerTestSetup(options: {
         progressInput,
         timestampElement,
         trackNameElement,
+        loopCheckbox,
         controller,
     };
 }
@@ -353,5 +362,51 @@ tester.describe("audio player controller", () => {
         tester.expect(secondAudioElement.pauseCallCount > 0).toBe(true);
         tester.expect(audioElement.currentTime).toBe(0);
         tester.expect(secondAudioElement.currentTime).toBe(0);
+    });
+
+    tester.it("loops the loaded mix when loop is enabled", async () => {
+        const secondAudioElement = createFakeAudioElement();
+
+        const {
+            controller,
+            audioElement,
+            playPauseButton,
+            loopCheckbox,
+        } = createControllerTestSetup({
+            createAudioElement: () => secondAudioElement,
+        });
+
+        controller.init();
+
+        controller.loadMix([
+            {
+                channelNumber: 1,
+                trackId: "track-1",
+                name: "Drums",
+                audioUrl: "http://localhost:3000/audio/drums.wav",
+                volume: 1,
+            },
+            {
+                channelNumber: 2,
+                trackId: "track-2",
+                name: "Bass",
+                audioUrl: "http://localhost:3000/audio/bass.wav",
+                volume: 0.5,
+            },
+        ]);
+
+        await playPauseButton.click();
+
+        audioElement.currentTime = 120;
+        secondAudioElement.currentTime = 120;
+        loopCheckbox.checked = true;
+
+        await audioElement.trigger("ended");
+
+        tester.expect(audioElement.currentTime).toBe(0);
+        tester.expect(secondAudioElement.currentTime).toBe(0);
+        tester.expect(audioElement.playCallCount).toBe(2);
+        tester.expect(secondAudioElement.playCallCount).toBe(2);
+        tester.expect(playPauseButton.textContent).toBe("Pause");
     });
 });

@@ -1,5 +1,5 @@
 export function renderAudioPlayer(): string {
-    return /*html*/ `
+  return /*html*/ `
       <section
         id="player-area"
         class="panel audio-player"
@@ -36,6 +36,15 @@ export function renderAudioPlayer(): string {
           Stop
         </button>
 
+        <label class="audio-player__loop-label">
+          <input
+            id="audio-loop-checkbox"
+            type="checkbox"
+            data-audio-loop-checkbox
+          />
+            Loop
+        </label>
+
         <label class="audio-player__progress-label" for="audio-progress">
           Progress
         </label>
@@ -54,6 +63,7 @@ export function renderAudioPlayer(): string {
         <span id="audio-timestamp" class="audio-player__timestamp">
           00:00
         </span>
+
       </div>
     </section>
   `;

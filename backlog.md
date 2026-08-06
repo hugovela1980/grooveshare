@@ -35,6 +35,10 @@
   Upload up to four tracks, load the mix, play all enabled tracks together, adjust volume, toggle channels, nudge tracks, trim clips, stop, restart, and verify the mix behaves predictably.
 
 ## Backlog
+
+- add file url to test details in test failure summary
+
+- move all types to a separate file to clean up the controller files
      
 - [ ] Add project detail page
   Create a focused project view where the user can see project notes, uploaded tracks, and playback controls in one place.

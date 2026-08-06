@@ -265,6 +265,11 @@ function initializeProjectPlayerPage({
     "#audio-stop-button",
   );
 
+  const loopCheckbox = getElement<HTMLInputElement>(
+    appElement,
+    "#audio-loop-checkbox",
+  );
+
   const progressInput = getElement<HTMLInputElement>(
     appElement,
     "#audio-progress",
@@ -286,7 +291,8 @@ function initializeProjectPlayerPage({
     !stopButton ||
     !progressInput ||
     !timestampElement ||
-    !trackNameElement
+    !trackNameElement ||
+    !loopCheckbox
   ) {
     throw new Error("Project Player audio elements were not found.");
   }
@@ -298,6 +304,7 @@ function initializeProjectPlayerPage({
     progressInput,
     timestampElement,
     trackNameElement,
+    loopCheckbox,
   });
 
   audioPlayerController.init();
