@@ -3,6 +3,11 @@ import type { Project, Track } from "../types.js";
 type TracksApi = {
     getTracksByProjectId: (projectId: string) => Promise<Track[]>;
     deleteTrack: (projectId: string, trackId: string) => Promise<Track>;
+    uploadTrack?: (input: {
+        projectId: string;
+        trackName: string;
+        audioFile: File;
+    }) => Promise<Track>;
 };
 
 type ProjectsApi = {
@@ -24,6 +29,10 @@ type MixChannelForPlayer = {
 type AudioPlayerController = {
     loadMix?: (channels: MixChannelForPlayer[]) => void;
 };
+
+type ChooseAudioFile = () => Promise<File | null>;
+
+type GetTrackNameFromFile = (audioFile: File) => string;
 
 type TrackListElementLike = {
     innerHTML: string;
@@ -85,6 +94,8 @@ type ProjectPlayerPageControllerOptions = {
     onProjectDeleted?: () => void;
     audioPlayerController?: AudioPlayerController;
     getTrackAudioUrl?: (projectId: string, trackId: string) => string;
+    chooseAudioFile?: ChooseAudioFile;
+    getTrackNameFromFile?: GetTrackNameFromFile;
 };
 
 function getDeleteTrackIdFromTarget(target: EventTarget | null): string | null {
@@ -99,6 +110,24 @@ function getIsLoadMixClickFromTarget(target: EventTarget | null): boolean {
     const loadMixButton = element?.closest?.("[data-load-mix-button]");
 
     return Boolean(loadMixButton);
+}
+
+function getIsAddTrackClickFromTarget(target: EventTarget | null): boolean {
+    const element = target as ClosestElementLike | null;
+    const addTrackButton = element?.closest?.("[data-track-add-button]");
+
+    return Boolean(addTrackButton);
+}
+
+function getDefaultTrackNameFromFile(audioFile: File): string {
+    const filename = audioFile.name;
+    const extensionStartIndex = filename.lastIndexOf(".");
+
+    if (extensionStartIndex <= 0) {
+        return filename;
+    }
+
+    return filename.slice(0, extensionStartIndex);
 }
 
 function setStatus(
@@ -124,6 +153,8 @@ export function createProjectPlayerPageController({
     onProjectDeleted,
     audioPlayerController,
     getTrackAudioUrl,
+    chooseAudioFile = async () => null,
+    getTrackNameFromFile = getDefaultTrackNameFromFile,
 }: ProjectPlayerPageControllerOptions) {
     let currentTracks: Track[] = [];
 
@@ -213,11 +244,47 @@ export function createProjectPlayerPageController({
         );
     }
 
+    async function handleAddTrack(): Promise<void> {
+        if (!tracksApi.uploadTrack) {
+            setStatus(statusElement, "Track upload is not ready yet.");
+            return;
+        }
+
+        try {
+            const audioFile = await chooseAudioFile();
+
+            if (!audioFile) {
+                setStatus(statusElement, "No audio file selected.");
+                return;
+            }
+
+            setStatus(statusElement, "Uploading track...");
+
+            await tracksApi.uploadTrack({
+                projectId: project.id,
+                trackName: getTrackNameFromFile(audioFile),
+                audioFile,
+            });
+
+            await loadTracks();
+            setStatus(statusElement, "Track added.");
+        } catch {
+            setStatus(statusElement, "Could not add track.");
+        }
+    }
+
     async function handleTrackListClick(event: ClickEventLike): Promise<void> {
         const isLoadMixClick = getIsLoadMixClickFromTarget(event.target);
 
         if (isLoadMixClick) {
             handleLoadMix();
+            return;
+        }
+
+        const isAddTrackClick = getIsAddTrackClickFromTarget(event.target);
+
+        if (isAddTrackClick) {
+            await handleAddTrack();
             return;
         }
 

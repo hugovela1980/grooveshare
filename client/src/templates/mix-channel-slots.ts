@@ -7,6 +7,15 @@ type ChannelSlot = {
   track: Track | null;
 };
 
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
 function createMixChannelSlots(tracks: Track[]): ChannelSlot[] {
   return Array.from({ length: MIX_CHANNEL_SLOT_COUNT }, (_, index) => {
     return {
@@ -24,15 +33,15 @@ function renderAssignedChannelSlot(slot: ChannelSlot): string {
   }
 
   return /*html*/ `
-      <article
-        class="mix-channel-slot"
-        data-mix-channel-slot
-        data-mix-channel="${slot.channelNumber}"
-        data-track-id="${track.id}"
-      >
+    <article
+      class="mix-channel-slot"
+      data-mix-channel-slot
+      data-mix-channel="${slot.channelNumber}"
+      data-track-id="${escapeHtml(track.id)}"
+    >
       <header class="mix-channel-slot__header">
         <h3 class="mix-channel-slot__title">Channel ${slot.channelNumber}</h3>
-        <p class="mix-channel-slot__track-name">${track.name}</p>
+        <p class="mix-channel-slot__track-name">${escapeHtml(track.name)}</p>
       </header>
 
       <div class="mix-channel-slot__controls">
@@ -40,25 +49,25 @@ function renderAssignedChannelSlot(slot: ChannelSlot): string {
           <input
             type="checkbox"
             data-channel-enabled
-            data-track-id="${track.id}"
+            data-track-id="${escapeHtml(track.id)}"
             checked
           />
           Enabled
         </label>
 
         <label class="mix-channel-slot__volume-label">
-            Volume
-            <span class="mix-channel-slot__volume-value">100%</span>
-            <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.01"
-                value="1"
-                data-channel-volume
-                data-track-id="${track.id}"
-            />
-            </label>
+          Volume
+          <span class="mix-channel-slot__volume-value">100%</span>
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.01"
+            value="1"
+            data-channel-volume
+            data-track-id="${escapeHtml(track.id)}"
+          />
+        </label>
       </div>
 
       <div class="mix-channel-slot__waveform-placeholder">
@@ -70,7 +79,7 @@ function renderAssignedChannelSlot(slot: ChannelSlot): string {
           class="button button--danger"
           type="button"
           data-track-delete-button
-          data-track-id="${track.id}"
+          data-track-id="${escapeHtml(track.id)}"
         >
           Delete
         </button>
@@ -81,7 +90,11 @@ function renderAssignedChannelSlot(slot: ChannelSlot): string {
 
 function renderEmptyChannelSlot(channelNumber: number): string {
   return /*html*/ `
-    <article class="mix-channel-slot mix-channel-slot--empty" data-mix-channel="${channelNumber}">
+    <article
+      class="mix-channel-slot mix-channel-slot--empty"
+      data-mix-channel-slot
+      data-mix-channel="${channelNumber}"
+    >
       <header class="mix-channel-slot__header">
         <h3 class="mix-channel-slot__title">Channel ${channelNumber}</h3>
         <p class="mix-channel-slot__track-name">Empty slot</p>
@@ -93,6 +106,17 @@ function renderEmptyChannelSlot(channelNumber: number): string {
 
       <div class="mix-channel-slot__waveform-placeholder">
         Waveform placeholder
+      </div>
+
+      <div class="mix-channel-slot__actions">
+        <button
+          class="button"
+          type="button"
+          data-track-add-button
+          data-mix-channel="${channelNumber}"
+        >
+          Add Track
+        </button>
       </div>
     </article>
   `;

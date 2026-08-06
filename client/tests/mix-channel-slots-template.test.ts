@@ -29,6 +29,17 @@ tester.describe("mix channel slots template", () => {
         tester.expect(html.includes("Waveform placeholder")).toBe(true);
     });
 
+    tester.it("renders an Add Track button for empty channel slots", () => {
+        const html = renderMixChannelSlots([]);
+
+        tester.expect(html.includes("Add Track")).toBe(true);
+        tester.expect(html.includes("data-track-add-button")).toBe(true);
+        tester.expect(html.includes('data-mix-channel="1"')).toBe(true);
+        tester.expect(html.includes('data-mix-channel="2"')).toBe(true);
+        tester.expect(html.includes('data-mix-channel="3"')).toBe(true);
+        tester.expect(html.includes('data-mix-channel="4"')).toBe(true);
+    });
+
     tester.it("renders the first uploaded track as Channel 1", () => {
         const html = renderMixChannelSlots([
             createTrack({
@@ -43,6 +54,7 @@ tester.describe("mix channel slots template", () => {
         tester.expect(html.includes('data-track-id="track-1"')).toBe(true);
         tester.expect(html.includes("Channel 2")).toBe(true);
         tester.expect(html.includes("Empty slot")).toBe(true);
+        tester.expect(html.includes("Add Track")).toBe(true);
     });
 
     tester.it("renders the first two uploaded tracks as Channel 1 and Channel 2", () => {
@@ -68,6 +80,10 @@ tester.describe("mix channel slots template", () => {
         tester.expect(html.includes("Bass")).toBe(true);
         tester.expect(html.includes('data-track-id="track-2"')).toBe(true);
         tester.expect(html.includes('data-mix-channel="2"')).toBe(true);
+
+        tester.expect(html.includes("Channel 3")).toBe(true);
+        tester.expect(html.includes("Channel 4")).toBe(true);
+        tester.expect(html.includes("Add Track")).toBe(true);
     });
 
     tester.it("renders enabled, volume, waveform, and delete controls for assigned tracks", () => {
@@ -89,7 +105,9 @@ tester.describe("mix channel slots template", () => {
         tester.expect(html.includes('id="load-mix-button"')).toBe(true);
         tester.expect(html.includes("data-load-mix-button")).toBe(true);
         tester.expect(
-            html.includes("Enable up to four tracks, set volume, then load the mix into the player."),
+            html.includes(
+                "Enable up to four tracks, set volume, then load the mix into the player.",
+            ),
         ).toBe(true);
     });
 
@@ -132,6 +150,8 @@ tester.describe("mix channel slots template", () => {
         tester.expect(html.includes("Channel 4")).toBe(true);
         tester.expect(html.includes("Tremolo Guitar")).toBe(true);
         tester.expect(html.includes('data-track-id="track-4"')).toBe(true);
+
+        tester.expect(html.includes("Add Track")).toBe(false);
     });
 
     tester.it("does not render more than four uploaded tracks as channel slots", () => {
@@ -163,5 +183,16 @@ tester.describe("mix channel slots template", () => {
         tester.expect(html.includes("Track Three")).toBe(true);
         tester.expect(html.includes("Track Four")).toBe(true);
         tester.expect(html.includes("Track Five")).toBe(false);
+    });
+
+    tester.it("escapes assigned track names", () => {
+        const html = renderMixChannelSlots([
+            createTrack({
+                name: "<Guitar & Bass>",
+            }),
+        ]);
+
+        tester.expect(html.includes("&lt;Guitar &amp; Bass&gt;")).toBe(true);
+        tester.expect(html.includes("<Guitar & Bass>")).toBe(false);
     });
 });

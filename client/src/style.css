@@ -591,6 +591,14 @@ h3 {
   }
 }
 
+.mix-channel-slot--empty .mix-channel-slot__actions {
+  margin-top: auto;
+}
+
+.mix-channel-slot--empty [data-track-add-button] {
+  width: 100%;
+}
+
 .audio-player__loop-label {
   display: inline-flex;
   gap: 0.4rem;

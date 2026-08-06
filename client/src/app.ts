@@ -41,6 +41,21 @@ function getElement<T>(appElement: AppElementLike, selector: string): T | null {
   return appElement.querySelector<T>(selector);
 }
 
+function chooseAudioFile(): Promise<File | null> {
+  return new Promise((resolve) => {
+    const input = document.createElement("input");
+
+    input.type = "file";
+    input.accept = "audio/*";
+
+    input.addEventListener("change", () => {
+      resolve(input.files?.[0] ?? null);
+    });
+
+    input.click();
+  });
+}
+
 function initializeProjectMenuPage({
   appElement,
   navigateTo,
@@ -372,6 +387,7 @@ function initializeProjectPlayerPage({
     projectsApi,
     audioPlayerController,
     getTrackAudioUrl,
+    chooseAudioFile,
     renderTrackList: renderMixChannelSlots,
     onProjectDeleted() {
       navigateTo("project-menu");

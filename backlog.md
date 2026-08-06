@@ -10,9 +10,6 @@
 
 ### Finish Version 1
 
-- [ ] Final Version 1 cleanup pass
-  Remove obviously stale code, update backlog checkboxes, run all tests/typechecks, and merge to main when stable.
-
 ### Replace multitrack playback with Web Audio engine
   Move multitrack playback from multiple HTML audio elements to a Web Audio based engine. Decode selected tracks into AudioBuffers, route each channel through Web Audio nodes, schedule playback from a shared AudioContext clock, and prepare the app for waveform display, gapless looping, nudge, trim, and edited playback.
 
@@ -58,8 +55,6 @@
 ## Backlog
 
 - add file url to test details in test failure summary
-
-- 
 
 - move all types to a separate file to clean up the controller files
      
@@ -174,3 +169,6 @@ List audio files from `server/data/seed-project`, allow selecting which files to
 Play, pause, stop, and reset two enabled tracks from a shared start point. Each track should respect its channel volume setting.
 
 - [x] Expand mixer slots to four channels
+
+- [x] Final Version 1 cleanup pass
+  Remove obviously stale code, update backlog checkboxes, run all tests/typechecks, and merge to main when stable.

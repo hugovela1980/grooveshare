@@ -1,43 +1,53 @@
 {
   "projects": [
     {
-      "id": "68368faf-b975-4168-a0b1-362280a3a556",
+      "id": "0cd0757c-93fd-4f15-8279-b965fb5141f1",
       "title": "asdf",
       "description": "asdf",
-      "createdAt": "2026-08-06T22:41:03.868Z",
-      "updatedAt": "2026-08-06T22:41:03.868Z"
+      "createdAt": "2026-08-06T23:15:54.515Z",
+      "updatedAt": "2026-08-06T23:15:54.515Z"
     }
   ],
   "tracks": [
     {
-      "id": "4b141fc3-35ca-4666-9504-892c3149fc72",
-      "projectId": "68368faf-b975-4168-a0b1-362280a3a556",
+      "id": "a7efa770-975d-4a5d-98e0-41d23650ee9b",
+      "projectId": "0cd0757c-93fd-4f15-8279-b965fb5141f1",
       "name": "Bass",
       "originalFilename": "Bass.wav",
-      "filePath": "uploads\\projects\\68368faf-b975-4168-a0b1-362280a3a556\\1ccc23cd-505b-4979-8e84-99bf7dca0aa5-Bass.wav",
+      "filePath": "uploads\\projects\\0cd0757c-93fd-4f15-8279-b965fb5141f1\\880a1235-b026-4a1b-9697-e7ae8e8f4603-Bass.wav",
       "mimeType": "audio/wav",
       "fileSize": 2822444,
-      "createdAt": "2026-08-06T22:41:03.897Z"
+      "createdAt": "2026-08-06T23:15:54.541Z"
     },
     {
-      "id": "9e4873b2-0af3-465e-a051-8d38bf9d8fed",
-      "projectId": "68368faf-b975-4168-a0b1-362280a3a556",
+      "id": "be50b25a-0eb2-4277-abad-42b67ddb3178",
+      "projectId": "0cd0757c-93fd-4f15-8279-b965fb5141f1",
       "name": "Delay Guitar",
       "originalFilename": "Delay Guitar.wav",
-      "filePath": "uploads\\projects\\68368faf-b975-4168-a0b1-362280a3a556\\6fdc3eb4-e6aa-4928-b191-4a9beaf2abf3-Delay-Guitar.wav",
+      "filePath": "uploads\\projects\\0cd0757c-93fd-4f15-8279-b965fb5141f1\\dd8bc79b-3077-4cfd-a8af-1f7f162abccf-Delay-Guitar.wav",
       "mimeType": "audio/wav",
       "fileSize": 2822444,
-      "createdAt": "2026-08-06T22:41:03.927Z"
+      "createdAt": "2026-08-06T23:15:54.584Z"
     },
     {
-      "id": "191f47dc-9b9f-4334-b7ab-33177071db36",
-      "projectId": "68368faf-b975-4168-a0b1-362280a3a556",
-      "name": "Drums",
-      "originalFilename": "Drums.wav",
-      "filePath": "uploads\\projects\\68368faf-b975-4168-a0b1-362280a3a556\\88a44dcc-9283-4768-8209-4d0245789954-Drums.wav",
+      "id": "29a89cf1-08ec-4ac3-83d2-6409f59927a3",
+      "projectId": "0cd0757c-93fd-4f15-8279-b965fb5141f1",
+      "name": "Tremolo Guitar",
+      "originalFilename": "Tremolo Guitar.wav",
+      "filePath": "uploads\\projects\\0cd0757c-93fd-4f15-8279-b965fb5141f1\\0bc3163e-5748-4346-84f7-27564bbab5d0-Tremolo-Guitar.wav",
       "mimeType": "audio/wav",
       "fileSize": 2822444,
-      "createdAt": "2026-08-06T22:41:03.979Z"
+      "createdAt": "2026-08-06T23:15:54.634Z"
+    },
+    {
+      "id": "41e4e17b-e2f0-4240-9c17-767984a1397b",
+      "projectId": "0cd0757c-93fd-4f15-8279-b965fb5141f1",
+      "name": "Drums",
+      "originalFilename": "Drums.wav",
+      "filePath": "uploads\\projects\\0cd0757c-93fd-4f15-8279-b965fb5141f1\\84bd529e-d336-4c3f-a978-a9e1df102568-Drums.wav",
+      "mimeType": "audio/wav",
+      "fileSize": 2822444,
+      "createdAt": "2026-08-06T23:16:28.057Z"
     }
   ]
 }
