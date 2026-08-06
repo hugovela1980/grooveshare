@@ -8,9 +8,6 @@
 
 ## Current Focus
 
-- [ ] Add two-channel slot prototype
-  Render the first two uploaded tracks as Channel 1 and Channel 2. Each channel should show the assigned track name, enabled toggle, volume slider, and a placeholder waveform area.
-
 ## 4 channel track mixer    
 
 - [ ] Add Load Mix behavior for two channels
@@ -150,3 +147,6 @@
 
   - [x] Design four-channel track mixer layout
   Replace the simple track list mindset with four channel slots in the Project Player Tracks panel. Each slot should be designed to eventually support an assigned track, enabled toggle, volume control, waveform display, offset/nudge controls, and trim/clipping controls.
+
+  - [x] Add two-channel slot prototype
+  Render the first two uploaded tracks as Channel 1 and Channel 2. Each channel should show the assigned track name, enabled toggle, volume slider, and a placeholder waveform area.

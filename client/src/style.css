@@ -441,3 +441,124 @@ h3 {
     padding: 1.25rem;
   }
 }
+
+/* Mix Channel Slots */
+.mix-channel-slots {
+  display: grid;
+  gap: 1rem;
+}
+
+.mix-channel-slot {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid #3f3f46;
+  border-radius: 1rem;
+  background: #18181b;
+}
+
+.mix-channel-slot--empty {
+  opacity: 0.75;
+}
+
+.mix-channel-slot__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.mix-channel-slot__title {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.mix-channel-slot__track-name {
+  margin: 0;
+  color: #d4d4d8;
+}
+
+.mix-channel-slot__controls {
+  display: grid;
+  grid-template-columns: minmax(8rem, max-content) 1fr;
+  gap: 1rem;
+  align-items: center;
+}
+
+.mix-channel-slot__volume-value {
+  color: #a1a1aa;
+  font-size: 0.875rem;
+  font-weight: 400;
+}
+
+.mix-channel-slot__enabled-label,
+.mix-channel-slot__volume-label {
+  display: grid;
+  gap: 0.35rem;
+  font-weight: 700;
+}
+
+.mix-channel-slot__enabled-label {
+  grid-template-columns: auto 1fr;
+  align-items: center;
+}
+
+.mix-channel-slot__enabled-label input {
+  width: 1rem;
+  height: 1rem;
+}
+
+.mix-channel-slot__volume-label input {
+  width: 100%;
+}
+
+.mix-channel-slot__waveform-placeholder {
+  display: flex;
+  min-height: 4rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed #52525b;
+  border-radius: 0.75rem;
+  color: #a1a1aa;
+  background:
+    linear-gradient(90deg,
+      transparent 0%,
+      transparent 8%,
+      rgba(255, 255, 255, 0.08) 8%,
+      rgba(255, 255, 255, 0.08) 10%,
+      transparent 10%,
+      transparent 18%,
+      rgba(255, 255, 255, 0.12) 18%,
+      rgba(255, 255, 255, 0.12) 22%,
+      transparent 22%,
+      transparent 32%,
+      rgba(255, 255, 255, 0.1) 32%,
+      rgba(255, 255, 255, 0.1) 35%,
+      transparent 35%),
+    #111113;
+}
+
+.mix-channel-slot__actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+@media (min-width: 800px) {
+  .mix-channel-slot {
+    grid-template-columns: minmax(10rem, 14rem) minmax(14rem, 18rem) 1fr auto;
+    align-items: center;
+  }
+
+  .mix-channel-slot__header {
+    display: grid;
+    justify-content: stretch;
+  }
+
+  .mix-channel-slot__controls {
+    grid-template-columns: 6rem 1fr;
+  }
+
+  .mix-channel-slot__waveform-placeholder {
+    min-height: 5rem;
+  }
+}
