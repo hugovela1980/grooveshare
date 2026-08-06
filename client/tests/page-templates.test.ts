@@ -37,6 +37,28 @@ tester.describe("page templates", () => {
     tester.expect(html.includes("Add track")).toBe(false);
   });
 
+  tester.it("renders saved project draft values on the Create Project page", () => {
+    const html = renderCreateProjectPage({
+      title: "Bass Groove",
+      description: "Practice loop",
+    });
+
+    tester.expect(html.includes('value="Bass Groove"')).toBe(true);
+    tester.expect(html.includes(">Practice loop</textarea>")).toBe(true);
+  });
+
+  tester.it("escapes saved project draft values on the Create Project page", () => {
+    const html = renderCreateProjectPage({
+      title: '<Bass "Groove">',
+      description: "<Practice & loop>",
+    });
+
+    tester.expect(html.includes("&lt;Bass &quot;Groove&quot;&gt;")).toBe(true);
+    tester.expect(html.includes("&lt;Practice &amp; loop&gt;")).toBe(true);
+    tester.expect(html.includes('<Bass "Groove">')).toBe(false);
+    tester.expect(html.includes("<Practice & loop>")).toBe(false);
+  });
+
   tester.it("renders the Confirm Project page without a project", () => {
     const html = renderConfirmProjectPage();
 

@@ -469,7 +469,8 @@ export function createGrooveShareApp({
     initialScreen,
     pageRenderers: {
       "project-menu": renderProjectMenuPage,
-      "create-project": renderCreateProjectPage,
+      "create-project": () =>
+        renderCreateProjectPage(projectDraftState.getProjectDraft()),
       "confirm-project": () =>
         renderConfirmProjectPage(projectDraftState.getSnapshot()),
       "project-player": () => renderProjectPlayerPage(selectedProject),

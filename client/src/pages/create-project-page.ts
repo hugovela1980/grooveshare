@@ -1,4 +1,20 @@
-export function renderCreateProjectPage(): string {
+import type { CreateProjectInput } from "../types.js";
+
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+export function renderCreateProjectPage(
+  projectDraft: CreateProjectInput | null = null,
+): string {
+  const title = escapeHtml(projectDraft?.title ?? "");
+  const description = escapeHtml(projectDraft?.description ?? "");
+
   return /*html*/ `
     <main class="app-shell create-project-page" data-page="create-project">
       <header class="page-header create-project-header">
@@ -26,6 +42,7 @@ export function renderCreateProjectPage(): string {
                 name="title"
                 type="text"
                 placeholder="Chorus Riff Idea"
+                value="${title}"
                 required
               />
             </label>
@@ -37,7 +54,7 @@ export function renderCreateProjectPage(): string {
                 name="description"
                 rows="4"
                 placeholder="Guitar riff with scratch drums"
-              ></textarea>
+              >${description}</textarea>
             </label>
           </section>
 

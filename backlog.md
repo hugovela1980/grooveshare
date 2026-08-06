@@ -8,8 +8,6 @@
 
 ## Current Focus
 
-### Finish Version 1
-
 ### Replace multitrack playback with Web Audio engine
   Move multitrack playback from multiple HTML audio elements to a Web Audio based engine. Decode selected tracks into AudioBuffers, route each channel through Web Audio nodes, schedule playback from a shared AudioContext clock, and prepare the app for waveform display, gapless looping, nudge, trim, and edited playback.
 
