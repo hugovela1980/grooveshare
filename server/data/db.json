@@ -1,4 +1,33 @@
 {
-  "projects": [],
-  "tracks": []
+  "projects": [
+    {
+      "id": "fe3477d0-29e2-4b80-bc15-47423721b188",
+      "title": "Dev Seed Project",
+      "description": "Temporary project created from real seed audio files.",
+      "createdAt": "2026-08-06T16:16:42.887Z",
+      "updatedAt": "2026-08-06T16:16:42.887Z"
+    }
+  ],
+  "tracks": [
+    {
+      "id": "578efb6d-ff77-44e9-86e9-29087f58dbca",
+      "projectId": "fe3477d0-29e2-4b80-bc15-47423721b188",
+      "name": "Delay Guitar",
+      "originalFilename": "Delay Guitar.wav",
+      "filePath": "uploads\\projects\\fe3477d0-29e2-4b80-bc15-47423721b188\\f1c9b855-ca80-4e6d-9793-ee1d0f8398fd-Delay-Guitar.wav",
+      "mimeType": "audio/wav",
+      "fileSize": 2822444,
+      "createdAt": "2026-08-06T16:16:42.892Z"
+    },
+    {
+      "id": "b07a8f2c-fc97-46ee-b7f3-c1fdc84b1e4e",
+      "projectId": "fe3477d0-29e2-4b80-bc15-47423721b188",
+      "name": "Drums",
+      "originalFilename": "Drums.wav",
+      "filePath": "uploads\\projects\\fe3477d0-29e2-4b80-bc15-47423721b188\\a5586ffd-9232-4bc1-9c42-9a980904795c-Drums.wav",
+      "mimeType": "audio/wav",
+      "fileSize": 2822444,
+      "createdAt": "2026-08-06T16:16:42.925Z"
+    }
+  ]
 }

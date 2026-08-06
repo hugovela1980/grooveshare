@@ -14,6 +14,7 @@ function createFakeAudioElement() {
         currentTime: 0,
         duration: 120,
         paused: true,
+        volume: 1,
         playCallCount: 0,
         pauseCallCount: 0,
         loadCallCount: 0,
@@ -98,7 +99,9 @@ function createFakeTextElement() {
     };
 }
 
-function createControllerTestSetup() {
+function createControllerTestSetup(options: {
+    createAudioElement?: () => ReturnType<typeof createFakeAudioElement>;
+} = {}) {
     const audioElement = createFakeAudioElement();
     const playPauseButton = createFakeButton();
     const stopButton = createFakeButton();
@@ -113,6 +116,7 @@ function createControllerTestSetup() {
         progressInput,
         timestampElement,
         trackNameElement,
+        createAudioElement: options.createAudioElement,
     });
 
     return {
@@ -259,5 +263,95 @@ tester.describe("audio player controller", () => {
 
         tester.expect(audioElement.currentTime).toBe(100);
         tester.expect(timestampElement.textContent).toBe("01:40 / 03:20");
+    });
+
+    tester.it("loads a two-track mix and plays both tracks together", async () => {
+        const secondAudioElement = createFakeAudioElement();
+
+        const {
+            controller,
+            audioElement,
+            playPauseButton,
+            trackNameElement,
+        } = createControllerTestSetup({
+            createAudioElement: () => secondAudioElement,
+        });
+
+
+        controller.init();
+
+        controller.loadMix(
+            [
+                {
+                    channelNumber: 1,
+                    trackId: "track-1",
+                    name: "Drums",
+                    audioUrl: "http://localhost:3000/audio/drums.wav",
+                    volume: 0.75,
+                },
+                {
+                    channelNumber: 2,
+                    trackId: "track-2",
+                    name: "Bass",
+                    audioUrl: "http://localhost:3000/audio/bass.wav",
+                    volume: 0.5,
+                },
+            ],
+        );
+
+        tester.expect(audioElement.src).toBe("http://localhost:3000/audio/drums.wav");
+        tester.expect(audioElement.volume).toBe(0.75);
+        tester.expect(secondAudioElement.src).toBe("http://localhost:3000/audio/bass.wav");
+        tester.expect(secondAudioElement.volume).toBe(0.5);
+        tester.expect(trackNameElement.textContent).toBe("Mix loaded: Drums, Bass");
+
+        await playPauseButton.click();
+
+        tester.expect(audioElement.playCallCount).toBe(1);
+        tester.expect(secondAudioElement.playCallCount).toBe(1);
+        tester.expect(playPauseButton.textContent).toBe("Pause");
+    });
+
+    tester.it("stops all tracks in a loaded mix", async () => {
+        const secondAudioElement = createFakeAudioElement();
+
+        const {
+            controller,
+            audioElement,
+            stopButton,
+        } = createControllerTestSetup({
+            createAudioElement: () => secondAudioElement,
+        });
+
+        controller.init();
+
+        controller.loadMix([
+            {
+                channelNumber: 1,
+                trackId: "track-1",
+                name: "Drums",
+                audioUrl: "http://localhost:3000/audio/drums.wav",
+                volume: 1,
+            },
+            {
+                channelNumber: 2,
+                trackId: "track-2",
+                name: "Bass",
+                audioUrl: "http://localhost:3000/audio/bass.wav",
+                volume: 0.5,
+            },
+        ]);
+
+        audioElement.currentTime = 30;
+        secondAudioElement.currentTime = 30;
+        audioElement.paused = false;
+        secondAudioElement.paused = false;
+
+        await stopButton.click();
+
+        tester.expect(audioElement.pauseCallCount > 0).toBe(true);
+        tester.expect(secondAudioElement.pauseCallCount > 0).toBe(true);
+        tester.expect(audioElement.currentTime).toBe(0);
+        tester.expect(secondAudioElement.currentTime).toBe(0);
     });
 });

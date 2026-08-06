@@ -8,25 +8,6 @@
 
 ## Current Focus
 
-### Update Dev Tool Bar
-- [x] Add backend route for listing seed audio files
-  Add a dev-only API route that reads `server/data/seed-project` and returns available audio filenames for the dev toolbar.
-
-- [x] Update backend seed-project route to use selected real audio files
-  Replace the placeholder generated track file with copies of the selected files from `server/data/seed-project`.
-
-- [x] Preserve dev reset behavior
-  Keep the existing reset route so `db.json` can still be cleared from the dev toolbar.
-
-- [x] Update dev toolbar UI to show seed file checkboxes
-  Display the available seed audio files in the toolbar and allow choosing which files to include before seeding.
-
-- [ ] Make the dev toolbar visible by default
-  Show the toolbar automatically on page load, keep it visible across normal reloads, and allow toggling it with the right arrow key.
-
-- [ ] Keep dev toolbar code isolated
-  Keep backend dev behavior inside `server/src/dev/` and frontend dev behavior inside `client/src/dev/`, with only a small hook from the main app.
-
 ### 4 channel track mixer    
 - [ ] Add two-track playback controller
   Play, pause, stop, and reset two enabled tracks from a shared start point. Each track should respect its channel volume setting.
@@ -59,9 +40,6 @@
   Upload up to four tracks, load the mix, play all enabled tracks together, adjust volume, toggle channels, nudge tracks, trim clips, stop, restart, and verify the mix behaves predictably.
 
 ## Backlog
-
-- [ ] Add notes to backlog or architecture docs
-  Document the decision that waveforms, volume, enabled state, nudge, and trim/clipping controls belong to the channel slots in the Tracks panel, while play, pause, stop, progress, and timestamp belong to the Audio Player panel.
      
 - [ ] Add project detail page
   Create a focused project view where the user can see project notes, uploaded tracks, and playback controls in one place.

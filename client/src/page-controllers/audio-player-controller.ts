@@ -3,11 +3,25 @@ type AudioTrackForPlayer = {
     audioUrl: string;
 };
 
+type MixChannelForPlayer = {
+    channelNumber: number;
+    trackId: string;
+    name: string;
+    audioUrl: string;
+    volume: number;
+};
+
+type LoadedMixChannel = {
+    channel: MixChannelForPlayer;
+    audioElement: AudioElementLike;
+};
+
 type AudioElementLike = {
     src: string;
     currentTime: number;
     duration: number;
     paused: boolean;
+    volume: number;
     play: () => Promise<void>;
     pause: () => void;
     load?: () => void;
@@ -46,6 +60,7 @@ type AudioPlayerControllerOptions = {
     progressInput: RangeInputElementLike;
     timestampElement: TextElementLike;
     trackNameElement: TextElementLike;
+    createAudioElement?: () => AudioElementLike;
 };
 
 function isUsableDuration(duration: number): boolean {
@@ -70,8 +85,10 @@ export function createAudioPlayerController({
     progressInput,
     timestampElement,
     trackNameElement,
+    createAudioElement = () => document.createElement("audio"),
 }: AudioPlayerControllerOptions) {
     let isSeeking = false;
+    let loadedMixChannels: LoadedMixChannel[] = [];
 
     function setControlsEnabled(isEnabled: boolean): void {
         playPauseButton.disabled = !isEnabled;
@@ -80,64 +97,92 @@ export function createAudioPlayerController({
     }
 
     function setPlayButtonText(): void {
-        playPauseButton.textContent = audioElement.paused ? "Play" : "Pause";
+        const primaryAudioElement = getPrimaryAudioElement();
+
+        playPauseButton.textContent = primaryAudioElement.paused ? "Play" : "Pause";
     }
 
     function updateTimestamp(): void {
-        if (isUsableDuration(audioElement.duration)) {
+        const primaryAudioElement = getPrimaryAudioElement();
+
+        if (isUsableDuration(primaryAudioElement.duration)) {
             timestampElement.textContent = `${formatTimestamp(
-                audioElement.currentTime,
-            )} / ${formatTimestamp(audioElement.duration)}`;
+                primaryAudioElement.currentTime,
+            )} / ${formatTimestamp(primaryAudioElement.duration)}`;
 
             return;
         }
 
-        timestampElement.textContent = formatTimestamp(audioElement.currentTime);
+        timestampElement.textContent = formatTimestamp(primaryAudioElement.currentTime);
     }
 
     function updateProgress(): void {
+        const primaryAudioElement = getPrimaryAudioElement();
+
         if (isSeeking) {
             updateTimestamp();
             return;
         }
 
-        if (!isUsableDuration(audioElement.duration)) {
+        if (!isUsableDuration(primaryAudioElement.duration)) {
             progressInput.value = "0";
             updateTimestamp();
             return;
         }
 
         const progressPercentage =
-            (audioElement.currentTime / audioElement.duration) * 100;
+            (primaryAudioElement.currentTime / primaryAudioElement.duration) * 100;
 
         progressInput.value = String(progressPercentage);
         updateTimestamp();
     }
 
     async function handlePlayPauseClick(): Promise<void> {
-        if (!audioElement.src) {
+        const primaryAudioElement = getPrimaryAudioElement();
+
+        if (!primaryAudioElement.src) {
             return;
         }
 
-        if (audioElement.paused) {
-            await audioElement.play();
+        if (primaryAudioElement.paused) {
+            const sharedStartTime = primaryAudioElement.currentTime;
+
+            setAllAudioElementsToCurrentTime(sharedStartTime);
+
+            await Promise.all(
+                getLoadedAudioElements().map((loadedAudioElement) => {
+                    return loadedAudioElement.play();
+                }),
+            );
+
             setPlayButtonText();
             return;
         }
 
-        audioElement.pause();
+        for (const loadedAudioElement of getLoadedAudioElements()) {
+            loadedAudioElement.pause();
+        }
+
         setPlayButtonText();
     }
 
     function stop(): void {
-        audioElement.pause();
-        audioElement.currentTime = 0;
+        for (const loadedAudioElement of getLoadedAudioElements()) {
+            if (loadedAudioElement.src) {
+                loadedAudioElement.pause();
+            }
+
+            loadedAudioElement.currentTime = 0;
+        }
+
         setPlayButtonText();
         updateProgress();
     }
 
     function seek(): void {
-        if (!isUsableDuration(audioElement.duration)) {
+        const primaryAudioElement = getPrimaryAudioElement();
+
+        if (!isUsableDuration(primaryAudioElement.duration)) {
             return;
         }
 
@@ -147,10 +192,11 @@ export function createAudioPlayerController({
             return;
         }
 
-        audioElement.currentTime =
+        const nextCurrentTime =
             (Math.max(0, Math.min(100, progressPercentage)) / 100) *
-            audioElement.duration;
+            primaryAudioElement.duration;
 
+        setAllAudioElementsToCurrentTime(nextCurrentTime);
         updateProgress();
     }
 
@@ -165,16 +211,45 @@ export function createAudioPlayerController({
     }
 
     function loadTrack(track: AudioTrackForPlayer): void {
-        audioElement.src = track.audioUrl;
-        audioElement.currentTime = 0;
+        loadMix([
+            {
+                channelNumber: 1,
+                trackId: "single-track",
+                name: track.name,
+                audioUrl: track.audioUrl,
+                volume: 1,
+            },
+        ]);
+    }
 
-        trackNameElement.textContent = track.name;
+    function loadMix(channels: MixChannelForPlayer[]): void {
+        stop();
+
+        loadedMixChannels = channels.map((channel, index) => {
+            const channelAudioElement =
+                index === 0 ? audioElement : createAudioElement();
+
+            channelAudioElement.src = channel.audioUrl;
+            channelAudioElement.currentTime = 0;
+            channelAudioElement.volume = clampVolume(channel.volume);
+            channelAudioElement.load?.();
+
+            return {
+                channel,
+                audioElement: channelAudioElement,
+            };
+        });
+
+        const trackNames = channels.map((channel) => channel.name).join(", ");
+
+        trackNameElement.textContent =
+            channels.length === 1 ? trackNames : `Mix loaded: ${trackNames}`;
+
         progressInput.value = "0";
         timestampElement.textContent = "00:00";
         playPauseButton.textContent = "Play";
 
-        setControlsEnabled(true);
-        audioElement.load?.();
+        setControlsEnabled(channels.length > 0);
     }
 
     function init(): void {
@@ -184,7 +259,7 @@ export function createAudioPlayerController({
 
         playPauseButton.addEventListener("click", () => handlePlayPauseClick());
         stopButton.addEventListener("click", stop);
-        
+
         progressInput.addEventListener("input", beginSeeking);
         progressInput.addEventListener("change", finishSeeking);
 
@@ -193,9 +268,38 @@ export function createAudioPlayerController({
         audioElement.addEventListener("ended", stop);
     }
 
+    function clampVolume(volume: number): number {
+        if (!Number.isFinite(volume)) {
+            return 1;
+        }
+
+        return Math.max(0, Math.min(1, volume));
+    }
+
+    function getPrimaryAudioElement(): AudioElementLike {
+        return loadedMixChannels[0]?.audioElement ?? audioElement;
+    }
+
+    function getLoadedAudioElements(): AudioElementLike[] {
+        if (loadedMixChannels.length > 0) {
+            return loadedMixChannels.map((loadedChannel) => {
+                return loadedChannel.audioElement;
+            });
+        }
+
+        return [audioElement];
+    }
+
+    function setAllAudioElementsToCurrentTime(currentTime: number): void {
+        for (const loadedAudioElement of getLoadedAudioElements()) {
+            loadedAudioElement.currentTime = currentTime;
+        }
+    }
+
     return {
         init,
         loadTrack,
+        loadMix,
         stop,
     };
 }
