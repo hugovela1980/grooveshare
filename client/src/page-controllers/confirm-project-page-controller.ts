@@ -70,6 +70,13 @@ export function createConfirmProjectPageController({
             const project = await projectsApi.createProject(projectDraft);
             const pendingTracks = projectDraftState.getPendingTracks();
 
+            if (pendingTracks.length > 0) {
+                statusElement.textContent =
+                    pendingTracks.length === 1
+                        ? "Uploading 1 track..."
+                        : `Uploading ${pendingTracks.length} tracks...`;
+            }
+
             for (const pendingTrack of pendingTracks) {
                 await tracksApi.uploadTrack({
                     projectId: project.id,

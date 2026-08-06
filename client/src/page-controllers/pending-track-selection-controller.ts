@@ -53,7 +53,7 @@ type TextElementLike = {
 };
 
 type HiddenElementLike = {
-  hidden: boolean | "until-found";
+    hidden: boolean | "until-found";
 };
 
 type ListElementLike = {
@@ -74,6 +74,11 @@ type ProjectDraftStateLike = {
     removePendingTrack: (trackDraftId: string) => void;
     getPendingTracks: () => PendingTrackDraft[];
     getPendingTrackSlotsRemaining: () => number;
+};
+
+type SelectedAudioTrackDraft = {
+    trackName: string;
+    audioFile: File;
 };
 
 type PendingTrackSelectionControllerOptions = {
@@ -114,22 +119,22 @@ function getFilesFromInput(audioFileInput: FileInputLike): File[] {
     return Array.from(audioFileInput.files ?? []);
 }
 
-function renderSelectedAudioTrackRows(files: File[]): string {
-    if (files.length === 0) {
+function renderSelectedAudioTrackRows(
+    selectedAudioTracks: SelectedAudioTrackDraft[],
+): string {
+    if (selectedAudioTracks.length === 0) {
         return '<p class="empty-state">Select audio files to name them.</p>';
     }
 
-    return files
-        .map((file, index) => {
-            const defaultTrackName = getDefaultTrackName(file.name);
-
+    return selectedAudioTracks
+        .map((selectedAudioTrack, index) => {
             return /*html*/ `
         <div class="selected-audio-track-row" data-selected-audio-track-row>
           <label>
             <span>Track name</span>
             <input
               type="text"
-              value="${escapeHtml(defaultTrackName)}"
+              value="${escapeHtml(selectedAudioTrack.trackName)}"
               data-selected-track-name
               data-file-index="${index}"
             />
@@ -137,7 +142,7 @@ function renderSelectedAudioTrackRows(files: File[]): string {
 
           <div>
             <span>File</span>
-            <p>${escapeHtml(file.name)}</p>
+            <p>${escapeHtml(selectedAudioTrack.audioFile.name)}</p>
           </div>
         </div>
       `;
@@ -159,6 +164,29 @@ export function createPendingTrackSelectionController({
     projectDraftState,
     renderPendingTrackList,
 }: PendingTrackSelectionControllerOptions) {
+    let selectedAudioTracks: SelectedAudioTrackDraft[] = [];
+
+    function getTrackNameInputs(): InputLike[] {
+        return Array.from(
+            selectedTrackRowsElement.querySelectorAll?.("[data-selected-track-name]") ??
+            [],
+        );
+    }
+
+    function syncSelectedTrackNamesFromInputs(): void {
+        const trackNameInputs = getTrackNameInputs();
+
+        selectedAudioTracks = selectedAudioTracks.map((selectedAudioTrack, index) => {
+            return {
+                ...selectedAudioTrack,
+                trackName:
+                    trackNameInputs[index]?.value.trim() ||
+                    selectedAudioTrack.trackName ||
+                    selectedAudioTrack.audioFile.name,
+            };
+        });
+    }
+
     function renderPendingTracks(): void {
         const pendingTracks = projectDraftState.getPendingTracks();
 
@@ -167,17 +195,12 @@ export function createPendingTrackSelectionController({
     }
 
     function renderSelectedFiles(): void {
-        const selectedFiles = getFilesFromInput(audioFileInput);
-        const slotsRemaining = projectDraftState.getPendingTrackSlotsRemaining();
+        selectedTrackRowsElement.innerHTML =
+            renderSelectedAudioTrackRows(selectedAudioTracks);
+    }
 
-        if (selectedFiles.length > slotsRemaining) {
-            statusElement.textContent = `You can add ${slotsRemaining} more audio track${slotsRemaining === 1 ? "" : "s"
-                }.`;
-        }
-
-        selectedTrackRowsElement.innerHTML = renderSelectedAudioTrackRows(
-            selectedFiles.slice(0, slotsRemaining),
-        );
+    function resetNativeFileInput(): void {
+        audioFileInput.value = "";
     }
 
     function openModal(): void {
@@ -188,15 +211,59 @@ export function createPendingTrackSelectionController({
 
     function closeModal(): void {
         modalElement.hidden = true;
+        selectedAudioTracks = [];
         form.reset();
-        selectedTrackRowsElement.innerHTML = renderSelectedAudioTrackRows([]);
+        resetNativeFileInput();
+        renderSelectedFiles();
     }
 
-    function getTrackNameInputs(): InputLike[] {
-        return Array.from(
-            selectedTrackRowsElement.querySelectorAll?.("[data-selected-track-name]") ??
-            [],
+    function handleAudioFileChange(): void {
+        syncSelectedTrackNamesFromInputs();
+
+        const newlySelectedFiles = getFilesFromInput(audioFileInput);
+        const slotsRemaining = projectDraftState.getPendingTrackSlotsRemaining();
+        const modalSlotsRemaining = Math.max(
+            slotsRemaining - selectedAudioTracks.length,
+            0,
         );
+
+        if (newlySelectedFiles.length === 0) {
+            renderSelectedFiles();
+            return;
+        }
+
+        if (modalSlotsRemaining === 0) {
+            statusElement.textContent =
+                "This project already has the maximum number of audio tracks.";
+            resetNativeFileInput();
+            renderSelectedFiles();
+            return;
+        }
+
+        const filesToAdd = newlySelectedFiles.slice(0, modalSlotsRemaining);
+
+        selectedAudioTracks = [
+            ...selectedAudioTracks,
+            ...filesToAdd.map((audioFile) => {
+                return {
+                    trackName: getDefaultTrackName(audioFile.name),
+                    audioFile,
+                };
+            }),
+        ];
+
+        if (newlySelectedFiles.length > modalSlotsRemaining) {
+            statusElement.textContent = `Only ${modalSlotsRemaining} more audio track${modalSlotsRemaining === 1 ? "" : "s"
+                } could be added.`;
+        } else {
+            statusElement.textContent =
+                selectedAudioTracks.length === 1
+                    ? "1 audio file selected."
+                    : `${selectedAudioTracks.length} audio files selected.`;
+        }
+
+        resetNativeFileInput();
+        renderSelectedFiles();
     }
 
     function handleRemoveClick(event: ClickEventLike): void {
@@ -215,27 +282,17 @@ export function createPendingTrackSelectionController({
     function handleSubmit(event: SubmitEventLike): void {
         event.preventDefault();
 
-        const selectedFiles = getFilesFromInput(audioFileInput);
-        const slotsRemaining = projectDraftState.getPendingTrackSlotsRemaining();
+        syncSelectedTrackNamesFromInputs();
 
-        if (selectedFiles.length === 0) {
+        if (selectedAudioTracks.length === 0) {
             statusElement.textContent = "Choose at least one audio file first.";
             return;
         }
 
-        if (selectedFiles.length > slotsRemaining) {
-            statusElement.textContent = `You can add ${slotsRemaining} more audio track${slotsRemaining === 1 ? "" : "s"
-                }.`;
-            return;
-        }
-
-        const trackNameInputs = getTrackNameInputs();
-
-        const pendingTrackInputs = selectedFiles.map((audioFile, index) => {
+        const pendingTrackInputs = selectedAudioTracks.map((selectedAudioTrack) => {
             return {
-                trackName:
-                    trackNameInputs[index]?.value ?? getDefaultTrackName(audioFile.name),
-                audioFile,
+                trackName: selectedAudioTrack.trackName,
+                audioFile: selectedAudioTrack.audioFile,
             };
         });
 
@@ -258,13 +315,13 @@ export function createPendingTrackSelectionController({
         form.addEventListener("submit", handleSubmit);
 
         audioFileInput.addEventListener?.("change", () => {
-            renderSelectedFiles();
+            handleAudioFileChange();
         });
 
         pendingTrackListElement.addEventListener?.("click", handleRemoveClick);
 
         modalElement.hidden = true;
-        selectedTrackRowsElement.innerHTML = renderSelectedAudioTrackRows([]);
+        renderSelectedFiles();
         renderPendingTracks();
     }
 

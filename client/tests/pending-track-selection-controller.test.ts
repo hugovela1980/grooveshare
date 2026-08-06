@@ -57,10 +57,19 @@ function createFakeModalElement() {
 }
 
 function createFakeFileInput(files: File[] = []) {
+    let currentFiles = files;
     let changeHandler: ((event: Record<string, never>) => void) | null = null;
 
     return {
-        files,
+        get files() {
+            return currentFiles;
+        },
+
+        value: "",
+
+        setFiles(files: File[]) {
+            currentFiles = files;
+        },
 
         addEventListener(
             eventName: string,
@@ -78,19 +87,23 @@ function createFakeFileInput(files: File[] = []) {
 }
 
 function createFakeSelectedTrackRowsElement(trackNameValues: string[] = []) {
-    const trackNameInputs = trackNameValues.map((value) => {
-        return { value };
-    });
+    let currentTrackNameValues = trackNameValues;
 
     return {
         innerHTML: "",
+
+        setTrackNameValues(trackNameValues: string[]) {
+            currentTrackNameValues = trackNameValues;
+        },
 
         querySelectorAll(selector: string) {
             if (selector !== "[data-selected-track-name]") {
                 return [];
             }
 
-            return trackNameInputs;
+            return currentTrackNameValues.map((value) => {
+                return { value };
+            });
         },
     };
 }
@@ -217,6 +230,10 @@ tester.describe("pending track selection controller", () => {
 
         controller.init();
 
+        audioFileInput.triggerChange();
+
+        selectedTrackRowsElement.setTrackNameValues(["  Lead Guitar  ", "Bass"]);
+
         await form.submit();
 
         tester.expect(projectDraftState.getPendingTracks().length).toBe(2);
@@ -330,5 +347,92 @@ tester.describe("pending track selection controller", () => {
         ).toBe(true);
 
         tester.expect(tracksToIncludeSection.hidden).toBe(true);
+    });
+
+    tester.it("keeps previously selected modal files when more files are selected", async () => {
+        const openModalButton = createFakeButton();
+        const closeModalButton = createFakeButton();
+        const cancelButton = createFakeButton();
+        const modalElement = createFakeModalElement();
+        const form = createFakeForm();
+
+        const guitarFile = createFakeFile("guitar.wav");
+        const bassFile = createFakeFile("bass.wav");
+        const drumsFile = createFakeFile("drums.wav");
+        const vocalFile = createFakeFile("vocal.wav");
+
+        const audioFileInput = createFakeFileInput([guitarFile, bassFile, drumsFile]);
+        const selectedTrackRowsElement = createFakeSelectedTrackRowsElement();
+        const statusElement = createFakeTextElement();
+        const tracksToIncludeSection = createFakeModalElement();
+        const pendingTrackListElement = createClickableListElement();
+
+        let nextId = 1;
+
+        const projectDraftState = createProjectDraftState({
+            createId: () => `pending-track-${nextId++}`,
+        });
+
+        const controller = createPendingTrackSelectionController({
+            openModalButton,
+            closeModalButton,
+            cancelButton,
+            modalElement,
+            form,
+            audioFileInput,
+            selectedTrackRowsElement,
+            statusElement,
+            tracksToIncludeSection,
+            pendingTrackListElement,
+            projectDraftState,
+            renderPendingTrackList,
+        });
+
+        controller.init();
+
+        audioFileInput.triggerChange();
+
+        tester.expect(selectedTrackRowsElement.innerHTML.includes("guitar.wav")).toBe(
+            true,
+        );
+        tester.expect(selectedTrackRowsElement.innerHTML.includes("bass.wav")).toBe(
+            true,
+        );
+        tester.expect(selectedTrackRowsElement.innerHTML.includes("drums.wav")).toBe(
+            true,
+        );
+
+        selectedTrackRowsElement.setTrackNameValues(["Guitar", "Bass", "Drums"]);
+
+        audioFileInput.setFiles([vocalFile]);
+        audioFileInput.triggerChange();
+
+        tester.expect(selectedTrackRowsElement.innerHTML.includes("guitar.wav")).toBe(
+            true,
+        );
+        tester.expect(selectedTrackRowsElement.innerHTML.includes("bass.wav")).toBe(
+            true,
+        );
+        tester.expect(selectedTrackRowsElement.innerHTML.includes("drums.wav")).toBe(
+            true,
+        );
+        tester.expect(selectedTrackRowsElement.innerHTML.includes("vocal.wav")).toBe(
+            true,
+        );
+
+        selectedTrackRowsElement.setTrackNameValues([
+            "Guitar",
+            "Bass",
+            "Drums",
+            "Vocal",
+        ]);
+
+        await form.submit();
+
+        tester.expect(projectDraftState.getPendingTracks().length).toBe(4);
+
+        tester.expect(
+            projectDraftState.getPendingTracks().map((track) => track.trackName),
+        ).toEqual(["Guitar", "Bass", "Drums", "Vocal"]);
     });
 });

@@ -36,14 +36,18 @@ function createTrack(): Track {
 }
 
 tester.describe("confirm project page controller", () => {
-    tester.it("creates the project and uploads pending tracks", async () => {
+    tester.it("creates the project and uploads multiple pending tracks", async () => {
         const submitButton = createFakeButton();
         const statusElement = {
             textContent: "",
         };
 
         const projectDraftState = createProjectDraftState({
-            createId: () => "pending-track-1",
+            createId: (() => {
+                let nextId = 1;
+
+                return () => `pending-track-${nextId++}`;
+            })(),
         });
 
         projectDraftState.setProjectDraft({
@@ -51,12 +55,19 @@ tester.describe("confirm project page controller", () => {
             description: "Practice loop",
         });
 
-        const audioFile = createFakeFile();
+        const guitarFile = createFakeFile("guitar.wav");
+        const bassFile = createFakeFile("bass.wav");
 
-        projectDraftState.addPendingTrack({
-            trackName: "Lead Guitar",
-            audioFile,
-        });
+        projectDraftState.addPendingTracks([
+            {
+                trackName: "Lead Guitar",
+                audioFile: guitarFile,
+            },
+            {
+                trackName: "Bass",
+                audioFile: bassFile,
+            },
+        ]);
 
         let createdProjectInput = null as null | {
             title: string;
@@ -100,13 +111,20 @@ tester.describe("confirm project page controller", () => {
             title: "Bass Groove",
             description: "Practice loop",
         });
+
         tester.expect(uploadedTracks).toEqual([
             {
                 projectId: "project-1",
                 trackName: "Lead Guitar",
-                audioFile,
+                audioFile: guitarFile,
+            },
+            {
+                projectId: "project-1",
+                trackName: "Bass",
+                audioFile: bassFile,
             },
         ]);
+
         tester.expect(projectDraftState.getProjectDraft()).toBe(null);
         tester.expect(projectDraftState.getPendingTracks()).toEqual([]);
         tester.expect(submittedProjectTitle).toBe("Bass Groove");
@@ -144,5 +162,63 @@ tester.describe("confirm project page controller", () => {
         await submitButton.click();
 
         tester.expect(statusElement.textContent).toBe("Project draft is missing.");
+    });
+
+    tester.it("creates a project when there are no pending tracks", async () => {
+        const submitButton = createFakeButton();
+        const statusElement = {
+            textContent: "",
+        };
+
+        const projectDraftState = createProjectDraftState();
+
+        projectDraftState.setProjectDraft({
+            title: "Bass Groove",
+            description: "Practice loop",
+        });
+
+        let createdProjectInput = null as null | {
+            title: string;
+            description: string;
+        };
+
+        let uploadTrackCallCount = 0;
+        let submittedProjectTitle = "";
+
+        const controller = createConfirmProjectPageController({
+            submitButton,
+            statusElement,
+            projectDraftState,
+            projectsApi: {
+                async createProject(input) {
+                    createdProjectInput = input;
+                    return createProject();
+                },
+            },
+            tracksApi: {
+                async uploadTrack() {
+                    uploadTrackCallCount += 1;
+                    return createTrack();
+                },
+            },
+            onProjectSubmitted(project) {
+                submittedProjectTitle = project.title;
+            },
+        });
+
+        controller.init();
+
+        await submitButton.click();
+
+        tester.expect(createdProjectInput).toEqual({
+            title: "Bass Groove",
+            description: "Practice loop",
+        });
+
+        tester.expect(uploadTrackCallCount).toBe(0);
+        tester.expect(statusElement.textContent).toBe("Project created.");
+        tester.expect(projectDraftState.getProjectDraft()).toBe(null);
+        tester.expect(projectDraftState.getPendingTracks()).toEqual([]);
+        tester.expect(submittedProjectTitle).toBe("Bass Groove");
     });
 });

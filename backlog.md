@@ -8,15 +8,29 @@
 
 ## Current Focus
 
+### Add multiple tracks on Create Project page
+
+- [ ] Update project draft state to store multiple pending tracks
+  Replace the single pending track state with an array of pending tracks.
+
+- [ ] Add helper for adding multiple pending tracks
+  Add a function that accepts an array of track name/file pairs and stores them in the draft.
+
+- [ ] Add helper for removing or clearing pending tracks
+  Keep the draft state manageable before confirmation.
+
+- [ ] Update draft state tests
+  Verify that multiple tracks can be added, read, and cleared.
+
 ### Finish Version 1
 
-- [ ] Update docs for four-channel playback
+- [x] Update docs for four-channel playback
   Update README and architecture notes so they no longer describe the mixer as only a two-channel prototype. Document that four channel slots can be loaded and played from a shared start point.
 
-- [ ] Stabilize Version 1 transport expectations
+- [x] Stabilize Version 1 transport expectations
   Decide what Version 1 officially supports for play, pause, stop, Load Mix, loop, progress, and seeking. Document any limitations clearly.
 
-- [ ] Add known limitation for HTML audio looping
+- [x] Add known limitation for HTML audio looping
   Document that current loop behavior may have a small gap because it uses HTML audio elements, and that gapless looping will be handled later by the Web Audio engine.
 
 - [ ] Manually test Version 1 stem-player workflow

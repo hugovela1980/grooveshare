@@ -1,23 +1,4 @@
 {
-  "projects": [
-    {
-      "id": "2772f705-1e2f-48a9-8272-a6a5f8087657",
-      "title": "Eastern sounding Rock Groove",
-      "description": "Bass, Drum and 2 guitar tracks",
-      "createdAt": "2026-08-06T20:30:40.289Z",
-      "updatedAt": "2026-08-06T20:30:40.289Z"
-    }
-  ],
-  "tracks": [
-    {
-      "id": "3e0bea11-fac1-4f2e-96fe-789d19c7afd6",
-      "projectId": "2772f705-1e2f-48a9-8272-a6a5f8087657",
-      "name": "Bass",
-      "originalFilename": "Bass.wav",
-      "filePath": "uploads\\projects\\2772f705-1e2f-48a9-8272-a6a5f8087657\\bd4ae36e-bc86-4fe0-bebf-cde94f0246ef-Bass.wav",
-      "mimeType": "audio/wav",
-      "fileSize": 2822444,
-      "createdAt": "2026-08-06T20:30:40.317Z"
-    }
-  ]
+  "projects": [],
+  "tracks": []
 }
