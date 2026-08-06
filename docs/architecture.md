@@ -491,6 +491,49 @@ As the app grows, the Web Audio API may become important for better synchronized
 
 The app should aim for practical rehearsal usefulness, not professional DAW-level editing.
 
+## Project Player Mixer Direction
+
+The Project Player should be organized around two separate responsibilities:
+
+```txt
+Tracks panel       = channel setup and per-track mix/edit controls
+Audio Player panel = global playback transport
+```
+
+The Tracks panel should eventually contain four channel slots. Each channel slot represents one possible audio lane in the current project mix.
+
+A channel slot may be empty or assigned to one uploaded track.
+
+Each channel slot should own the controls and display elements that belong to an individual track:
+
+* Assigned track name
+* Enabled/on-off state
+* Volume control
+* Waveform display
+* Offset/nudge controls
+* Trim/clipping controls
+
+The Audio Player panel should own only the global controls that affect the currently loaded mix:
+
+* Play
+* Pause
+* Stop
+* Restart/reset
+* Shared progress control
+* Shared timestamp display
+
+This separation keeps the Project Player closer to a small stem mixer. The user configures the mix in the Tracks panel, then uses the Audio Player panel to control playback of the prepared mix.
+
+The first multitrack version should start with two channel slots. The first two uploaded tracks can automatically fill Channel 1 and Channel 2. Each channel should show the assigned track name, enabled toggle, volume slider, and a placeholder waveform area.
+
+After the user adjusts the channel enabled states and volume settings, a `Load Mix` action should prepare the selected channels for playback. The Audio Player should then play the enabled tracks together from a shared start point while respecting each channel's volume setting.
+
+The layout should leave room for four total channel slots even before all four channels are fully functional. This keeps the interface pointed toward the longer-term goal of four-track mixing, editing, and playback.
+
+Waveforms should live inside the channel slots rather than inside the global Audio Player panel. This is because waveform editing is track-specific. Future nudge, trim, and clipping behavior will need to line up visually with each individual track's waveform.
+
+The global Audio Player may still show a shared progress bar and timestamp, but detailed waveform editing should happen inside the Tracks panel.
+
 ## Recording Direction
 
 Recording is planned for Version 2, not Version 1.

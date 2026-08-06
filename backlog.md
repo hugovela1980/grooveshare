@@ -8,29 +8,49 @@
 
 ## Current Focus
 
-- [x] Serve uploaded audio files
-  Add a backend route that returns the audio file for a track.
+- [ ] Add two-channel slot prototype
+  Render the first two uploaded tracks as Channel 1 and Channel 2. Each channel should show the assigned track name, enabled toggle, volume slider, and a placeholder waveform area.
 
-- [x] Add single audio player template
-  Add a simple player area with play, pause/stop, progress, and timestamp.
+## 4 channel track mixer    
 
-- [x] Add single audio player controller
-Reuse the media-control ideas from your old video player: play/pause, stop, progress update, seek, and time formatting.
+- [ ] Add Load Mix behavior for two channels
+  Add a Load Mix button that prepares the enabled channel slots for playback instead of loading one individual track at a time.
 
-- [x] Add track load/play behavior
-  Add a button to each track in the Project Player that loads that track into the audio player.
+- [ ] Add two-track playback controller
+  Play, pause, stop, and reset two enabled tracks from a shared start point. Each track should respect its channel volume setting.
 
-- [x] Manually test one-track playback
-  Upload a track, open the Project Player, load the track, play it, pause it, stop it, and seek through it.
+- [ ] Stabilize multitrack transport controls
+  Update the Audio Player panel so play, pause, stop, timestamp, and progress behavior are designed around a shared mix instead of a single audio element.
+
+- [ ] Expand the mixer from two channels to four channels
+  Support four available channel slots. Automatically fill the first four uploaded tracks for now, while leaving room for manual assignment later.
+
+- [ ] Add per-channel volume and enabled state behavior
+  Make each channel’s enabled toggle and volume slider affect the loaded mix. Disabled channels should not play, and volume changes should affect playback clearly.
+
+- [ ] Add read-only waveform display for each channel
+  Fetch and decode each channel’s audio file, calculate waveform peaks, and draw a simple waveform inside each channel slot.
+
+- [ ] Add shared playhead across channel waveforms
+  Show one shared playhead position across the active channel waveforms so the user can see where playback is in the mix.
+
+- [ ] Add channel offset/nudge controls
+  Let each channel store a timing offset in seconds. Add simple nudge controls so tracks can be shifted slightly earlier or later to help sync rough recordings.
+
+- [ ] Add non-destructive trim/clipping controls
+  Let each channel store a clip start and clip end value without permanently editing the original audio file. Playback should only include the selected section.
+
+- [ ] Add edited multitrack playback
+  Make playback respect each channel’s enabled state, volume, offset, clip start, and clip end values.
+
+- [ ] Manually test full four-track mixing and editing
+  Upload up to four tracks, load the mix, play all enabled tracks together, adjust volume, toggle channels, nudge tracks, trim clips, stop, restart, and verify the mix behaves predictably.
 
 ## Backlog
 
-- [ ] Build multitrack playback
-  Allow multiple uploaded tracks in the same project to play together from a shared start point.
-
-- [ ] Add track controls
-  Add per-track controls for mute, solo, volume, and pan so a collaborator can shape their own practice mix.
-
+- [ ] Add notes to backlog or architecture docs
+     Document the decision that waveforms, volume, enabled state, nudge, and trim/clipping controls belong to the channel slots in the Tracks panel, while play, pause, stop, progress, and timestamp belong to the Audio Player panel.
+     
 - [ ] Add project detail page
   Create a focused project view where the user can see project notes, uploaded tracks, and playback controls in one place.
 
@@ -127,3 +147,6 @@ Reuse the media-control ideas from your old video player: play/pause, stop, prog
 
   - [x] Add single-track audio playback path
   Added backend audio serving, a single audio player template, an audio player controller, track Load buttons, and Project Player wiring so one uploaded track can be loaded and played from the browser.
+
+  - [x] Design four-channel track mixer layout
+  Replace the simple track list mindset with four channel slots in the Project Player Tracks panel. Each slot should be designed to eventually support an assigned track, enabled toggle, volume control, waveform display, offset/nudge controls, and trim/clipping controls.
