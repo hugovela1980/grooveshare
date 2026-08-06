@@ -5,6 +5,8 @@ import { createProjectMenuPageController } from "./page-controllers/project-menu
 import { createProjectPlayerPageController } from "./page-controllers/project-player-page-controller.js";
 import { createConfirmProjectPageController } from "./page-controllers/confirm-project-page-controller.js";
 import { createAudioPlayerController } from "./page-controllers/audio-player-controller.js";
+import { createPendingTrackSelectionController } from "./page-controllers/pending-track-selection-controller.js";
+import { renderPendingTrackList } from "./templates/pending-track-list.js";
 import { getTrackAudioUrl } from "./api/tracks-api.js";
 import { renderConfirmProjectPage } from "./pages/confirm-project-page.js";
 import { renderCreateProjectPage } from "./pages/create-project-page.js";
@@ -118,36 +120,94 @@ function initializeCreateProjectPage({
   );
 
   if (form && titleInput && descriptionInput && statusElement) {
-    const pendingTrackNameInput = getElement<HTMLInputElement>(
-      appElement,
-      "#pending-track-name",
-    );
-
-    const pendingAudioFileInput = getElement<HTMLInputElement>(
-      appElement,
-      "#pending-audio-file",
-    );
-
     const controller = createCreateProjectPageController({
       form,
       titleInput,
       descriptionInput,
       statusElement,
-      trackNameInput: pendingTrackNameInput ?? undefined,
-      audioFileInput: pendingAudioFileInput ?? undefined,
-      onProjectDraftReady(projectDraft, pendingTrack) {
-        projectDraftState.clear();
+      onProjectDraftReady(projectDraft) {
         projectDraftState.setProjectDraft(projectDraft);
-
-        if (pendingTrack) {
-          projectDraftState.addPendingTrack(pendingTrack);
-        }
-
         navigateTo("confirm-project");
       },
     });
 
     controller.init();
+  }
+
+  const openModalButton = getElement<HTMLButtonElement>(
+    appElement,
+    "#open-add-tracks-modal-button",
+  );
+
+  const closeModalButton = getElement<HTMLButtonElement>(
+    appElement,
+    "#close-add-tracks-modal-button",
+  );
+
+  const cancelButton = getElement<HTMLButtonElement>(
+    appElement,
+    "#cancel-add-tracks-button",
+  );
+
+  const modalElement = getElement<HTMLDivElement>(
+    appElement,
+    "#add-audio-tracks-modal",
+  );
+
+  const pendingTrackForm = getElement<HTMLFormElement>(
+    appElement,
+    "#pending-track-form",
+  );
+
+  const pendingAudioFilesInput = getElement<HTMLInputElement>(
+    appElement,
+    "#pending-audio-files",
+  );
+
+  const selectedTrackRowsElement = getElement<HTMLDivElement>(
+    appElement,
+    "#selected-audio-track-rows",
+  );
+
+  const tracksToIncludeSection = getElement<HTMLElement>(
+    appElement,
+    "#tracks-to-include-section",
+  );
+
+  const pendingTrackListElement = getElement<HTMLDivElement>(
+    appElement,
+    "#pending-track-list",
+  );
+
+  if (
+    openModalButton &&
+    closeModalButton &&
+    cancelButton &&
+    modalElement &&
+    pendingTrackForm &&
+    pendingAudioFilesInput &&
+    selectedTrackRowsElement &&
+    tracksToIncludeSection &&
+    pendingTrackListElement &&
+    statusElement
+  ) {
+    const pendingTrackSelectionController =
+      createPendingTrackSelectionController({
+        openModalButton,
+        closeModalButton,
+        cancelButton,
+        modalElement,
+        form: pendingTrackForm,
+        audioFileInput: pendingAudioFilesInput,
+        selectedTrackRowsElement,
+        statusElement,
+        tracksToIncludeSection,
+        pendingTrackListElement,
+        projectDraftState,
+        renderPendingTrackList,
+      });
+
+    pendingTrackSelectionController.init();
   }
 }
 

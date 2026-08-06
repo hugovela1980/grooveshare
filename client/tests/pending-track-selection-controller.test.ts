@@ -3,10 +3,20 @@ import { createPendingTrackSelectionController } from "../src/page-controllers/p
 import { renderPendingTrackList } from "../src/templates/pending-track-list.js";
 import {
     createFakeForm,
-    createFakeInput,
     createFakeTextElement,
 } from "./helpers/fake-dom.js";
 import { tester } from "./test-runner/tester.js";
+
+type ClickTargetLike = {
+    closest: (
+        selector: string,
+    ) => { getAttribute: (name: string) => string | null } | null;
+};
+
+type ClickEventLike = {
+    preventDefault?: () => void;
+    target?: ClickTargetLike | null;
+};
 
 function createFakeFile(name = "guitar.wav"): File {
     return {
@@ -16,42 +26,82 @@ function createFakeFile(name = "guitar.wav"): File {
     } as unknown as File;
 }
 
-function createFakeFileInput(file: File | null) {
-    const files = file
-        ? ({
-            0: file,
-            length: 1,
-
-            item(index: number) {
-                return index === 0 ? file : null;
-            },
-
-            [Symbol.iterator]() {
-                return [file][Symbol.iterator]();
-            },
-        } as FileList)
-        : null;
+function createFakeButton() {
+    let clickHandler: ((event: ClickEventLike) => void | Promise<void>) | null =
+        null;
 
     return {
-        files,
+        addEventListener(
+            eventName: string,
+            handler: (event: ClickEventLike) => void | Promise<void>,
+        ) {
+            if (eventName === "click") {
+                clickHandler = handler;
+            }
+        },
+
+        async click() {
+            if (!clickHandler) {
+                throw new Error("No click handler registered.");
+            }
+
+            await clickHandler({});
+        },
     };
 }
 
-function createClickableListElement() {
-    let clickHandler:
-        | ((event: {
-            target: {
-                closest: (
-                    selector: string,
-                ) => { getAttribute: (name: string) => string | null } | null;
-            };
-        }) => void)
-        | null = null;
+function createFakeModalElement() {
+    return {
+        hidden: true as boolean | "until-found",
+    };
+}
+
+function createFakeFileInput(files: File[] = []) {
+    let changeHandler: ((event: Record<string, never>) => void) | null = null;
+
+    return {
+        files,
+
+        addEventListener(
+            eventName: string,
+            handler: (event: Record<string, never>) => void,
+        ) {
+            if (eventName === "change") {
+                changeHandler = handler;
+            }
+        },
+
+        triggerChange() {
+            changeHandler?.({});
+        },
+    };
+}
+
+function createFakeSelectedTrackRowsElement(trackNameValues: string[] = []) {
+    const trackNameInputs = trackNameValues.map((value) => {
+        return { value };
+    });
 
     return {
         innerHTML: "",
 
-        addEventListener(eventName: string, handler: typeof clickHandler) {
+        querySelectorAll(selector: string) {
+            if (selector !== "[data-selected-track-name]") {
+                return [];
+            }
+
+            return trackNameInputs;
+        },
+    };
+}
+
+function createClickableListElement() {
+    let clickHandler: ((event: ClickEventLike) => void) | null = null;
+
+    return {
+        innerHTML: "",
+
+        addEventListener(eventName: string, handler: (event: ClickEventLike) => void) {
             if (eventName === "click") {
                 clickHandler = handler;
             }
@@ -87,19 +137,29 @@ function createClickableListElement() {
 
 tester.describe("pending track selection controller", () => {
     tester.it("renders the initial pending track list", () => {
+        const openModalButton = createFakeButton();
+        const closeModalButton = createFakeButton();
+        const cancelButton = createFakeButton();
+        const modalElement = createFakeModalElement();
         const form = createFakeForm();
-        const trackNameInput = createFakeInput("");
-        const audioFileInput = createFakeFileInput(null);
+        const audioFileInput = createFakeFileInput();
+        const selectedTrackRowsElement = createFakeSelectedTrackRowsElement();
         const statusElement = createFakeTextElement();
+        const tracksToIncludeSection = createFakeModalElement();
         const pendingTrackListElement = createClickableListElement();
 
         const projectDraftState = createProjectDraftState();
 
         const controller = createPendingTrackSelectionController({
+            openModalButton,
+            closeModalButton,
+            cancelButton,
+            modalElement,
             form,
-            trackNameInput,
             audioFileInput,
+            selectedTrackRowsElement,
             statusElement,
+            tracksToIncludeSection,
             pendingTrackListElement,
             projectDraftState,
             renderPendingTrackList,
@@ -107,28 +167,49 @@ tester.describe("pending track selection controller", () => {
 
         controller.init();
 
-        tester.expect(pendingTrackListElement.innerHTML.includes("No tracks selected yet.")).toBe(
-            true,
-        );
+        tester.expect(
+            pendingTrackListElement.innerHTML.includes("No tracks selected yet."),
+        ).toBe(true);
+
+        tester.expect(tracksToIncludeSection.hidden).toBe(true);
+        tester.expect(modalElement.hidden).toBe(true);
     });
 
-    tester.it("adds a pending track from the form", async () => {
+    tester.it("adds pending tracks from selected files", async () => {
+        const openModalButton = createFakeButton();
+        const closeModalButton = createFakeButton();
+        const cancelButton = createFakeButton();
+        const modalElement = createFakeModalElement();
         const form = createFakeForm();
-        const trackNameInput = createFakeInput("  Lead Guitar  ");
-        const audioFile = createFakeFile();
-        const audioFileInput = createFakeFileInput(audioFile);
+
+        const guitarFile = createFakeFile("guitar.wav");
+        const bassFile = createFakeFile("bass.wav");
+
+        const audioFileInput = createFakeFileInput([guitarFile, bassFile]);
+        const selectedTrackRowsElement = createFakeSelectedTrackRowsElement([
+            "  Lead Guitar  ",
+            "Bass",
+        ]);
         const statusElement = createFakeTextElement();
+        const tracksToIncludeSection = createFakeModalElement();
         const pendingTrackListElement = createClickableListElement();
 
+        let nextId = 1;
+
         const projectDraftState = createProjectDraftState({
-            createId: () => "pending-track-1",
+            createId: () => `pending-track-${nextId++}`,
         });
 
         const controller = createPendingTrackSelectionController({
+            openModalButton,
+            closeModalButton,
+            cancelButton,
+            modalElement,
             form,
-            trackNameInput,
             audioFileInput,
+            selectedTrackRowsElement,
             statusElement,
+            tracksToIncludeSection,
             pendingTrackListElement,
             projectDraftState,
             renderPendingTrackList,
@@ -138,33 +219,53 @@ tester.describe("pending track selection controller", () => {
 
         await form.submit();
 
-        tester.expect(projectDraftState.getPendingTracks().length).toBe(1);
+        tester.expect(projectDraftState.getPendingTracks().length).toBe(2);
+
         tester.expect(projectDraftState.getPendingTracks()[0].trackName).toBe(
             "Lead Guitar",
         );
+
+        tester.expect(projectDraftState.getPendingTracks()[1].trackName).toBe("Bass");
+
         tester.expect(form.getResetCallCount()).toBe(1);
+
         tester.expect(statusElement.textContent).toBe(
-            "Track added to project draft.",
+            "Tracks added to project draft.",
         );
+
         tester.expect(pendingTrackListElement.innerHTML.includes("Lead Guitar")).toBe(
             true,
         );
+
+        tester.expect(pendingTrackListElement.innerHTML.includes("Bass")).toBe(true);
+        tester.expect(tracksToIncludeSection.hidden).toBe(false);
+        tester.expect(modalElement.hidden).toBe(true);
     });
 
-    tester.it("does not add a pending track without an audio file", async () => {
+    tester.it("does not add pending tracks without an audio file", async () => {
+        const openModalButton = createFakeButton();
+        const closeModalButton = createFakeButton();
+        const cancelButton = createFakeButton();
+        const modalElement = createFakeModalElement();
         const form = createFakeForm();
-        const trackNameInput = createFakeInput("Lead Guitar");
-        const audioFileInput = createFakeFileInput(null);
+        const audioFileInput = createFakeFileInput();
+        const selectedTrackRowsElement = createFakeSelectedTrackRowsElement();
         const statusElement = createFakeTextElement();
+        const tracksToIncludeSection = createFakeModalElement();
         const pendingTrackListElement = createClickableListElement();
 
         const projectDraftState = createProjectDraftState();
 
         const controller = createPendingTrackSelectionController({
+            openModalButton,
+            closeModalButton,
+            cancelButton,
+            modalElement,
             form,
-            trackNameInput,
             audioFileInput,
+            selectedTrackRowsElement,
             statusElement,
+            tracksToIncludeSection,
             pendingTrackListElement,
             projectDraftState,
             renderPendingTrackList,
@@ -176,25 +277,42 @@ tester.describe("pending track selection controller", () => {
 
         tester.expect(projectDraftState.getPendingTracks()).toEqual([]);
         tester.expect(form.getResetCallCount()).toBe(0);
-        tester.expect(statusElement.textContent).toBe("Choose an audio file first.");
+        tester.expect(statusElement.textContent).toBe(
+            "Choose at least one audio file first.",
+        );
     });
 
-    tester.it("removes a pending track", async () => {
+    tester.it("removes a pending track", () => {
+        const openModalButton = createFakeButton();
+        const closeModalButton = createFakeButton();
+        const cancelButton = createFakeButton();
+        const modalElement = createFakeModalElement();
         const form = createFakeForm();
-        const trackNameInput = createFakeInput("Lead Guitar");
-        const audioFileInput = createFakeFileInput(createFakeFile());
+        const audioFileInput = createFakeFileInput();
+        const selectedTrackRowsElement = createFakeSelectedTrackRowsElement();
         const statusElement = createFakeTextElement();
+        const tracksToIncludeSection = createFakeModalElement();
         const pendingTrackListElement = createClickableListElement();
 
         const projectDraftState = createProjectDraftState({
             createId: () => "pending-track-1",
         });
 
+        projectDraftState.addPendingTrack({
+            trackName: "Lead Guitar",
+            audioFile: createFakeFile("guitar.wav"),
+        });
+
         const controller = createPendingTrackSelectionController({
+            openModalButton,
+            closeModalButton,
+            cancelButton,
+            modalElement,
             form,
-            trackNameInput,
             audioFileInput,
+            selectedTrackRowsElement,
             statusElement,
+            tracksToIncludeSection,
             pendingTrackListElement,
             projectDraftState,
             renderPendingTrackList,
@@ -202,14 +320,15 @@ tester.describe("pending track selection controller", () => {
 
         controller.init();
 
-        await form.submit();
-
         pendingTrackListElement.clickRemoveButton("pending-track-1");
 
         tester.expect(projectDraftState.getPendingTracks()).toEqual([]);
         tester.expect(statusElement.textContent).toBe("Track removed.");
-        tester.expect(pendingTrackListElement.innerHTML.includes("No tracks selected yet.")).toBe(
-            true,
-        );
+
+        tester.expect(
+            pendingTrackListElement.innerHTML.includes("No tracks selected yet."),
+        ).toBe(true);
+
+        tester.expect(tracksToIncludeSection.hidden).toBe(true);
     });
 });

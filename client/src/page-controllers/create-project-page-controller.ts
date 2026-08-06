@@ -1,4 +1,3 @@
-import type { AddPendingTrackInput } from "../project-draft/project-draft-state.js";
 import type { CreateProjectInput } from "../types.js";
 
 type SubmitEventLike = {
@@ -16,10 +15,6 @@ type InputLike = {
   value: string;
 };
 
-type FileInputLike = {
-  files: FileList | null;
-};
-
 type TextElementLike = {
   textContent: string | null;
 };
@@ -29,12 +24,7 @@ type CreateProjectPageControllerOptions = {
   titleInput: InputLike;
   descriptionInput: InputLike;
   statusElement: TextElementLike;
-  trackNameInput?: InputLike;
-  audioFileInput?: FileInputLike;
-  onProjectDraftReady: (
-    input: CreateProjectInput,
-    pendingTrack: AddPendingTrackInput | null,
-  ) => void | Promise<void>;
+  onProjectDraftReady: (input: CreateProjectInput) => void | Promise<void>;
 };
 
 export function createCreateProjectPageController({
@@ -42,8 +32,6 @@ export function createCreateProjectPageController({
   titleInput,
   descriptionInput,
   statusElement,
-  trackNameInput,
-  audioFileInput,
   onProjectDraftReady,
 }: CreateProjectPageControllerOptions) {
   async function handleSubmit(event: SubmitEventLike): Promise<void> {
@@ -57,22 +45,10 @@ export function createCreateProjectPageController({
       return;
     }
 
-    const audioFile = audioFileInput?.files?.[0] ?? null;
-
-    const pendingTrack = audioFile
-      ? {
-          trackName: trackNameInput?.value ?? "",
-          audioFile,
-        }
-      : null;
-
-    await onProjectDraftReady(
-      {
-        title,
-        description,
-      },
-      pendingTrack,
-    );
+    await onProjectDraftReady({
+      title,
+      description,
+    });
   }
 
   function init(): void {

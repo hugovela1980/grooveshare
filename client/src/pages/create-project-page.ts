@@ -42,27 +42,33 @@ export function renderCreateProjectPage(): string {
           </section>
 
           <section class="create-project-form__section">
-            <h2>Tracks to include</h2>
+            <div class="add-audio-tracks-header">
+              <div>
+                <h2>Add Audio Tracks</h2>
+                <p class="description">
+                  Add up to four audio tracks before creating the project.
+                </p>
+              </div>
 
-            <label>
-              <span>Track name</span>
-              <input
-                id="pending-track-name"
-                name="trackName"
-                type="text"
-                placeholder="Guitar"
-              />
-            </label>
+              <button
+                id="open-add-tracks-modal-button"
+                class="icon-button"
+                type="button"
+                aria-label="Add audio tracks"
+              >
+                +
+              </button>
+            </div>
 
-            <label>
-              <span>Audio file</span>
-              <input
-                id="pending-audio-file"
-                name="audioFile"
-                type="file"
-                accept="audio/*"
-              />
-            </label>
+            <section
+              id="tracks-to-include-section"
+              class="tracks-to-include-section"
+              hidden
+            >
+              <h3>Tracks to Include</h3>
+
+              <div id="pending-track-list"></div>
+            </section>
           </section>
 
           <div class="create-project-actions">
@@ -71,6 +77,65 @@ export function renderCreateProjectPage(): string {
 
           <p id="project-status" class="status-message" aria-live="polite"></p>
         </form>
+
+        <div
+          id="add-audio-tracks-modal"
+          class="modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="add-audio-tracks-modal-title"
+          hidden
+        >
+          <div class="modal__content">
+            <header class="modal__header">
+              <div>
+                <p class="eyebrow">Project Tracks</p>
+                <h2 id="add-audio-tracks-modal-title">Add Audio Tracks</h2>
+              </div>
+
+              <button
+                id="close-add-tracks-modal-button"
+                class="icon-button"
+                type="button"
+                aria-label="Close add audio tracks modal"
+              >
+                ×
+              </button>
+            </header>
+
+            <form id="pending-track-form" class="pending-track-form">
+              <div class="add-tracks-modal__file-row">
+                <label>
+                  <span>Audio files</span>
+                  <input
+                    id="pending-audio-files"
+                    name="audioFiles"
+                    type="file"
+                    accept="audio/*"
+                    multiple
+                  />
+                </label>
+
+                <p class="help-text">
+                  Select up to four audio files total for this project.
+                </p>
+              </div>
+
+              <div
+                id="selected-audio-track-rows"
+                class="selected-audio-track-rows"
+              ></div>
+
+              <div class="modal__actions">
+                <button id="cancel-add-tracks-button" type="button">
+                  Cancel
+                </button>
+
+                <button type="submit">Add Tracks</button>
+              </div>
+            </form>
+          </div>
+        </div>
       </section>
     </main>
   `;
