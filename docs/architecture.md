@@ -2,105 +2,78 @@
 
 ## Purpose
 
-GrooveShare is a lightweight browser-based music collaboration tool for sharing audio stems, practicing parts, and eventually capturing rough remote takes from bandmates.
+GrooveShare is a lightweight browser-based music collaboration tool for sharing audio stems, practicing parts, and building toward rough remote recording workflows.
 
-The app is not intended to be a full DAW. The goal is to provide a simple workflow where one musician can create a project, upload rough tracks, share or review those tracks, and build toward a practical stem-player workflow for remote practice and collaboration.
+The app is not intended to be a full DAW. The goal is to provide a focused workflow where a musician can create a project, upload audio tracks, review those tracks together, adjust a simple mix, and eventually capture rough collaborator takes.
 
 ## Product Direction
 
 GrooveShare is built around a practical band workflow:
 
-A user creates a project for a song idea, riff, section, or practice track. The user uploads individual audio files such as guitar, scratch drums, bass, vocals, or click tracks. A collaborator should eventually be able to open the project, listen to the tracks together, adjust the mix for practice, and record a rough part back into the project.
+1. A user creates a project for a song idea, riff, section, rehearsal part, or practice track.
+2. The user uploads individual audio files such as drums, bass, guitars, vocals, click tracks, or scratch references.
+3. The Project Player displays the uploaded files as channel slots.
+4. The user chooses which channels are enabled, adjusts channel volume, loads the mix, and controls playback from a shared transport.
+5. Later versions should support waveform display, nudge, trim, browser recording, and collaboration features.
 
-The app should stay focused on simple collaboration and practice rather than becoming a full music production environment.
+The app should stay focused on collaboration and practice rather than becoming a full production environment.
 
 ## Current Phase
 
-The project is currently in Phase 1.
+The project is currently in the local Version 1 stem-player phase.
 
-Phase 1 is focused on building a local pure Node prototype while learning and controlling the full frontend/backend flow.
-
-Current Phase 1 stack:
+Current Version 1 stack:
 
 * Vite + Vanilla TypeScript frontend
 * Pure Node TypeScript backend
 * Local JSON metadata storage
 * Local file storage
-* Custom lightweight tests
-* No React
-* No Express
-* No Multer
-* No database
-* No cloud storage
-* No authentication yet
+* Custom lightweight TypeScript tests
+* Local development seed/reset tooling
 
-## Phase Plan
-
-### Phase 1: Local Pure Node Prototype
-
-Phase 1 uses Vite + Vanilla TypeScript on the frontend and a pure Node TypeScript backend. Data is stored locally using `server/data/db.json`, and uploaded files will be stored in local project folders.
-
-This phase should include the full Version 1 stem player workflow before moving to Phase 2.
-
-Phase 1 includes:
-
-* Project metadata
-* Local audio file upload
-* Track metadata
-* Project and track deletion
-* Uploaded file and empty folder cleanup
-* Serving uploaded audio files
-* Single-track playback
-* Multitrack playback
-* Basic track controls
-* Local JSON/file storage
-* Custom lightweight tests
-
-### Phase 2: Backend Framework and Persistent Services
-
-Phase 2 should begin after Version 1: Stem Player is working.
-
-This phase may replace the pure Node backend pieces with more production-friendly tools such as Express, PostgreSQL or Supabase, and cloud object storage.
-
-The goal of Phase 2 is not to change the product direction, but to replace local prototype infrastructure with a more realistic backend architecture.
-
-### Phase 3: Collaboration Features
-
-Phase 3 adds collaboration features after the local stem player and more realistic backend architecture are in place.
-
-This phase may include authentication, private share links, collaborator permissions, notifications, and remote recording workflows.
+Version 1 should remain small and focused: create projects, upload audio files, load up to four tracks into a mix, and control playback in the browser.
 
 ## Version Plan
 
-### Version 1: Stem Player
+### Version 1: Four-Channel Stem Player
 
-Version 1 should create the first useful MVP.
+Version 1 is the first useful MVP.
 
-The user should be able to create a project, upload multiple audio files, and open a project view where those tracks can be played. The player should eventually support basic track controls such as mute, solo, volume, and pan.
+The user should be able to:
 
-Version 1 should be completed while still using the Phase 1 architecture.
+* Create a project.
+* Upload or seed multiple audio files.
+* Open a Project Player.
+* See up to four channel slots.
+* Automatically fill Channel 1 through Channel 4 from the first four uploaded tracks.
+* Enable or disable each assigned channel.
+* Adjust channel volume before loading the mix.
+* Load the selected channel setup into the Audio Player.
+* Play, pause, stop, loop, and reset the loaded mix from a shared transport.
+* Delete individual tracks.
+* Delete entire projects and their linked uploaded files.
 
-### Version 2: Record a Take
+Version 1 uses the current local Node, JSON, and file-storage architecture.
 
-Version 2 should add browser microphone recording.
+### Version 2: Web Audio Mixer Engine
 
-A collaborator should be able to listen to the uploaded tracks, record a rough part through the browser, save the recording, and make it available to the project owner.
+Version 2 should replace the current HTML audio element based multitrack playback with a Web Audio engine.
 
-### Version 3: Sync Tools
+This version should support tighter synchronization, gapless looping, waveform analysis, shared playhead behavior, channel offset/nudge controls, and non-destructive trim/clipping.
 
-Version 3 should add practical tools for making rough phone recordings more usable.
+### Version 3: Record a Take
 
-This may include count-in behavior, manual offset/nudge controls, waveform preview, and trimming.
+Version 3 should add browser microphone recording.
 
-### Version 4: Collaboration Polish
+A collaborator should be able to listen to the uploaded tracks, record a rough part through the browser, save that recording, and make it available in the project.
 
-Version 4 should make the app feel more like a real remote band workflow.
+### Version 4: Collaboration and Production Services
 
-This may include email notifications, comments, version history, private links, collaborator names, and project status.
+Version 4 should move GrooveShare closer to a complete remote music collaboration workflow.
+
+This may include authentication, private share links, collaborator permissions, comments, notifications, version history, persistent database storage, cloud audio storage, and production deployment.
 
 ## High-Level Structure
-
-The app is split into two main parts:
 
 ```txt
 grooveshare/
@@ -118,31 +91,31 @@ The `server/` folder contains the pure Node backend.
 
 The `docs/` folder contains project documentation such as architecture notes.
 
-The `backlog.md` file tracks current focus, next steps, planned work, and completed work.
+The `backlog.md` file tracks current focus, planned work, and completed work.
 
 ## Frontend Architecture
 
 The frontend is a Vite + Vanilla TypeScript app.
 
-Vite is used as the frontend development server, TypeScript build tool, and production bundler. Vite does not provide the UI structure itself. The app uses normal browser APIs rather than React or another frontend framework.
+Vite is used as the frontend development server, TypeScript build tool, and production bundler. The app uses browser DOM APIs rather than a frontend framework.
 
 The frontend is responsible for:
 
-* Rendering the GrooveShare interface
-* Calling backend API routes with `fetch`
-* Displaying project data returned from the backend
-* Displaying readable loading/error/status messages
-* Managing project creation UI
-* Managing track upload UI
-* Displaying uploaded track metadata
-* Deleting individual tracks and projects through backend API calls
-* Showing confirmation, success, and error messages for destructive actions
-* Rendering the Project Player Tracks panel as channel slots
-* Reading channel enabled state and volume settings before loading a mix
-* Managing browser audio playback through the Audio Player panel
-* Eventually managing browser microphone recording through browser APIs
+* Rendering the GrooveShare interface.
+* Calling backend API routes with `fetch`.
+* Displaying project data returned from the backend.
+* Displaying loading, error, and status messages.
+* Managing the project creation flow.
+* Managing track upload UI.
+* Displaying uploaded track metadata.
+* Deleting individual tracks and projects through backend API calls.
+* Showing confirmation, success, and error messages for destructive actions.
+* Rendering the Project Player Tracks panel as four channel slots.
+* Reading channel enabled state and volume settings before loading a mix.
+* Managing browser audio playback through the Audio Player panel.
+* Eventually managing browser microphone recording through browser APIs.
 
-Current frontend direction:
+Current frontend structure:
 
 ```txt
 client/src/
@@ -159,7 +132,7 @@ client/src/
   types.ts
 ```
 
-The frontend is organized around small modules:
+Frontend module responsibilities:
 
 * `api/` contains functions that communicate with the backend.
 * `dev/` contains local-only development helpers, such as the development toolbar.
@@ -170,7 +143,7 @@ The frontend is organized around small modules:
 * `templates/` contains smaller reusable markup helpers.
 * `types.ts` contains shared frontend types.
 
-Markup may be created from TypeScript template strings. To keep the app organized as it grows, page-level markup should live in `pages/`, repeated markup should live in `templates/`, and page behavior should live in `page-controllers/` rather than being placed directly in `main.ts`.
+Markup may be created from TypeScript template strings. Page-level markup should live in `pages/`, repeated markup should live in `templates/`, and page behavior should live in `page-controllers/` rather than being placed directly in `main.ts`.
 
 ## Backend Architecture
 
@@ -178,21 +151,21 @@ The backend is a pure Node TypeScript server.
 
 The backend is responsible for:
 
-* Handling API requests from the frontend
-* Reading and writing local JSON metadata
-* Creating and serving project data
-* Receiving local audio uploads
-* Saving uploaded files to project-specific local folders
-* Creating track metadata records for uploaded files
-* Serving uploaded audio files from local storage
-* Deleting individual tracks and their uploaded files
-* Deleting projects, linked track metadata, uploaded files, and project upload folders
-* Returning clear JSON responses and error messages
-* Handling CORS for the local Vite frontend
-* Supporting local development reset behavior
-* Supporting local development seed-project behavior from real audio files
+* Handling API requests from the frontend.
+* Reading and writing local JSON metadata.
+* Creating and serving project data.
+* Receiving local audio uploads.
+* Saving uploaded files to project-specific local folders.
+* Creating track metadata records for uploaded files.
+* Serving uploaded audio files from local storage.
+* Deleting individual tracks and their uploaded files.
+* Deleting projects, linked track metadata, uploaded files, and project upload folders.
+* Returning clear JSON responses and error messages.
+* Handling CORS for the local Vite frontend.
+* Supporting local development reset behavior.
+* Supporting local development seed-project behavior from real audio files.
 
-Current backend direction:
+Current backend structure:
 
 ```txt
 server/
@@ -211,7 +184,7 @@ server/
 
 The backend is separated into two startup/request layers:
 
-* `server/src/server.ts` starts the real development server.
+* `server/src/server.ts` starts the development server.
 * `server/src/app.ts` creates the testable app server and route behavior.
 
 The backend data access layer lives in `server/src/stores/`.
@@ -224,13 +197,11 @@ The current project and track stores use JSON storage, but they are shaped so fu
 
 ## Backend Framework Direction
 
-Phase 1 intentionally uses Node’s built-in HTTP, file system, and stream tools instead of Express or Multer.
+Version 1 uses Node's built-in HTTP, file system, and stream tools.
 
-This is a learning and architecture choice. The goal is to understand how the app receives requests, handles file uploads, writes local files, and stores metadata before introducing higher-level backend libraries.
+This keeps the local backend implementation direct and keeps the project dependency surface small while the core product flow is being established.
 
-Multipart upload handling will be implemented with pure Node during Phase 1. This keeps the app aligned with the current learning stack and makes the upload flow more transparent.
-
-In Phase 2, after Version 1: Stem Player is complete, the backend may move to Express or another framework to simplify routing, middleware, upload handling, validation, authentication, and production concerns.
+In a later version, the backend may move to Express or another framework to simplify routing, middleware, upload handling, validation, authentication, and production concerns.
 
 ## Frontend and Backend Communication
 
@@ -243,9 +214,9 @@ Backend:  http://localhost:3000
 
 The frontend calls the backend using `fetch`.
 
-Because the frontend and backend use different local origins, the backend must allow the frontend origin through CORS headers.
+Because the frontend and backend use different local origins, the backend allows the frontend origin through CORS headers.
 
-For Phase 1, the allowed frontend origin is:
+For local development, the allowed frontend origin is:
 
 ```txt
 http://localhost:5173
@@ -255,7 +226,7 @@ The backend should handle preflight `OPTIONS` requests for routes that receive J
 
 ## Data Storage Direction
 
-In Phase 1, GrooveShare uses local JSON metadata instead of a database.
+In Version 1, GrooveShare uses local JSON metadata instead of a database.
 
 The current local metadata file is:
 
@@ -271,7 +242,7 @@ server/data/seed-project/
 
 Those seed files are used only for local development and manual testing.
 
-The initial shape is:
+The initial metadata shape is:
 
 ```json
 {
@@ -280,20 +251,18 @@ The initial shape is:
 }
 ```
 
-This is intentionally shaped like a small fake database. The top-level arrays map to future database tables:
+This structure maps to future database tables:
 
 ```txt
 projects → future projects table
 tracks   → future tracks table
 ```
 
-The JSON file should not store audio file contents. It should only store metadata.
-
-Audio files should be stored separately in local folders.
+The JSON file stores metadata only. Audio files are stored separately in local folders.
 
 ## Future Data Storage Direction
 
-In a later phase, JSON metadata should be replaced by a real database.
+In a later version, JSON metadata should be replaced by a real database.
 
 Likely future options include:
 
@@ -301,7 +270,7 @@ Likely future options include:
 * Supabase PostgreSQL
 * Another managed database service
 
-In a later phase, local audio file storage should be replaced by cloud object storage.
+In a later version, local audio file storage should be replaced by cloud object storage.
 
 Likely future options include:
 
@@ -338,19 +307,20 @@ Current track store functions include:
 
 ```txt
 getTracksByProjectId(projectId)
+getTrackById(projectId, trackId)
 createTrack(trackInput)
 deleteTrackById(projectId, trackId)
 ```
 
 The route layer should call these functions without needing to know whether data comes from a JSON file or a future database.
 
-For testing, the JSON store can be created with a disposable test database path. This allows tests to verify real JSON file read/write behavior without modifying the real development database at `server/data/db.json`.
+For testing, the JSON store can be created with a disposable test database path. This allows tests to verify real JSON file read/write behavior without modifying the development database at `server/data/db.json`.
 
 Future store direction:
 
 ```txt
-projects-json-store.ts      → Phase 1 local JSON implementation
-projects-postgres-store.ts  → possible Phase 2 database implementation
+projects-json-store.ts      → Version 1 local JSON implementation
+projects-postgres-store.ts  → possible future database implementation
 ```
 
 The goal is to keep the route layer stable while changing the storage implementation later.
@@ -401,9 +371,9 @@ type Track = {
 };
 ```
 
-Tracks should be stored separately from projects in the JSON metadata file, using `projectId` to connect a track to a project.
+Tracks are stored separately from projects in the JSON metadata file, using `projectId` to connect a track to a project.
 
-This keeps the Phase 1 JSON structure closer to a future relational database shape.
+This keeps the Version 1 JSON structure close to a future relational database shape.
 
 ## API Direction
 
@@ -446,7 +416,7 @@ Error JSON response shape:
 }
 ```
 
-The uploaded audio route is an exception to the normal JSON response pattern. `GET /api/projects/:projectId/tracks/:trackId/audio` returns the audio file bytes with the track's stored MIME type so the browser can load it in an audio element.
+The uploaded audio route is an exception to the normal JSON response pattern. `GET /api/projects/:projectId/tracks/:trackId/audio` returns the audio file bytes with the track's stored MIME type so the browser can load it.
 
 The `/api/dev/*` routes are local development helper routes. They should remain isolated from the normal product API and should not become part of the production app surface.
 
@@ -454,7 +424,7 @@ Likely future routes may include waveform peak data or saved mix/edit settings a
 
 ## File Upload Direction
 
-Phase 1 supports local audio uploads using pure Node.
+Version 1 supports local audio uploads using pure Node.
 
 The current upload flow:
 
@@ -480,7 +450,7 @@ server/
         random-id-sanitized-filename.wav
 ```
 
-The upload implementation should stay modular so the local file-writing behavior can later be replaced with cloud object storage.
+The upload implementation should stay modular so local file-writing behavior can later be replaced with cloud object storage.
 
 ## Deletion and Cleanup Direction
 
@@ -492,85 +462,150 @@ Deleting an entire project should remove the project metadata, all linked track 
 
 GrooveShare needs browser-based audio playback for the Version 1 stem player workflow.
 
-Current audio playback direction:
+Current audio playback behavior:
 
-* Serve uploaded audio files from the backend.
-* Load one uploaded audio file into the Audio Player.
-* Play, pause, stop, seek, and show timestamps for a loaded audio file.
-* Load enabled channel slots into a shared mix.
-* Play two enabled tracks together from a shared start point.
-* Apply the channel volume values that were present when the mix was loaded.
+* Serves uploaded audio files from the backend.
+* Loads enabled channel slots into a shared mix.
+* Plays up to four enabled tracks together from a shared start point.
+* Applies the channel volume values that were present when the mix was loaded.
+* Provides global play, pause, stop, loop, progress, and timestamp controls.
 
-Near-term audio goals:
+The current Version 1 implementation uses HTML audio elements. This is acceptable for a local stem-player MVP, but it is not the final architecture for tighter playback, waveform editing, or gapless looping.
 
-* Expand the channel slot layout from two channels to four channels.
-* Automatically fill Channel 1 through Channel 4 from the first four uploaded tracks.
-* Keep the Audio Player panel focused on global transport controls.
-* Continue stabilizing shared progress and seek behavior for multitrack playback.
+As the app grows, multitrack playback should move to a Web Audio based engine using `AudioContext`, decoded `AudioBuffer` data, `AudioBufferSourceNode`, `GainNode`, and eventually pan nodes or additional routing nodes.
 
-As the app grows, the Web Audio API may become important for better synchronized playback and per-track gain/pan routing.
-
-The current early multitrack playback can use multiple audio elements as a learning/prototype step. Later, the app may move toward Web Audio API sources, gain nodes, pan nodes, and a shared audio context for more reliable stem playback.
-
-The app should aim for practical rehearsal usefulness, not professional DAW-level editing.
+The app should aim for practical rehearsal usefulness rather than professional DAW-level editing.
 
 ## Project Player Mixer Direction
 
-The Project Player should be organized around two separate responsibilities:
+The Project Player is organized around two separate responsibilities:
 
 ```txt
 Tracks panel       = channel setup and per-track mix/edit controls
 Audio Player panel = global playback transport
 ```
 
-The Tracks panel should eventually contain four channel slots. Each channel slot represents one possible audio lane in the current project mix.
+The Tracks panel contains four channel slots. Each channel slot represents one possible audio lane in the current project mix.
 
 A channel slot may be empty or assigned to one uploaded track.
 
-Each channel slot should own the controls and display elements that belong to an individual track:
+Each assigned channel slot owns the controls and display elements that belong to an individual track:
 
 * Assigned track name
 * Enabled/on-off state
 * Volume control
-* Waveform display
-* Offset/nudge controls
-* Trim/clipping controls
+* Waveform placeholder
+* Delete action
+* Future waveform display
+* Future offset/nudge controls
+* Future trim/clipping controls
 
-The Audio Player panel should own only the global controls that affect the currently loaded mix:
+The Audio Player panel owns the global controls that affect the currently loaded mix:
 
+* Load Mix
 * Play
 * Pause
 * Stop
-* Restart/reset
+* Loop
 * Shared progress control
 * Shared timestamp display
 
-This separation keeps the Project Player closer to a small stem mixer. The user configures the mix in the Tracks panel, then uses the Audio Player panel to control playback of the prepared mix.
+This separation keeps the Project Player close to a small stem mixer. The user configures the mix in the Tracks panel, then uses the Audio Player panel to control playback of the prepared mix.
 
-The current prototype starts with two channel slots. The first two uploaded tracks automatically fill Channel 1 and Channel 2. Each assigned channel shows the track name, enabled toggle, volume slider, waveform placeholder, and delete action.
+Channel 1 through Channel 4 automatically fill from the first four uploaded tracks for now. Extra uploaded tracks may exist in the project metadata, but they are not assigned to visible channel slots until manual assignment behavior is added later.
 
 The `Load Mix` action reads the current channel setup from the Tracks panel. It gathers enabled channels, track names, audio URLs, channel numbers, and volume values, then prepares those channels for global playback in the Audio Player panel.
 
 The Audio Player should play the enabled tracks together from a shared start point while respecting the volume setting captured when the mix was loaded.
 
-The next mixer step is to expand the layout from two channels to four channels. Channel 1 through Channel 4 should automatically fill from the first four uploaded tracks for now, while leaving room for manual assignment later.
-
-Waveforms should live inside the channel slots rather than inside the global Audio Player panel. This is because waveform editing is track-specific. Future nudge, trim, and clipping behavior will need to line up visually with each individual track's waveform.
+Waveforms should live inside the channel slots rather than inside the global Audio Player panel. Waveform editing is track-specific, and future nudge, trim, and clipping behavior will need to line up visually with each individual track's waveform.
 
 The global Audio Player may still show a shared progress bar and timestamp, but detailed waveform editing should happen inside the Tracks panel.
 
+## Version 1 Transport Expectations
+
+Version 1 transport behavior should be clear and intentionally limited.
+
+Supported in Version 1:
+
+* `Load Mix` captures the current channel setup.
+* Enabled channels are included in the loaded mix.
+* Disabled channels are excluded from the loaded mix.
+* Channel volume values are applied when the mix is loaded.
+* `Play` starts the loaded channels from a shared start point.
+* `Pause` pauses the loaded mix.
+* `Stop` pauses all loaded channels and resets playback to the beginning.
+* The progress control and timestamp represent the shared mix position.
+* The Loop checkbox restarts the loaded mix when playback reaches the end.
+
+Known Version 1 transport limitations:
+
+* Channel enabled and volume changes after `Load Mix` may require clicking `Load Mix` again before playback reflects the change.
+* The current loop behavior may have a slight delay before restarting because it uses HTML audio elements and reacts to the browser's audio `ended` event.
+* Progress and seeking are prototype-level for multitrack playback.
+* The current transport does not provide DAW-level sample-accurate sync.
+* Gapless looping is deferred to the Web Audio engine.
+
+## Version 2 Web Audio Engine Plan
+
+Version 2 should replace multitrack playback with a Web Audio engine.
+
+```md
+- [ ] Replace multitrack playback with Web Audio engine
+  Move multitrack playback from multiple HTML audio elements to a Web Audio based engine. Decode selected tracks into AudioBuffers, route each channel through Web Audio nodes, schedule playback from a shared AudioContext clock, and prepare the app for waveform display, gapless looping, nudge, trim, and edited playback.
+
+  - [ ] Add audio buffer loading helper
+    Fetch a track audio URL, decode it with `AudioContext.decodeAudioData`, and return an `AudioBuffer` for playback and waveform analysis.
+
+  - [ ] Add Web Audio channel engine
+    Create one channel object per loaded track with track metadata, an AudioBuffer, GainNode, enabled state, volume value, offset/nudge value, clip start, and clip end.
+
+  - [ ] Replace HTML audio elements with Web Audio playback
+    Keep the existing Project Player UI, but replace the underlying multitrack playback implementation with AudioContext, AudioBufferSourceNode, and GainNode behavior.
+
+  - [ ] Add shared scheduled playback
+    Start all enabled channels from the same AudioContext time so tracks begin together from a shared start point.
+
+  - [ ] Add Web Audio pause, resume, and stop behavior
+    Track the shared playback position manually so pause, resume, stop, and reset work predictably across the loaded mix.
+
+  - [ ] Add gapless loop behavior
+    Loop the loaded mix using Web Audio scheduling, buffer source loop settings, or scheduled restart logic instead of waiting for HTML audio ended events.
+
+  - [ ] Add read-only waveform display for each channel
+    Use the decoded AudioBuffer data to calculate waveform peaks and draw a simple waveform inside each channel slot.
+
+  - [ ] Add shared playhead across channel waveforms
+    Show one shared playhead position across all active channel waveforms so the user can see where playback is in the mix.
+
+  - [ ] Add channel offset/nudge controls
+    Let each channel store a timing offset in seconds. Add simple nudge controls so tracks can be shifted slightly earlier or later to help sync rough recordings.
+
+  - [ ] Add non-destructive trim/clipping controls
+    Let each channel store a clip start and clip end value without permanently editing the original audio file.
+
+  - [ ] Add edited multitrack playback
+    Make playback respect each channel’s enabled state, volume, offset, clip start, and clip end values.
+
+  - [ ] Preserve current UI controls
+    Keep the existing Audio Player panel and channel slots, but make the controls operate through the Web Audio engine instead of direct HTML audio element playback.
+
+  - [ ] Manually test full four-track Web Audio mixing and editing
+    Upload up to four tracks, load the mix, play all enabled tracks together, adjust volume, toggle channels, loop playback, nudge tracks, trim clips, stop, restart, and verify the mix behaves predictably.
+```
+
 ## Recording Direction
 
-Recording is planned for Version 2, not Version 1.
+Recording is planned after the playback engine is stable.
 
 The likely browser API direction is:
 
 * `navigator.mediaDevices.getUserMedia`
 * `MediaRecorder`
 
-Recording should be treated as a rough collaboration tool. Phone microphone recordings will not be studio quality and may require headphones to avoid audio bleed.
+Recording should be treated as a rough collaboration tool. Phone and laptop microphone recordings may not be studio quality and may require headphones to avoid audio bleed.
 
-Sync may not be perfect across all devices, so later versions should include manual offset or nudge controls.
+Sync may not be perfect across all devices, so offset/nudge controls should exist before recording becomes a central workflow.
 
 ## Development Tooling Direction
 
@@ -596,7 +631,7 @@ Development tooling should stay isolated so it can be removed later with minimal
 
 ## Testing Direction
 
-GrooveShare uses custom lightweight TypeScript test runners inspired by the split-timer project.
+GrooveShare uses custom lightweight TypeScript test runners.
 
 There are separate test setups for the backend and frontend:
 
@@ -607,31 +642,32 @@ client/tests/
 
 The backend tests cover:
 
-* The custom test runner
-* JSON store behavior
-* API route behavior
-* Disposable JSON test databases
-* Upload parsing and validation
-* Uploaded file serving behavior
-* Track and project deletion cleanup behavior
+* The custom test runner.
+* JSON store behavior.
+* API route behavior.
+* Disposable JSON test databases.
+* Upload parsing and validation.
+* Uploaded file serving behavior.
+* Track and project deletion cleanup behavior.
+* Development seed/reset behavior.
 
 The frontend tests cover:
 
-* The custom test runner
-* Page controller behavior
-* Template rendering behavior
-* Frontend API helper behavior
-* Fake DOM helpers
-* Form behavior
-* Error/status messaging
-* Delete confirmation and status behavior
-* Audio player controller behavior
-* Mix channel slot template behavior
-* Load Mix channel gathering behavior
+* The custom test runner.
+* Page controller behavior.
+* Template rendering behavior.
+* Frontend API helper behavior.
+* Fake DOM helpers.
+* Form behavior.
+* Error/status messaging.
+* Delete confirmation and status behavior.
+* Audio player controller behavior.
+* Mix channel slot template behavior.
+* Load Mix channel gathering behavior.
 
-Frontend tests should avoid requiring a full browser environment at this stage. Instead, they should use small fake DOM helpers and dependency injection, similar to the split-timer project.
+Frontend tests should avoid requiring a full browser environment at this stage. Instead, they should use small fake DOM helpers and dependency injection.
 
-As the app grows, frontend code should be organized into testable modules rather than putting all behavior directly in `main.ts`.
+As the app grows, frontend code should stay organized into testable modules rather than placing all behavior directly in `main.ts`.
 
 ## Development Workflow
 
@@ -655,77 +691,65 @@ feature branch → pull request into develop → pull request into main when sta
 
 Documentation-only work should use a `docs/` branch.
 
-Example:
-
-```txt
-docs/project-architecture
-```
-
 Feature work should use a `feature/` branch.
-
-Example:
-
-```txt
-feature/project-metadata
-```
 
 ## Current Completed Foundation
 
 The project currently has:
 
-* Vite + Vanilla TypeScript frontend
-* Pure Node TypeScript backend
-* Backend health endpoint
-* Frontend/backend connection
-* Root `.gitignore`
-* Local `db.json` metadata store
-* Project metadata types
-* Tested JSON project store
-* Tested project API routes
-* Tested frontend page controllers
-* Project creation UI wired to the API
-* Readable frontend error handling for project loading and creation failures
-* Custom backend test runner
-* Custom client test runner
-* Track metadata types
-* Tested JSON track store
-* Tested upload path helpers
-* Tested multipart form data parser
-* Tested upload validation
-* Tested track upload API route
-* Tested project track list API route
-* Tested uploaded audio file route
-* Tested track deletion API route
-* Tested project deletion API route
-* Frontend track upload form wired to the API
-* Frontend uploaded track metadata display
-* Frontend upload error handling
-* Frontend track deletion UI
-* Frontend project deletion UI from the Project Menu and Project Player
-* Uploaded audio file cleanup when tracks or projects are deleted
-* Empty project upload folder cleanup when the last track is deleted
-* Single Audio Player panel with play, pause, stop, progress, and timestamp controls
-* Single-track audio loading and playback path
-* Two-channel mixer slot layout in the Project Player Tracks panel
-* Load Mix behavior that gathers enabled channels and volume values
-* Two-track mix playback from a shared start point
-* Local development reset route and development toolbar
-* Local seed-project audio file workflow for creating real test projects
-* Cleaned frontend structure with legacy controller code removed
-* Cleaned backend structure with unused utility code removed
+* Vite + Vanilla TypeScript frontend.
+* Pure Node TypeScript backend.
+* Backend health endpoint.
+* Frontend/backend connection.
+* Root `.gitignore`.
+* Local `db.json` metadata store.
+* Project metadata types.
+* Tested JSON project store.
+* Tested project API routes.
+* Tested frontend page controllers.
+* Project creation UI wired to the API.
+* Readable frontend error handling for project loading and creation failures.
+* Custom backend test runner.
+* Custom client test runner.
+* Track metadata types.
+* Tested JSON track store.
+* Tested upload path helpers.
+* Tested multipart form data parser.
+* Tested upload validation.
+* Tested track upload API route.
+* Tested project track list API route.
+* Tested uploaded audio file route.
+* Tested track deletion API route.
+* Tested project deletion API route.
+* Frontend track upload form wired to the API.
+* Frontend uploaded track metadata display.
+* Frontend upload error handling.
+* Frontend track deletion UI.
+* Frontend project deletion UI from the Project Menu and Project Player.
+* Uploaded audio file cleanup when tracks or projects are deleted.
+* Empty project upload folder cleanup when the last track is deleted.
+* Single Audio Player panel with play, pause, stop, loop, progress, and timestamp controls.
+* Uploaded audio loading and playback path.
+* Four-channel mixer slot layout in the Project Player Tracks panel.
+* Load Mix behavior that gathers enabled channels and volume values.
+* Four-track mix playback from a shared start point.
+* Local development reset route and development toolbar.
+* Local seed-project audio file workflow for creating real test projects.
+* Cleaned frontend structure with legacy controller code removed.
+* Cleaned backend structure with unused utility code removed.
 
 ## Current Limitations
 
-The app is still early in Version 1.
-
 Current limitations:
 
-* The mixer currently supports a two-channel prototype, not the final four-channel layout.
 * Channel assignment is automatic for now; manual assignment is not implemented yet.
+* Extra uploaded tracks beyond the first four are not assigned to visible channel slots yet.
 * Changing channel enabled state or volume after clicking `Load Mix` may require loading the mix again before playback reflects the change.
-* Multitrack playback is still a prototype and may need Web Audio API support for tighter synchronization later.
-* Shared progress and seek behavior for multitrack playback still needs more design and testing.
+* Looping may have a small delay before restart because the current implementation uses HTML audio elements.
+* Shared progress and seek behavior are prototype-level for multitrack playback.
 * Waveforms are placeholders only.
+* No pan control yet.
+* No solo control yet.
 * No offset/nudge controls yet.
 * No trim/clipping controls yet.
 * No share links yet.
@@ -735,26 +759,4 @@ Current limitations:
 * No cloud storage yet.
 * No production deployment yet.
 
-These limitations are intentional for Phase 1.
-
-## Guiding Principles
-
-Keep the app understandable.
-
-Prefer small milestones.
-
-Prefer simple code before abstractions.
-
-Add structure when the project starts to need it, not before.
-
-Keep the user workflow centered on musicians and bandmates who may not know how to use a DAW.
-
-Build the first version as a useful stem player before adding recording or collaboration polish.
-
-Use pure Node through Version 1 so the request, upload, stream, file, and metadata flow remains transparent.
-
-Move to Express, database storage, and cloud file storage in Phase 2 only after the local Version 1 stem player is working.
-
-Use tests to guide implementation whenever practical.
-
-Use the project to practice real development workflow, including branches, commits, pull requests, documentation, and readable code.
+These limitations define the boundary between Version 1 and later versions.

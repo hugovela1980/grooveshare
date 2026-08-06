@@ -8,31 +8,64 @@
 
 ## Current Focus
 
-### 4 channel track mixer    
+### Finish Version 1
 
-- [ ] Expand the mixer from two channels to four channels
-  Support four available channel slots. Automatically fill the first four uploaded tracks for now, while leaving room for manual assignment later.
+- [ ] Update docs for four-channel playback
+  Update README and architecture notes so they no longer describe the mixer as only a two-channel prototype. Document that four channel slots can be loaded and played from a shared start point.
 
-- [ ] Add per-channel volume and enabled state behavior
-  Make each channel’s enabled toggle and volume slider affect the loaded mix. Disabled channels should not play, and volume changes should affect playback clearly.
+- [ ] Stabilize Version 1 transport expectations
+  Decide what Version 1 officially supports for play, pause, stop, Load Mix, loop, progress, and seeking. Document any limitations clearly.
 
-- [ ] Add read-only waveform display for each channel
-  Fetch and decode each channel’s audio file, calculate waveform peaks, and draw a simple waveform inside each channel slot.
+- [ ] Add known limitation for HTML audio looping
+  Document that current loop behavior may have a small gap because it uses HTML audio elements, and that gapless looping will be handled later by the Web Audio engine.
 
-- [ ] Add shared playhead across channel waveforms
-  Show one shared playhead position across the active channel waveforms so the user can see where playback is in the mix.
+- [ ] Manually test Version 1 stem-player workflow
+  Create or seed a project, load four tracks, adjust enabled states and volume, load the mix, play, pause, stop, loop, delete tracks, delete the project, and reset dev data.
 
-- [ ] Add channel offset/nudge controls
-  Let each channel store a timing offset in seconds. Add simple nudge controls so tracks can be shifted slightly earlier or later to help sync rough recordings.
+- [ ] Final Version 1 cleanup pass
+  Remove obviously stale code, update backlog checkboxes, run all tests/typechecks, and merge to main when stable.
 
-- [ ] Add non-destructive trim/clipping controls
-  Let each channel store a clip start and clip end value without permanently editing the original audio file. Playback should only include the selected section.
+### Replace multitrack playback with Web Audio engine
+  Move multitrack playback from multiple HTML audio elements to a Web Audio based engine. Decode selected tracks into AudioBuffers, route each channel through Web Audio nodes, schedule playback from a shared AudioContext clock, and prepare the app for waveform display, gapless looping, nudge, trim, and edited playback.
 
-- [ ] Add edited multitrack playback
-  Make playback respect each channel’s enabled state, volume, offset, clip start, and clip end values.
+  - [ ] Add audio buffer loading helper
+    Fetch a track audio URL, decode it with `AudioContext.decodeAudioData`, and return an `AudioBuffer` for playback and waveform analysis.
 
-- [ ] Manually test full four-track mixing and editing
-  Upload up to four tracks, load the mix, play all enabled tracks together, adjust volume, toggle channels, nudge tracks, trim clips, stop, restart, and verify the mix behaves predictably.
+  - [ ] Add Web Audio channel engine
+    Create one channel object per loaded track with track metadata, an AudioBuffer, GainNode, enabled state, volume value, offset/nudge value, clip start, and clip end.
+
+  - [ ] Replace HTML audio elements with Web Audio playback
+    Keep the existing Project Player UI, but replace the underlying multitrack playback implementation with AudioContext, AudioBufferSourceNode, and GainNode behavior.
+
+  - [ ] Add shared scheduled playback
+    Start all enabled channels from the same AudioContext time so tracks begin together from a shared start point.
+
+  - [ ] Add Web Audio pause, resume, and stop behavior
+    Track the shared playback position manually so pause, resume, stop, and reset work predictably across the loaded mix.
+
+  - [ ] Add gapless loop behavior
+    Loop the loaded mix using Web Audio scheduling, buffer source loop settings, or scheduled restart logic instead of waiting for HTML audio ended events.
+
+  - [ ] Add read-only waveform display for each channel
+    Use the decoded AudioBuffer data to calculate waveform peaks and draw a simple waveform inside each channel slot.
+
+  - [ ] Add shared playhead across channel waveforms
+    Show one shared playhead position across all active channel waveforms so the user can see where playback is in the mix.
+
+  - [ ] Add channel offset/nudge controls
+    Let each channel store a timing offset in seconds. Add simple nudge controls so tracks can be shifted slightly earlier or later to help sync rough recordings.
+
+  - [ ] Add non-destructive trim/clipping controls
+    Let each channel store a clip start and clip end value without permanently editing the original audio file.
+
+  - [ ] Add edited multitrack playback
+    Make playback respect each channel’s enabled state, volume, offset, clip start, and clip end values.
+
+  - [ ] Preserve current UI controls
+    Keep the existing Audio Player panel and channel slots, but make the controls operate through the Web Audio engine instead of direct HTML audio element playback.
+
+  - [ ] Manually test full four-track Web Audio mixing and editing
+    Upload up to four tracks, load the mix, play all enabled tracks together, adjust volume, toggle channels, loop playback, nudge tracks, trim clips, stop, restart, and verify the mix behaves predictably.
 
 ## Backlog
 
@@ -149,3 +182,5 @@ List audio files from `server/data/seed-project`, allow selecting which files to
 
 - [x] Add two-track playback controller
 Play, pause, stop, and reset two enabled tracks from a shared start point. Each track should respect its channel volume setting.
+
+- [x] Expand mixer slots to four channels

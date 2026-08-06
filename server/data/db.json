@@ -1,53 +1,23 @@
 {
   "projects": [
     {
-      "id": "4171733d-67bc-405a-8384-a8bfde4d1317",
-      "title": "Dev Seed Project",
-      "description": "Temporary project created from real seed audio files.",
-      "createdAt": "2026-08-06T17:37:08.755Z",
-      "updatedAt": "2026-08-06T17:37:08.755Z"
+      "id": "2772f705-1e2f-48a9-8272-a6a5f8087657",
+      "title": "Eastern sounding Rock Groove",
+      "description": "Bass, Drum and 2 guitar tracks",
+      "createdAt": "2026-08-06T20:30:40.289Z",
+      "updatedAt": "2026-08-06T20:30:40.289Z"
     }
   ],
   "tracks": [
     {
-      "id": "e3752f23-9f34-49e9-8954-86f4131391de",
-      "projectId": "4171733d-67bc-405a-8384-a8bfde4d1317",
+      "id": "3e0bea11-fac1-4f2e-96fe-789d19c7afd6",
+      "projectId": "2772f705-1e2f-48a9-8272-a6a5f8087657",
       "name": "Bass",
       "originalFilename": "Bass.wav",
-      "filePath": "uploads\\projects\\4171733d-67bc-405a-8384-a8bfde4d1317\\cb3adeda-e7c0-4bac-a5f3-7083719dd301-Bass.wav",
+      "filePath": "uploads\\projects\\2772f705-1e2f-48a9-8272-a6a5f8087657\\bd4ae36e-bc86-4fe0-bebf-cde94f0246ef-Bass.wav",
       "mimeType": "audio/wav",
       "fileSize": 2822444,
-      "createdAt": "2026-08-06T17:37:08.762Z"
-    },
-    {
-      "id": "2851e8b9-5984-46c7-82f4-51797b1314b9",
-      "projectId": "4171733d-67bc-405a-8384-a8bfde4d1317",
-      "name": "Delay Guitar",
-      "originalFilename": "Delay Guitar.wav",
-      "filePath": "uploads\\projects\\4171733d-67bc-405a-8384-a8bfde4d1317\\1b7716a9-e3bb-4cf8-becf-86c0c65af799-Delay-Guitar.wav",
-      "mimeType": "audio/wav",
-      "fileSize": 2822444,
-      "createdAt": "2026-08-06T17:37:08.769Z"
-    },
-    {
-      "id": "49faa896-2dfb-41b8-b74e-3a6cfa9f8db6",
-      "projectId": "4171733d-67bc-405a-8384-a8bfde4d1317",
-      "name": "Drums",
-      "originalFilename": "Drums.wav",
-      "filePath": "uploads\\projects\\4171733d-67bc-405a-8384-a8bfde4d1317\\c8626151-436d-4fe2-8206-78aa2f7d0363-Drums.wav",
-      "mimeType": "audio/wav",
-      "fileSize": 2822444,
-      "createdAt": "2026-08-06T17:37:08.775Z"
-    },
-    {
-      "id": "b25ccca8-9070-4f90-8ab1-6d87c5c02df6",
-      "projectId": "4171733d-67bc-405a-8384-a8bfde4d1317",
-      "name": "Tremolo Guitar",
-      "originalFilename": "Tremolo Guitar.wav",
-      "filePath": "uploads\\projects\\4171733d-67bc-405a-8384-a8bfde4d1317\\afc9424c-e3e4-4fba-ac67-84fcffa710eb-Tremolo-Guitar.wav",
-      "mimeType": "audio/wav",
-      "fileSize": 2822444,
-      "createdAt": "2026-08-06T17:37:08.781Z"
+      "createdAt": "2026-08-06T20:30:40.317Z"
     }
   ]
 }
