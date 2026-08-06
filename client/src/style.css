@@ -562,3 +562,31 @@ h3 {
     min-height: 5rem;
   }
 }
+
+.mix-channel-panel {
+  display: grid;
+  gap: 1rem;
+}
+
+.mix-channel-panel__header {
+  display: grid;
+  gap: 1rem;
+  align-items: start;
+}
+
+.mix-channel-panel__title {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.mix-channel-panel__description {
+  margin: 0.25rem 0 0;
+  color: #a1a1aa;
+}
+
+@media (min-width: 700px) {
+  .mix-channel-panel__header {
+    grid-template-columns: 1fr auto;
+    align-items: center;
+  }
+}

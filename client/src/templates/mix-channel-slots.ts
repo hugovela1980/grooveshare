@@ -3,28 +3,33 @@ import type { Track } from "../types.js";
 const TWO_CHANNEL_SLOT_COUNT = 2;
 
 type ChannelSlot = {
-    channelNumber: number;
-    track: Track | null;
+  channelNumber: number;
+  track: Track | null;
 };
 
 function createTwoChannelSlots(tracks: Track[]): ChannelSlot[] {
-    return Array.from({ length: TWO_CHANNEL_SLOT_COUNT }, (_, index) => {
-        return {
-            channelNumber: index + 1,
-            track: tracks[index] ?? null,
-        };
-    });
+  return Array.from({ length: TWO_CHANNEL_SLOT_COUNT }, (_, index) => {
+    return {
+      channelNumber: index + 1,
+      track: tracks[index] ?? null,
+    };
+  });
 }
 
 function renderAssignedChannelSlot(slot: ChannelSlot): string {
-    const track = slot.track;
+  const track = slot.track;
 
-    if (!track) {
-        return renderEmptyChannelSlot(slot.channelNumber);
-    }
+  if (!track) {
+    return renderEmptyChannelSlot(slot.channelNumber);
+  }
 
-    return /*html*/ `
-    <article class="mix-channel-slot" data-mix-channel="${slot.channelNumber}">
+  return /*html*/ `
+      <article
+        class="mix-channel-slot"
+        data-mix-channel-slot
+        data-mix-channel="${slot.channelNumber}"
+        data-track-id="${track.id}"
+      >
       <header class="mix-channel-slot__header">
         <h3 class="mix-channel-slot__title">Channel ${slot.channelNumber}</h3>
         <p class="mix-channel-slot__track-name">${track.name}</p>
@@ -75,7 +80,7 @@ function renderAssignedChannelSlot(slot: ChannelSlot): string {
 }
 
 function renderEmptyChannelSlot(channelNumber: number): string {
-    return /*html*/ `
+  return /*html*/ `
     <article class="mix-channel-slot mix-channel-slot--empty" data-mix-channel="${channelNumber}">
       <header class="mix-channel-slot__header">
         <h3 class="mix-channel-slot__title">Channel ${channelNumber}</h3>
@@ -94,11 +99,31 @@ function renderEmptyChannelSlot(channelNumber: number): string {
 }
 
 export function renderTwoChannelMixSlots(tracks: Track[]): string {
-    const slots = createTwoChannelSlots(tracks);
+  const slots = createTwoChannelSlots(tracks);
 
-    return /*html*/ `
-    <section class="mix-channel-slots" aria-label="Two channel mix setup">
-      ${slots.map(renderAssignedChannelSlot).join("")}
+  return /*html*/ `
+    <section class="mix-channel-panel" aria-label="Two channel mix setup">
+      <div class="mix-channel-panel__header">
+        <div>
+          <h3 class="mix-channel-panel__title">Mix Channels</h3>
+          <p class="mix-channel-panel__description">
+            Enable tracks, set volume, then load the mix into the player.
+          </p>
+        </div>
+
+        <button
+          id="load-mix-button"
+          class="button"
+          type="button"
+          data-load-mix-button
+        >
+          Load Mix
+        </button>
+      </div>
+
+      <div class="mix-channel-slots">
+        ${slots.map(renderAssignedChannelSlot).join("")}
+      </div>
     </section>
   `;
 }

@@ -8,8 +8,6 @@
 
 ## Current Focus
 
-## 4 channel track mixer    
-
 - [ ] Add Load Mix behavior for two channels
   Add a Load Mix button that prepares the enabled channel slots for playback instead of loading one individual track at a time.
 
@@ -18,6 +16,8 @@
 
 - [ ] Stabilize multitrack transport controls
   Update the Audio Player panel so play, pause, stop, timestamp, and progress behavior are designed around a shared mix instead of a single audio element.
+
+## 4 channel track mixer    
 
 - [ ] Expand the mixer from two channels to four channels
   Support four available channel slots. Automatically fill the first four uploaded tracks for now, while leaving room for manual assignment later.

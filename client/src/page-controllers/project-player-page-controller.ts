@@ -13,8 +13,17 @@ type ClickEventLike = {
     target: EventTarget | null;
 };
 
+type MixChannelForPlayer = {
+    channelNumber: number;
+    trackId: string;
+    name: string;
+    audioUrl: string;
+    volume: number;
+};
+
 type AudioPlayerController = {
-    loadTrack: (track: { name: string; audioUrl: string }) => void;
+    loadTrack?: (track: { name: string; audioUrl: string }) => void;
+    loadMix?: (channels: MixChannelForPlayer[]) => void;
 };
 
 type TrackListElementLike = {
@@ -23,6 +32,7 @@ type TrackListElementLike = {
         eventName: "click",
         handler: (event: ClickEventLike) => void | Promise<void>,
     ) => void;
+    querySelectorAll?: (selector: string) => Iterable<ChannelSlotElementLike>;
 };
 
 type ButtonElementLike = {
@@ -44,6 +54,24 @@ type DeleteButtonLike = {
 
 type ClosestElementLike = {
     closest?: (selector: string) => DeleteButtonLike | null;
+};
+
+type ChannelEnabledInputLike = {
+    checked?: boolean;
+};
+
+type ChannelVolumeInputLike = {
+    value?: string;
+};
+
+type ChannelSlotElementLike = {
+    dataset?: {
+        mixChannel?: string;
+        trackId?: string;
+    };
+    querySelector?: (
+        selector: string,
+    ) => ChannelEnabledInputLike | ChannelVolumeInputLike | null;
 };
 
 type ProjectPlayerPageControllerOptions = {
@@ -72,6 +100,13 @@ function getLoadTrackIdFromTarget(target: EventTarget | null): string | null {
     const loadButton = element?.closest?.("[data-track-load-button]");
 
     return loadButton?.dataset?.trackId ?? null;
+}
+
+function getIsLoadMixClickFromTarget(target: EventTarget | null): boolean {
+    const element = target as ClosestElementLike | null;
+    const loadMixButton = element?.closest?.("[data-load-mix-button]");
+
+    return Boolean(loadMixButton);
 }
 
 function setStatus(
@@ -112,7 +147,7 @@ export function createProjectPlayerPageController({
     }
 
     function handleLoadTrack(trackId: string): void {
-        if (!audioPlayerController || !getTrackAudioUrl) {
+        if (!audioPlayerController?.loadTrack || !getTrackAudioUrl) {
             return;
         }
 
@@ -131,7 +166,89 @@ export function createProjectPlayerPageController({
         setStatus(statusElement, `Loaded ${track.name}.`);
     }
 
+    function getEnabledMixChannels(): MixChannelForPlayer[] {
+        if (!trackListElement.querySelectorAll || !getTrackAudioUrl) {
+            return [];
+        }
+
+        const channelSlotElements = Array.from(
+            trackListElement.querySelectorAll("[data-mix-channel-slot][data-track-id]"),
+        );
+
+        return channelSlotElements
+            .map((channelSlotElement) => {
+                const trackId = channelSlotElement.dataset?.trackId;
+                const channelNumber = Number(channelSlotElement.dataset?.mixChannel);
+
+                if (!trackId || !Number.isFinite(channelNumber)) {
+                    return null;
+                }
+
+                const track = currentTracks.find((track) => track.id === trackId);
+
+                if (!track) {
+                    return null;
+                }
+
+                const enabledInput = channelSlotElement.querySelector?.(
+                    "[data-channel-enabled]",
+                ) as ChannelEnabledInputLike | null;
+
+                const volumeInput = channelSlotElement.querySelector?.(
+                    "[data-channel-volume]",
+                ) as ChannelVolumeInputLike | null;
+
+                const isEnabled = enabledInput?.checked ?? false;
+                const volume = Number(volumeInput?.value ?? "1");
+
+                if (!isEnabled) {
+                    return null;
+                }
+
+                return {
+                    channelNumber,
+                    trackId: track.id,
+                    name: track.name,
+                    audioUrl: getTrackAudioUrl(project.id, track.id),
+                    volume: Number.isFinite(volume) ? volume : 1,
+                };
+            })
+            .filter((channel): channel is MixChannelForPlayer => {
+                return channel !== null;
+            });
+    }
+
+    function handleLoadMix(): void {
+        if (!audioPlayerController?.loadMix) {
+            setStatus(statusElement, "Mix playback is not ready yet.");
+            return;
+        }
+
+        const enabledMixChannels = getEnabledMixChannels();
+
+        if (enabledMixChannels.length === 0) {
+            setStatus(statusElement, "Choose at least one enabled channel.");
+            return;
+        }
+
+        audioPlayerController.loadMix(enabledMixChannels);
+
+        const channelWord = enabledMixChannels.length === 1 ? "channel" : "channels";
+
+        setStatus(
+            statusElement,
+            `Loaded ${enabledMixChannels.length} ${channelWord} into the mix.`,
+        );
+    }
+
     async function handleTrackListClick(event: ClickEventLike): Promise<void> {
+        const isLoadMixClick = getIsLoadMixClickFromTarget(event.target);
+
+        if (isLoadMixClick) {
+            handleLoadMix();
+            return;
+        }
+
         const loadTrackId = getLoadTrackIdFromTarget(event.target);
 
         if (loadTrackId) {

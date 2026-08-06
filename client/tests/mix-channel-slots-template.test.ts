@@ -60,10 +60,12 @@ tester.describe("mix channel slots template", () => {
         tester.expect(html.includes("Channel 1")).toBe(true);
         tester.expect(html.includes("Drums")).toBe(true);
         tester.expect(html.includes('data-track-id="track-1"')).toBe(true);
+        tester.expect(html.includes('data-mix-channel="1"')).toBe(true);
 
         tester.expect(html.includes("Channel 2")).toBe(true);
         tester.expect(html.includes("Bass")).toBe(true);
         tester.expect(html.includes('data-track-id="track-2"')).toBe(true);
+        tester.expect(html.includes('data-mix-channel="2"')).toBe(true);
     });
 
     tester.it("renders enabled, volume, waveform, and delete controls for assigned tracks", () => {
@@ -74,5 +76,18 @@ tester.describe("mix channel slots template", () => {
         tester.expect(html.includes("Waveform placeholder")).toBe(true);
         tester.expect(html.includes("data-track-delete-button")).toBe(true);
         tester.expect(html.includes("Delete")).toBe(true);
+        tester.expect(html.includes("data-mix-channel-slot")).toBe(true);
+        tester.expect(html.includes('data-mix-channel="1"')).toBe(true);
+    });
+
+    tester.it("renders a Load Mix button for preparing the current channel setup", () => {
+        const html = renderTwoChannelMixSlots([]);
+
+        tester.expect(html.includes("Load Mix")).toBe(true);
+        tester.expect(html.includes('id="load-mix-button"')).toBe(true);
+        tester.expect(html.includes("data-load-mix-button")).toBe(true);
+        tester.expect(
+            html.includes("Enable tracks, set volume, then load the mix into the player."),
+        ).toBe(true);
     });
 });
