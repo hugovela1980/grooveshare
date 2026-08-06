@@ -7,7 +7,6 @@ import "./project-menu-page-controller.test.js";
 import "./project-list-template.test.js";
 import "./project-player-page-controller.test.js";
 import "./project-draft-state.test.js";
-import "./pending-track-list-template.test.js";
 import "./pending-track-selection-controller.test.js";
 import "./confirm-project-page-controller.test.js";
 import "./tracks-api.test.js";

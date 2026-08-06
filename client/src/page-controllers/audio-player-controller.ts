@@ -1,8 +1,3 @@
-type AudioTrackForPlayer = {
-    name: string;
-    audioUrl: string;
-};
-
 type MixChannelForPlayer = {
     channelNumber: number;
     trackId: string;
@@ -234,18 +229,6 @@ export function createAudioPlayerController({
         updateProgress();
     }
 
-    function loadTrack(track: AudioTrackForPlayer): void {
-        loadMix([
-            {
-                channelNumber: 1,
-                trackId: "single-track",
-                name: track.name,
-                audioUrl: track.audioUrl,
-                volume: 1,
-            },
-        ]);
-    }
-
     function loadMix(channels: MixChannelForPlayer[]): void {
         stop();
 
@@ -324,7 +307,6 @@ export function createAudioPlayerController({
 
     return {
         init,
-        loadTrack,
         loadMix,
         stop,
     };

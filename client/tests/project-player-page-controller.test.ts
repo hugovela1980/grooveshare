@@ -75,28 +75,6 @@ function createFakeTrackListElement() {
       });
     },
 
-    async clickLoadButton(trackId: string): Promise<void> {
-      if (!clickHandler) {
-        throw new Error("Click handler was not registered.");
-      }
-
-      await clickHandler({
-        target: {
-          closest(selector: string) {
-            if (selector !== "[data-track-load-button]") {
-              return null;
-            }
-
-            return {
-              dataset: {
-                trackId,
-              },
-            };
-          },
-        } as unknown as EventTarget,
-      });
-    },
-
     setChannelSlots(
       slots: Array<{
         channelNumber: number;
@@ -474,58 +452,6 @@ tester.describe("project player page controller", () => {
 
     tester.expect(statusElement.textContent).toBe("Could not delete project.");
     tester.expect(projectDeletedCallbackWasCalled).toBe(false);
-  });
-
-  tester.it("loads a selected track into the audio player", async () => {
-    const project = createProject();
-    const tracks = [
-      {
-        id: "track-1",
-        projectId: project.id,
-        name: "Guitar Take",
-        originalFilename: "guitar.wav",
-        filePath: "server/uploads/projects/project-1/guitar.wav",
-        mimeType: "audio/wav",
-        fileSize: 123,
-        createdAt: "2026-01-01T00:00:00.000Z",
-      },
-    ];
-
-    const trackListElement = createFakeTrackListElement();
-    const statusElement = createFakeStatusElement();
-
-    let loadedTrack: { name: string; audioUrl: string } | null = null;
-
-    const controller = createProjectPlayerPageController({
-      project,
-      trackListElement,
-      statusElement,
-      tracksApi: {
-        getTracksByProjectId: async () => tracks,
-        deleteTrack: async () => tracks[0],
-      },
-      renderTrackList: () => "<button data-track-load-button data-track-id=\"track-1\">Load</button>",
-      audioPlayerController: {
-        loadTrack: (track) => {
-          loadedTrack = track;
-        },
-      },
-      getTrackAudioUrl: (projectId, trackId) => {
-        return `http://localhost:3000/api/projects/${projectId}/tracks/${trackId}/audio`;
-      },
-    });
-
-    await controller.init();
-
-    await trackListElement.clickLoadButton("track-1");
-
-    tester.expect(loadedTrack).toEqual({
-      name: "Guitar Take",
-      audioUrl:
-        `http://localhost:3000/api/projects/${project.id}/tracks/track-1/audio`,
-    });
-
-    tester.expect(statusElement.textContent).toBe("Loaded Guitar Take.");
   });
 
   tester.it("loads enabled channel slots into the audio player mix", async () => {

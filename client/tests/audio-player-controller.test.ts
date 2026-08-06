@@ -158,7 +158,7 @@ tester.describe("audio player controller", () => {
         tester.expect(progressInput.disabled).toBe(true);
     });
 
-    tester.it("loads a track and enables the controls", () => {
+    tester.it("loads a one-channel mix and enables the controls", () => {
         const {
             controller,
             audioElement,
@@ -171,10 +171,15 @@ tester.describe("audio player controller", () => {
 
         controller.init();
 
-        controller.loadTrack({
-            name: "Guitar Take",
-            audioUrl: "http://localhost:3000/audio/guitar.wav",
-        });
+        controller.loadMix([
+            {
+                channelNumber: 1,
+                trackId: "track-1",
+                name: "Guitar Take",
+                audioUrl: "http://localhost:3000/audio/guitar.wav",
+                volume: 1,
+            },
+        ]);
 
         tester.expect(audioElement.src).toBe("http://localhost:3000/audio/guitar.wav");
         tester.expect(audioElement.currentTime).toBe(0);
@@ -193,11 +198,15 @@ tester.describe("audio player controller", () => {
 
         controller.init();
 
-        controller.loadTrack({
-            name: "Bass Take",
-            audioUrl: "http://localhost:3000/audio/bass.wav",
-        });
-
+        controller.loadMix([
+            {
+                channelNumber: 1,
+                trackId: "track-1",
+                name: "Guitar Take",
+                audioUrl: "http://localhost:3000/audio/guitar.wav",
+                volume: 1,
+            },
+        ]);
         await playPauseButton.click();
 
         tester.expect(audioElement.playCallCount).toBe(1);
@@ -217,11 +226,15 @@ tester.describe("audio player controller", () => {
 
         controller.init();
 
-        controller.loadTrack({
-            name: "Drum Take",
-            audioUrl: "http://localhost:3000/audio/drums.wav",
-        });
-
+        controller.loadMix([
+            {
+                channelNumber: 1,
+                trackId: "track-1",
+                name: "Guitar Take",
+                audioUrl: "http://localhost:3000/audio/guitar.wav",
+                volume: 1,
+            },
+        ]);
         audioElement.currentTime = 45;
         audioElement.paused = false;
 
@@ -239,11 +252,15 @@ tester.describe("audio player controller", () => {
 
         controller.init();
 
-        controller.loadTrack({
-            name: "Keys Take",
-            audioUrl: "http://localhost:3000/audio/keys.wav",
-        });
-
+        controller.loadMix([
+            {
+                channelNumber: 1,
+                trackId: "track-1",
+                name: "Guitar Take",
+                audioUrl: "http://localhost:3000/audio/guitar.wav",
+                volume: 1,
+            },
+        ]);
         audioElement.duration = 120;
         audioElement.currentTime = 30;
 
@@ -259,11 +276,15 @@ tester.describe("audio player controller", () => {
 
         controller.init();
 
-        controller.loadTrack({
-            name: "Vocal Take",
-            audioUrl: "http://localhost:3000/audio/vocal.wav",
-        });
-
+        controller.loadMix([
+            {
+                channelNumber: 1,
+                trackId: "track-1",
+                name: "Guitar Take",
+                audioUrl: "http://localhost:3000/audio/guitar.wav",
+                volume: 1,
+            },
+        ]);
         audioElement.duration = 200;
         progressInput.value = "50";
 

@@ -22,7 +22,6 @@ type MixChannelForPlayer = {
 };
 
 type AudioPlayerController = {
-    loadTrack?: (track: { name: string; audioUrl: string }) => void;
     loadMix?: (channels: MixChannelForPlayer[]) => void;
 };
 
@@ -95,13 +94,6 @@ function getDeleteTrackIdFromTarget(target: EventTarget | null): string | null {
     return deleteButton?.dataset?.trackId ?? null;
 }
 
-function getLoadTrackIdFromTarget(target: EventTarget | null): string | null {
-    const element = target as ClosestElementLike | null;
-    const loadButton = element?.closest?.("[data-track-load-button]");
-
-    return loadButton?.dataset?.trackId ?? null;
-}
-
 function getIsLoadMixClickFromTarget(target: EventTarget | null): boolean {
     const element = target as ClosestElementLike | null;
     const loadMixButton = element?.closest?.("[data-load-mix-button]");
@@ -144,26 +136,6 @@ export function createProjectPlayerPageController({
             trackListElement.innerHTML =
                 '<p class="empty-state">Could not load tracks.</p>';
         }
-    }
-
-    function handleLoadTrack(trackId: string): void {
-        if (!audioPlayerController?.loadTrack || !getTrackAudioUrl) {
-            return;
-        }
-
-        const track = currentTracks.find((track) => track.id === trackId);
-
-        if (!track) {
-            setStatus(statusElement, "Could not load track.");
-            return;
-        }
-
-        audioPlayerController.loadTrack({
-            name: track.name,
-            audioUrl: getTrackAudioUrl(project.id, track.id),
-        });
-
-        setStatus(statusElement, `Loaded ${track.name}.`);
     }
 
     function getEnabledMixChannels(): MixChannelForPlayer[] {
@@ -246,13 +218,6 @@ export function createProjectPlayerPageController({
 
         if (isLoadMixClick) {
             handleLoadMix();
-            return;
-        }
-
-        const loadTrackId = getLoadTrackIdFromTarget(event.target);
-
-        if (loadTrackId) {
-            handleLoadTrack(loadTrackId);
             return;
         }
 
