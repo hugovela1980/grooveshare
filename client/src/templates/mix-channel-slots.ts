@@ -1,14 +1,14 @@
 import type { Track } from "../types.js";
 
-const TWO_CHANNEL_SLOT_COUNT = 2;
+const MIX_CHANNEL_SLOT_COUNT = 4;
 
 type ChannelSlot = {
   channelNumber: number;
   track: Track | null;
 };
 
-function createTwoChannelSlots(tracks: Track[]): ChannelSlot[] {
-  return Array.from({ length: TWO_CHANNEL_SLOT_COUNT }, (_, index) => {
+function createMixChannelSlots(tracks: Track[]): ChannelSlot[] {
+  return Array.from({ length: MIX_CHANNEL_SLOT_COUNT }, (_, index) => {
     return {
       channelNumber: index + 1,
       track: tracks[index] ?? null,
@@ -98,16 +98,16 @@ function renderEmptyChannelSlot(channelNumber: number): string {
   `;
 }
 
-export function renderTwoChannelMixSlots(tracks: Track[]): string {
-  const slots = createTwoChannelSlots(tracks);
+export function renderMixChannelSlots(tracks: Track[]): string {
+  const slots = createMixChannelSlots(tracks);
 
   return /*html*/ `
-    <section class="mix-channel-panel" aria-label="Two channel mix setup">
+    <section class="mix-channel-panel" aria-label="Four channel mix setup">
       <div class="mix-channel-panel__header">
         <div>
           <h3 class="mix-channel-panel__title">Mix Channels</h3>
           <p class="mix-channel-panel__description">
-            Enable tracks, set volume, then load the mix into the player.
+            Enable up to four tracks, set volume, then load the mix into the player.
           </p>
         </div>
 

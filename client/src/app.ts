@@ -16,7 +16,7 @@ import {
   type AppScreen,
 } from "./router/app-router.js";
 import { renderProjectList } from "./templates/project-list.js";
-import { renderTwoChannelMixSlots } from "./templates/mix-channel-slots.js";
+import { renderMixChannelSlots } from "./templates/mix-channel-slots.js";
 import type { Project } from "./types.js";
 
 type AppElementLike = {
@@ -311,7 +311,7 @@ function initializeProjectPlayerPage({
     projectsApi,
     audioPlayerController,
     getTrackAudioUrl,
-    renderTrackList: renderTwoChannelMixSlots,
+    renderTrackList: renderMixChannelSlots,
     onProjectDeleted() {
       navigateTo("project-menu");
     },
