@@ -1,4 +1,7 @@
-import { createProjectDraftState } from "../src/project-draft/project-draft-state.js";
+import {
+    MAX_PENDING_TRACKS,
+    createProjectDraftState,
+} from "../src/project-draft/project-draft-state.js";
 import { tester } from "./test-runner/tester.js";
 
 function createFakeFile({
@@ -140,5 +143,122 @@ tester.describe("project draft state", () => {
 
         tester.expect(draftState.getProjectDraft()).toBe(null);
         tester.expect(draftState.getPendingTracks()).toEqual([]);
+    });
+
+    tester.it("adds multiple pending tracks at once", () => {
+        let nextId = 1;
+
+        const draftState = createProjectDraftState({
+            createId: () => `pending-track-${nextId++}`,
+        });
+
+        const guitarFile = createFakeFile({
+            name: "guitar.wav",
+            type: "audio/wav",
+            size: 111,
+        });
+
+        const bassFile = createFakeFile({
+            name: "bass.wav",
+            type: "audio/wav",
+            size: 222,
+        });
+
+        const pendingTracks = draftState.addPendingTracks([
+            {
+                trackName: "Guitar",
+                audioFile: guitarFile,
+            },
+            {
+                trackName: "Bass",
+                audioFile: bassFile,
+            },
+        ]);
+
+        tester.expect(pendingTracks.length).toBe(2);
+
+        tester.expect(draftState.getPendingTracks()).toEqual([
+            {
+                id: "pending-track-1",
+                trackName: "Guitar",
+                audioFile: guitarFile,
+                originalFilename: "guitar.wav",
+                mimeType: "audio/wav",
+                fileSize: 111,
+            },
+            {
+                id: "pending-track-2",
+                trackName: "Bass",
+                audioFile: bassFile,
+                originalFilename: "bass.wav",
+                mimeType: "audio/wav",
+                fileSize: 222,
+            },
+        ]);
+    });
+
+    tester.it("tracks how many pending track slots remain", () => {
+        const draftState = createProjectDraftState();
+
+        tester.expect(draftState.getPendingTrackSlotsRemaining()).toBe(
+            MAX_PENDING_TRACKS,
+        );
+
+        draftState.addPendingTracks([
+            {
+                trackName: "Guitar",
+                audioFile: createFakeFile({ name: "guitar.wav" }),
+            },
+            {
+                trackName: "Bass",
+                audioFile: createFakeFile({ name: "bass.wav" }),
+            },
+        ]);
+
+        tester.expect(draftState.getPendingTrackSlotsRemaining()).toBe(2);
+        tester.expect(draftState.canAddPendingTracks(2)).toBe(true);
+        tester.expect(draftState.canAddPendingTracks(3)).toBe(false);
+    });
+
+    tester.it("does not allow more than four pending tracks", () => {
+        const draftState = createProjectDraftState();
+
+        draftState.addPendingTracks([
+            {
+                trackName: "Track One",
+                audioFile: createFakeFile({ name: "track-one.wav" }),
+            },
+            {
+                trackName: "Track Two",
+                audioFile: createFakeFile({ name: "track-two.wav" }),
+            },
+            {
+                trackName: "Track Three",
+                audioFile: createFakeFile({ name: "track-three.wav" }),
+            },
+        ]);
+
+        let errorMessage = "";
+
+        try {
+            draftState.addPendingTracks([
+                {
+                    trackName: "Track Four",
+                    audioFile: createFakeFile({ name: "track-four.wav" }),
+                },
+                {
+                    trackName: "Track Five",
+                    audioFile: createFakeFile({ name: "track-five.wav" }),
+                },
+            ]);
+        } catch (error) {
+            errorMessage = error instanceof Error ? error.message : "";
+        }
+
+        tester.expect(errorMessage).toBe(
+            "A project can include up to 4 audio tracks.",
+        );
+
+        tester.expect(draftState.getPendingTracks().length).toBe(3);
     });
 });

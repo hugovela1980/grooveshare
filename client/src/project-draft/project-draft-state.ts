@@ -1,5 +1,7 @@
 import type { CreateProjectInput } from "../types.js";
 
+export const MAX_PENDING_TRACKS = 4;
+
 export type ProjectDraft = CreateProjectInput;
 
 export type PendingTrackDraft = {
@@ -42,11 +44,19 @@ export function createProjectDraftState({
         return project;
     }
 
-    function addPendingTrack({
+    function getPendingTrackSlotsRemaining(): number {
+        return Math.max(MAX_PENDING_TRACKS - pendingTracks.length, 0);
+    }
+
+    function canAddPendingTracks(trackCount: number): boolean {
+        return trackCount <= getPendingTrackSlotsRemaining();
+    }
+
+    function createPendingTrack({
         trackName,
         audioFile,
     }: AddPendingTrackInput): PendingTrackDraft {
-        const pendingTrack: PendingTrackDraft = {
+        return {
             id: createId(),
             trackName: trackName.trim() || audioFile.name,
             audioFile,
@@ -54,10 +64,26 @@ export function createProjectDraftState({
             mimeType: audioFile.type,
             fileSize: audioFile.size,
         };
+    }
 
-        pendingTracks = [...pendingTracks, pendingTrack];
+    function addPendingTracks(
+        inputs: AddPendingTrackInput[],
+    ): PendingTrackDraft[] {
+        if (!canAddPendingTracks(inputs.length)) {
+            throw new Error(
+                `A project can include up to ${MAX_PENDING_TRACKS} audio tracks.`,
+            );
+        }
 
-        return pendingTrack;
+        const newPendingTracks = inputs.map(createPendingTrack);
+
+        pendingTracks = [...pendingTracks, ...newPendingTracks];
+
+        return newPendingTracks;
+    }
+
+    function addPendingTrack(input: AddPendingTrackInput): PendingTrackDraft {
+        return addPendingTracks([input])[0];
     }
 
     function removePendingTrack(trackDraftId: string): void {
@@ -86,8 +112,11 @@ export function createProjectDraftState({
         setProjectDraft,
         getProjectDraft,
         addPendingTrack,
+        addPendingTracks,
         removePendingTrack,
         getPendingTracks,
+        getPendingTrackSlotsRemaining,
+        canAddPendingTracks,
         getSnapshot,
         clear,
     };
