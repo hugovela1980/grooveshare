@@ -2,6 +2,11 @@ import { readFile, rm, rmdir, writeFile } from "node:fs/promises";
 import http, { type IncomingMessage, type ServerResponse } from "node:http";
 import path from "node:path";
 import { handleDevResetRoute } from "./dev/dev-reset-route.js";
+import {
+  DEFAULT_SEED_PROJECT_DIR,
+  handleDevSeedFilesRoute,
+  handleDevSeedProjectRoute,
+} from "./dev/dev-seed-routes.js";
 import type { ProjectsStore } from "./stores/projects-json-store.js";
 import type { TracksStore } from "./stores/tracks-json-store.js";
 import type { CreateProjectInput } from "./types.js";
@@ -23,6 +28,7 @@ type AppOptions = {
   tracksStore: TracksStore;
   clientOrigin?: string;
   uploadRoot?: string;
+  seedProjectDir?: string;
   maxUploadFileSizeBytes?: number;
 };
 
@@ -151,6 +157,7 @@ export function createAppServer({
   tracksStore,
   clientOrigin = "http://localhost:5173",
   uploadRoot = DEFAULT_UPLOAD_ROOT,
+  seedProjectDir = DEFAULT_SEED_PROJECT_DIR,
   maxUploadFileSizeBytes = DEFAULT_MAX_AUDIO_FILE_SIZE_BYTES,
 }: AppOptions): http.Server {
   async function handleCreateProject(
@@ -532,6 +539,46 @@ export function createAppServer({
 
         return;
       }
+
+      // ============================================= //
+      // ============================================= //
+      // ============================================= //
+      // Development seed routes //
+      // ============================================= //
+      // ============================================= //
+      // ============================================= //
+      if (req.method === "GET" && req.url === "/api/dev/seed-files") {
+        await handleDevSeedFilesRoute({
+          res,
+          sendJson,
+          clientOrigin,
+          seedProjectDir,
+        });
+
+        return;
+      }
+
+      if (req.method === "POST" && req.url === "/api/dev/seed-project") {
+        await handleDevSeedProjectRoute({
+          req,
+          res,
+          sendJson,
+          clientOrigin,
+          projectsStore,
+          tracksStore,
+          uploadRoot,
+          seedProjectDir,
+        });
+
+        return;
+      }
+      // ============================================= //
+      // ============================================= //
+      // ============================================= //
+      // Development seed routes //
+      // ============================================= //
+      // ============================================= //
+      // ============================================= //
 
       if (req.method === "GET" && req.url === "/api/projects") {
         const projects = await projectsStore.getProjects();

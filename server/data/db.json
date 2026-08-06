@@ -1,23 +1,4 @@
 {
-  "projects": [
-    {
-      "id": "54b9ba4d-cffe-42dc-889a-7920eabc1ce8",
-      "title": "asdf",
-      "description": "asdf",
-      "createdAt": "2026-08-05T19:22:57.471Z",
-      "updatedAt": "2026-08-05T19:22:57.471Z"
-    }
-  ],
-  "tracks": [
-    {
-      "id": "ea03de43-a246-45e9-b45a-07f2ee9a71ad",
-      "projectId": "54b9ba4d-cffe-42dc-889a-7920eabc1ce8",
-      "name": "asdf",
-      "originalFilename": "2 VOX 0003 [2025-04-26 120229].wav",
-      "filePath": "uploads\\projects\\54b9ba4d-cffe-42dc-889a-7920eabc1ce8\\fe1fe714-787e-4f0e-ace0-6cd0f9ea9f2e-2-VOX-0003--2025-04-26-120229-.wav",
-      "mimeType": "audio/wav",
-      "fileSize": 2972972,
-      "createdAt": "2026-08-05T19:22:57.505Z"
-    }
-  ]
+  "projects": [],
+  "tracks": []
 }

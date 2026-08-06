@@ -8,16 +8,31 @@
 
 ## Current Focus
 
-- [ ] Add Load Mix behavior for two channels
-  Add a Load Mix button that prepares the enabled channel slots for playback instead of loading one individual track at a time.
+### Update Dev Tool Bar
+- [x] Add backend route for listing seed audio files
+  Add a dev-only API route that reads `server/data/seed-project` and returns available audio filenames for the dev toolbar.
 
+- [x] Update backend seed-project route to use selected real audio files
+  Replace the placeholder generated track file with copies of the selected files from `server/data/seed-project`.
+
+- [x] Preserve dev reset behavior
+  Keep the existing reset route so `db.json` can still be cleared from the dev toolbar.
+
+- [x] Update dev toolbar UI to show seed file checkboxes
+  Display the available seed audio files in the toolbar and allow choosing which files to include before seeding.
+
+- [ ] Make the dev toolbar visible by default
+  Show the toolbar automatically on page load, keep it visible across normal reloads, and allow toggling it with the right arrow key.
+
+- [ ] Keep dev toolbar code isolated
+  Keep backend dev behavior inside `server/src/dev/` and frontend dev behavior inside `client/src/dev/`, with only a small hook from the main app.
+
+### 4 channel track mixer    
 - [ ] Add two-track playback controller
   Play, pause, stop, and reset two enabled tracks from a shared start point. Each track should respect its channel volume setting.
 
 - [ ] Stabilize multitrack transport controls
   Update the Audio Player panel so play, pause, stop, timestamp, and progress behavior are designed around a shared mix instead of a single audio element.
-
-## 4 channel track mixer    
 
 - [ ] Expand the mixer from two channels to four channels
   Support four available channel slots. Automatically fill the first four uploaded tracks for now, while leaving room for manual assignment later.
@@ -46,7 +61,7 @@
 ## Backlog
 
 - [ ] Add notes to backlog or architecture docs
-     Document the decision that waveforms, volume, enabled state, nudge, and trim/clipping controls belong to the channel slots in the Tracks panel, while play, pause, stop, progress, and timestamp belong to the Audio Player panel.
+  Document the decision that waveforms, volume, enabled state, nudge, and trim/clipping controls belong to the channel slots in the Tracks panel, while play, pause, stop, progress, and timestamp belong to the Audio Player panel.
      
 - [ ] Add project detail page
   Create a focused project view where the user can see project notes, uploaded tracks, and playback controls in one place.
@@ -77,9 +92,7 @@
 - [ ] Revisit audio progress slider seeking
   The single-track audio player can load, play, pause, stop, and display timestamps, but slider seeking may need to be redesigned when the app moves toward simultaneous multitrack playback and streaming/range support.
 
-## General Plan
-
-### Phases
+## Phases
 
 - [ ] Phase 1 Architecture
     Keep the first implementation focused on Vite + Vanilla TypeScript, pure Node backend, local file storage, and JSON file metadata before adding external services.
@@ -90,7 +103,7 @@
 - [ ] Move to Phase 3 collaboration features
   Add authentication, share links, email notifications, and stronger project permissions after the core local prototype is working.
 
-### Versions
+## Versions
 
 - [ ] Build Version 1: Stem player
   Create the first useful MVP where a user can create a project, upload multiple audio files, and share a link where someone can play, mute, solo, adjust volume, and pan tracks.
@@ -106,47 +119,53 @@
 
 ## Completed
 
-* [x] Define initial project idea
+- [x] Define initial project idea
   Established GrooveShare as a lightweight music collaboration app for sharing stems, practicing parts, and capturing rough remote takes from bandmates.
 
-* [x] Choose initial Phase 1 stack
+- [x] Choose initial Phase 1 stack
   Chose Vite + Vanilla TypeScript frontend, pure Node backend, local file storage, and JSON file metadata as the starting learning stack.
 
-* [x] Set up branch workflow
+- [x] Set up branch workflow
   Established a main, develop, and feature branch workflow for the GrooveShare project.
 
-* [x] Set up project skeleton
+- [x] Set up project skeleton
   Create the initial Vite + Vanilla TypeScript frontend and pure Node backend, including a basic health endpoint and frontend/backend connection test.
 
-* [x] Add backend test runner
+- [x] Add backend test runner
   Added a custom TypeScript test runner for the backend, based on the lightweight testing pattern from the split-timer project, including support for grouped tests, assertions, setup callbacks, and mock functions.
 
-* [x] Build local project metadata foundation
+- [x] Build local project metadata foundation
   Created the first full project metadata flow using a local JSON data store, TypeScript backend types, tested store helpers, tested API routes, and a frontend project creation UI that can create, save, load, and display projects.
 
 - [x] Save track metadata
   Store each uploaded track’s ID, name, original filename, local file path, MIME type, upload date, and related project ID.
 
-* [x] Add local audio file upload
+- [x] Add local audio file upload
   Added the first full local audio upload workflow, including track metadata types, separated JSON store helpers, tested track store functions, pure Node multipart upload handling, local project-specific upload folders, upload validation, tested upload/list API routes, a frontend upload form, uploaded track metadata display, and readable upload error handling.
 
-* [x] Refactor the frontend
+- [x] Refactor the frontend
   Refactor so that `main.ts` starts the app only and `app.ts` does routing coordination, app state, and page initialization.  Create and add directories and files to handle screen changes (`router/`), render page HTML templates (`pages/`), and handle page-specific behavior (`page-controllers/`)
 
 - [x] Restyled the main app pages
   Updated the UI for the main project workflow so the app now feels more like a guided multi-page experience instead of a collection of rough development screens.
 
-  - [x] Added reusable track deletion
-  Added backend and frontend support for deleting individual tracks, including removing track metadata from `db.json`, deleting the linked uploaded audio file from `server/uploads/`, exposing a reusable `deleteTrack(projectId, trackId)` API helper, and wiring the first delete UI into the Project Player so tracks can be removed and the track list refreshes after deletion.
+- [x] Added reusable track deletion
+Added backend and frontend support for deleting individual tracks, including removing track metadata from `db.json`, deleting the linked uploaded audio file from `server/uploads/`, exposing a reusable `deleteTrack(projectId, trackId)` API helper, and wiring the first delete UI into the Project Player so tracks can be removed and the track list refreshes after deletion.
 
-  - [x] Added project deletion with linked track cleanup
-  Added backend and frontend support for deleting entire projects, including removing project metadata from `db.json`, removing linked track metadata, deleting uploaded audio files and project upload folders from `server/uploads/`, exposing a reusable `deleteProject(projectId)` API helper, and wiring delete buttons into the Project Menu and Project Player flows with confirmation prompts and status messages.
+- [x] Added project deletion with linked track cleanup
+Added backend and frontend support for deleting entire projects, including removing project metadata from `db.json`, removing linked track metadata, deleting uploaded audio files and project upload folders from `server/uploads/`, exposing a reusable `deleteProject(projectId)` API helper, and wiring delete buttons into the Project Menu and Project Player flows with confirmation prompts and status messages.
 
-  - [x] Add single-track audio playback path
-  Added backend audio serving, a single audio player template, an audio player controller, track Load buttons, and Project Player wiring so one uploaded track can be loaded and played from the browser.
+- [x] Add single-track audio playback path
+Added backend audio serving, a single audio player template, an audio player controller, track Load buttons, and Project Player wiring so one uploaded track can be loaded and played from the browser.
 
-  - [x] Design four-channel track mixer layout
-  Replace the simple track list mindset with four channel slots in the Project Player Tracks panel. Each slot should be designed to eventually support an assigned track, enabled toggle, volume control, waveform display, offset/nudge controls, and trim/clipping controls.
+- [x] Design four-channel track mixer layout
+Replace the simple track list mindset with four channel slots in the Project Player Tracks panel. Each slot should be designed to eventually support an assigned track, enabled toggle, volume control, waveform display, offset/nudge controls, and trim/clipping controls.
 
-  - [x] Add two-channel slot prototype
-  Render the first two uploaded tracks as Channel 1 and Channel 2. Each channel should show the assigned track name, enabled toggle, volume slider, and a placeholder waveform area.
+- [x] Add two-channel slot prototype
+Render the first two uploaded tracks as Channel 1 and Channel 2. Each channel should show the assigned track name, enabled toggle, volume slider, and a placeholder waveform area.
+
+- [x] Add Load Mix behavior for two channels
+  Add a Load Mix button that prepares the enabled channel slots for playback instead of loading one individual track at a time.
+
+- [x] Update dev toolbar for real seed audio files
+List audio files from `server/data/seed-project`, allow selecting which files to include, seed a project using the selected real audio files, keep reset-dev-data behavior, and keep the dev toolbar isolated so it can be removed later with minimal code changes.
