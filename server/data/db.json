@@ -1,4 +1,53 @@
 {
-  "projects": [],
-  "tracks": []
+  "projects": [
+    {
+      "id": "86ae1eb5-f95d-41f2-b707-c1f4e5428ee7",
+      "title": "Dev Seed Project",
+      "description": "Temporary project created from real seed audio files.",
+      "createdAt": "2026-08-06T21:58:05.144Z",
+      "updatedAt": "2026-08-06T21:58:05.144Z"
+    }
+  ],
+  "tracks": [
+    {
+      "id": "9e9a1126-50d6-4066-ad9f-3fb3a84274f6",
+      "projectId": "86ae1eb5-f95d-41f2-b707-c1f4e5428ee7",
+      "name": "Bass",
+      "originalFilename": "Bass.wav",
+      "filePath": "uploads\\projects\\86ae1eb5-f95d-41f2-b707-c1f4e5428ee7\\4e0ce840-5ae8-4a46-b0f0-3141ff61262d-Bass.wav",
+      "mimeType": "audio/wav",
+      "fileSize": 2822444,
+      "createdAt": "2026-08-06T21:58:05.150Z"
+    },
+    {
+      "id": "9c4f4ae1-9225-4bee-b9db-1930e8dc02d0",
+      "projectId": "86ae1eb5-f95d-41f2-b707-c1f4e5428ee7",
+      "name": "Delay Guitar",
+      "originalFilename": "Delay Guitar.wav",
+      "filePath": "uploads\\projects\\86ae1eb5-f95d-41f2-b707-c1f4e5428ee7\\9d75b2f6-c047-478c-bbb3-df0ebe920c3f-Delay-Guitar.wav",
+      "mimeType": "audio/wav",
+      "fileSize": 2822444,
+      "createdAt": "2026-08-06T21:58:05.158Z"
+    },
+    {
+      "id": "02638cb4-e56d-43a3-b0f2-2a89f94b4f69",
+      "projectId": "86ae1eb5-f95d-41f2-b707-c1f4e5428ee7",
+      "name": "Drums",
+      "originalFilename": "Drums.wav",
+      "filePath": "uploads\\projects\\86ae1eb5-f95d-41f2-b707-c1f4e5428ee7\\2be73505-e9c9-4e85-a203-9e487db23ee0-Drums.wav",
+      "mimeType": "audio/wav",
+      "fileSize": 2822444,
+      "createdAt": "2026-08-06T21:58:05.163Z"
+    },
+    {
+      "id": "221a2a7a-a7da-40c2-ad90-9c4a6f0fb6c8",
+      "projectId": "86ae1eb5-f95d-41f2-b707-c1f4e5428ee7",
+      "name": "Tremolo Guitar",
+      "originalFilename": "Tremolo Guitar.wav",
+      "filePath": "uploads\\projects\\86ae1eb5-f95d-41f2-b707-c1f4e5428ee7\\576e94c4-e9c7-4cec-9143-9b440d845ce4-Tremolo-Guitar.wav",
+      "mimeType": "audio/wav",
+      "fileSize": 2822444,
+      "createdAt": "2026-08-06T21:58:05.170Z"
+    }
+  ]
 }

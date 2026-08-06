@@ -71,14 +71,8 @@ function initializeProjectMenuPage({
     return;
   }
 
-  const statusElement = getElement<HTMLParagraphElement>(
-    appElement,
-    "#project-menu-status",
-  );
-
   const controller = createProjectMenuPageController({
     projectListElement,
-    statusElement,
     projectsApi,
     renderProjectList,
     onProjectSelected(project) {

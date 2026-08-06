@@ -32,15 +32,6 @@ export function renderProjectList(projects: Project[]): string {
                 <span class="project-list__title">${escapeHtml(project.title)}</span>
                 <span class="visually-hidden">${description}</span>
               </button>
-
-              <button
-                class="project-list__delete-button"
-                type="button"
-                data-project-delete-button
-                data-project-id="${escapeHtml(project.id)}"
-              >
-                Delete
-              </button>
             </li>
           `;
       })
