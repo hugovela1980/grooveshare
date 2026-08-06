@@ -9,11 +9,6 @@
 ## Current Focus
 
 ### 4 channel track mixer    
-- [ ] Add two-track playback controller
-  Play, pause, stop, and reset two enabled tracks from a shared start point. Each track should respect its channel volume setting.
-
-- [ ] Stabilize multitrack transport controls
-  Update the Audio Player panel so play, pause, stop, timestamp, and progress behavior are designed around a shared mix instead of a single audio element.
 
 - [ ] Expand the mixer from two channels to four channels
   Support four available channel slots. Automatically fill the first four uploaded tracks for now, while leaving room for manual assignment later.
@@ -147,3 +142,6 @@ Render the first two uploaded tracks as Channel 1 and Channel 2. Each channel sh
 
 - [x] Update dev toolbar for real seed audio files
 List audio files from `server/data/seed-project`, allow selecting which files to include, seed a project using the selected real audio files, keep reset-dev-data behavior, and keep the dev toolbar isolated so it can be removed later with minimal code changes.
+
+- [x] Add two-track playback controller
+Play, pause, stop, and reset two enabled tracks from a shared start point. Each track should respect its channel volume setting.

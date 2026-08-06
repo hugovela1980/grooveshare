@@ -130,7 +130,22 @@ Project Menu
 → Project Player
 ```
 
-The user can create a project, include a track during the project creation flow, confirm the project, and then view the project in the Project Player. The app also supports deleting individual tracks and deleting entire projects with their linked track metadata and uploaded files.
+The user can create a project, include a track during the project creation flow, confirm the project, and then view the project in the Project Player.
+
+The Project Player is moving toward a small stem-mixer workflow:
+
+```txt
+Tracks panel       = channel setup
+Audio Player panel = global playback controls
+```
+
+Current Project Player behavior includes:
+
+* Displaying uploaded tracks as Channel 1 and Channel 2.
+* Showing an enabled toggle, volume slider, waveform placeholder, and delete button for assigned channels.
+* Loading the enabled channels into the Audio Player with `Load Mix`.
+* Playing, pausing, stopping, and resetting a loaded two-track mix from the Audio Player panel.
+* Deleting individual tracks and deleting entire projects with their linked track metadata and uploaded files.
 
 ## Project Structure
 
@@ -154,6 +169,7 @@ grooveshare/
   server/
     data/
       db.json
+      seed-project/
     src/
       dev/
       stores/
@@ -169,6 +185,8 @@ grooveshare/
   docker-compose.yml
   README.md
 ```
+
+`server/data/seed-project/` contains local development audio files that can be used by the dev toolbar to seed a test project. Runtime uploads still go into `server/uploads/`, which is ignored by Git.
 
 ## Frontend Overview
 
@@ -240,11 +258,14 @@ It currently handles:
 * Reading projects
 * Uploading tracks
 * Reading track metadata
+* Serving uploaded audio files back to the browser
 * Deleting individual tracks
 * Deleting projects and linked tracks
 * Cleaning up uploaded audio files and empty project upload folders
 * Saving metadata to a local JSON file
 * Saving uploaded audio files locally
+* Listing local seed audio files for development
+* Creating seeded development projects from selected real audio files
 * Supporting local development reset tools
 
 ## Local Data Storage
@@ -273,9 +294,16 @@ GET    /api/projects/:projectId
 DELETE /api/projects/:projectId
 POST   /api/projects/:projectId/tracks
 GET    /api/projects/:projectId/tracks
+GET    /api/projects/:projectId/tracks/:trackId/audio
 DELETE /api/projects/:projectId/tracks/:trackId
+GET    /api/dev/seed-files
+POST   /api/dev/seed-project
 DELETE /api/dev/reset
 ```
+
+Most API routes return JSON responses. The audio route returns the uploaded audio file content with the track's MIME type.
+
+The `/api/dev/*` routes are development-only helper routes for local testing.
 
 ## Testing
 
@@ -297,28 +325,31 @@ npm run typecheck
 
 ## Current Development Focus
 
-The current focus is moving from project and track management toward browser audio playback.
+The current focus is moving from single-track playback toward multitrack playback and a four-channel Project Player mixer.
 
 Recent work has focused on:
 
-* Separating pages from page controllers
-* Adding a simple client-side router
-* Moving project creation into a draft flow
-* Moving track selection into the Create Project flow
-* Keeping Project Player focused on displaying the selected project and its tracks
-* Adding delete flows for individual tracks and entire projects
-* Cleaning up uploaded audio files and empty upload folders after deletions
-* Removing unused legacy frontend controller code and an unused backend utils folder
+* Serving uploaded audio files from the backend.
+* Adding a single Audio Player panel with play, pause, stop, progress, and timestamp controls.
+* Replacing the simple track list direction with channel slots in the Project Player Tracks panel.
+* Rendering the first two uploaded tracks as Channel 1 and Channel 2.
+* Adding a `Load Mix` action that reads enabled channel slots and volume settings.
+* Playing a loaded two-track mix from a shared start point.
+* Updating the dev toolbar so it can seed projects from real audio files in `server/data/seed-project/`.
+* Keeping delete flows for individual tracks and entire projects.
+* Cleaning up uploaded audio files and empty upload folders after deletions.
 
 ## Next Planned Work
 
 Likely next steps:
 
-* Serve uploaded audio files from the backend
-* Add a real audio player placeholder implementation
-* Load one uploaded track into an audio element
-* Add basic playback controls
-* Build toward multitrack playback from a shared start point
+* Expand the mixer from two channels to four channels.
+* Automatically fill Channel 1 through Channel 4 from the first four uploaded tracks.
+* Keep empty channel slots visible when fewer than four tracks exist.
+* Continue stabilizing multitrack transport behavior around a shared mix.
+* Revisit progress/seek behavior for multitrack playback.
+* Add read-only waveform displays inside channel slots.
+* Later, add nudge/offset and trim/clipping controls.
 
 ## Long-Term Goals
 

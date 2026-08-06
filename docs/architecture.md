@@ -137,8 +137,10 @@ The frontend is responsible for:
 * Displaying uploaded track metadata
 * Deleting individual tracks and projects through backend API calls
 * Showing confirmation, success, and error messages for destructive actions
-* Eventually managing browser audio playback
-* Eventually managing microphone recording through browser APIs
+* Rendering the Project Player Tracks panel as channel slots
+* Reading channel enabled state and volume settings before loading a mix
+* Managing browser audio playback through the Audio Player panel
+* Eventually managing browser microphone recording through browser APIs
 
 Current frontend direction:
 
@@ -182,12 +184,13 @@ The backend is responsible for:
 * Receiving local audio uploads
 * Saving uploaded files to project-specific local folders
 * Creating track metadata records for uploaded files
+* Serving uploaded audio files from local storage
 * Deleting individual tracks and their uploaded files
 * Deleting projects, linked track metadata, uploaded files, and project upload folders
-* Eventually serving uploaded audio files from local storage
 * Returning clear JSON responses and error messages
 * Handling CORS for the local Vite frontend
 * Supporting local development reset behavior
+* Supporting local development seed-project behavior from real audio files
 
 Current backend direction:
 
@@ -195,6 +198,7 @@ Current backend direction:
 server/
   data/
     db.json
+    seed-project/
   src/
     dev/
     stores/
@@ -214,7 +218,7 @@ The backend data access layer lives in `server/src/stores/`.
 
 Upload-related helpers live in `server/src/uploads/`.
 
-Development-only backend behavior, such as resetting local development data, lives in `server/src/dev/`.
+Development-only backend behavior, such as resetting local development data and seeding projects from local audio files, lives in `server/src/dev/`.
 
 The current project and track stores use JSON storage, but they are shaped so future database-backed stores can use the same general function interfaces.
 
@@ -258,6 +262,14 @@ The current local metadata file is:
 ```txt
 server/data/db.json
 ```
+
+Local development seed audio files may live in:
+
+```txt
+server/data/seed-project/
+```
+
+Those seed files are used only for local development and manual testing.
 
 The initial shape is:
 
@@ -407,19 +419,16 @@ GET    /api/projects/:projectId
 DELETE /api/projects/:projectId
 POST   /api/projects/:projectId/tracks
 GET    /api/projects/:projectId/tracks
+GET    /api/projects/:projectId/tracks/:trackId/audio
 DELETE /api/projects/:projectId/tracks/:trackId
+GET    /api/dev/seed-files
+POST   /api/dev/seed-project
 DELETE /api/dev/reset
 ```
 
-Likely next routes:
+Most routes return JSON responses.
 
-```txt
-GET  /api/projects/:projectId/tracks/:trackId/audio
-```
-
-Routes should return JSON responses.
-
-Successful response shape:
+Successful JSON response shape:
 
 ```json
 {
@@ -428,7 +437,7 @@ Successful response shape:
 }
 ```
 
-Error response shape:
+Error JSON response shape:
 
 ```json
 {
@@ -436,6 +445,12 @@ Error response shape:
   "error": "Error message"
 }
 ```
+
+The uploaded audio route is an exception to the normal JSON response pattern. `GET /api/projects/:projectId/tracks/:trackId/audio` returns the audio file bytes with the track's stored MIME type so the browser can load it in an audio element.
+
+The `/api/dev/*` routes are local development helper routes. They should remain isolated from the normal product API and should not become part of the production app surface.
+
+Likely future routes may include waveform peak data or saved mix/edit settings after the app reaches waveform display, nudge, trim, and clipping features.
 
 ## File Upload Direction
 
@@ -475,19 +490,27 @@ Deleting an entire project should remove the project metadata, all linked track 
 
 ## Audio Direction
 
-GrooveShare will eventually need browser-based audio playback.
+GrooveShare needs browser-based audio playback for the Version 1 stem player workflow.
 
-Early audio goals:
+Current audio playback direction:
 
-* Load one uploaded audio file.
-* Play and pause one track.
-* Load multiple uploaded audio files.
-* Start multiple tracks together.
-* Add volume controls.
-* Add mute and solo behavior.
-* Add pan controls.
+* Serve uploaded audio files from the backend.
+* Load one uploaded audio file into the Audio Player.
+* Play, pause, stop, seek, and show timestamps for a loaded audio file.
+* Load enabled channel slots into a shared mix.
+* Play two enabled tracks together from a shared start point.
+* Apply the channel volume values that were present when the mix was loaded.
+
+Near-term audio goals:
+
+* Expand the channel slot layout from two channels to four channels.
+* Automatically fill Channel 1 through Channel 4 from the first four uploaded tracks.
+* Keep the Audio Player panel focused on global transport controls.
+* Continue stabilizing shared progress and seek behavior for multitrack playback.
 
 As the app grows, the Web Audio API may become important for better synchronized playback and per-track gain/pan routing.
+
+The current early multitrack playback can use multiple audio elements as a learning/prototype step. Later, the app may move toward Web Audio API sources, gain nodes, pan nodes, and a shared audio context for more reliable stem playback.
 
 The app should aim for practical rehearsal usefulness, not professional DAW-level editing.
 
@@ -524,11 +547,13 @@ The Audio Player panel should own only the global controls that affect the curre
 
 This separation keeps the Project Player closer to a small stem mixer. The user configures the mix in the Tracks panel, then uses the Audio Player panel to control playback of the prepared mix.
 
-The first multitrack version should start with two channel slots. The first two uploaded tracks can automatically fill Channel 1 and Channel 2. Each channel should show the assigned track name, enabled toggle, volume slider, and a placeholder waveform area.
+The current prototype starts with two channel slots. The first two uploaded tracks automatically fill Channel 1 and Channel 2. Each assigned channel shows the track name, enabled toggle, volume slider, waveform placeholder, and delete action.
 
-After the user adjusts the channel enabled states and volume settings, a `Load Mix` action should prepare the selected channels for playback. The Audio Player should then play the enabled tracks together from a shared start point while respecting each channel's volume setting.
+The `Load Mix` action reads the current channel setup from the Tracks panel. It gathers enabled channels, track names, audio URLs, channel numbers, and volume values, then prepares those channels for global playback in the Audio Player panel.
 
-The layout should leave room for four total channel slots even before all four channels are fully functional. This keeps the interface pointed toward the longer-term goal of four-track mixing, editing, and playback.
+The Audio Player should play the enabled tracks together from a shared start point while respecting the volume setting captured when the mix was loaded.
+
+The next mixer step is to expand the layout from two channels to four channels. Channel 1 through Channel 4 should automatically fill from the first four uploaded tracks for now, while leaving room for manual assignment later.
 
 Waveforms should live inside the channel slots rather than inside the global Audio Player panel. This is because waveform editing is track-specific. Future nudge, trim, and clipping behavior will need to line up visually with each individual track's waveform.
 
@@ -547,6 +572,28 @@ Recording should be treated as a rough collaboration tool. Phone microphone reco
 
 Sync may not be perfect across all devices, so later versions should include manual offset or nudge controls.
 
+## Development Tooling Direction
+
+GrooveShare includes local-only development tooling to make manual testing faster.
+
+Current dev tooling includes:
+
+* A frontend development toolbar in `client/src/dev/`.
+* Backend development routes in `server/src/dev/`.
+* A reset route that clears local development data.
+* Seed-project routes that list real audio files from `server/data/seed-project/` and create a seeded project from the selected files.
+
+The dev toolbar should be visible by default during local development. It can be toggled with the right arrow key so it can be hidden during normal UI testing without removing the code.
+
+The toolbar should let the developer:
+
+* See available seed audio files.
+* Select which seed audio files to include.
+* Create a seeded project from the selected real audio files.
+* Reset local development data.
+
+Development tooling should stay isolated so it can be removed later with minimal changes. The frontend hook should stay small, and most frontend dev behavior should live in `client/src/dev/`. Backend dev behavior should stay in `server/src/dev/`.
+
 ## Testing Direction
 
 GrooveShare uses custom lightweight TypeScript test runners inspired by the split-timer project.
@@ -564,6 +611,9 @@ The backend tests cover:
 * JSON store behavior
 * API route behavior
 * Disposable JSON test databases
+* Upload parsing and validation
+* Uploaded file serving behavior
+* Track and project deletion cleanup behavior
 
 The frontend tests cover:
 
@@ -575,6 +625,9 @@ The frontend tests cover:
 * Form behavior
 * Error/status messaging
 * Delete confirmation and status behavior
+* Audio player controller behavior
+* Mix channel slot template behavior
+* Load Mix channel gathering behavior
 
 Frontend tests should avoid requiring a full browser environment at this stage. Instead, they should use small fake DOM helpers and dependency injection, similar to the split-timer project.
 
@@ -641,6 +694,7 @@ The project currently has:
 * Tested upload validation
 * Tested track upload API route
 * Tested project track list API route
+* Tested uploaded audio file route
 * Tested track deletion API route
 * Tested project deletion API route
 * Frontend track upload form wired to the API
@@ -650,7 +704,13 @@ The project currently has:
 * Frontend project deletion UI from the Project Menu and Project Player
 * Uploaded audio file cleanup when tracks or projects are deleted
 * Empty project upload folder cleanup when the last track is deleted
+* Single Audio Player panel with play, pause, stop, progress, and timestamp controls
+* Single-track audio loading and playback path
+* Two-channel mixer slot layout in the Project Player Tracks panel
+* Load Mix behavior that gathers enabled channels and volume values
+* Two-track mix playback from a shared start point
 * Local development reset route and development toolbar
+* Local seed-project audio file workflow for creating real test projects
 * Cleaned frontend structure with legacy controller code removed
 * Cleaned backend structure with unused utility code removed
 
@@ -660,10 +720,14 @@ The app is still early in Version 1.
 
 Current limitations:
 
-* Uploaded audio files are saved locally but cannot yet be played in the browser.
-* Uploaded audio files are not yet served through an audio file route.
-* No single-track playback yet.
-* No multitrack playback yet.
+* The mixer currently supports a two-channel prototype, not the final four-channel layout.
+* Channel assignment is automatic for now; manual assignment is not implemented yet.
+* Changing channel enabled state or volume after clicking `Load Mix` may require loading the mix again before playback reflects the change.
+* Multitrack playback is still a prototype and may need Web Audio API support for tighter synchronization later.
+* Shared progress and seek behavior for multitrack playback still needs more design and testing.
+* Waveforms are placeholders only.
+* No offset/nudge controls yet.
+* No trim/clipping controls yet.
 * No share links yet.
 * No recording yet.
 * No authentication yet.
