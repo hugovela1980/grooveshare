@@ -10,6 +10,10 @@
 
 - [ ] Overhaul CSS
 
+- [ ] Add Cancel button to confirm and create project screens
+
+- [ ] Maybe make the confirm screen be the modal, and all project creation details on the project create screen.  That way there isn't a separate page for creating a project.
+
 ### Replace multitrack playback with Web Audio engine
   Move multitrack playback from multiple HTML audio elements to a Web Audio based engine. Decode selected tracks into AudioBuffers, route each channel through Web Audio nodes, schedule playback from a shared AudioContext clock, and prepare the app for waveform display, gapless looping, nudge, trim, and edited playback.
 
