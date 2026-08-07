@@ -1,0 +1,96 @@
+.create-project-page {
+    width: min(100%, 42rem);
+    margin: 0 auto;
+}
+
+.create-project-header {
+    margin-bottom: 1.5rem;
+}
+
+.create-project-header h1 {
+    margin-top: 0.5rem;
+}
+
+.create-project-panel {
+    padding: 2rem;
+}
+
+.create-project-form {
+    display: grid;
+    gap: 1.25rem;
+}
+
+.create-project-form__section {
+    display: grid;
+    gap: 0.875rem;
+}
+
+.create-project-form__section h2 {
+    margin: 0;
+}
+
+.create-project-actions {
+    display: flex;
+    justify-content: center;
+    margin-top: 1rem;
+}
+
+.create-project-actions button {
+    min-width: 14rem;
+}
+
+.add-audio-tracks-header {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+    justify-content: space-between;
+}
+
+.tracks-to-include-section {
+    margin-top: 1rem;
+    padding: 1rem;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    border-radius: 0.9rem;
+    background: #f8fafc;
+    color: #0f172a;
+}
+
+.tracks-to-include-section h3,
+.tracks-to-include-section li,
+.tracks-to-include-section p,
+.tracks-to-include-section strong,
+.tracks-to-include-section span {
+    color: #0f172a;
+}
+
+.tracks-to-include-section ul {
+    display: grid;
+    gap: 0.85rem;
+    padding-left: 1.25rem;
+    margin: 0.75rem 0 0;
+}
+
+.tracks-to-include-section li {
+    padding: 0.75rem;
+    border: 1px solid rgba(148, 163, 184, 0.4);
+    border-radius: 0.75rem;
+    background: #ffffff;
+}
+
+.tracks-to-include-section button {
+    margin-top: 0.65rem;
+}
+
+.tracks-to-include-section .empty-state {
+    color: #475569;
+}
+
+@media (max-width: 40rem) {
+    .create-project-panel {
+        padding: 1.25rem;
+    }
+
+    .create-project-actions button {
+        width: 100%;
+    }
+}
