@@ -6,6 +6,8 @@
 @import "./_imports/components/forms.css";
 @import "./_imports/components/modals.css";
 @import "./_imports/components/icons.css";
+@import "./_imports/components/audio-player.css";
+@import "./_imports/components/mix-channels.css";
 
 @import "./_imports/pages/home.css";
 @import "./_imports/pages/create-project.css";
