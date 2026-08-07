@@ -1,0 +1,17 @@
+input,
+textarea,
+select {
+    width: 100%;
+    border: 1px solid #52525b;
+    border-radius: 0.75rem;
+    padding: 0.75rem;
+    color: #f5f5f5;
+    background: #171717;
+}
+
+label {
+    display: grid;
+    gap: 0.4rem;
+    color: #d4d4d4;
+    font-weight: 700;
+}
