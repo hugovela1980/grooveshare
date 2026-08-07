@@ -1,3 +1,14 @@
+/*
+  GrooveShare CSS Entry Point
+
+  Import order:
+  1. Base tokens and global defaults
+  2. Shared layout and utility classes
+  3. Reusable components
+  4. Page-specific styles
+  5. Global responsive overrides, if needed
+*/
+
 @import "./_imports/base.css";
 @import "./_imports/layout.css";
 @import "./_imports/utilities.css";

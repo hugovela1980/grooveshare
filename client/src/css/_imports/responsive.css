@@ -1,0 +1,6 @@
+/*
+  Global responsive overrides only.
+
+  Prefer keeping component-specific media queries inside the component file
+  unless a rule affects the overall app layout across multiple pages.
+*/
