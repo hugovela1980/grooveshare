@@ -1,5 +1,15 @@
 const API_BASE_URL = "http://localhost:3000";
 
+type DevToolbarVisibility = boolean | 0 | 1;
+
+type MountDevToolbarOptions = {
+    visibleByDefault?: DevToolbarVisibility;
+};
+
+function isToolbarVisibleByDefault(visibility: DevToolbarVisibility): boolean {
+    return visibility === true || visibility === 1;
+}
+
 type ApiResponse<T> = {
     ok: boolean;
     data?: T;
@@ -144,7 +154,9 @@ function createSeedFileList(): HTMLDivElement {
     return seedFileList;
 }
 
-export function mountDevToolbar(): void {
+export function mountDevToolbar({
+    visibleByDefault = true,
+}: MountDevToolbarOptions = {}): void {
     const existingToolbar = document.querySelector("[data-dev-toolbar]");
 
     if (existingToolbar) {
@@ -159,7 +171,7 @@ export function mountDevToolbar(): void {
         top: "0.75rem",
         left: "0.75rem",
         zIndex: "9999",
-        display: "grid",
+        display: isToolbarVisibleByDefault(visibleByDefault) ? "grid" : "none",
         gap: "0.5rem",
         width: "min(26rem, calc(100vw - 1.5rem))",
         padding: "0.65rem",
