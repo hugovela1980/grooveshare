@@ -14,4 +14,4 @@ const app = createGrooveShareApp({
 
 app.start();
 
-mountDevToolbar({ visibleByDefault: false });
+mountDevToolbar({ visibleByDefault: false, enabledByDefault: true });

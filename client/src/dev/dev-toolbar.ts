@@ -1,14 +1,20 @@
 const API_BASE_URL = "http://localhost:3000";
 
 type DevToolbarVisibility = boolean | 0 | 1;
+type DevToolbarEnabled = boolean | 0 | 1;
 
 type MountDevToolbarOptions = {
     visibleByDefault?: DevToolbarVisibility;
+    enabledByDefault?: DevToolbarEnabled;
 };
 
 function isToolbarVisibleByDefault(visibility: DevToolbarVisibility): boolean {
     return visibility === true || visibility === 1;
 }
+
+function isToolbarEnabledByDefault(enabled: DevToolbarEnabled): boolean {
+    return enabled === true || enabled === 1;
+};
 
 type ApiResponse<T> = {
     ok: boolean;
@@ -156,6 +162,7 @@ function createSeedFileList(): HTMLDivElement {
 
 export function mountDevToolbar({
     visibleByDefault = true,
+    enabledByDefault = true,
 }: MountDevToolbarOptions = {}): void {
     const existingToolbar = document.querySelector("[data-dev-toolbar]");
 
@@ -263,7 +270,7 @@ export function mountDevToolbar({
     });
 
     window.addEventListener("keydown", (event) => {
-        if (event.key !== "ArrowRight") {
+        if (event.key !== "ArrowRight" || !isToolbarEnabledByDefault(enabledByDefault)) {
             return;
         }
 
