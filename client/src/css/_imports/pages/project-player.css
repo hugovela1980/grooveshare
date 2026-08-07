@@ -39,7 +39,7 @@
 
 .mix-channel-panel__description {
     margin: 0.25rem 0 0;
-    color: #a1a1aa;
+    color: var(--color-text-subtle-cool);
 }
 
 .mix-channel-slots {
@@ -51,9 +51,9 @@
     display: grid;
     gap: 1rem;
     padding: 1rem;
-    border: 1px solid #3f3f46;
+    border: 1px solid var(--border-dark);
     border-radius: 1rem;
-    background: #18181b;
+    background: var(--color-surface-strong);
 }
 
 .mix-channel-slot--empty {
@@ -74,7 +74,7 @@
 
 .mix-channel-slot__track-name {
     margin: 0;
-    color: #d4d4d8;
+    color: var(--color-text-muted-cool);
 }
 
 .mix-channel-slot__controls {
@@ -85,7 +85,7 @@
 }
 
 .mix-channel-slot__volume-value {
-    color: #a1a1aa;
+    color: var(--color-text-subtle-cool);
     font-size: 0.875rem;
     font-weight: 400;
 }
@@ -116,9 +116,9 @@
     min-height: 4rem;
     align-items: center;
     justify-content: center;
-    border: 1px dashed #52525b;
+    border: 1px dashed var(--border-input);
     border-radius: 0.75rem;
-    color: #a1a1aa;
+    color: var(--color-text-subtle-cool);
     background:
         linear-gradient(90deg,
             transparent 0%,
@@ -134,7 +134,7 @@
             rgba(255, 255, 255, 0.1) 32%,
             rgba(255, 255, 255, 0.1) 35%,
             transparent 35%),
-        #111113;
+        var(--color-surface-deep);;
 }
 
 .mix-channel-slot__actions {

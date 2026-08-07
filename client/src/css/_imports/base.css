@@ -1,8 +1,56 @@
 :root {
-    font-family:
+    --font-sans:
         Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    color: #f5f5f5;
-    background: #171717;
+
+    --color-page-bg: #171717;
+    --color-surface: #262626;
+    --color-surface-strong: #18181b;
+    --color-surface-deep: #111113;
+
+    --color-text: #f5f5f5;
+    --color-text-muted: #d4d4d4;
+    --color-text-subtle: #a3a3a3;
+
+    --color-accent: #bbf7d0;
+    --color-accent-hover: #86efac;
+
+    --color-danger-bg: #fecaca;
+    --color-danger-text: #450a0a;
+
+    --color-light-surface: #ffffff;
+    --color-light-surface-soft: #f8fafc;
+    --color-light-text: #0f172a;
+    --color-light-muted: #475569;
+    --color-light-subtle: #64748b;
+
+    --color-text-muted-cool: #d4d4d8;
+    --color-text-subtle-cool: #a1a1aa;
+
+    --color-danger-hover: #fca5a5;
+
+    --color-light-hover: #f1f5f9;
+    --color-light-button: #e2e8f0;
+    --color-light-button-hover: #cbd5e1;
+
+    --border-light-medium: rgba(148, 163, 184, 0.4);
+    --border-light-icon: rgba(148, 163, 184, 0.45);
+
+    --overlay-modal: rgba(15, 23, 42, 0.65);
+
+    --border-dark: #3f3f46;
+    --border-input: #52525b;
+    --border-light: rgba(148, 163, 184, 0.35);
+    --border-light-strong: rgba(148, 163, 184, 0.65);
+
+    --shadow-modal: 0 24px 80px rgba(15, 23, 42, 0.35);
+    --shadow-toolbar: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.25);
+
+    --radius-sm: 0.55rem;
+    --radius-md: 0.65rem;
+    --radius-lg: 0.75rem;
+    --radius-xl: 1rem;
+    --radius-2xl: 1.25rem;
+    --radius-pill: 999px;
 }
 
 * {
@@ -13,6 +61,9 @@ body {
     margin: 0;
     min-width: 320px;
     min-height: 100vh;
+    color: var(--color-text);
+    background: var(--color-page-bg);
+    font-family: var(--font-sans);
 }
 
 button,

@@ -4,10 +4,10 @@
     display: inline-grid;
     place-items: center;
     flex: 0 0 auto;
-    border: 1px solid rgba(148, 163, 184, 0.45);
-    border-radius: 999px;
-    background: #ffffff;
-    color: #0f172a;
+    border: 1px solid var(--border-light-icon);
+    border-radius: var(--radius-pill);
+    background: var(--color-light-surface);
+    color: var(--color-light-text);
     font-size: 1.35rem;
     font-weight: 800;
     line-height: 1;
@@ -15,5 +15,5 @@
 }
 
 .icon-button:hover {
-    background: #f1f5f9;
+    background: var(--color-light-hover);
 }

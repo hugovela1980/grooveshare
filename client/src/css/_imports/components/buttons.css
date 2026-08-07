@@ -1,14 +1,39 @@
 button {
+    font: inherit;
+}
+
+.button,
+button {
     width: fit-content;
     border: 0;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     padding: 0.75rem 1rem;
     font-weight: 700;
-    color: #171717;
-    background: #bbf7d0;
+    color: var(--color-page-bg);
+    background: var(--color-accent);
     cursor: pointer;
 }
 
+.button:hover,
 button:hover {
-    background: #86efac;
+    background: var(--color-accent-hover);
+}
+
+.button--secondary {
+    color: var(--color-text);
+    background: transparent;
+    border: 1px solid var(--border-dark);
+}
+
+.button--secondary:hover {
+    background: var(--color-surface-strong);
+}
+
+.button--danger {
+    color: var(--color-danger-text);
+    background: var(--color-danger-bg);
+}
+
+.button--danger:hover {
+    background: var(--color-danger-hover);
 }

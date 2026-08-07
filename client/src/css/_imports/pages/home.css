@@ -20,7 +20,7 @@
 
 .project-menu-hero__tagline {
     margin: 1.25rem 0 0;
-    color: #d4d4d4;
+    color: var(--color-text-muted);
     font-size: clamp(1.25rem, 3vw, 1.75rem);
 }
 
