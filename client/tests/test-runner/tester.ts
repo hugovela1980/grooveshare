@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { basename } from "node:path";
 import { fileURLToPath } from "node:url";
 
 type TestCallback = () => void | Promise<void>;
@@ -82,17 +83,43 @@ function getAssertionLine(fileUrl: string): string {
   }
 }
 
-function getFailureResult(errorMessage: string): string {
-  const toBeMatch = errorMessage.match(/^Expected (.+) to be .+$/);
+function getFailureFilename(fileUrl: string): string {
+  const parsedFileUrl = parseFileUrlWithLocation(fileUrl);
 
-  if (toBeMatch) {
-    return `got ${toBeMatch[1]}`;
+  if (!parsedFileUrl) {
+    return "Unknown file";
   }
 
-  const toEqualMatch = errorMessage.match(/^Expected (.+) to equal .+$/);
+  try {
+    const filePath = fileURLToPath(parsedFileUrl.fileUrlWithoutLocation);
+
+    return basename(filePath);
+  } catch {
+    return "Unknown file";
+  }
+}
+
+function getFailureResult(errorMessage: string): string {
+  const toBeMatch = errorMessage.match(
+    /^Expected ([\s\S]+) to be ([\s\S]+)$/,
+  );
+
+  if (toBeMatch) {
+    const actual = toBeMatch[1];
+    const expected = toBeMatch[2];
+
+    return `expected ${expected} but got ${actual}`;
+  }
+
+  const toEqualMatch = errorMessage.match(
+    /^Expected ([\s\S]+) to equal ([\s\S]+)$/,
+  );
 
   if (toEqualMatch) {
-    return `got ${toEqualMatch[1]}`;
+    const actual = toEqualMatch[1];
+    const expected = toEqualMatch[2];
+
+    return `expected ${expected} but got ${actual}`;
   }
 
   return errorMessage;
@@ -356,9 +383,12 @@ async function run() {
     console.log("\nFailed Test Details");
 
     failures.forEach((failure, index) => {
-      console.log(`\n${index + 1}. ${failure.suite}`);
+      const filename = getFailureFilename(failure.fileUrl);
+
+      console.log(`\n${index + 1}. ===== ${filename} =====`);
+      console.log(`   suite: ${failure.suite}`);
       console.log(`   test: ${failure.test}`);
-      console.log(`   file: ${failure.fileUrl}`);
+      console.log(`   url: ${failure.fileUrl}`);
       console.log(`   assertion: ${failure.assertion}`);
       console.log(`   error: ${failure.result}`);
     });
