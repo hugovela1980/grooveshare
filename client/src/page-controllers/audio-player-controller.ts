@@ -151,17 +151,13 @@ export function createAudioPlayerController({
         }
 
         if (primaryAudioElement.paused) {
-            const sharedStartTime = primaryAudioElement.currentTime;
-
-            setAllAudioElementsToCurrentTime(sharedStartTime);
-
             await Promise.all(
                 getLoadedAudioElements().map((loadedAudioElement) => {
                     return loadedAudioElement.play();
                 }),
             );
 
-            setPlayPauseButtonIcon();;
+            setPlayPauseButtonIcon();
             return;
         }
 

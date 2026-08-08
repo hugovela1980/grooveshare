@@ -9,9 +9,25 @@ type Listener = () => void | Promise<void>;
 function createFakeAudioElement() {
     const listeners = new Map<string, Listener>();
 
+    let currentTime = 0;
+    let currentTimeSetCallCount = 0;
+
     return {
         src: "",
-        currentTime: 0,
+
+        get currentTime(): number {
+            return currentTime;
+        },
+
+        set currentTime(value: number) {
+            currentTime = value;
+            currentTimeSetCallCount += 1;
+        },
+
+        get currentTimeSetCallCount(): number {
+            return currentTimeSetCallCount;
+        },
+
         duration: 120,
         paused: true,
         volume: 1,
@@ -221,6 +237,43 @@ tester.describe("audio player controller", () => {
         tester.expect(audioElement.pauseCallCount).toBe(1);
         tester.expect(audioElement.paused).toBe(true);
         tester.expect(playPauseButton.textContent).toBe("▶");
+    });
+
+    tester.it("resumes a paused track without seeking again", async () => {
+        const { controller, audioElement, playPauseButton } =
+            createControllerTestSetup();
+
+        controller.init();
+
+        controller.loadMix([
+            {
+                channelNumber: 1,
+                trackId: "track-1",
+                name: "Guitar Take",
+                audioUrl: "http://localhost:3000/audio/guitar.wav",
+                volume: 1,
+            },
+        ]);
+
+        await playPauseButton.click();
+
+        audioElement.currentTime = 37;
+
+        await playPauseButton.click();
+
+        tester.expect(audioElement.paused).toBe(true);
+        tester.expect(audioElement.currentTime).toBe(37);
+
+        const currentTimeSetCallCountBeforeResume =
+            audioElement.currentTimeSetCallCount;
+
+        await playPauseButton.click();
+
+        tester.expect(audioElement.playCallCount).toBe(2);
+        tester.expect(audioElement.paused).toBe(false);
+        tester.expect(audioElement.currentTime).toBe(37);
+        tester.expect(audioElement.currentTimeSetCallCount).toBe(currentTimeSetCallCountBeforeResume);
+        tester.expect(playPauseButton.textContent).toBe("❚❚");
     });
 
     tester.it("stops the loaded audio track", async () => {
