@@ -15,10 +15,6 @@ function createPageRenderers() {
             return "<main>Create Project</main>";
         },
 
-        "confirm-project"() {
-            return "<main>Confirm Project</main>";
-        },
-
         "project-player"() {
             return "<main>Project Player</main>";
         },
