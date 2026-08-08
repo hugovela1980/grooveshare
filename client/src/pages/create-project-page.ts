@@ -154,7 +154,7 @@ export function renderCreateProjectPage(
           <div class="modal__actions">
             <button
               id="edit-create-project-button"
-              class="button button--secondary"
+              class="button button--secondary-light"
               type="button"
             >
               Edit

@@ -318,6 +318,7 @@ tester.describe("project player page controller", () => {
 
     let deletedProjectId = "";
     let projectDeletedCallbackWasCalled = false;
+    let stopCallCount = 0;
 
     const controller = createProjectPlayerPageController({
       project: createProject(),
@@ -346,6 +347,11 @@ tester.describe("project player page controller", () => {
       confirmDeleteProject() {
         return true;
       },
+      audioPlayerController: {
+        stop() {
+          stopCallCount += 1;
+        },
+      },
       onProjectDeleted() {
         projectDeletedCallbackWasCalled = true;
       },
@@ -355,6 +361,7 @@ tester.describe("project player page controller", () => {
 
     await deleteProjectButton.click();
 
+    tester.expect(stopCallCount).toBe(1);
     tester.expect(deletedProjectId).toBe("project-1");
     tester.expect(statusElement.textContent).toBe("Project deleted.");
     tester.expect(projectDeletedCallbackWasCalled).toBe(true);
@@ -367,6 +374,7 @@ tester.describe("project player page controller", () => {
 
     let deleteProjectCallCount = 0;
     let projectDeletedCallbackWasCalled = false;
+    let stopCallCount = 0;
 
     const controller = createProjectPlayerPageController({
       project: createProject(),
@@ -395,6 +403,11 @@ tester.describe("project player page controller", () => {
       confirmDeleteProject() {
         return false;
       },
+      audioPlayerController: {
+        stop() {
+          stopCallCount += 1;
+        },
+      },
       onProjectDeleted() {
         projectDeletedCallbackWasCalled = true;
       },
@@ -404,6 +417,7 @@ tester.describe("project player page controller", () => {
 
     await deleteProjectButton.click();
 
+    tester.expect(stopCallCount).toBe(0);
     tester.expect(deleteProjectCallCount).toBe(0);
     tester.expect(statusElement.textContent).toBe("");
     tester.expect(projectDeletedCallbackWasCalled).toBe(false);

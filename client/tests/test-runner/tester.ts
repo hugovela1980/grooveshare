@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
 type TestCallback = () => void | Promise<void>;
 
 type MockFunction = {
@@ -17,6 +20,15 @@ type TestSuite = {
   beforeEachCallbacks: TestCallback[];
 };
 
+type TestFailure = {
+  suite: string;
+  test: string;
+  error: string;
+  fileUrl: string;
+  assertion: string;
+  result: string;
+};
+
 const testSuites: TestSuite[] = [];
 let currentSuite: TestSuite | null = null;
 
@@ -30,6 +42,133 @@ function deepEqual(actual: unknown, expected: unknown): boolean {
 
 function createAssertionError(message: string): Error {
   return new Error(message);
+}
+
+type ParsedFileUrl = {
+  fileUrlWithoutLocation: string;
+  lineNumber: number;
+};
+
+function parseFileUrlWithLocation(fileUrl: string): ParsedFileUrl | null {
+  const match = fileUrl.match(
+    /^(file:\/\/.*\.(?:ts|tsx|js|jsx|mjs|cjs)):(\d+):(\d+)$/,
+  );
+
+  if (!match) {
+    return null;
+  }
+
+  return {
+    fileUrlWithoutLocation: match[1],
+    lineNumber: Number(match[2]),
+  };
+}
+
+function getAssertionLine(fileUrl: string): string {
+  const parsedFileUrl = parseFileUrlWithLocation(fileUrl);
+
+  if (!parsedFileUrl) {
+    return "Unknown assertion";
+  }
+
+  try {
+    const filePath = fileURLToPath(parsedFileUrl.fileUrlWithoutLocation);
+    const fileLines = readFileSync(filePath, "utf8").split(/\r?\n/);
+    const assertionLine = fileLines[parsedFileUrl.lineNumber - 1];
+
+    return assertionLine?.trim() || "Unknown assertion";
+  } catch {
+    return "Unknown assertion";
+  }
+}
+
+function getFailureResult(errorMessage: string): string {
+  const toBeMatch = errorMessage.match(/^Expected (.+) to be .+$/);
+
+  if (toBeMatch) {
+    return `got ${toBeMatch[1]}`;
+  }
+
+  const toEqualMatch = errorMessage.match(/^Expected (.+) to equal .+$/);
+
+  if (toEqualMatch) {
+    return `got ${toEqualMatch[1]}`;
+  }
+
+  return errorMessage;
+}
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function getErrorStack(error: unknown): string {
+  return error instanceof Error && error.stack ? error.stack : "";
+}
+
+function normalizeFileReference(fileReference: string): string {
+  if (fileReference.startsWith("file://")) {
+    return fileReference;
+  }
+
+  return `file:///${fileReference.replaceAll("\\", "/")}`;
+}
+
+function extractFileReferenceFromStackLine(stackLine: string): string | null {
+  const fileUrlMatch = stackLine.match(
+    /file:\/\/[^\s)]+?\.(?:ts|tsx|js|jsx|mjs|cjs):\d+:\d+/,
+  );
+
+  if (fileUrlMatch) {
+    return fileUrlMatch[0];
+  }
+
+  const windowsPathMatch = stackLine.match(
+    /[A-Za-z]:[\\/][^\s)]+?\.(?:ts|tsx|js|jsx|mjs|cjs):\d+:\d+/,
+  );
+
+  if (windowsPathMatch) {
+    return normalizeFileReference(windowsPathMatch[0]);
+  }
+
+  const unixPathMatch = stackLine.match(
+    /\/[^\s)]+?\.(?:ts|tsx|js|jsx|mjs|cjs):\d+:\d+/,
+  );
+
+  if (unixPathMatch) {
+    return normalizeFileReference(unixPathMatch[0]);
+  }
+
+  return null;
+}
+
+function isTestRunnerInternalFile(fileReference: string): boolean {
+  return fileReference
+    .replaceAll("\\", "/")
+    .includes("/tests/test-runner/tester.ts");
+}
+
+function getFailureFileUrl(error: unknown): string {
+  const stack = getErrorStack(error);
+
+  if (!stack) {
+    return "Unknown file";
+  }
+
+  const fileReferences = stack
+    .split("\n")
+    .map(extractFileReferenceFromStackLine)
+    .filter((fileReference): fileReference is string => {
+      return fileReference !== null;
+    });
+
+  return (
+    fileReferences.find((fileReference) => {
+      return !isTestRunnerInternalFile(fileReference);
+    }) ??
+    fileReferences[0] ??
+    "Unknown file"
+  );
 }
 
 function expect(actual: unknown) {
@@ -166,7 +305,7 @@ async function run() {
   let total = 0;
   let passed = 0;
   let failed = 0;
-  const failures: Array<{ suite: string; test: string; error: string }> = [];
+  const failures: TestFailure[] = [];
 
   console.log("\nRunning tests...\n");
 
@@ -188,12 +327,18 @@ async function run() {
       } catch (error) {
         failed += 1;
 
-        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorMessage = getErrorMessage(error);
+        const fileUrl = getFailureFileUrl(error);
+        const assertion = getAssertionLine(fileUrl);
+        const result = getFailureResult(errorMessage);
 
         failures.push({
           suite: suite.name,
           test: testCase.name,
           error: errorMessage,
+          fileUrl,
+          assertion,
+          result,
         });
 
         console.log(` ✗ ${testCase.name}`);
@@ -212,8 +357,10 @@ async function run() {
 
     failures.forEach((failure, index) => {
       console.log(`\n${index + 1}. ${failure.suite}`);
-      console.log(` it: ${failure.test}`);
-      console.log(` error: ${failure.error}`);
+      console.log(`   test: ${failure.test}`);
+      console.log(`   file: ${failure.fileUrl}`);
+      console.log(`   assertion: ${failure.assertion}`);
+      console.log(`   error: ${failure.result}`);
     });
   }
 

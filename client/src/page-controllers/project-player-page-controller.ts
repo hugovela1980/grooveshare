@@ -28,6 +28,7 @@ type MixChannelForPlayer = {
 
 type AudioPlayerController = {
     loadMix?: (channels: MixChannelForPlayer[]) => void;
+    stop?: () => void;
 };
 
 type ChooseAudioFile = () => Promise<File | null>;
@@ -318,8 +319,9 @@ export function createProjectPlayerPageController({
         }
 
         try {
-            setStatus(statusElement, "Deleting project...");
+            audioPlayerController?.stop?.();
 
+            setStatus(statusElement, "Deleting project...");
             await projectsApi.deleteProject(project.id);
 
             setStatus(statusElement, "Project deleted.");

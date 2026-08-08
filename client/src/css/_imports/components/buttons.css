@@ -29,6 +29,16 @@ button:hover {
     background: var(--color-surface-strong);
 }
 
+.button--secondary-light {
+    color: var(--color-light-text);
+    background: var(--color-light-surface);
+    border: 1px solid var(--border-light-strong);
+}
+
+.button--secondary-light:hover {
+    background: var(--color-light-hover);
+}
+
 .button--danger {
     color: var(--color-danger-text);
     background: var(--color-danger-bg);
