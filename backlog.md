@@ -8,6 +8,8 @@
 
 ## Current Focus
 
+- edit button in modal is hard to see
+
 - [ ] Review names of classes and buttons, etc, after create project refactor
 
 - [ ] Maybe make the confirm screen be the modal, and all project creation details on the project create screen.  That way there isn't a separate page for creating a project.

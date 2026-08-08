@@ -37,6 +37,13 @@ tester.describe("page templates", () => {
     tester.expect(html.includes('id="pending-track-name"')).toBe(false);
     tester.expect(html.includes('id="pending-audio-file"')).toBe(false);
     tester.expect(html.includes("Add track")).toBe(false);
+
+    tester.expect(html.includes("create-project-confirmation-modal")).toBe(true);
+    tester.expect(html.includes("create-project-confirmation-project-title")).toBe(true);
+    tester.expect(html.includes("create-project-confirmation-project-description")).toBe(true);
+    tester.expect(html.includes("create-project-confirmation-track-list")).toBe(true);
+    tester.expect(html.includes("edit-create-project-button")).toBe(true);
+    tester.expect(html.includes("submit-create-project-button")).toBe(true);
   });
 
   tester.it("renders saved project draft values on the Create Project page", () => {

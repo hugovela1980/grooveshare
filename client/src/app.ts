@@ -12,7 +12,10 @@ import { renderConfirmProjectPage } from "./pages/confirm-project-page.js";
 import { renderCreateProjectPage } from "./pages/create-project-page.js";
 import { renderProjectMenuPage } from "./pages/project-menu-page.js";
 import { renderProjectPlayerPage } from "./pages/project-player-page.js";
-import { createProjectDraftState } from "./project-draft/project-draft-state.js";
+import {
+  createProjectDraftState,
+  type PendingTrackDraft,
+} from "./project-draft/project-draft-state.js";
 import {
   createAppRouter,
   type AppScreen,
@@ -39,6 +42,36 @@ function getElement<T>(appElement: AppElementLike, selector: string): T | null {
   }
 
   return appElement.querySelector<T>(selector);
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function renderConfirmationTrackList(pendingTracks: PendingTrackDraft[]): string {
+  if (pendingTracks.length === 0) {
+    return '<p class="empty-state">No tracks selected.</p>';
+  }
+
+  return /*html*/ `
+    <ol class="confirm-track-list">
+      ${pendingTracks
+      .map((track) => {
+        return /*html*/ `
+            <li class="confirm-track-list__item">
+              <strong>${escapeHtml(track.trackName)}</strong>
+              <span>${escapeHtml(track.originalFilename)}</span>
+            </li>
+          `;
+      })
+      .join("")}
+    </ol>
+  `;
 }
 
 function chooseAudioFile(): Promise<File | null> {
@@ -128,6 +161,74 @@ function initializeCreateProjectPage({
     "#project-status",
   );
 
+  const confirmationModal = getElement<HTMLDivElement>(
+    appElement,
+    "#create-project-confirmation-modal",
+  );
+
+  const confirmationProjectTitleElement = getElement<HTMLElement>(
+    appElement,
+    "#create-project-confirmation-project-title",
+  );
+
+  const confirmationProjectDescriptionElement = getElement<HTMLElement>(
+    appElement,
+    "#create-project-confirmation-project-description",
+  );
+
+  const confirmationTrackListElement = getElement<HTMLDivElement>(
+    appElement,
+    "#create-project-confirmation-track-list",
+  );
+
+  const closeConfirmationButton = getElement<HTMLButtonElement>(
+    appElement,
+    "#close-create-project-confirmation-button",
+  );
+
+  const editCreateProjectButton = getElement<HTMLButtonElement>(
+    appElement,
+    "#edit-create-project-button",
+  );
+
+  const submitCreateProjectButton = getElement<HTMLButtonElement>(
+    appElement,
+    "#submit-create-project-button",
+  );
+
+  function closeConfirmationModal(): void {
+    if (!confirmationModal) {
+      return;
+    }
+
+    confirmationModal.hidden = true;
+  }
+
+  function openConfirmationModal(): void {
+    const snapshot = projectDraftState.getSnapshot();
+
+    if (
+      !snapshot.project ||
+      !confirmationModal ||
+      !confirmationProjectTitleElement ||
+      !confirmationProjectDescriptionElement ||
+      !confirmationTrackListElement
+    ) {
+      return;
+    }
+
+    confirmationProjectTitleElement.textContent = snapshot.project.title;
+
+    confirmationProjectDescriptionElement.textContent =
+      snapshot.project.description.trim() || "No description provided.";
+
+    confirmationTrackListElement.innerHTML = renderConfirmationTrackList(
+      snapshot.pendingTracks,
+    );
+
+    confirmationModal.hidden = false;
+  }
+
   if (form && titleInput && descriptionInput && statusElement) {
     const controller = createCreateProjectPageController({
       form,
@@ -136,12 +237,24 @@ function initializeCreateProjectPage({
       statusElement,
       onProjectDraftReady(projectDraft) {
         projectDraftState.setProjectDraft(projectDraft);
-        navigateTo("confirm-project");
+        openConfirmationModal();
       },
     });
 
     controller.init();
   }
+
+  closeConfirmationButton?.addEventListener("click", () => {
+    closeConfirmationModal();
+  });
+
+  editCreateProjectButton?.addEventListener("click", () => {
+    closeConfirmationModal();
+  });
+
+  submitCreateProjectButton?.addEventListener("click", () => {
+    navigateTo("confirm-project");
+  });
 
   const openModalButton = getElement<HTMLButtonElement>(
     appElement,

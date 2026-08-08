@@ -104,6 +104,78 @@ export function renderCreateProjectPage(
           <p id="project-status" class="status-message" aria-live="polite"></p>
         </form>
       </section>
+
+      <div id="create-project-confirmation-modal" class="modal" hidden>
+        <section
+          class="modal__content create-project-confirmation-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="create-project-confirmation-title"
+        >
+          <header class="modal__header">
+            <div>
+              <p class="eyebrow">Review Project</p>
+              <h2 id="create-project-confirmation-title">Confirm Project</h2>
+            </div>
+
+            <button
+              id="close-create-project-confirmation-button"
+              class="icon-button"
+              type="button"
+              aria-label="Close confirmation"
+            >
+              ×
+            </button>
+          </header>
+
+          <div class="create-project-confirmation-modal__body">
+            <section class="confirm-project-panel__section">
+              <h3>Project details</h3>
+
+              <dl class="confirm-project-summary">
+                <div>
+                  <dt>Title</dt>
+                  <dd id="create-project-confirmation-project-title"></dd>
+                </div>
+
+                <div>
+                  <dt>Description</dt>
+                  <dd id="create-project-confirmation-project-description"></dd>
+                </div>
+              </dl>
+            </section>
+
+            <section class="confirm-project-panel__section">
+              <h3>Tracks</h3>
+              <div id="create-project-confirmation-track-list"></div>
+            </section>
+          </div>
+
+          <div class="modal__actions">
+            <button
+              id="edit-create-project-button"
+              class="button button--secondary"
+              type="button"
+            >
+              Edit
+            </button>
+
+            <button
+              id="submit-create-project-button"
+              class="button"
+              type="button"
+            >
+              Submit
+            </button>
+          </div>
+
+          <p
+            id="create-project-confirmation-status"
+            class="status-message"
+            aria-live="polite"
+          ></p>
+        </section>
+      </div>
     </main>
   `;
 }
