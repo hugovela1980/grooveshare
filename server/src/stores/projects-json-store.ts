@@ -1,4 +1,9 @@
-import type { CreateProjectInput, Project, Track } from "../types.js";
+import type {
+  CreateProjectInput,
+  MixSettings,
+  Project,
+  Track,
+} from "../types.js";
 import {
   DEFAULT_DB_FILE_PATH,
   readDatabase,
@@ -9,7 +14,15 @@ export type ProjectsStore = {
   getProjects: () => Promise<Project[]>;
   getProjectById: (projectId: string) => Promise<Project | null>;
   createProject: (projectInput: CreateProjectInput) => Promise<Project>;
-  deleteProjectById: (projectId: string) => Promise<DeleteProjectResult>;
+
+  updateProjectMixSettings: (
+    projectId: string,
+    mixSettings: MixSettings,
+  ) => Promise<Project | null>;
+
+  deleteProjectById: (
+    projectId: string,
+  ) => Promise<DeleteProjectResult>;
 };
 
 export type DeleteProjectResult =
@@ -52,6 +65,9 @@ export function createProjectsJsonStore(
       id: crypto.randomUUID(),
       title: projectInput.title,
       description: projectInput.description,
+      mixSettings: {
+        channels: [],
+      },
       createdAt: now,
       updatedAt: now,
     };
@@ -61,6 +77,39 @@ export function createProjectsJsonStore(
     await writeDatabase(dbFilePath, database);
 
     return project;
+  }
+
+  async function updateProjectMixSettings(
+    projectId: string,
+    mixSettings: MixSettings,
+  ): Promise<Project | null> {
+    const database = await readDatabase(dbFilePath);
+
+    const projectIndex = database.projects.findIndex((project) => {
+      return project.id === projectId;
+    });
+
+    if (projectIndex === -1) {
+      return null;
+    }
+
+    const existingProject = database.projects[projectIndex];
+
+    if (!existingProject) {
+      return null;
+    }
+
+    const updatedProject: Project = {
+      ...existingProject,
+      mixSettings,
+      updatedAt: new Date().toISOString(),
+    };
+
+    database.projects[projectIndex] = updatedProject;
+
+    await writeDatabase(dbFilePath, database);
+
+    return updatedProject;
   }
 
   async function deleteProjectById(
@@ -104,6 +153,7 @@ export function createProjectsJsonStore(
     getProjects,
     getProjectById,
     createProject,
+    updateProjectMixSettings,
     deleteProjectById,
   };
 }

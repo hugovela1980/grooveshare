@@ -1,7 +1,19 @@
+export type MixChannelSetting = {
+    channelNumber: number;
+    trackId: string;
+    enabled: boolean;
+    volume: number;
+};
+
+export type MixSettings = {
+    channels: MixChannelSetting[];
+};
+
 export type Project = {
     id: string;
     title: string;
     description: string;
+    mixSettings?: MixSettings;
     createdAt: string;
     updatedAt: string;
 };

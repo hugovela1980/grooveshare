@@ -87,6 +87,7 @@ tester.describe("projects JSON store", () => {
     tester.expect(project.description).toBe("Guitar riff with scratch drums");
     tester.expect(typeof project.createdAt).toBe("string");
     tester.expect(typeof project.updatedAt).toBe("string");
+    tester.expect(project.mixSettings).toEqual({ channels: [] });
   });
 
   tester.it("writes created projects to the JSON database file", async () => {
@@ -243,5 +244,85 @@ tester.describe("projects JSON store", () => {
 
     tester.expect(database.projects).toEqual([]);
     tester.expect(database.tracks).toEqual([]);
+  });
+
+  tester.it("saves mix settings for a project", async () => {
+    const project = createTestProject("project-1");
+
+    await writeTestDatabase({
+      projects: [project],
+      tracks: [],
+    });
+
+    const store = createProjectsJsonStore(TEST_DB_FILE_PATH);
+
+    const updatedProject = await store.updateProjectMixSettings(
+      "project-1",
+      {
+        channels: [
+          {
+            channelNumber: 1,
+            trackId: "track-1",
+            enabled: true,
+            volume: 0.75,
+          },
+          {
+            channelNumber: 2,
+            trackId: "track-2",
+            enabled: false,
+            volume: 0.25,
+          },
+        ],
+      },
+    );
+
+    tester.expect(updatedProject?.mixSettings).toEqual({
+      channels: [
+        {
+          channelNumber: 1,
+          trackId: "track-1",
+          enabled: true,
+          volume: 0.75,
+        },
+        {
+          channelNumber: 2,
+          trackId: "track-2",
+          enabled: false,
+          volume: 0.25,
+        },
+      ],
+    });
+
+    const database = await readTestDatabase();
+
+    tester.expect(database.projects[0]?.mixSettings).toEqual({
+      channels: [
+        {
+          channelNumber: 1,
+          trackId: "track-1",
+          enabled: true,
+          volume: 0.75,
+        },
+        {
+          channelNumber: 2,
+          trackId: "track-2",
+          enabled: false,
+          volume: 0.25,
+        },
+      ],
+    });
+  });
+
+  tester.it("returns null when saving mix settings for a missing project", async () => {
+    const store = createProjectsJsonStore(TEST_DB_FILE_PATH);
+
+    const result = await store.updateProjectMixSettings(
+      "missing-project",
+      {
+        channels: [],
+      },
+    );
+
+    tester.expect(result).toBe(null);
   });
 });
