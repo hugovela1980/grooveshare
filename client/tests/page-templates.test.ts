@@ -25,12 +25,14 @@ tester.describe("page templates", () => {
 
     tester.expect(html.includes("Add Audio Tracks")).toBe(true);
     tester.expect(html.includes("open-add-tracks-modal-button")).toBe(true);
-    tester.expect(html.includes("add-audio-tracks-modal")).toBe(true);
-    tester.expect(html.includes("pending-track-form")).toBe(true);
     tester.expect(html.includes("pending-audio-files")).toBe(true);
-    tester.expect(html.includes("selected-audio-track-rows")).toBe(true);
     tester.expect(html.includes("tracks-to-include-section")).toBe(true);
+    tester.expect(html.includes("pending-track-list")).toBe(true);
     tester.expect(html.includes("Create a New Project")).toBe(true);
+
+    tester.expect(html.includes("add-audio-tracks-modal")).toBe(false);
+    tester.expect(html.includes("pending-track-form")).toBe(false);
+    tester.expect(html.includes("selected-audio-track-rows")).toBe(false);
 
     tester.expect(html.includes('id="pending-track-name"')).toBe(false);
     tester.expect(html.includes('id="pending-audio-file"')).toBe(false);

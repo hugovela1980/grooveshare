@@ -8,9 +8,7 @@
 
 ## Current Focus
 
-- [ ] Overhaul CSS
-
-- [ ] Add Cancel button to confirm and create project screens
+- [ ] Review names of classes and buttons, etc, after create project refactor
 
 - [ ] Maybe make the confirm screen be the modal, and all project creation details on the project create screen.  That way there isn't a separate page for creating a project.
 
@@ -176,3 +174,5 @@ Play, pause, stop, and reset two enabled tracks from a shared start point. Each 
 
 - [x] Final Version 1 cleanup pass
   Remove obviously stale code, update backlog checkboxes, run all tests/typechecks, and merge to main when stable.
+
+- [x] Finalize CSS import structure

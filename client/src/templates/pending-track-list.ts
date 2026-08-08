@@ -1,29 +1,39 @@
 import type { PendingTrackDraft } from "../project-draft/project-draft-state.js";
 
 function escapeHtml(value: string): string {
-    return value
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
 export function renderPendingTrackList(
-    pendingTracks: PendingTrackDraft[],
+  pendingTracks: PendingTrackDraft[],
 ): string {
-    if (pendingTracks.length === 0) {
-        return '<p class="empty-state">No tracks selected yet.</p>';
-    }
+  if (pendingTracks.length === 0) {
+    return '<p class="empty-state">No tracks selected yet.</p>';
+  }
 
-    return /*html*/ `
-    <ul class="track-list">
+  return /*html*/ `
+    <div class="selected-audio-track-rows">
       ${pendingTracks
-            .map((track) => {
-                return /*html*/ `
-            <li class="track-list__item">
+      .map((track) => {
+        return /*html*/ `
+            <div class="selected-audio-track-row" data-pending-track-row>
+              <label>
+                <span>Track name</span>
+                <input
+                  type="text"
+                  value="${escapeHtml(track.trackName)}"
+                  data-pending-track-name="${escapeHtml(track.id)}"
+                  aria-label="Track name for ${escapeHtml(track.originalFilename)}"
+                />
+              </label>
+
               <div>
-                <strong>${escapeHtml(track.trackName)}</strong>
+                <span>File</span>
                 <p>${escapeHtml(track.originalFilename)}</p>
               </div>
 
@@ -33,10 +43,10 @@ export function renderPendingTrackList(
               >
                 Remove
               </button>
-            </li>
+            </div>
           `;
-            })
-            .join("")}
-    </ul>
+      })
+      .join("")}
+    </div>
   `;
 }

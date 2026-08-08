@@ -86,6 +86,19 @@ export function createProjectDraftState({
         return addPendingTracks([input])[0];
     }
 
+    function updatePendingTrackName(trackDraftId: string, trackName: string): void {
+        pendingTracks = pendingTracks.map((track) => {
+            if (track.id !== trackDraftId) {
+                return track;
+            }
+
+            return {
+                ...track,
+                trackName: trackName.trim() || track.originalFilename,
+            };
+        });
+    }
+
     function removePendingTrack(trackDraftId: string): void {
         pendingTracks = pendingTracks.filter((track) => {
             return track.id !== trackDraftId;
@@ -113,6 +126,7 @@ export function createProjectDraftState({
         getProjectDraft,
         addPendingTrack,
         addPendingTracks,
+        updatePendingTrackName,
         removePendingTrack,
         getPendingTracks,
         getPendingTrackSlotsRemaining,

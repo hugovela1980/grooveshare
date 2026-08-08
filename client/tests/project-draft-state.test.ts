@@ -145,6 +145,25 @@ tester.describe("project draft state", () => {
         tester.expect(draftState.getPendingTracks()).toEqual([]);
     });
 
+    tester.it("updates a pending track name", () => {
+        const projectDraftState = createProjectDraftState({
+            createId: () => "pending-track-1",
+        });
+
+        projectDraftState.addPendingTrack({
+            trackName: "Guitar",
+            audioFile: createFakeFile({
+                name: "guitar.wav",
+            }),
+        });
+
+        projectDraftState.updatePendingTrackName("pending-track-1", "Lead Guitar");
+
+        tester.expect(projectDraftState.getPendingTracks()[0].trackName).toBe(
+            "Lead Guitar",
+        );
+    });
+
     tester.it("adds multiple pending tracks at once", () => {
         let nextId = 1;
 

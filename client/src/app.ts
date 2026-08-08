@@ -148,34 +148,9 @@ function initializeCreateProjectPage({
     "#open-add-tracks-modal-button",
   );
 
-  const closeModalButton = getElement<HTMLButtonElement>(
-    appElement,
-    "#close-add-tracks-modal-button",
-  );
-
-  const cancelButton = getElement<HTMLButtonElement>(
-    appElement,
-    "#cancel-add-tracks-button",
-  );
-
-  const modalElement = getElement<HTMLDivElement>(
-    appElement,
-    "#add-audio-tracks-modal",
-  );
-
-  const pendingTrackForm = getElement<HTMLFormElement>(
-    appElement,
-    "#pending-track-form",
-  );
-
   const pendingAudioFilesInput = getElement<HTMLInputElement>(
     appElement,
     "#pending-audio-files",
-  );
-
-  const selectedTrackRowsElement = getElement<HTMLDivElement>(
-    appElement,
-    "#selected-audio-track-rows",
   );
 
   const tracksToIncludeSection = getElement<HTMLElement>(
@@ -190,12 +165,7 @@ function initializeCreateProjectPage({
 
   if (
     openModalButton &&
-    closeModalButton &&
-    cancelButton &&
-    modalElement &&
-    pendingTrackForm &&
     pendingAudioFilesInput &&
-    selectedTrackRowsElement &&
     tracksToIncludeSection &&
     pendingTrackListElement &&
     statusElement
@@ -203,12 +173,7 @@ function initializeCreateProjectPage({
     const pendingTrackSelectionController =
       createPendingTrackSelectionController({
         openModalButton,
-        closeModalButton,
-        cancelButton,
-        modalElement,
-        form: pendingTrackForm,
         audioFileInput: pendingAudioFilesInput,
-        selectedTrackRowsElement,
         statusElement,
         tracksToIncludeSection,
         pendingTrackListElement,

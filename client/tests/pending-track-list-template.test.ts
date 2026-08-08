@@ -32,5 +32,11 @@ tester.describe("pending track list template", () => {
         tester.expect(html.includes('data-pending-track-id="pending-track-1"')).toBe(
             true,
         );
+
+        tester.expect(html.includes("Track name")).toBe(true);
+        tester.expect(html.includes('value="Lead Guitar"')).toBe(true);
+        tester.expect(html.includes("data-pending-track-name")).toBe(true);
+        tester.expect(html.includes("File")).toBe(true);
+        tester.expect(html.includes("Remove")).toBe(true);
     });
 });
