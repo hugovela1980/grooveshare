@@ -38,16 +38,6 @@
       "mimeType": "audio/wav",
       "fileSize": 2822444,
       "createdAt": "2026-08-08T04:53:37.076Z"
-    },
-    {
-      "id": "294f8448-9d48-4470-8ea6-9419aa77cd2d",
-      "projectId": "3e4a0a26-0bf3-489f-a179-78f2c2040afc",
-      "name": "Tremolo Guitar",
-      "originalFilename": "Tremolo Guitar.wav",
-      "filePath": "uploads\\projects\\3e4a0a26-0bf3-489f-a179-78f2c2040afc\\391135c6-0b5b-441b-805d-6ac6bf45213f-Tremolo-Guitar.wav",
-      "mimeType": "audio/wav",
-      "fileSize": 2822444,
-      "createdAt": "2026-08-08T04:53:37.081Z"
     }
   ]
 }
