@@ -61,8 +61,8 @@ type ProjectDraftStateLike = {
     getPendingTrackSlotsRemaining: () => number;
 };
 
-type PendingTrackSelectionControllerOptions = {
-    openModalButton: ButtonLike;
+type CreateProjectTrackSelectionControllerOptions = {
+    addTracksButton: ButtonLike;
     audioFileInput: FileInputLike;
     statusElement: TextElementLike;
     tracksToIncludeSection: HiddenElementLike;
@@ -85,15 +85,15 @@ function getFilesFromInput(audioFileInput: FileInputLike): File[] {
     return Array.from(audioFileInput.files ?? []);
 }
 
-export function createPendingTrackSelectionController({
-    openModalButton,
+export function createProjectTrackSelectionController({
+    addTracksButton,
     audioFileInput,
     statusElement,
     tracksToIncludeSection,
     pendingTrackListElement,
     projectDraftState,
     renderPendingTrackList,
-}: PendingTrackSelectionControllerOptions) {
+}: CreateProjectTrackSelectionControllerOptions) {
     function renderPendingTracks(): void {
         const pendingTracks = projectDraftState.getPendingTracks();
 
@@ -181,7 +181,7 @@ export function createPendingTrackSelectionController({
     }
 
     function init(): void {
-        openModalButton.addEventListener("click", handleAddTracksClick);
+        addTracksButton.addEventListener("click", handleAddTracksClick);
 
         audioFileInput.addEventListener?.("change", () => {
             handleAudioFileChange();

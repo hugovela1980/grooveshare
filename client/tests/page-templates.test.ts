@@ -23,7 +23,8 @@ tester.describe("page templates", () => {
     tester.expect(html.includes("project-title")).toBe(true);
 
     tester.expect(html.includes("Add Audio Tracks")).toBe(true);
-    tester.expect(html.includes("open-add-tracks-modal-button")).toBe(true);
+    tester.expect(html.includes("open-add-tracks-modal-button")).toBe(false);
+    tester.expect(html.includes("add-audio-tracks-button")).toBe(true);
     tester.expect(html.includes("pending-audio-files")).toBe(true);
     tester.expect(html.includes("tracks-to-include-section")).toBe(true);
     tester.expect(html.includes("pending-track-list")).toBe(true);

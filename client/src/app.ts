@@ -4,7 +4,7 @@ import { createCreateProjectPageController } from "./page-controllers/create-pro
 import { createProjectMenuPageController } from "./page-controllers/project-menu-page-controller.js";
 import { createProjectPlayerPageController } from "./page-controllers/project-player-page-controller.js";
 import { createAudioPlayerController } from "./page-controllers/audio-player-controller.js";
-import { createPendingTrackSelectionController } from "./page-controllers/pending-track-selection-controller.js";
+import { createProjectTrackSelectionController } from "./page-controllers/create-project-track-selection-controller.js";
 import { createCreateProjectConfirmationController } from "./page-controllers/create-project-confirmation-controller.js";
 import { renderPendingTrackList } from "./templates/pending-track-list.js";
 import { getTrackAudioUrl } from "./api/tracks-api.js";
@@ -279,9 +279,9 @@ function initializeCreateProjectPage({
     createProjectConfirmationController.init();
   }
 
-  const openModalButton = getElement<HTMLButtonElement>(
+  const addTracksButton = getElement<HTMLButtonElement>(
     appElement,
-    "#open-add-tracks-modal-button",
+    "#add-audio-tracks-button",
   );
 
   const pendingAudioFilesInput = getElement<HTMLInputElement>(
@@ -300,15 +300,15 @@ function initializeCreateProjectPage({
   );
 
   if (
-    openModalButton &&
+    addTracksButton &&
     pendingAudioFilesInput &&
     tracksToIncludeSection &&
     pendingTrackListElement &&
     statusElement
   ) {
-    const pendingTrackSelectionController =
-      createPendingTrackSelectionController({
-        openModalButton,
+    const createProjectTrackSelectionControllerInstance =
+      createProjectTrackSelectionController({
+        addTracksButton,
         audioFileInput: pendingAudioFilesInput,
         statusElement,
         tracksToIncludeSection,
@@ -317,7 +317,7 @@ function initializeCreateProjectPage({
         renderPendingTrackList,
       });
 
-    pendingTrackSelectionController.init();
+    createProjectTrackSelectionControllerInstance.init();
   }
 }
 

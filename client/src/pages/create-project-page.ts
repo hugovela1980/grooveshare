@@ -68,7 +68,7 @@ export function renderCreateProjectPage(
               </div>
 
               <button
-                id="open-add-tracks-modal-button"
+                id="add-audio-tracks-button"
                 class="icon-button"
                 type="button"
                 aria-label="Add audio tracks"

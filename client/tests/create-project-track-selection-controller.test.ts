@@ -1,4 +1,4 @@
-import { createPendingTrackSelectionController } from "../src/page-controllers/pending-track-selection-controller.js";
+import { createProjectTrackSelectionController } from "../src/page-controllers/create-project-track-selection-controller.js";
 import { createProjectDraftState } from "../src/project-draft/project-draft-state.js";
 import { renderPendingTrackList } from "../src/templates/pending-track-list.js";
 import { createFakeTextElement } from "./helpers/fake-dom.js";
@@ -168,7 +168,7 @@ function createClickableListElement() {
     };
 }
 
-tester.describe("pending track selection controller", () => {
+tester.describe("create project track selection controller", () => {
     tester.it("renders the initial pending track list", () => {
         const addTracksButton = createFakeButton();
         const audioFileInput = createFakeFileInput();
@@ -178,8 +178,8 @@ tester.describe("pending track selection controller", () => {
 
         const projectDraftState = createProjectDraftState();
 
-        const controller = createPendingTrackSelectionController({
-            openModalButton: addTracksButton,
+        const controller = createProjectTrackSelectionController({
+            addTracksButton,
             audioFileInput,
             statusElement,
             tracksToIncludeSection,
@@ -206,8 +206,8 @@ tester.describe("pending track selection controller", () => {
 
         const projectDraftState = createProjectDraftState();
 
-        const controller = createPendingTrackSelectionController({
-            openModalButton: addTracksButton,
+        const controller = createProjectTrackSelectionController({
+            addTracksButton,
             audioFileInput,
             statusElement,
             tracksToIncludeSection,
@@ -241,8 +241,8 @@ tester.describe("pending track selection controller", () => {
             createId: () => `pending-track-${nextId++}`,
         });
 
-        const controller = createPendingTrackSelectionController({
-            openModalButton: addTracksButton,
+        const controller = createProjectTrackSelectionController({
+            addTracksButton,
             audioFileInput,
             statusElement,
             tracksToIncludeSection,
@@ -294,8 +294,8 @@ tester.describe("pending track selection controller", () => {
             audioFile: createFakeFile("guitar.wav"),
         });
 
-        const controller = createPendingTrackSelectionController({
-            openModalButton: addTracksButton,
+        const controller = createProjectTrackSelectionController({
+            addTracksButton,
             audioFileInput,
             statusElement,
             tracksToIncludeSection,
@@ -329,8 +329,8 @@ tester.describe("pending track selection controller", () => {
             audioFile: createFakeFile("guitar.wav"),
         });
 
-        const controller = createPendingTrackSelectionController({
-            openModalButton: addTracksButton,
+        const controller = createProjectTrackSelectionController({
+            addTracksButton,
             audioFileInput,
             statusElement,
             tracksToIncludeSection,
@@ -372,8 +372,8 @@ tester.describe("pending track selection controller", () => {
             createId: () => `pending-track-${nextId++}`,
         });
 
-        const controller = createPendingTrackSelectionController({
-            openModalButton: addTracksButton,
+        const controller = createProjectTrackSelectionController({
+            addTracksButton,
             audioFileInput,
             statusElement,
             tracksToIncludeSection,
