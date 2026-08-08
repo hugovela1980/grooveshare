@@ -39,25 +39,34 @@ function renderAssignedChannelSlot(slot: ChannelSlot): string {
       data-mix-channel="${slot.channelNumber}"
       data-track-id="${escapeHtml(track.id)}"
     >
-      <header class="mix-channel-slot__header">
-        <h3 class="mix-channel-slot__title">Channel ${slot.channelNumber}</h3>
-        <p class="mix-channel-slot__track-name">${escapeHtml(track.name)}</p>
-      </header>
-
-      <div class="mix-channel-slot__controls">
-        <label class="mix-channel-slot__enabled-label">
+      <div class="mix-channel-slot__channel-cell">
+        <label class="mix-channel-slot__channel-toggle">
           <input
+            class="mix-channel-slot__enabled-input"
             type="checkbox"
             data-channel-enabled
             data-track-id="${escapeHtml(track.id)}"
+            aria-label="Enable channel ${slot.channelNumber}"
             checked
           />
-          Enabled
-        </label>
 
+          <span
+            class="mix-channel-slot__channel-number"
+            aria-hidden="true"
+          >${slot.channelNumber}</span>
+        </label>
+      </div>
+
+      <div class="mix-channel-slot__name-cell">
+        <span class="mix-channel-slot__track-name">
+          ${escapeHtml(track.name)}
+        </span>
+      </div>
+
+      <div class="mix-channel-slot__volume-cell">
         <label class="mix-channel-slot__volume-label">
-          Volume
           <span class="mix-channel-slot__volume-value">100%</span>
+
           <input
             type="range"
             min="0"
@@ -66,12 +75,15 @@ function renderAssignedChannelSlot(slot: ChannelSlot): string {
             value="1"
             data-channel-volume
             data-track-id="${escapeHtml(track.id)}"
+            aria-label="Channel ${slot.channelNumber} volume"
           />
         </label>
       </div>
 
-      <div class="mix-channel-slot__waveform-placeholder">
-        Waveform placeholder
+      <div class="mix-channel-slot__timeline-cell">
+        <div class="mix-channel-slot__waveform-placeholder">
+          Waveform placeholder
+        </div>
       </div>
 
       <div class="mix-channel-slot__actions">
@@ -95,22 +107,9 @@ function renderEmptyChannelSlot(channelNumber: number): string {
       data-mix-channel-slot
       data-mix-channel="${channelNumber}"
     >
-      <header class="mix-channel-slot__header">
-        <h3 class="mix-channel-slot__title">Channel ${channelNumber}</h3>
-        <p class="mix-channel-slot__track-name">Empty slot</p>
-      </header>
-
-      <div class="mix-channel-slot__controls">
-        <p class="empty-state">No track assigned.</p>
-      </div>
-
-      <div class="mix-channel-slot__waveform-placeholder">
-        Waveform placeholder
-      </div>
-
-      <div class="mix-channel-slot__actions">
+      <div class="mix-channel-slot__channel-cell">
         <button
-          class="button"
+          class="button mix-channel-slot__add-track-button"
           type="button"
           data-track-add-button
           data-mix-channel="${channelNumber}"
@@ -118,6 +117,11 @@ function renderEmptyChannelSlot(channelNumber: number): string {
           Add Track
         </button>
       </div>
+
+      <div class="mix-channel-slot__name-cell" aria-hidden="true"></div>
+      <div class="mix-channel-slot__volume-cell" aria-hidden="true"></div>
+      <div class="mix-channel-slot__timeline-cell" aria-hidden="true"></div>
+      <div class="mix-channel-slot__actions" aria-hidden="true"></div>
     </article>
   `;
 }
@@ -130,6 +134,7 @@ export function renderMixChannelSlots(tracks: Track[]): string {
       <div class="mix-channel-panel__header">
         <div>
           <h3 class="mix-channel-panel__title">Mix Channels</h3>
+
           <p class="mix-channel-panel__description">
             Enable up to four tracks, set volume, then load the mix into the player.
           </p>
@@ -143,6 +148,14 @@ export function renderMixChannelSlots(tracks: Track[]): string {
         >
           Load Mix
         </button>
+      </div>
+
+      <div class="mix-channel-grid-header" aria-hidden="true">
+        <span>Channel</span>
+        <span>Name</span>
+        <span>Volume</span>
+        <span>Timeline</span>
+        <span></span>
       </div>
 
       <div class="mix-channel-slots">

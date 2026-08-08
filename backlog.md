@@ -9,38 +9,6 @@
 ## Current Focus
 
 ### Redesign the Project Player page
-Chunk 1:
-I’m ready for Chunk 1 of the Project Player polish. Please help me update the Audio Player visual styling and make the play/pause button show only the play icon when stopped/paused and only the pause icon when playing. Keep the same controls and do not fix the slider yet.
-- Restyle the Audio Player panel to better match the mockup.
-- Keep the same existing controls: play/pause, stop, loop, timestamp, progress.
-- Change the play/pause button so it shows:
-  - play triangle when stopped or paused
-  - pause bars when playing
-- Do not add new controls.
-- Do not fix the broken slider yet.
-- Update tests only where the icon/state behavior changes.
-
-Chunk 2:
-I’m ready for Chunk 2 of the Project Player polish. Please help me redesign the Mix Channels layout and make the channel number square act as the enable/disable toggle. Enabled should be green and disabled should be light gray. Preserve the existing four-slot behavior, waveform placeholder, Delete button, Add Track button, and controller data attributes.
-- Redesign the Mix Channels layout into a clean row/grid mixer.
-- Preserve the four-slot structure.
-- Preserve these existing data attributes needed by the controller:
-  - data-mix-channel-slot
-  - data-track-id
-  - data-mix-channel
-  - data-channel-enabled
-  - data-channel-volume
-  - data-track-delete-button
-  - data-track-add-button
-  - data-load-mix-button
-- Make the channel number square the enable/disable control.
-- Enabled channel square should be green.
-- Disabled channel square should be light gray.
-- Keep the waveform placeholder.
-- Keep the Delete button.
-- Empty channels should stay mostly blank except for Add Track.
-- Add Track should continue opening the normal file picker immediately.
-- Update tests for the changed channel enable UI.
 
 Chunk 3:
 I’m ready for Chunk 3 of the Project Player polish. Please help me add inline editable track names to the Mix Channels UI and do a final polish pass. Track names should become editable when clicked, stop editing on Enter or blur, and remain local to the Project Player UI for Version 1 unless persistence is simple.

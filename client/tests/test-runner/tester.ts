@@ -385,12 +385,12 @@ async function run() {
     failures.forEach((failure, index) => {
       const filename = getFailureFilename(failure.fileUrl);
 
-      console.log(`\n${index + 1}. ===== ${filename} =====`);
-      console.log(`   suite: ${failure.suite}`);
+      console.log(`\n${index + 1}.   ===== ${filename} =====`);
       console.log(`   test: ${failure.test}`);
-      console.log(`   url: ${failure.fileUrl}`);
       console.log(`   assertion: ${failure.assertion}`);
       console.log(`   error: ${failure.result}`);
+      console.log(`   suite: ${failure.suite}`);
+      console.log(`   url: ${failure.fileUrl}`);
     });
   }
 

@@ -17,16 +17,35 @@ function createTrack(overrides: Partial<Track> = {}): Track {
 }
 
 tester.describe("mix channel slots template", () => {
-    tester.it("renders four empty channel slots when there are no tracks", () => {
+    tester.it("renders four mostly empty channel slots when there are no tracks", () => {
         const html = renderMixChannelSlots([]);
 
-        tester.expect(html.includes("Channel 1")).toBe(true);
-        tester.expect(html.includes("Channel 2")).toBe(true);
-        tester.expect(html.includes("Channel 3")).toBe(true);
-        tester.expect(html.includes("Channel 4")).toBe(true);
-        tester.expect(html.includes("Empty slot")).toBe(true);
-        tester.expect(html.includes("No track assigned.")).toBe(true);
-        tester.expect(html.includes("Waveform placeholder")).toBe(true);
+        const slotCount = (html.match(/data-mix-channel-slot/g) ?? []).length;
+
+        tester.expect(slotCount).toBe(4);
+
+        tester.expect(html.includes('data-mix-channel="1"')).toBe(true);
+        tester.expect(html.includes('data-mix-channel="2"')).toBe(true);
+        tester.expect(html.includes('data-mix-channel="3"')).toBe(true);
+        tester.expect(html.includes('data-mix-channel="4"')).toBe(true);
+
+        tester.expect(html.includes("Add Track")).toBe(true);
+
+        tester.expect(html.includes("Empty slot")).toBe(false);
+        tester.expect(html.includes("No track assigned.")).toBe(false);
+        tester.expect(html.includes("Waveform placeholder")).toBe(false);
+    });
+
+    tester.it("renders the channel number as the enabled toggle for assigned tracks", () => {
+        const html = renderMixChannelSlots([createTrack()]);
+
+        tester.expect(html.includes("data-channel-enabled")).toBe(true);
+        tester.expect(html.includes('aria-label="Enable channel 1"')).toBe(true);
+        tester.expect(html.includes("checked")).toBe(true);
+
+        tester.expect(html.includes('class="mix-channel-slot__channel-number"')).toBe(true);
+
+        tester.expect(html.includes(">Enabled<")).toBe(false);
     });
 
     tester.it("renders an Add Track button for empty channel slots", () => {
@@ -49,11 +68,11 @@ tester.describe("mix channel slots template", () => {
             }),
         ]);
 
-        tester.expect(html.includes("Channel 1")).toBe(true);
+        tester.expect(html.includes('data-mix-channel="1"')).toBe(true);
         tester.expect(html.includes("Guitar")).toBe(true);
         tester.expect(html.includes('data-track-id="track-1"')).toBe(true);
-        tester.expect(html.includes("Channel 2")).toBe(true);
-        tester.expect(html.includes("Empty slot")).toBe(true);
+        tester.expect(html.includes('data-mix-channel="2"')).toBe(true);
+        tester.expect(html.includes("Empty slot")).toBe(false);
         tester.expect(html.includes("Add Track")).toBe(true);
     });
 
@@ -71,18 +90,18 @@ tester.describe("mix channel slots template", () => {
             }),
         ]);
 
-        tester.expect(html.includes("Channel 1")).toBe(true);
+        tester.expect(html.includes('data-mix-channel="1"')).toBe(true);
         tester.expect(html.includes("Drums")).toBe(true);
         tester.expect(html.includes('data-track-id="track-1"')).toBe(true);
         tester.expect(html.includes('data-mix-channel="1"')).toBe(true);
 
-        tester.expect(html.includes("Channel 2")).toBe(true);
+        tester.expect(html.includes('data-mix-channel="2"')).toBe(true);
         tester.expect(html.includes("Bass")).toBe(true);
         tester.expect(html.includes('data-track-id="track-2"')).toBe(true);
         tester.expect(html.includes('data-mix-channel="2"')).toBe(true);
 
-        tester.expect(html.includes("Channel 3")).toBe(true);
-        tester.expect(html.includes("Channel 4")).toBe(true);
+        tester.expect(html.includes('data-mix-channel="3"')).toBe(true);
+        tester.expect(html.includes('data-mix-channel="4"')).toBe(true);
         tester.expect(html.includes("Add Track")).toBe(true);
     });
 
@@ -104,11 +123,7 @@ tester.describe("mix channel slots template", () => {
         tester.expect(html.includes("Load Mix")).toBe(true);
         tester.expect(html.includes('id="load-mix-button"')).toBe(true);
         tester.expect(html.includes("data-load-mix-button")).toBe(true);
-        tester.expect(
-            html.includes(
-                "Enable up to four tracks, set volume, then load the mix into the player.",
-            ),
-        ).toBe(true);
+        tester.expect(html.includes("Enable up to four tracks, set volume, then load the mix into the player.")).toBe(true);
     });
 
     tester.it("renders the first four uploaded tracks as Channels 1 through 4", () => {
@@ -135,19 +150,19 @@ tester.describe("mix channel slots template", () => {
             }),
         ]);
 
-        tester.expect(html.includes("Channel 1")).toBe(true);
+        tester.expect(html.includes('data-mix-channel="1"')).toBe(true);
         tester.expect(html.includes("Drums")).toBe(true);
         tester.expect(html.includes('data-track-id="track-1"')).toBe(true);
 
-        tester.expect(html.includes("Channel 2")).toBe(true);
+        tester.expect(html.includes('data-mix-channel="2"')).toBe(true);
         tester.expect(html.includes("Bass")).toBe(true);
         tester.expect(html.includes('data-track-id="track-2"')).toBe(true);
 
-        tester.expect(html.includes("Channel 3")).toBe(true);
+        tester.expect(html.includes('data-mix-channel="3"')).toBe(true);
         tester.expect(html.includes("Delay Guitar")).toBe(true);
         tester.expect(html.includes('data-track-id="track-3"')).toBe(true);
 
-        tester.expect(html.includes("Channel 4")).toBe(true);
+        tester.expect(html.includes('data-mix-channel="4"')).toBe(true);
         tester.expect(html.includes("Tremolo Guitar")).toBe(true);
         tester.expect(html.includes('data-track-id="track-4"')).toBe(true);
 

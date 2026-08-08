@@ -30,14 +30,14 @@
       "createdAt": "2026-08-08T04:53:37.069Z"
     },
     {
-      "id": "30093ac4-9f9b-4dda-8bf0-f8d266b13217",
+      "id": "84164e64-5da9-45e8-8adc-500be3a698cb",
       "projectId": "3e4a0a26-0bf3-489f-a179-78f2c2040afc",
-      "name": "Drums",
-      "originalFilename": "Drums.wav",
-      "filePath": "uploads\\projects\\3e4a0a26-0bf3-489f-a179-78f2c2040afc\\ebdd7540-b21b-45fb-9a88-1572f87ebe87-Drums.wav",
+      "name": "Tremolo Guitar",
+      "originalFilename": "Tremolo Guitar.wav",
+      "filePath": "uploads\\projects\\3e4a0a26-0bf3-489f-a179-78f2c2040afc\\9c252d40-beaa-43d9-b298-b6b2297d33bc-Tremolo-Guitar.wav",
       "mimeType": "audio/wav",
       "fileSize": 2822444,
-      "createdAt": "2026-08-08T04:53:37.076Z"
+      "createdAt": "2026-08-08T20:43:13.010Z"
     }
   ]
 }
