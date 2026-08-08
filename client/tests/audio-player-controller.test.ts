@@ -156,6 +156,7 @@ tester.describe("audio player controller", () => {
         tester.expect(playPauseButton.disabled).toBe(true);
         tester.expect(stopButton.disabled).toBe(true);
         tester.expect(progressInput.disabled).toBe(true);
+        tester.expect(playPauseButton.textContent).toBe("▶");
     });
 
     tester.it("loads a one-channel mix and enables the controls", () => {
@@ -190,6 +191,7 @@ tester.describe("audio player controller", () => {
         tester.expect(progressInput.value).toBe("0");
         tester.expect(timestampElement.textContent).toBe("00:00");
         tester.expect(trackNameElement.textContent).toBe("Guitar Take");
+        tester.expect(playPauseButton.textContent).toBe("▶");
     });
 
     tester.it("plays and pauses the loaded audio track", async () => {
@@ -207,17 +209,18 @@ tester.describe("audio player controller", () => {
                 volume: 1,
             },
         ]);
+
         await playPauseButton.click();
 
         tester.expect(audioElement.playCallCount).toBe(1);
         tester.expect(audioElement.paused).toBe(false);
-        tester.expect(playPauseButton.textContent).toBe("Pause");
+        tester.expect(playPauseButton.textContent).toBe("❚❚");
 
         await playPauseButton.click();
 
         tester.expect(audioElement.pauseCallCount).toBe(1);
         tester.expect(audioElement.paused).toBe(true);
-        tester.expect(playPauseButton.textContent).toBe("Play");
+        tester.expect(playPauseButton.textContent).toBe("▶");
     });
 
     tester.it("stops the loaded audio track", async () => {
@@ -243,7 +246,7 @@ tester.describe("audio player controller", () => {
         tester.expect(audioElement.pauseCallCount).toBe(1);
         tester.expect(audioElement.currentTime).toBe(0);
         tester.expect(audioElement.paused).toBe(true);
-        tester.expect(playPauseButton.textContent).toBe("Play");
+        tester.expect(playPauseButton.textContent).toBe("▶");
     });
 
     tester.it("updates progress and timestamp as audio plays", async () => {
@@ -339,7 +342,7 @@ tester.describe("audio player controller", () => {
 
         tester.expect(audioElement.playCallCount).toBe(1);
         tester.expect(secondAudioElement.playCallCount).toBe(1);
-        tester.expect(playPauseButton.textContent).toBe("Pause");
+        tester.expect(playPauseButton.textContent).toBe("❚❚");
     });
 
     tester.it("stops all tracks in a loaded mix", async () => {
@@ -428,6 +431,6 @@ tester.describe("audio player controller", () => {
         tester.expect(secondAudioElement.currentTime).toBe(0);
         tester.expect(audioElement.playCallCount).toBe(2);
         tester.expect(secondAudioElement.playCallCount).toBe(2);
-        tester.expect(playPauseButton.textContent).toBe("Pause");
+        tester.expect(playPauseButton.textContent).toBe("❚❚");
     });
 });

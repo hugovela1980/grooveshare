@@ -67,6 +67,9 @@ function isUsableDuration(duration: number): boolean {
     return Number.isFinite(duration) && duration > 0;
 }
 
+const PLAY_ICON = "▶";
+const PAUSE_ICON = "❚❚";
+
 export function formatTimestamp(totalSeconds: number): string {
     if (!Number.isFinite(totalSeconds) || totalSeconds < 0) {
         return "00:00";
@@ -97,10 +100,12 @@ export function createAudioPlayerController({
         progressInput.disabled = !isEnabled;
     }
 
-    function setPlayButtonText(): void {
+    function setPlayPauseButtonIcon(): void {
         const primaryAudioElement = getPrimaryAudioElement();
 
-        playPauseButton.textContent = primaryAudioElement.paused ? "Play" : "Pause";
+        playPauseButton.textContent = primaryAudioElement.paused
+            ? PLAY_ICON
+            : PAUSE_ICON;
     }
 
     function updateTimestamp(): void {
@@ -156,7 +161,7 @@ export function createAudioPlayerController({
                 }),
             );
 
-            setPlayButtonText();
+            setPlayPauseButtonIcon();;
             return;
         }
 
@@ -164,7 +169,7 @@ export function createAudioPlayerController({
             loadedAudioElement.pause();
         }
 
-        setPlayButtonText();
+        setPlayPauseButtonIcon();;
     }
 
     function stop(): void {
@@ -176,7 +181,7 @@ export function createAudioPlayerController({
             loadedAudioElement.currentTime = 0;
         }
 
-        setPlayButtonText();
+        setPlayPauseButtonIcon();;
         updateProgress();
     }
 
@@ -194,7 +199,7 @@ export function createAudioPlayerController({
             }),
         );
 
-        setPlayButtonText();
+        setPlayPauseButtonIcon();;
         updateProgress();
     }
 
@@ -254,14 +259,14 @@ export function createAudioPlayerController({
 
         progressInput.value = "0";
         timestampElement.textContent = "00:00";
-        playPauseButton.textContent = "Play";
+        setPlayPauseButtonIcon();
 
         setControlsEnabled(channels.length > 0);
     }
 
     function init(): void {
         setControlsEnabled(false);
-        setPlayButtonText();
+        setPlayPauseButtonIcon();;
         updateTimestamp();
 
         playPauseButton.addEventListener("click", () => handlePlayPauseClick());
