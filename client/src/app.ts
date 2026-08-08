@@ -6,6 +6,7 @@ import { createProjectPlayerPageController } from "./page-controllers/project-pl
 import { createConfirmProjectPageController } from "./page-controllers/confirm-project-page-controller.js";
 import { createAudioPlayerController } from "./page-controllers/audio-player-controller.js";
 import { createPendingTrackSelectionController } from "./page-controllers/pending-track-selection-controller.js";
+import { createCreateProjectConfirmationController } from "./page-controllers/create-project-confirmation-controller.js";
 import { renderPendingTrackList } from "./templates/pending-track-list.js";
 import { getTrackAudioUrl } from "./api/tracks-api.js";
 import { renderConfirmProjectPage } from "./pages/confirm-project-page.js";
@@ -135,10 +136,12 @@ function initializeProjectMenuPage({
 function initializeCreateProjectPage({
   appElement,
   navigateTo,
+  setSelectedProject,
   projectDraftState,
 }: {
   appElement: AppElementLike;
   navigateTo: (screen: AppScreen) => void;
+  setSelectedProject: (project: Project) => void;
   projectDraftState: ProjectDraftState;
 }): void {
   const backButton = getElement<HTMLButtonElement>(
@@ -179,6 +182,11 @@ function initializeCreateProjectPage({
   const confirmationTrackListElement = getElement<HTMLDivElement>(
     appElement,
     "#create-project-confirmation-track-list",
+  );
+
+  const confirmationStatusElement = getElement<HTMLParagraphElement>(
+    appElement,
+    "#create-project-confirmation-status",
   );
 
   const closeConfirmationButton = getElement<HTMLButtonElement>(
@@ -226,6 +234,10 @@ function initializeCreateProjectPage({
       snapshot.pendingTracks,
     );
 
+    if (confirmationStatusElement) {
+      confirmationStatusElement.textContent = "";
+    }
+
     confirmationModal.hidden = false;
   }
 
@@ -252,9 +264,22 @@ function initializeCreateProjectPage({
     closeConfirmationModal();
   });
 
-  submitCreateProjectButton?.addEventListener("click", () => {
-    navigateTo("confirm-project");
-  });
+  if (submitCreateProjectButton && confirmationStatusElement) {
+    const createProjectConfirmationController =
+      createCreateProjectConfirmationController({
+        submitButton: submitCreateProjectButton,
+        statusElement: confirmationStatusElement,
+        projectDraftState,
+        projectsApi,
+        tracksApi,
+        onProjectSubmitted(project) {
+          setSelectedProject(project);
+          navigateTo("project-player");
+        },
+      });
+
+    createProjectConfirmationController.init();
+  }
 
   const openModalButton = getElement<HTMLButtonElement>(
     appElement,
@@ -505,6 +530,7 @@ function initializeCurrentPage({
     initializeCreateProjectPage({
       appElement,
       navigateTo,
+      setSelectedProject,
       projectDraftState,
     });
 
