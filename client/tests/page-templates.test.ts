@@ -1,4 +1,3 @@
-import { renderConfirmProjectPage } from "../src/pages/confirm-project-page.js";
 import { renderCreateProjectPage } from "../src/pages/create-project-page.js";
 import { renderProjectMenuPage } from "../src/pages/project-menu-page.js";
 import { renderProjectPlayerPage } from "../src/pages/project-player-page.js";
@@ -66,56 +65,6 @@ tester.describe("page templates", () => {
     tester.expect(html.includes("&lt;Practice &amp; loop&gt;")).toBe(true);
     tester.expect(html.includes('<Bass "Groove">')).toBe(false);
     tester.expect(html.includes("<Practice & loop>")).toBe(false);
-  });
-
-  tester.it("renders the Confirm Project page without a project", () => {
-    const html = renderConfirmProjectPage();
-
-    tester.expect(html.includes("Confirm Project")).toBe(true);
-    tester.expect(html.includes("confirm-project")).toBe(true);
-    tester.expect(html.includes("Project confirmation details will appear here.")).toBe(true);
-    tester.expect(html.includes("edit-project-button")).toBe(true);
-    tester.expect(html.includes("confirm-project-button")).toBe(true);
-    tester.expect(html.includes("confirm-project-panel")).toBe(true);
-  });
-
-  tester.it("renders created project details on the Confirm Project page", () => {
-    const html = renderConfirmProjectPage({
-      project: {
-        title: "Bass Groove",
-        description: "Practice loop",
-      },
-      pendingTracks: [],
-    });
-
-    tester.expect(html.includes("Bass Groove")).toBe(true);
-    tester.expect(html.includes("Practice loop")).toBe(true);
-  });
-
-  tester.it("renders pending tracks on the Confirm Project page", () => {
-    const html = renderConfirmProjectPage({
-      project: {
-        title: "Bass Groove",
-        description: "Practice loop",
-      },
-      pendingTracks: [
-        {
-          id: "pending-track-1",
-          trackName: "Lead Guitar",
-          audioFile: {
-            name: "guitar.wav",
-            type: "audio/wav",
-            size: 123,
-          } as unknown as File,
-          originalFilename: "guitar.wav",
-          mimeType: "audio/wav",
-          fileSize: 123,
-        },
-      ],
-    });
-
-    tester.expect(html.includes("Lead Guitar")).toBe(true);
-    tester.expect(html.includes("guitar.wav")).toBe(true);
   });
 
   tester.it("renders the Project Player page", () => {

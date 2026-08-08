@@ -3,13 +3,11 @@ import { tracksApi } from "./api/tracks-api.js";
 import { createCreateProjectPageController } from "./page-controllers/create-project-page-controller.js";
 import { createProjectMenuPageController } from "./page-controllers/project-menu-page-controller.js";
 import { createProjectPlayerPageController } from "./page-controllers/project-player-page-controller.js";
-import { createConfirmProjectPageController } from "./page-controllers/confirm-project-page-controller.js";
 import { createAudioPlayerController } from "./page-controllers/audio-player-controller.js";
 import { createPendingTrackSelectionController } from "./page-controllers/pending-track-selection-controller.js";
 import { createCreateProjectConfirmationController } from "./page-controllers/create-project-confirmation-controller.js";
 import { renderPendingTrackList } from "./templates/pending-track-list.js";
 import { getTrackAudioUrl } from "./api/tracks-api.js";
-import { renderConfirmProjectPage } from "./pages/confirm-project-page.js";
 import { renderCreateProjectPage } from "./pages/create-project-page.js";
 import { renderProjectMenuPage } from "./pages/project-menu-page.js";
 import { renderProjectPlayerPage } from "./pages/project-player-page.js";
@@ -60,11 +58,11 @@ function renderConfirmationTrackList(pendingTracks: PendingTrackDraft[]): string
   }
 
   return /*html*/ `
-    <ol class="confirm-track-list">
+    <ol class="create-project-confirmation-track-list">
       ${pendingTracks
       .map((track) => {
         return /*html*/ `
-            <li class="confirm-track-list__item">
+            <li class="create-project-confirmation-track-list__item">
               <strong>${escapeHtml(track.trackName)}</strong>
               <span>${escapeHtml(track.originalFilename)}</span>
             </li>
@@ -323,55 +321,6 @@ function initializeCreateProjectPage({
   }
 }
 
-function initializeConfirmProjectPage({
-  appElement,
-  navigateTo,
-  setSelectedProject,
-  projectDraftState,
-}: {
-  appElement: AppElementLike;
-  navigateTo: (screen: AppScreen) => void;
-  setSelectedProject: (project: Project) => void;
-  projectDraftState: ProjectDraftState;
-}): void {
-  const confirmProjectButton = getElement<HTMLButtonElement>(
-    appElement,
-    "#confirm-project-button",
-  );
-
-  const editProjectButton = getElement<HTMLButtonElement>(
-    appElement,
-    "#edit-project-button",
-  );
-
-  editProjectButton?.addEventListener("click", () => {
-    navigateTo("create-project");
-  });
-
-  const statusElement = getElement<HTMLParagraphElement>(
-    appElement,
-    "#confirm-project-status",
-  );
-
-  if (!confirmProjectButton || !statusElement) {
-    return;
-  }
-
-  const controller = createConfirmProjectPageController({
-    submitButton: confirmProjectButton,
-    statusElement,
-    projectDraftState,
-    projectsApi,
-    tracksApi,
-    onProjectSubmitted(project) {
-      setSelectedProject(project);
-      navigateTo("project-player");
-    },
-  });
-
-  controller.init();
-}
-
 function initializeProjectPlayerPage({
   appElement,
   navigateTo,
@@ -537,17 +486,6 @@ function initializeCurrentPage({
     return;
   }
 
-  if (currentScreen === "confirm-project") {
-    initializeConfirmProjectPage({
-      appElement,
-      navigateTo,
-      setSelectedProject,
-      projectDraftState,
-    });
-
-    return;
-  }
-
   if (currentScreen === "project-player") {
     initializeProjectPlayerPage({
       appElement,
@@ -575,8 +513,6 @@ export function createGrooveShareApp({
       "project-menu": renderProjectMenuPage,
       "create-project": () =>
         renderCreateProjectPage(projectDraftState.getProjectDraft()),
-      "confirm-project": () =>
-        renderConfirmProjectPage(projectDraftState.getSnapshot()),
       "project-player": () => renderProjectPlayerPage(selectedProject),
     },
   });

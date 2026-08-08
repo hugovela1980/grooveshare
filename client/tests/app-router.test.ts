@@ -70,7 +70,6 @@ tester.describe("app router", () => {
 
         const screenFlow: AppScreen[] = [
             "create-project",
-            "confirm-project",
             "project-menu",
             "project-player",
             "project-menu",

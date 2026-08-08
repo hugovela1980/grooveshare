@@ -129,10 +129,10 @@ export function renderCreateProjectPage(
           </header>
 
           <div class="create-project-confirmation-modal__body">
-            <section class="confirm-project-panel__section">
+            <section class="create-project-confirmation-modal__section">
               <h3>Project details</h3>
 
-              <dl class="confirm-project-summary">
+              <dl class="create-project-confirmation-summary">
                 <div>
                   <dt>Title</dt>
                   <dd id="create-project-confirmation-project-title"></dd>
@@ -145,7 +145,7 @@ export function renderCreateProjectPage(
               </dl>
             </section>
 
-            <section class="confirm-project-panel__section">
+            <section class="create-project-confirmation-modal__section">
               <h3>Tracks</h3>
               <div id="create-project-confirmation-track-list"></div>
             </section>

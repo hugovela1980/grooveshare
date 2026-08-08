@@ -95,38 +95,44 @@
     gap: 1.5rem;
 }
 
-.create-project-confirmation-modal .confirm-project-summary {
+.create-project-confirmation-modal__section {
     display: grid;
-    gap: 1rem;
+    gap: 0.75rem;
 }
 
-.create-project-confirmation-modal .confirm-project-summary div {
+.create-project-confirmation-summary {
+    display: grid;
+    gap: 1rem;
+    margin: 0;
+}
+
+.create-project-confirmation-summary div {
     display: grid;
     gap: 0.25rem;
 }
 
-.create-project-confirmation-modal .confirm-project-summary dt {
+.create-project-confirmation-summary dt {
     color: var(--color-light-muted);
     font-weight: 700;
 }
 
-.create-project-confirmation-modal .confirm-project-summary dd {
+.create-project-confirmation-summary dd {
     margin: 0;
     color: var(--color-light-text);
 }
 
-.create-project-confirmation-modal .confirm-track-list {
+.create-project-confirmation-track-list {
     display: grid;
     gap: 0.75rem;
     margin: 0;
     padding-left: 1.25rem;
 }
 
-.create-project-confirmation-modal .confirm-track-list__item {
+.create-project-confirmation-track-list__item {
     color: var(--color-light-text);
 }
 
-.create-project-confirmation-modal .confirm-track-list__item span {
+.create-project-confirmation-track-list__item span {
     display: block;
     color: var(--color-light-muted);
     font-size: 0.9rem;

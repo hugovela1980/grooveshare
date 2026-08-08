@@ -1,7 +1,6 @@
 export type AppScreen =
     | "project-menu"
     | "create-project"
-    | "confirm-project"
     | "project-player";
 
 type AppElementLike = {
