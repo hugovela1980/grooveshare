@@ -10,9 +10,12 @@
 
 - edit button in modal is hard to see
 
-- [ ] Review names of classes and buttons, etc, after create project refactor
+- clicking delete project should stop all audio
 
-- [ ] Maybe make the confirm screen be the modal, and all project creation details on the project create screen.  That way there isn't a separate page for creating a project.
+- add file url to test details in test failure summary
+
+- redesign the channel slot
+
 
 ### Replace multitrack playback with Web Audio engine
   Move multitrack playback from multiple HTML audio elements to a Web Audio based engine. Decode selected tracks into AudioBuffers, route each channel through Web Audio nodes, schedule playback from a shared AudioContext clock, and prepare the app for waveform display, gapless looping, nudge, trim, and edited playback.
@@ -58,10 +61,7 @@
 
 ## Backlog
 
-- add file url to test details in test failure summary
 
-- move all types to a separate file to clean up the controller files
-     
 - [ ] Add project detail page
   Create a focused project view where the user can see project notes, uploaded tracks, and playback controls in one place.
 
@@ -178,3 +178,6 @@ Play, pause, stop, and reset two enabled tracks from a shared start point. Each 
   Remove obviously stale code, update backlog checkboxes, run all tests/typechecks, and merge to main when stable.
 
 - [x] Finalize CSS import structure
+
+- [x] Remove old Confirm Project page flow
+  Convert the modal purpose from adding tracks to confirming project creation details.

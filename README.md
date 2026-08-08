@@ -2,7 +2,7 @@
 
 GrooveShare is a lightweight browser-based music collaboration app for creating song projects, adding audio tracks, and playing those tracks in a simple stem-player interface.
 
-The current Version 1 goal is a local four-channel stem player. A user can create a project, upload or seed audio tracks, open the Project Player, load up to four tracks into channel slots, and control playback from a shared Audio Player panel.
+The current Version 1 goal is a local four-channel stem player. A user can create a project, add or seed audio tracks, open the Project Player, load up to four tracks into channel slots, and control playback from a shared Audio Player panel.
 
 ## Running the App Locally
 
@@ -126,11 +126,20 @@ The current app flow is:
 ```txt
 Project Menu
 → Create Project
-→ Confirm Project
 → Project Player
 ```
 
-The user can create a project, include a track during the project creation flow, confirm the project, and then view the project in the Project Player.
+The Create Project page owns the full project creation workflow:
+
+* Enter project title and description.
+* Click the Add Audio Tracks button to open the browser's native file picker.
+* Select up to four audio files.
+* Review selected tracks inline on the Create Project page.
+* Edit pending track names before submission.
+* Remove pending tracks before submission.
+* Click `Create a New Project` to open a confirmation modal.
+* Review project details and selected tracks in the modal.
+* Submit the modal to create the project, upload the selected tracks, clear the draft, and move directly to the Project Player.
 
 The Project Player uses a small stem-mixer layout:
 
@@ -145,6 +154,7 @@ Current Project Player behavior includes:
 * Automatically filling the channel slots from the first four uploaded tracks.
 * Showing an enabled toggle, volume slider, waveform placeholder, and delete button for assigned channels.
 * Keeping empty channel slots visible when fewer than four tracks exist.
+* Showing an Add Track button in empty channel slots so a user can add another track to the current project.
 * Loading enabled channels into the Audio Player with `Load Mix`.
 * Playing, pausing, stopping, and resetting a loaded four-track mix from the Audio Player panel.
 * Supporting a global Loop checkbox for the loaded mix.
@@ -183,6 +193,9 @@ grooveshare/
   client/
     src/
       api/
+      css/
+        main.css
+        _imports/
       dev/
       page-controllers/
       pages/
@@ -191,7 +204,6 @@ grooveshare/
       templates/
       app.ts
       main.ts
-      style.css
       types.ts
     tests/
 
@@ -219,7 +231,7 @@ grooveshare/
 
 ## Frontend Overview
 
-The frontend uses Vite, TypeScript, and browser DOM APIs.
+The frontend uses Vite, TypeScript, browser DOM APIs, and organized CSS imports.
 
 The frontend is organized around separated responsibilities:
 
@@ -228,6 +240,12 @@ api/
 ```
 
 Contains reusable functions for calling the backend API.
+
+```txt
+css/
+```
+
+Contains the frontend stylesheet entry point and organized CSS imports for base styles, shared components, page styles, and responsive rules.
 
 ```txt
 dev/
@@ -239,7 +257,7 @@ Contains local-only development helpers, such as the development toolbar.
 main.ts
 ```
 
-Starts the app.
+Starts the app and imports the CSS entry point.
 
 ```txt
 app.ts
@@ -354,7 +372,7 @@ npm run typecheck
 
 ## Current Development Focus
 
-The current focus is finishing the Version 1 four-channel stem player.
+The current focus is finishing and stabilizing the Version 1 four-channel stem player.
 
 Recent work has focused on:
 
@@ -364,6 +382,10 @@ Recent work has focused on:
 * Rendering the first four uploaded tracks as Channel 1 through Channel 4.
 * Adding a `Load Mix` action that reads enabled channel slots and volume settings.
 * Playing a loaded four-track mix from a shared start point.
+* Moving Create Project track selection inline on the Create Project page.
+* Replacing the old separate confirmation screen with a confirmation modal on the Create Project page.
+* Adding an Add Track button to empty Project Player channel slots.
+* Organizing the frontend CSS into a structured `client/src/css/` import system.
 * Updating the dev toolbar so it can seed projects from real audio files in `server/data/seed-project/`.
 * Keeping delete flows for individual tracks and entire projects.
 * Cleaning up uploaded audio files and empty upload folders after deletions.
@@ -372,6 +394,7 @@ Recent work has focused on:
 
 Likely next steps before declaring Version 1 complete:
 
+* Finish small UI polish and bug fixes.
 * Confirm the full four-track stem-player workflow through manual testing.
 * Keep the README, architecture notes, and backlog aligned with the current app behavior.
 * Run all frontend and backend tests and typechecks.

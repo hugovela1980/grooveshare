@@ -11,10 +11,11 @@ The app is not intended to be a full DAW. The goal is to provide a focused workf
 GrooveShare is built around a practical band workflow:
 
 1. A user creates a project for a song idea, riff, section, rehearsal part, or practice track.
-2. The user uploads individual audio files such as drums, bass, guitars, vocals, click tracks, or scratch references.
-3. The Project Player displays the uploaded files as channel slots.
-4. The user chooses which channels are enabled, adjusts channel volume, loads the mix, and controls playback from a shared transport.
-5. Later versions should support waveform display, nudge, trim, browser recording, and collaboration features.
+2. The user selects individual audio files such as drums, bass, guitars, vocals, click tracks, or scratch references.
+3. The user reviews project details and selected tracks before creating the project.
+4. The Project Player displays the uploaded files as channel slots.
+5. The user chooses which channels are enabled, adjusts channel volume, loads the mix, and controls playback from a shared transport.
+6. Later versions should support waveform display, nudge, trim, browser recording, and collaboration features.
 
 The app should stay focused on collaboration and practice rather than becoming a full production environment.
 
@@ -28,6 +29,7 @@ Current Version 1 stack:
 * Pure Node TypeScript backend
 * Local JSON metadata storage
 * Local file storage
+* Organized CSS import structure
 * Custom lightweight TypeScript tests
 * Local development seed/reset tooling
 
@@ -42,7 +44,10 @@ Version 1 is the first useful MVP.
 The user should be able to:
 
 * Create a project.
-* Upload or seed multiple audio files.
+* Add up to four audio files during project creation.
+* Review project details and selected tracks in a confirmation modal.
+* Submit the project and move directly to the Project Player.
+* Add another track from an empty Project Player channel slot.
 * Open a Project Player.
 * See up to four channel slots.
 * Automatically fill Channel 1 through Channel 4 from the first four uploaded tracks.
@@ -106,7 +111,8 @@ The frontend is responsible for:
 * Displaying project data returned from the backend.
 * Displaying loading, error, and status messages.
 * Managing the project creation flow.
-* Managing track upload UI.
+* Managing pending track selection before project submission.
+* Uploading selected tracks after project creation.
 * Displaying uploaded track metadata.
 * Deleting individual tracks and projects through backend API calls.
 * Showing confirmation, success, and error messages for destructive actions.
@@ -120,6 +126,15 @@ Current frontend structure:
 ```txt
 client/src/
   api/
+  css/
+    main.css
+    _imports/
+      base.css
+      layout.css
+      utilities.css
+      components/
+      pages/
+      responsive.css
   dev/
   page-controllers/
   pages/
@@ -128,22 +143,131 @@ client/src/
   templates/
   app.ts
   main.ts
-  style.css
   types.ts
 ```
 
 Frontend module responsibilities:
 
 * `api/` contains functions that communicate with the backend.
+* `css/` contains the CSS entry point and organized stylesheet imports.
 * `dev/` contains local-only development helpers, such as the development toolbar.
 * `page-controllers/` contains page-specific behavior that can be tested with fake DOM helpers.
 * `pages/` contains page-level markup for the main app screens.
-* `project-draft/` contains temporary state for the multi-step project creation flow.
+* `project-draft/` contains temporary state for project details and selected audio files before submission.
 * `router/` controls which app screen is currently shown.
 * `templates/` contains smaller reusable markup helpers.
 * `types.ts` contains shared frontend types.
 
 Markup may be created from TypeScript template strings. Page-level markup should live in `pages/`, repeated markup should live in `templates/`, and page behavior should live in `page-controllers/` rather than being placed directly in `main.ts`.
+
+## CSS Architecture
+
+The frontend uses a single CSS entry point at:
+
+```txt
+client/src/css/main.css
+```
+
+`main.css` imports organized CSS partials in this order:
+
+1. Base tokens and global defaults.
+2. Shared layout and utility classes.
+3. Reusable components.
+4. Page-specific styles.
+5. Global responsive overrides, if needed.
+
+Current CSS structure:
+
+```txt
+client/src/css/
+  main.css
+  _imports/
+    base.css
+    layout.css
+    utilities.css
+    components/
+      audio-player.css
+      buttons.css
+      forms.css
+      icons.css
+      mix-channels.css
+      modals.css
+    pages/
+      create-project.css
+      home.css
+      project-player.css
+    responsive.css
+```
+
+The previous single-stylesheet approach has been replaced by the organized import structure.
+
+Component-level styles should live in `components/` when they are reusable across pages or represent a self-contained UI piece. Page-level styles should live in `pages/` when they only describe a specific app screen.
+
+## Frontend Screen Flow
+
+The current app screens are:
+
+```txt
+project-menu
+create-project
+project-player
+```
+
+There is no separate confirmation screen in the current flow. The Create Project page contains its own confirmation modal.
+
+### Project Menu
+
+The Project Menu loads existing projects from the backend and lets the user select a project or start a new one.
+
+The Project Menu does not delete projects. Project deletion is handled from the Project Player.
+
+### Create Project
+
+The Create Project page owns the complete create-project workflow.
+
+The page collects:
+
+* Project title.
+* Project description.
+* Pending audio files.
+* Editable pending track names.
+
+The Add Audio Tracks button opens the browser's native file picker directly. The selected files are added to `projectDraftState`, then rendered inline on the Create Project page. The user can rename pending tracks or remove them before submitting.
+
+When the user clicks `Create a New Project`, the page opens a confirmation modal. The modal shows the project details and selected tracks. The user can choose:
+
+* `Edit` to close the modal and return to the same Create Project page without losing draft data.
+* `Submit` to create the project, upload selected tracks, clear the draft, and move directly to the Project Player.
+
+### Project Player
+
+The Project Player displays project-level playback and track management UI.
+
+The Project Player contains:
+
+* Project header and navigation.
+* Audio Player panel.
+* Mix Channels panel.
+* Track deletion controls.
+* Project deletion control.
+
+The Tracks panel renders up to four channel slots. Assigned slots show the uploaded track name, enabled state, volume control, waveform placeholder, and delete button. Empty slots remain visible and show an Add Track button so another audio file can be uploaded into the current project.
+
+## Project Draft State
+
+The project creation workflow uses temporary frontend draft state before submitting to the backend.
+
+The draft state stores:
+
+* Project title and description.
+* Pending track drafts.
+* The original selected `File` objects.
+* Editable pending track names.
+* Original filenames, MIME types, and file sizes.
+
+This allows the user to review, edit, remove, and confirm selected tracks before the project and uploads are sent to the backend.
+
+The draft is cleared only after the project is successfully created and pending tracks have been uploaded.
 
 ## Backend Architecture
 
@@ -454,73 +578,62 @@ The upload implementation should stay modular so local file-writing behavior can
 
 ## Deletion and Cleanup Direction
 
-Deleting an individual track should remove the track metadata and the linked uploaded audio file. If that was the last uploaded file in the project folder, the backend should remove the now-empty project upload folder. If other tracks still exist in the same project, the project upload folder should remain.
+Deleting an individual track should remove the track metadata and the linked uploaded audio file. If that was the last uploaded file in the project folder, the backend should remove the now-empty project upload folder.
 
-Deleting an entire project should remove the project metadata, all linked track metadata, all linked uploaded audio files, and the project upload folder. Project deletion should not remove metadata or files that belong to other projects.
+Deleting an entire project should remove:
 
-## Audio Direction
+* The project metadata.
+* All track metadata linked to the project.
+* All uploaded audio files linked to those tracks.
+* The project upload folder.
 
-GrooveShare needs browser-based audio playback for the Version 1 stem player workflow.
+The frontend should use these backend deletion routes rather than trying to manage local file cleanup itself.
 
-Current audio playback behavior:
+## Project Player Direction
 
-* Serves uploaded audio files from the backend.
-* Loads enabled channel slots into a shared mix.
-* Plays up to four enabled tracks together from a shared start point.
-* Applies the channel volume values that were present when the mix was loaded.
-* Provides global play, pause, stop, loop, progress, and timestamp controls.
+The Project Player is the center of the Version 1 playback experience.
 
-The current Version 1 implementation uses HTML audio elements. This is acceptable for a local stem-player MVP, but it is not the final architecture for tighter playback, waveform editing, or gapless looping.
-
-As the app grows, multitrack playback should move to a Web Audio based engine using `AudioContext`, decoded `AudioBuffer` data, `AudioBufferSourceNode`, `GainNode`, and eventually pan nodes or additional routing nodes.
-
-The app should aim for practical rehearsal usefulness rather than professional DAW-level editing.
-
-## Project Player Mixer Direction
-
-The Project Player is organized around two separate responsibilities:
+The Project Player has two conceptual panels:
 
 ```txt
-Tracks panel       = channel setup and per-track mix/edit controls
-Audio Player panel = global playback transport
+Tracks panel       = channel setup and per-track controls
+Audio Player panel = global transport controls
 ```
 
-The Tracks panel contains four channel slots. Each channel slot represents one possible audio lane in the current project mix.
+### Tracks Panel
 
-A channel slot may be empty or assigned to one uploaded track.
+The Tracks panel owns channel setup.
 
-Each assigned channel slot owns the controls and display elements that belong to an individual track:
+Each channel slot may contain:
 
-* Assigned track name
-* Enabled/on-off state
-* Volume control
-* Waveform placeholder
-* Delete action
-* Future waveform display
-* Future offset/nudge controls
-* Future trim/clipping controls
+* Channel number.
+* Assigned track name.
+* Enabled toggle.
+* Volume slider.
+* Waveform placeholder.
+* Delete track action.
+* Add Track action when the slot is empty.
 
-The Audio Player panel owns the global controls that affect the currently loaded mix:
+Version 1 automatically assigns uploaded tracks to channel slots by order. The first uploaded track appears in Channel 1, the second in Channel 2, and so on, up to Channel 4.
 
-* Load Mix
-* Play
-* Pause
-* Stop
-* Loop
-* Shared progress control
-* Shared timestamp display
+Manual drag/drop assignment is not part of Version 1.
 
-This separation keeps the Project Player close to a small stem mixer. The user configures the mix in the Tracks panel, then uses the Audio Player panel to control playback of the prepared mix.
+### Audio Player Panel
 
-Channel 1 through Channel 4 automatically fill from the first four uploaded tracks for now. Extra uploaded tracks may exist in the project metadata, but they are not assigned to visible channel slots until manual assignment behavior is added later.
+The Audio Player panel owns global playback controls.
 
-The `Load Mix` action reads the current channel setup from the Tracks panel. It gathers enabled channels, track names, audio URLs, channel numbers, and volume values, then prepares those channels for global playback in the Audio Player panel.
+The Audio Player is responsible for:
 
-The Audio Player should play the enabled tracks together from a shared start point while respecting the volume setting captured when the mix was loaded.
+* Loading the enabled channel setup.
+* Starting playback.
+* Pausing playback.
+* Stopping playback.
+* Resetting playback position.
+* Displaying a shared timestamp.
+* Displaying a shared progress control.
+* Looping the loaded mix.
 
-Waveforms should live inside the channel slots rather than inside the global Audio Player panel. Waveform editing is track-specific, and future nudge, trim, and clipping behavior will need to line up visually with each individual track's waveform.
-
-The global Audio Player may still show a shared progress bar and timestamp, but detailed waveform editing should happen inside the Tracks panel.
+The Audio Player should not own per-track editing controls. Per-track controls should happen inside the Tracks panel.
 
 ## Version 1 Transport Expectations
 
@@ -585,7 +698,7 @@ Version 2 should replace multitrack playback with a Web Audio engine.
     Let each channel store a clip start and clip end value without permanently editing the original audio file.
 
   - [ ] Add edited multitrack playback
-    Make playback respect each channel’s enabled state, volume, offset, clip start, and clip end values.
+    Make playback respect each channel's enabled state, volume, offset, clip start, and clip end values.
 
   - [ ] Preserve current UI controls
     Keep the existing Audio Player panel and channel slots, but make the controls operate through the Web Audio engine instead of direct HTML audio element playback.
@@ -614,149 +727,36 @@ GrooveShare includes local-only development tooling to make manual testing faste
 Current dev tooling includes:
 
 * A frontend development toolbar in `client/src/dev/`.
+* Configurable development toolbar default visibility.
 * Backend development routes in `server/src/dev/`.
 * A reset route that clears local development data.
 * Seed-project routes that list real audio files from `server/data/seed-project/` and create a seeded project from the selected files.
 
-The dev toolbar should be visible by default during local development. It can be toggled with the right arrow key so it can be hidden during normal UI testing without removing the code.
-
-The toolbar should let the developer:
-
-* See available seed audio files.
-* Select which seed audio files to include.
-* Create a seeded project from the selected real audio files.
-* Reset local development data.
-
-Development tooling should stay isolated so it can be removed later with minimal changes. The frontend hook should stay small, and most frontend dev behavior should live in `client/src/dev/`. Backend dev behavior should stay in `server/src/dev/`.
+Development tooling should stay isolated from normal user-facing product behavior.
 
 ## Testing Direction
 
-GrooveShare uses custom lightweight TypeScript test runners.
+The project uses custom lightweight TypeScript test runners for both client and server tests.
 
-There are separate test setups for the backend and frontend:
+Test coverage should focus on behavior and module boundaries:
 
-```txt
-server/tests/
-client/tests/
+* API helper functions should test request shape and response handling.
+* Page controllers should be tested with fake DOM helpers.
+* Templates should be tested for meaningful rendered markup.
+* Router behavior should be tested independently from page logic.
+* Backend routes should be tested with disposable local database files and upload folders.
+* Store tests should verify metadata behavior without depending on the development database.
+
+Run frontend tests from `client/`:
+
+```bash
+npm test
+npm run test:typecheck
 ```
 
-The backend tests cover:
+Run backend tests from `server/`:
 
-* The custom test runner.
-* JSON store behavior.
-* API route behavior.
-* Disposable JSON test databases.
-* Upload parsing and validation.
-* Uploaded file serving behavior.
-* Track and project deletion cleanup behavior.
-* Development seed/reset behavior.
-
-The frontend tests cover:
-
-* The custom test runner.
-* Page controller behavior.
-* Template rendering behavior.
-* Frontend API helper behavior.
-* Fake DOM helpers.
-* Form behavior.
-* Error/status messaging.
-* Delete confirmation and status behavior.
-* Audio player controller behavior.
-* Mix channel slot template behavior.
-* Load Mix channel gathering behavior.
-
-Frontend tests should avoid requiring a full browser environment at this stage. Instead, they should use small fake DOM helpers and dependency injection.
-
-As the app grows, frontend code should stay organized into testable modules rather than placing all behavior directly in `main.ts`.
-
-## Development Workflow
-
-The project uses a branch workflow:
-
-```txt
-main       = stable / release-ready code
-develop    = active integration branch
-feature/*  = app features
-docs/*     = documentation-only work
-fix/*      = bug fixes
-refactor/* = code cleanup without behavior changes
-chore/*    = setup, config, or maintenance
+```bash
+npm test
+npm run typecheck
 ```
-
-Typical workflow:
-
-```txt
-feature branch → pull request into develop → pull request into main when stable
-```
-
-Documentation-only work should use a `docs/` branch.
-
-Feature work should use a `feature/` branch.
-
-## Current Completed Foundation
-
-The project currently has:
-
-* Vite + Vanilla TypeScript frontend.
-* Pure Node TypeScript backend.
-* Backend health endpoint.
-* Frontend/backend connection.
-* Root `.gitignore`.
-* Local `db.json` metadata store.
-* Project metadata types.
-* Tested JSON project store.
-* Tested project API routes.
-* Tested frontend page controllers.
-* Project creation UI wired to the API.
-* Readable frontend error handling for project loading and creation failures.
-* Custom backend test runner.
-* Custom client test runner.
-* Track metadata types.
-* Tested JSON track store.
-* Tested upload path helpers.
-* Tested multipart form data parser.
-* Tested upload validation.
-* Tested track upload API route.
-* Tested project track list API route.
-* Tested uploaded audio file route.
-* Tested track deletion API route.
-* Tested project deletion API route.
-* Frontend track upload form wired to the API.
-* Frontend uploaded track metadata display.
-* Frontend upload error handling.
-* Frontend track deletion UI.
-* Frontend project deletion UI from the Project Menu and Project Player.
-* Uploaded audio file cleanup when tracks or projects are deleted.
-* Empty project upload folder cleanup when the last track is deleted.
-* Single Audio Player panel with play, pause, stop, loop, progress, and timestamp controls.
-* Uploaded audio loading and playback path.
-* Four-channel mixer slot layout in the Project Player Tracks panel.
-* Load Mix behavior that gathers enabled channels and volume values.
-* Four-track mix playback from a shared start point.
-* Local development reset route and development toolbar.
-* Local seed-project audio file workflow for creating real test projects.
-* Cleaned frontend structure with legacy controller code removed.
-* Cleaned backend structure with unused utility code removed.
-
-## Current Limitations
-
-Current limitations:
-
-* Channel assignment is automatic for now; manual assignment is not implemented yet.
-* Extra uploaded tracks beyond the first four are not assigned to visible channel slots yet.
-* Changing channel enabled state or volume after clicking `Load Mix` may require loading the mix again before playback reflects the change.
-* Looping may have a small delay before restart because the current implementation uses HTML audio elements.
-* Shared progress and seek behavior are prototype-level for multitrack playback.
-* Waveforms are placeholders only.
-* No pan control yet.
-* No solo control yet.
-* No offset/nudge controls yet.
-* No trim/clipping controls yet.
-* No share links yet.
-* No recording yet.
-* No authentication yet.
-* No database yet.
-* No cloud storage yet.
-* No production deployment yet.
-
-These limitations define the boundary between Version 1 and later versions.
