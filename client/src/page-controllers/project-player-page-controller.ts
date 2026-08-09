@@ -1,4 +1,9 @@
-import type { Project, Track } from "../types.js";
+import type {
+    MixChannelSetting,
+    MixSettings,
+    Project,
+    Track,
+} from "../types.js";
 
 type TracksApi = {
     getTracksByProjectId: (projectId: string) => Promise<Track[]>;
@@ -12,6 +17,11 @@ type TracksApi = {
 
 type ProjectsApi = {
     deleteProject: (projectId: string) => Promise<Project>;
+
+    saveMixSettings?: (
+        projectId: string,
+        mixSettings: MixSettings,
+    ) => Promise<Project>;
 };
 
 type ClickEventLike = {
@@ -90,7 +100,10 @@ type ProjectPlayerPageControllerOptions = {
     deleteProjectButton?: ButtonElementLike | null;
     tracksApi: TracksApi;
     projectsApi?: ProjectsApi;
-    renderTrackList: (tracks: Track[]) => string;
+    renderTrackList: (
+        tracks: Track[],
+        mixSettings?: MixSettings,
+    ) => string;
     confirmDeleteProject?: (message: string) => boolean;
     onProjectDeleted?: () => void;
     audioPlayerController?: AudioPlayerController;
@@ -158,86 +171,178 @@ export function createProjectPlayerPageController({
     getTrackNameFromFile = getDefaultTrackNameFromFile,
 }: ProjectPlayerPageControllerOptions) {
     let currentTracks: Track[] = [];
+    let currentMixSettings: MixSettings | undefined = project.mixSettings;
 
     async function loadTracks(): Promise<void> {
         try {
             const tracks = await tracksApi.getTracksByProjectId(project.id);
             currentTracks = tracks;
-            trackListElement.innerHTML = renderTrackList(tracks);
+            trackListElement.innerHTML = renderTrackList(
+                tracks,
+                currentMixSettings,
+            );
         } catch {
             trackListElement.innerHTML =
                 '<p class="empty-state">Could not load tracks.</p>';
         }
     }
 
-    function getEnabledMixChannels(): MixChannelForPlayer[] {
-        if (!trackListElement.querySelectorAll || !getTrackAudioUrl) {
-            return [];
+    function getMixSettings(): MixSettings {
+        if (!trackListElement.querySelectorAll) {
+            return {
+                channels: [],
+            };
         }
 
         const channelSlotElements = Array.from(
-            trackListElement.querySelectorAll("[data-mix-channel-slot][data-track-id]"),
+            trackListElement.querySelectorAll(
+                "[data-mix-channel-slot][data-track-id]",
+            ),
         );
 
-        return channelSlotElements
-            .map((channelSlotElement) => {
-                const trackId = channelSlotElement.dataset?.trackId;
-                const channelNumber = Number(channelSlotElement.dataset?.mixChannel);
+        const channels = channelSlotElements
+            .map((channelSlotElement): MixChannelSetting | null => {
+                const trackId =
+                    channelSlotElement.dataset?.trackId;
 
-                if (!trackId || !Number.isFinite(channelNumber)) {
+                const channelNumber = Number(
+                    channelSlotElement.dataset?.mixChannel,
+                );
+
+                if (
+                    !trackId ||
+                    !Number.isFinite(channelNumber)
+                ) {
                     return null;
                 }
 
-                const track = currentTracks.find((track) => track.id === trackId);
+                const enabledInput =
+                    channelSlotElement.querySelector?.(
+                        "[data-channel-enabled]",
+                    ) as ChannelEnabledInputLike | null;
+
+                const volumeInput =
+                    channelSlotElement.querySelector?.(
+                        "[data-channel-volume]",
+                    ) as ChannelVolumeInputLike | null;
+
+                const volume = Number(
+                    volumeInput?.value ?? "1",
+                );
+
+                return {
+                    channelNumber,
+                    trackId,
+                    enabled: enabledInput?.checked ?? false,
+                    volume: Number.isFinite(volume)
+                        ? volume
+                        : 1,
+                };
+            })
+            .filter(
+                (
+                    channel,
+                ): channel is MixChannelSetting => {
+                    return channel !== null;
+                },
+            );
+
+        return {
+            channels,
+        };
+    }
+
+    function getEnabledMixChannels(
+        mixSettings: MixSettings,
+    ): MixChannelForPlayer[] {
+        if (!getTrackAudioUrl) {
+            return [];
+        }
+
+        return mixSettings.channels
+            .filter((channel) => channel.enabled)
+            .map((channel) => {
+                const track = currentTracks.find((currentTrack) => {
+                    return currentTrack.id === channel.trackId;
+                });
 
                 if (!track) {
                     return null;
                 }
 
-                const enabledInput = channelSlotElement.querySelector?.(
-                    "[data-channel-enabled]",
-                ) as ChannelEnabledInputLike | null;
-
-                const volumeInput = channelSlotElement.querySelector?.(
-                    "[data-channel-volume]",
-                ) as ChannelVolumeInputLike | null;
-
-                const isEnabled = enabledInput?.checked ?? false;
-                const volume = Number(volumeInput?.value ?? "1");
-
-                if (!isEnabled) {
-                    return null;
-                }
-
                 return {
-                    channelNumber,
+                    channelNumber: channel.channelNumber,
                     trackId: track.id,
                     name: track.name,
-                    audioUrl: getTrackAudioUrl(project.id, track.id),
-                    volume: Number.isFinite(volume) ? volume : 1,
+                    audioUrl: getTrackAudioUrl(
+                        project.id,
+                        track.id,
+                    ),
+                    volume: channel.volume,
                 };
             })
-            .filter((channel): channel is MixChannelForPlayer => {
-                return channel !== null;
-            });
+            .filter(
+                (
+                    channel,
+                ): channel is MixChannelForPlayer => {
+                    return channel !== null;
+                },
+            );
     }
 
-    function handleLoadMix(): void {
+    async function handleLoadMix(): Promise<void> {
         if (!audioPlayerController?.loadMix) {
-            setStatus(statusElement, "Mix playback is not ready yet.");
+            setStatus(
+                statusElement,
+                "Mix playback is not ready yet.",
+            );
+
             return;
         }
 
-        const enabledMixChannels = getEnabledMixChannels();
+        const mixSettings = getMixSettings();
+
+        try {
+            if (projectsApi?.saveMixSettings) {
+                const updatedProject =
+                    await projectsApi.saveMixSettings(
+                        project.id,
+                        mixSettings,
+                    );
+
+                currentMixSettings =
+                    updatedProject.mixSettings ??
+                    mixSettings;
+            }
+        } catch {
+            setStatus(
+                statusElement,
+                "Could not save mix settings.",
+            );
+
+            return;
+        }
+
+        const enabledMixChannels =
+            getEnabledMixChannels(mixSettings);
 
         if (enabledMixChannels.length === 0) {
-            setStatus(statusElement, "Choose at least one enabled channel.");
+            setStatus(
+                statusElement,
+                "Choose at least one enabled channel.",
+            );
+
             return;
         }
 
-        audioPlayerController.loadMix(enabledMixChannels);
+        audioPlayerController.loadMix(
+            enabledMixChannels,
+        );
 
-        const channelWord = enabledMixChannels.length === 1 ? "channel" : "channels";
+        const channelWord =
+            enabledMixChannels.length === 1
+                ? "channel"
+                : "channels";
 
         setStatus(
             statusElement,
@@ -278,7 +383,7 @@ export function createProjectPlayerPageController({
         const isLoadMixClick = getIsLoadMixClickFromTarget(event.target);
 
         if (isLoadMixClick) {
-            handleLoadMix();
+            await handleLoadMix();
             return;
         }
 

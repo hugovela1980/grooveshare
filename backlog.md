@@ -12,7 +12,7 @@
 
 - [x] 2.5A — Project data model + JSON store
 - [x] 2.5B — PUT /mix-settings API + client API
-- [ ] 2.5C — Save/restore settings when Load Mix is pressed
+- [x] 2.5C — Save/restore settings when Load Mix is pressed
 - [ ] 2.5D — Load Mix dirty/current appearance + live volume percentage
 
 Chunk 3:

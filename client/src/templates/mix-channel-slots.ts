@@ -1,4 +1,4 @@
-import type { Track } from "../types.js";
+import type { MixSettings, Track } from "../types.js";
 
 const MIX_CHANNEL_SLOT_COUNT = 4;
 
@@ -25,12 +25,23 @@ function createMixChannelSlots(tracks: Track[]): ChannelSlot[] {
   });
 }
 
-function renderAssignedChannelSlot(slot: ChannelSlot): string {
+function renderAssignedChannelSlot(
+  slot: ChannelSlot,
+  mixSettings?: MixSettings,
+): string {
   const track = slot.track;
 
   if (!track) {
     return renderEmptyChannelSlot(slot.channelNumber);
   }
+
+  const savedChannelSetting = mixSettings?.channels.find((channel) => {
+    return channel.trackId === track.id;
+  });
+
+  const isEnabled = savedChannelSetting?.enabled ?? true;
+  const volume = savedChannelSetting?.volume ?? 1;
+  const volumePercentage = Math.round(volume * 100);
 
   return /*html*/ `
     <article
@@ -47,7 +58,7 @@ function renderAssignedChannelSlot(slot: ChannelSlot): string {
             data-channel-enabled
             data-track-id="${escapeHtml(track.id)}"
             aria-label="Enable channel ${slot.channelNumber}"
-            checked
+            ${isEnabled ? "checked" : ""}
           />
 
           <span
@@ -65,14 +76,16 @@ function renderAssignedChannelSlot(slot: ChannelSlot): string {
 
       <div class="mix-channel-slot__volume-cell">
         <label class="mix-channel-slot__volume-label">
-          <span class="mix-channel-slot__volume-value">100%</span>
+        <span class="mix-channel-slot__volume-value">
+            ${volumePercentage}%
+        </span>
 
           <input
             type="range"
             min="0"
             max="1"
             step="0.01"
-            value="1"
+            value="${volume}"
             data-channel-volume
             data-track-id="${escapeHtml(track.id)}"
             aria-label="Channel ${slot.channelNumber} volume"
@@ -126,7 +139,10 @@ function renderEmptyChannelSlot(channelNumber: number): string {
   `;
 }
 
-export function renderMixChannelSlots(tracks: Track[]): string {
+export function renderMixChannelSlots(
+  tracks: Track[],
+  mixSettings?: MixSettings,
+): string {
   const slots = createMixChannelSlots(tracks);
 
   return /*html*/ `
@@ -159,7 +175,9 @@ export function renderMixChannelSlots(tracks: Track[]): string {
       </div>
 
       <div class="mix-channel-slots">
-        ${slots.map(renderAssignedChannelSlot).join("")}
+        ${slots
+          .map((slot) => renderAssignedChannelSlot(slot, mixSettings))
+          .join("")}
       </div>
     </section>
   `;

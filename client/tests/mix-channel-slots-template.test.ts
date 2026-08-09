@@ -210,4 +210,35 @@ tester.describe("mix channel slots template", () => {
         tester.expect(html.includes("&lt;Guitar &amp; Bass&gt;")).toBe(true);
         tester.expect(html.includes("<Guitar & Bass>")).toBe(false);
     });
+
+    tester.it("restores saved enabled and volume settings for a track", () => {
+        const html = renderMixChannelSlots(
+            [createTrack()],
+            {
+                channels: [
+                    {
+                        channelNumber: 1,
+                        trackId: "track-1",
+                        enabled: false,
+                        volume: 0.35,
+                    },
+                ],
+            },
+        );
+
+        tester.expect(html.includes("data-channel-enabled")).toBe(true);
+        tester.expect(html.includes("checked")).toBe(false);
+        tester.expect(html.includes('value="0.35"')).toBe(true);
+        tester.expect(html.includes("35%")).toBe(true);
+    });
+
+    tester.it("uses enabled and full volume when a track has no saved mix setting", () => {
+        const html = renderMixChannelSlots([createTrack()], {
+            channels: [],
+        });
+
+        tester.expect(html.includes("checked")).toBe(true);
+        tester.expect(html.includes('value="1"')).toBe(true);
+        tester.expect(html.includes("100%")).toBe(true);
+    });
 });
