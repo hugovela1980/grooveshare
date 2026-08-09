@@ -3,6 +3,7 @@ import type {
   MixSettings,
   Project,
   Track,
+  UpdateProjectDetailsInput,
 } from "../types.js";
 import {
   DEFAULT_DB_FILE_PATH,
@@ -14,6 +15,11 @@ export type ProjectsStore = {
   getProjects: () => Promise<Project[]>;
   getProjectById: (projectId: string) => Promise<Project | null>;
   createProject: (projectInput: CreateProjectInput) => Promise<Project>;
+
+  updateProjectDetails: (
+    projectId: string,
+    projectInput: UpdateProjectDetailsInput,
+  ) => Promise<Project | null>;
 
   updateProjectMixSettings: (
     projectId: string,
@@ -77,6 +83,44 @@ export function createProjectsJsonStore(
     await writeDatabase(dbFilePath, database);
 
     return project;
+  }
+
+  async function updateProjectDetails(
+    projectId: string,
+    projectInput: UpdateProjectDetailsInput,
+  ): Promise<Project | null> {
+    const database = await readDatabase(dbFilePath);
+
+    const projectIndex = database.projects.findIndex((project) => {
+      return project.id === projectId;
+    });
+
+    if (projectIndex === -1) {
+      return null;
+    }
+
+    const existingProject = database.projects[projectIndex];
+
+    if (!existingProject) {
+      return null;
+    }
+
+    const updatedProject: Project = {
+      ...existingProject,
+      ...(projectInput.title !== undefined
+        ? { title: projectInput.title }
+        : {}),
+      ...(projectInput.description !== undefined
+        ? { description: projectInput.description }
+        : {}),
+      updatedAt: new Date().toISOString(),
+    };
+
+    database.projects[projectIndex] = updatedProject;
+
+    await writeDatabase(dbFilePath, database);
+
+    return updatedProject;
   }
 
   async function updateProjectMixSettings(
@@ -153,6 +197,7 @@ export function createProjectsJsonStore(
     getProjects,
     getProjectById,
     createProject,
+    updateProjectDetails,
     updateProjectMixSettings,
     deleteProjectById,
   };

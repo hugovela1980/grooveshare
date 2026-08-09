@@ -325,4 +325,57 @@ tester.describe("projects JSON store", () => {
 
     tester.expect(result).toBe(null);
   });
+  tester.it("updates project title and description details", async () => {
+    const project = createTestProject("project-1");
+
+    await writeTestDatabase({
+      projects: [project],
+      tracks: [],
+    });
+
+    const store = createProjectsJsonStore(TEST_DB_FILE_PATH);
+
+    const updatedTitleProject = await store.updateProjectDetails(
+      "project-1",
+      {
+        title: "Updated Project Title",
+      },
+    );
+
+    tester.expect(updatedTitleProject?.title).toBe("Updated Project Title");
+    tester.expect(updatedTitleProject?.description).toBe("Test project");
+
+    const updatedDescriptionProject = await store.updateProjectDetails(
+      "project-1",
+      {
+        description: "Updated project description",
+      },
+    );
+
+    tester.expect(updatedDescriptionProject?.title).toBe("Updated Project Title");
+    tester.expect(updatedDescriptionProject?.description).toBe(
+      "Updated project description",
+    );
+
+    const database = await readTestDatabase();
+
+    tester.expect(database.projects[0]?.title).toBe("Updated Project Title");
+    tester.expect(database.projects[0]?.description).toBe(
+      "Updated project description",
+    );
+  });
+
+  tester.it("returns null when updating details for a missing project", async () => {
+    const store = createProjectsJsonStore(TEST_DB_FILE_PATH);
+
+    const result = await store.updateProjectDetails(
+      "missing-project",
+      {
+        title: "Updated Project Title",
+      },
+    );
+
+    tester.expect(result).toBe(null);
+  });
+
 });

@@ -198,3 +198,5 @@ Play, pause, stop, and reset two enabled tracks from a shared start point. Each 
   Convert the modal purpose from adding tracks to confirming project creation details.
 
 - [x] Add mix settings to Project details so that mix setting data persists after sesssion ends.
+
+- [x] Add data persistance to project details after editting on the project player page.

@@ -8,6 +8,11 @@ import type {
 type TracksApi = {
     getTracksByProjectId: (projectId: string) => Promise<Track[]>;
     deleteTrack: (projectId: string, trackId: string) => Promise<Track>;
+    updateTrackName?: (
+        projectId: string,
+        trackId: string,
+        name: string,
+    ) => Promise<Track>;
     uploadTrack?: (input: {
         projectId: string;
         trackName: string;
@@ -17,6 +22,14 @@ type TracksApi = {
 
 type ProjectsApi = {
     deleteProject: (projectId: string) => Promise<Project>;
+
+    updateProjectDetails?: (
+        projectId: string,
+        projectInput: {
+            title?: string;
+            description?: string;
+        },
+    ) => Promise<Project>;
 
     saveMixSettings?: (
         projectId: string,
@@ -46,6 +59,8 @@ type AudioPlayerController = {
 type ChooseAudioFile = () => Promise<File | null>;
 
 type GetTrackNameFromFile = (audioFile: File) => string;
+
+type SelectAllText = (element: unknown) => void;
 
 type TrackListElementLike = {
     innerHTML: string;
@@ -84,10 +99,12 @@ type EditableTextEventLike = {
 
 type EditableTextElementLike = TextElementLike & {
     addEventListener: (
-        eventName: "keydown" | "blur",
-        handler: (event: EditableTextEventLike) => void,
+        eventName: "click" | "keydown" | "blur",
+        handler: (
+            event: EditableTextEventLike,
+        ) => void | Promise<void>,
     ) => void;
-    blur?: () => void;
+    blur?: () => void | Promise<void>;
 };
 
 type DeleteButtonLike = {
@@ -130,7 +147,7 @@ type LoadMixButtonLike = {
 type TrackListTargetLike = {
     value?: string;
     textContent?: string | null;
-    blur?: () => void;
+    blur?: () => void | Promise<void>;
 
     dataset?: {
         channelVolume?: string;
@@ -160,6 +177,7 @@ type ProjectPlayerPageControllerOptions = {
     getTrackAudioUrl?: (projectId: string, trackId: string) => string;
     chooseAudioFile?: ChooseAudioFile;
     getTrackNameFromFile?: GetTrackNameFromFile;
+    selectAllText?: SelectAllText;
 };
 
 function getDeleteTrackIdFromTarget(target: EventTarget | null): string | null {
@@ -194,6 +212,26 @@ function getDefaultTrackNameFromFile(audioFile: File): string {
     return filename.slice(0, extensionStartIndex);
 }
 
+function selectAllEditableText(element: unknown): void {
+    if (
+        typeof document === "undefined" ||
+        typeof window === "undefined"
+    ) {
+        return;
+    }
+
+    const selection = window.getSelection();
+
+    if (!selection) {
+        return;
+    }
+
+    const range = document.createRange();
+    range.selectNodeContents(element as Node);
+    selection.removeAllRanges();
+    selection.addRange(range);
+}
+
 function setStatus(
     statusElement: TextElementLike | null | undefined,
     message: string,
@@ -221,43 +259,21 @@ export function createProjectPlayerPageController({
     getTrackAudioUrl,
     chooseAudioFile = async () => null,
     getTrackNameFromFile = getDefaultTrackNameFromFile,
+    selectAllText = selectAllEditableText,
 }: ProjectPlayerPageControllerOptions) {
     let currentTracks: Track[] = [];
     let currentMixSettings: MixSettings | undefined = project.mixSettings;
     let lastLoadedMixSettings: MixSettings | null = null;
     let currentProjectTitle = project.title;
-    const localTrackNames = new Map<string, string>();
+    let currentProjectDescription = project.description;
     const LOAD_MIX_CURRENT_CLASS = "mix-channel-panel__load-button--current";
-
-    function applyLocalTrackNames(tracks: Track[]): Track[] {
-        const trackIds = new Set(tracks.map((track) => track.id));
-
-        for (const trackId of localTrackNames.keys()) {
-            if (!trackIds.has(trackId)) {
-                localTrackNames.delete(trackId);
-            }
-        }
-
-        return tracks.map((track) => {
-            const localName = localTrackNames.get(track.id);
-
-            if (localName === undefined) {
-                return track;
-            }
-
-            return {
-                ...track,
-                name: localName,
-            };
-        });
-    }
 
     async function loadTracks(): Promise<void> {
         lastLoadedMixSettings = null;
 
         try {
             const tracks = await tracksApi.getTracksByProjectId(project.id);
-            currentTracks = applyLocalTrackNames(tracks);
+            currentTracks = tracks;
             trackListElement.innerHTML = renderTrackList(
                 currentTracks,
                 currentMixSettings,
@@ -465,7 +481,25 @@ export function createProjectPlayerPageController({
         return target;
     }
 
-    function commitTrackName(target: TrackListTargetLike): void {
+    function replaceCurrentTrackName(
+        trackId: string,
+        name: string,
+    ): void {
+        currentTracks = currentTracks.map((currentTrack) => {
+            if (currentTrack.id !== trackId) {
+                return currentTrack;
+            }
+
+            return {
+                ...currentTrack,
+                name,
+            };
+        });
+    }
+
+    async function commitTrackName(
+        target: TrackListTargetLike,
+    ): Promise<void> {
         const trackId = target.dataset?.trackId;
 
         if (!trackId) {
@@ -480,32 +514,41 @@ export function createProjectPlayerPageController({
             return;
         }
 
+        const previousName = track.name;
         const editedName = normalizeInlineText(target.textContent ?? "");
-        const nextName = editedName || track.name;
+        const nextName = editedName || previousName;
 
         target.textContent = nextName;
 
-        if (nextName === track.name) {
+        if (nextName === previousName) {
             return;
         }
 
-        localTrackNames.set(trackId, nextName);
+        replaceCurrentTrackName(trackId, nextName);
 
-        currentTracks = currentTracks.map((currentTrack) => {
-            if (currentTrack.id !== trackId) {
-                return currentTrack;
-            }
+        if (!tracksApi.updateTrackName) {
+            return;
+        }
 
-            return {
-                ...currentTrack,
-                name: nextName,
-            };
-        });
+        try {
+            const updatedTrack = await tracksApi.updateTrackName(
+                project.id,
+                trackId,
+                nextName,
+            );
+
+            replaceCurrentTrackName(trackId, updatedTrack.name);
+            target.textContent = updatedTrack.name;
+        } catch {
+            replaceCurrentTrackName(trackId, previousName);
+            target.textContent = previousName;
+            setStatus(statusElement, "Could not save track name.");
+        }
     }
 
-    function handleTrackListKeydown(
+    async function handleTrackListKeydown(
         event: TrackListEventLike,
-    ): void {
+    ): Promise<void> {
         const trackNameEditor = getTrackNameEditorTarget(event);
 
         if (!trackNameEditor || event.key !== "Enter") {
@@ -513,77 +556,139 @@ export function createProjectPlayerPageController({
         }
 
         event.preventDefault?.();
-        commitTrackName(trackNameEditor);
-        trackNameEditor.blur?.();
+        await trackNameEditor.blur?.();
     }
 
-    function handleTrackListFocusOut(
+    async function handleTrackListFocusOut(
         event: TrackListEventLike,
-    ): void {
+    ): Promise<void> {
         const trackNameEditor = getTrackNameEditorTarget(event);
 
         if (!trackNameEditor) {
             return;
         }
 
-        commitTrackName(trackNameEditor);
+        await commitTrackName(trackNameEditor);
     }
 
-    function commitProjectTitle(): void {
+    async function commitProjectTitle(): Promise<void> {
         if (!projectTitleElement) {
             return;
         }
 
+        const previousTitle = currentProjectTitle;
         const editedTitle = normalizeInlineText(
             projectTitleElement.textContent ?? "",
         );
 
         if (!editedTitle) {
-            projectTitleElement.textContent = currentProjectTitle;
+            projectTitleElement.textContent = previousTitle;
+            return;
+        }
+
+        projectTitleElement.textContent = editedTitle;
+
+        if (editedTitle === previousTitle) {
             return;
         }
 
         currentProjectTitle = editedTitle;
-        projectTitleElement.textContent = editedTitle;
+
+        if (!projectsApi?.updateProjectDetails) {
+            return;
+        }
+
+        try {
+            const updatedProject = await projectsApi.updateProjectDetails(
+                project.id,
+                {
+                    title: editedTitle,
+                },
+            );
+
+            currentProjectTitle = updatedProject.title;
+            project.title = updatedProject.title;
+            projectTitleElement.textContent = updatedProject.title;
+        } catch {
+            currentProjectTitle = previousTitle;
+            projectTitleElement.textContent = previousTitle;
+            setStatus(statusElement, "Could not save project title.");
+        }
     }
 
-    function commitProjectDescription(): void {
+    async function commitProjectDescription(): Promise<void> {
         if (!projectDescriptionElement) {
             return;
         }
 
-        projectDescriptionElement.textContent = normalizeInlineText(
+        const previousDescription = currentProjectDescription;
+        const editedDescription = normalizeInlineText(
             projectDescriptionElement.textContent ?? "",
         );
+
+        projectDescriptionElement.textContent = editedDescription;
+
+        if (editedDescription === previousDescription) {
+            return;
+        }
+
+        currentProjectDescription = editedDescription;
+
+        if (!projectsApi?.updateProjectDetails) {
+            return;
+        }
+
+        try {
+            const updatedProject = await projectsApi.updateProjectDetails(
+                project.id,
+                {
+                    description: editedDescription,
+                },
+            );
+
+            currentProjectDescription = updatedProject.description;
+            project.description = updatedProject.description;
+            projectDescriptionElement.textContent = updatedProject.description;
+        } catch {
+            currentProjectDescription = previousDescription;
+            projectDescriptionElement.textContent = previousDescription;
+            setStatus(statusElement, "Could not save project description.");
+        }
     }
 
     function registerProjectDetailEditors(): void {
-        projectTitleElement?.addEventListener("keydown", (event) => {
+        projectTitleElement?.addEventListener("click", () => {
+            selectAllText(projectTitleElement);
+        });
+
+        projectTitleElement?.addEventListener("keydown", async (event) => {
             if (event.key !== "Enter") {
                 return;
             }
 
             event.preventDefault?.();
-            commitProjectTitle();
-            projectTitleElement.blur?.();
+            await projectTitleElement.blur?.();
         });
 
         projectTitleElement?.addEventListener("blur", () => {
-            commitProjectTitle();
+            return commitProjectTitle();
         });
 
-        projectDescriptionElement?.addEventListener("keydown", (event) => {
+        projectDescriptionElement?.addEventListener("click", () => {
+            selectAllText(projectDescriptionElement);
+        });
+
+        projectDescriptionElement?.addEventListener("keydown", async (event) => {
             if (event.key !== "Enter") {
                 return;
             }
 
             event.preventDefault?.();
-            commitProjectDescription();
-            projectDescriptionElement.blur?.();
+            await projectDescriptionElement.blur?.();
         });
 
         projectDescriptionElement?.addEventListener("blur", () => {
-            commitProjectDescription();
+            return commitProjectDescription();
         });
     }
 
@@ -726,6 +831,13 @@ export function createProjectPlayerPageController({
     async function handleTrackListClick(
         event: TrackListEventLike,
     ): Promise<void> {
+        const trackNameEditor = getTrackNameEditorTarget(event);
+
+        if (trackNameEditor) {
+            selectAllText(trackNameEditor);
+            return;
+        }
+
         const isLoadMixClick = getIsLoadMixClickFromTarget(event.target);
 
         if (isLoadMixClick) {
@@ -792,11 +904,11 @@ export function createProjectPlayerPageController({
         });
 
         trackListElement.addEventListener("keydown", (event) => {
-            handleTrackListKeydown(event);
+            return handleTrackListKeydown(event);
         });
 
         trackListElement.addEventListener("focusout", (event) => {
-            handleTrackListFocusOut(event);
+            return handleTrackListFocusOut(event);
         });
 
         registerProjectDetailEditors();

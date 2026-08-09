@@ -317,4 +317,81 @@ tester.describe("tracks JSON store", () => {
 
     tester.expect(foundTrack).toBe(null);
   });
+  tester.it("updates a track name and persists it", async () => {
+    const track = createTestTrack();
+
+    await writeTestDatabase({
+      projects: [createTestProject("project-1")],
+      tracks: [track],
+    });
+
+    const store = createTracksJsonStore(TEST_DB_FILE_PATH);
+
+    const result = await store.updateTrackName(
+      "project-1",
+      "track-1",
+      {
+        name: "Lead Guitar",
+      },
+    );
+
+    tester.expect(result.ok).toBe(true);
+
+    if (!result.ok) {
+      throw new Error("Expected track name update to succeed.");
+    }
+
+    tester.expect(result.updatedTrack.name).toBe("Lead Guitar");
+
+    const database = await readTestDatabase();
+
+    tester.expect(database.tracks[0]?.name).toBe("Lead Guitar");
+  });
+
+  tester.it("returns project-not-found when updating a track for a missing project", async () => {
+    const track = createTestTrack();
+
+    await writeTestDatabase({
+      projects: [],
+      tracks: [track],
+    });
+
+    const store = createTracksJsonStore(TEST_DB_FILE_PATH);
+
+    const result = await store.updateTrackName(
+      "missing-project",
+      "track-1",
+      {
+        name: "Lead Guitar",
+      },
+    );
+
+    tester.expect(result).toEqual({
+      ok: false,
+      reason: "project-not-found",
+    });
+  });
+
+  tester.it("returns track-not-found when updating a missing track", async () => {
+    await writeTestDatabase({
+      projects: [createTestProject("project-1")],
+      tracks: [],
+    });
+
+    const store = createTracksJsonStore(TEST_DB_FILE_PATH);
+
+    const result = await store.updateTrackName(
+      "project-1",
+      "missing-track",
+      {
+        name: "Lead Guitar",
+      },
+    );
+
+    tester.expect(result).toEqual({
+      ok: false,
+      reason: "track-not-found",
+    });
+  });
+
 });

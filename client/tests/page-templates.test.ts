@@ -92,8 +92,8 @@ tester.describe("page templates", () => {
     tester.expect(html.includes("data-project-title-editor")).toBe(true);
     tester.expect(html.includes("data-project-description-editor")).toBe(true);
     tester.expect(html.includes('contenteditable="true"')).toBe(true);
-    tester.expect(html.includes("project-player-editable__icon")).toBe(true);
-    tester.expect(html.includes("✎")).toBe(true);
+    tester.expect(html.includes("project-player-editable__icon")).toBe(false);
+    tester.expect(html.includes("✎")).toBe(false);
     tester.expect(html.includes("Audio Player")).toBe(true);
     tester.expect(html.includes("player-area")).toBe(true);
     tester.expect(html.includes("player-track-list")).toBe(true);

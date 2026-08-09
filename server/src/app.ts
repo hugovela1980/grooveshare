@@ -12,6 +12,8 @@ import type { TracksStore } from "./stores/tracks-json-store.js";
 import type {
   CreateProjectInput,
   MixSettings,
+  UpdateProjectDetailsInput,
+  UpdateTrackNameInput,
 } from "./types.js";
 import { parseMultipartFormData } from "./uploads/multipart-form-data.js";
 import {
@@ -89,6 +91,45 @@ function isCreateProjectInput(data: unknown): data is CreateProjectInput {
     input.title.trim().length > 0 &&
     typeof input.description === "string"
   );
+}
+
+function isUpdateProjectDetailsInput(
+  data: unknown,
+): data is UpdateProjectDetailsInput {
+  if (!data || typeof data !== "object") {
+    return false;
+  }
+
+  const input = data as Record<string, unknown>;
+  const hasTitle = Object.hasOwn(input, "title");
+  const hasDescription = Object.hasOwn(input, "description");
+
+  if (!hasTitle && !hasDescription) {
+    return false;
+  }
+
+  if (
+    hasTitle &&
+    (typeof input.title !== "string" || input.title.trim().length === 0)
+  ) {
+    return false;
+  }
+
+  if (hasDescription && typeof input.description !== "string") {
+    return false;
+  }
+
+  return true;
+}
+
+function isUpdateTrackNameInput(data: unknown): data is UpdateTrackNameInput {
+  if (!data || typeof data !== "object") {
+    return false;
+  }
+
+  const input = data as Record<string, unknown>;
+
+  return typeof input.name === "string" && input.name.trim().length > 0;
 }
 
 function isMixSettings(data: unknown): data is MixSettings {
@@ -244,6 +285,84 @@ export function createAppServer({
     sendJson(
       res,
       201,
+      {
+        ok: true,
+        data: project,
+      },
+      clientOrigin,
+    );
+  }
+
+  async function handleUpdateProjectDetails(
+    req: IncomingMessage,
+    res: ServerResponse,
+    projectId: string,
+  ): Promise<void> {
+    const body = await readRequestBody(req);
+
+    let parsedBody: unknown;
+
+    try {
+      parsedBody = JSON.parse(body) as unknown;
+    } catch {
+      sendJson(
+        res,
+        400,
+        {
+          ok: false,
+          error: "Invalid project details.",
+        },
+        clientOrigin,
+      );
+
+      return;
+    }
+
+    if (!isUpdateProjectDetailsInput(parsedBody)) {
+      sendJson(
+        res,
+        400,
+        {
+          ok: false,
+          error: "Invalid project details.",
+        },
+        clientOrigin,
+      );
+
+      return;
+    }
+
+    const projectInput: UpdateProjectDetailsInput = {
+      ...(parsedBody.title !== undefined
+        ? { title: parsedBody.title.trim() }
+        : {}),
+      ...(parsedBody.description !== undefined
+        ? { description: parsedBody.description.trim() }
+        : {}),
+    };
+
+    const project = await projectsStore.updateProjectDetails(
+      projectId,
+      projectInput,
+    );
+
+    if (!project) {
+      sendJson(
+        res,
+        404,
+        {
+          ok: false,
+          error: "Project not found.",
+        },
+        clientOrigin,
+      );
+
+      return;
+    }
+
+    sendJson(
+      res,
+      200,
       {
         ok: true,
         data: project,
@@ -538,6 +657,84 @@ export function createAppServer({
     }
   }
 
+  async function handleUpdateTrackName(
+    req: IncomingMessage,
+    res: ServerResponse,
+    projectId: string,
+    trackId: string,
+  ): Promise<void> {
+    const body = await readRequestBody(req);
+
+    let parsedBody: unknown;
+
+    try {
+      parsedBody = JSON.parse(body) as unknown;
+    } catch {
+      sendJson(
+        res,
+        400,
+        {
+          ok: false,
+          error: "Invalid track name.",
+        },
+        clientOrigin,
+      );
+
+      return;
+    }
+
+    if (!isUpdateTrackNameInput(parsedBody)) {
+      sendJson(
+        res,
+        400,
+        {
+          ok: false,
+          error: "Invalid track name.",
+        },
+        clientOrigin,
+      );
+
+      return;
+    }
+
+    const result = await tracksStore.updateTrackName(
+      projectId,
+      trackId,
+      {
+        name: parsedBody.name.trim(),
+      },
+    );
+
+    if (!result.ok) {
+      const error =
+        result.reason === "project-not-found"
+          ? "Project not found."
+          : "Track not found.";
+
+      sendJson(
+        res,
+        404,
+        {
+          ok: false,
+          error,
+        },
+        clientOrigin,
+      );
+
+      return;
+    }
+
+    sendJson(
+      res,
+      200,
+      {
+        ok: true,
+        data: result.updatedTrack,
+      },
+      clientOrigin,
+    );
+  }
+
   async function handleDeleteTrack(
     res: ServerResponse,
     projectId: string,
@@ -741,6 +938,11 @@ export function createAppServer({
 
       const projectRouteId = getProjectRouteId(req.url);
 
+      if (req.method === "PUT" && projectRouteId) {
+        await handleUpdateProjectDetails(req, res, projectRouteId);
+        return;
+      }
+
       if (req.method === "DELETE" && projectRouteId) {
         await handleDeleteProject(res, projectRouteId);
         return;
@@ -771,6 +973,17 @@ export function createAppServer({
       }
 
       const trackRouteParams = getTrackRouteParams(req.url);
+
+      if (req.method === "PUT" && trackRouteParams) {
+        await handleUpdateTrackName(
+          req,
+          res,
+          trackRouteParams.projectId,
+          trackRouteParams.trackId,
+        );
+
+        return;
+      }
 
       if (req.method === "DELETE" && trackRouteParams) {
         await handleDeleteTrack(

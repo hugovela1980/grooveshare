@@ -80,11 +80,6 @@ function renderAssignedChannelSlot(
             data-track-name-editor
             data-track-id="${escapeHtml(track.id)}"
           >${escapeHtml(track.name)}</span>
-          <span
-            class="mix-channel-slot__edit-icon"
-            aria-hidden="true"
-            title="Edit track name"
-          >✎</span>
         </div>
       </div>
 

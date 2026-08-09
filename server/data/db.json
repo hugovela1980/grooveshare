@@ -1,81 +1,81 @@
 {
   "projects": [
     {
-      "id": "c17517af-a8c6-4837-a3d8-100d90a10ede",
-      "title": "asdf",
-      "description": "asdf",
+      "id": "f5ebd52b-7820-4bab-be10-7456e9a7bb55",
+      "title": "Rock groove",
+      "description": "A rock groove with a hint of eastern flavor",
       "mixSettings": {
         "channels": [
           {
             "channelNumber": 1,
-            "trackId": "85b916c0-7599-4bb3-807b-b6053c07c3bd",
+            "trackId": "7401704c-b2be-475c-ba9c-0d6848b4e7f0",
             "enabled": true,
             "volume": 1
           },
           {
             "channelNumber": 2,
-            "trackId": "65452c7f-3c87-47b5-bf0c-65ba960a8a97",
+            "trackId": "039124b7-a153-4185-b371-00a658e1fdcc",
             "enabled": true,
             "volume": 1
           },
           {
             "channelNumber": 3,
-            "trackId": "ec8f34eb-b377-40eb-a864-e493be63968b",
+            "trackId": "92927eae-6203-4e35-ac45-7eec8ec3589f",
             "enabled": true,
             "volume": 1
           },
           {
             "channelNumber": 4,
-            "trackId": "107b913f-5a13-4363-bef8-09d1734fb3d0",
+            "trackId": "65609751-1e38-47ef-b058-7db7a550eb82",
             "enabled": true,
-            "volume": 1
+            "volume": 0.68
           }
         ]
       },
-      "createdAt": "2026-08-09T05:47:53.244Z",
-      "updatedAt": "2026-08-09T14:59:23.009Z"
+      "createdAt": "2026-08-09T16:07:45.580Z",
+      "updatedAt": "2026-08-09T16:11:43.083Z"
     }
   ],
   "tracks": [
     {
-      "id": "85b916c0-7599-4bb3-807b-b6053c07c3bd",
-      "projectId": "c17517af-a8c6-4837-a3d8-100d90a10ede",
-      "name": "Bass",
-      "originalFilename": "Bass.wav",
-      "filePath": "uploads\\projects\\c17517af-a8c6-4837-a3d8-100d90a10ede\\16e7fe30-5605-4a1e-a907-949e5330c908-Bass.wav",
-      "mimeType": "audio/wav",
-      "fileSize": 2822444,
-      "createdAt": "2026-08-09T05:47:53.283Z"
-    },
-    {
-      "id": "65452c7f-3c87-47b5-bf0c-65ba960a8a97",
-      "projectId": "c17517af-a8c6-4837-a3d8-100d90a10ede",
-      "name": "Delay Guitar",
+      "id": "7401704c-b2be-475c-ba9c-0d6848b4e7f0",
+      "projectId": "f5ebd52b-7820-4bab-be10-7456e9a7bb55",
+      "name": "Delay G",
       "originalFilename": "Delay Guitar.wav",
-      "filePath": "uploads\\projects\\c17517af-a8c6-4837-a3d8-100d90a10ede\\092c9cdd-33e8-45f3-9cdc-49e62b3847f8-Delay-Guitar.wav",
+      "filePath": "uploads\\projects\\f5ebd52b-7820-4bab-be10-7456e9a7bb55\\efbb5d5c-96de-4e49-852c-6e81979b9b5b-Delay-Guitar.wav",
       "mimeType": "audio/wav",
       "fileSize": 2822444,
-      "createdAt": "2026-08-09T05:47:53.327Z"
+      "createdAt": "2026-08-09T16:07:45.619Z"
     },
     {
-      "id": "ec8f34eb-b377-40eb-a864-e493be63968b",
-      "projectId": "c17517af-a8c6-4837-a3d8-100d90a10ede",
+      "id": "039124b7-a153-4185-b371-00a658e1fdcc",
+      "projectId": "f5ebd52b-7820-4bab-be10-7456e9a7bb55",
       "name": "Drums",
       "originalFilename": "Drums.wav",
-      "filePath": "uploads\\projects\\c17517af-a8c6-4837-a3d8-100d90a10ede\\92eebcb2-a06f-431c-b169-188078d10607-Drums.wav",
+      "filePath": "uploads\\projects\\f5ebd52b-7820-4bab-be10-7456e9a7bb55\\a872c3e9-7c31-42c5-a2d9-bb1bf18022bb-Drums.wav",
       "mimeType": "audio/wav",
       "fileSize": 2822444,
-      "createdAt": "2026-08-09T05:47:53.359Z"
+      "createdAt": "2026-08-09T16:07:45.660Z"
     },
     {
-      "id": "107b913f-5a13-4363-bef8-09d1734fb3d0",
-      "projectId": "c17517af-a8c6-4837-a3d8-100d90a10ede",
-      "name": "Tremolo Guitar",
+      "id": "92927eae-6203-4e35-ac45-7eec8ec3589f",
+      "projectId": "f5ebd52b-7820-4bab-be10-7456e9a7bb55",
+      "name": "Tremolo G",
       "originalFilename": "Tremolo Guitar.wav",
-      "filePath": "uploads\\projects\\c17517af-a8c6-4837-a3d8-100d90a10ede\\52ed75d6-fad6-4c32-a3fe-5dbb12f7c234-Tremolo-Guitar.wav",
+      "filePath": "uploads\\projects\\f5ebd52b-7820-4bab-be10-7456e9a7bb55\\440cfeea-aeaf-437f-9462-0e215e9b8160-Tremolo-Guitar.wav",
       "mimeType": "audio/wav",
       "fileSize": 2822444,
-      "createdAt": "2026-08-09T05:47:53.395Z"
+      "createdAt": "2026-08-09T16:07:45.692Z"
+    },
+    {
+      "id": "65609751-1e38-47ef-b058-7db7a550eb82",
+      "projectId": "f5ebd52b-7820-4bab-be10-7456e9a7bb55",
+      "name": "Bass",
+      "originalFilename": "Bass.wav",
+      "filePath": "uploads\\projects\\f5ebd52b-7820-4bab-be10-7456e9a7bb55\\8a173923-ac64-4b61-96f8-97b2430662bd-Bass.wav",
+      "mimeType": "audio/wav",
+      "fileSize": 2822444,
+      "createdAt": "2026-08-09T16:10:00.085Z"
     }
   ]
 }

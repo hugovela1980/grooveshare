@@ -2,6 +2,7 @@ import type {
   CreateProjectInput,
   MixSettings,
   Project,
+  UpdateProjectDetailsInput,
 } from "../types.js";
 
 type ApiResponse<T> = {
@@ -41,6 +42,21 @@ export async function createProject(
   return parseApiResponse<Project>(response);
 }
 
+export async function updateProjectDetails(
+  projectId: string,
+  projectInput: UpdateProjectDetailsInput,
+): Promise<Project> {
+  const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(projectInput),
+  });
+
+  return parseApiResponse<Project>(response);
+}
+
 export async function deleteProject(projectId: string): Promise<Project> {
   const response = await fetch(`${API_BASE_URL}/api/projects/${projectId}`, {
     method: "DELETE",
@@ -70,6 +86,7 @@ export async function saveMixSettings(
 export const projectsApi = {
   getProjects,
   createProject,
+  updateProjectDetails,
   deleteProject,
   saveMixSettings,
 };

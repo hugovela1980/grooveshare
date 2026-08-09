@@ -1,9 +1,23 @@
-import type { CreateTrackInput, Track } from "../types.js";
+import type {
+  CreateTrackInput,
+  Track,
+  UpdateTrackNameInput,
+} from "../types.js";
 import {
   DEFAULT_DB_FILE_PATH,
   readDatabase,
   writeDatabase,
 } from "./json-db.js";
+
+export type UpdateTrackResult =
+  | {
+    ok: true;
+    updatedTrack: Track;
+  }
+  | {
+    ok: false;
+    reason: "project-not-found" | "track-not-found";
+  };
 
 export type DeleteTrackResult =
   | {
@@ -18,6 +32,11 @@ export type DeleteTrackResult =
 export type TracksStore = {
   getTracksByProjectId: (projectId: string) => Promise<Track[]>;
   createTrack: (trackInput: CreateTrackInput) => Promise<Track>;
+  updateTrackName: (
+    projectId: string,
+    trackId: string,
+    trackInput: UpdateTrackNameInput,
+  ) => Promise<UpdateTrackResult>;
   deleteTrackById: (
     projectId: string,
     trackId: string,
@@ -56,6 +75,59 @@ export function createTracksJsonStore(
     await writeDatabase(dbFilePath, database);
 
     return track;
+  }
+
+  async function updateTrackName(
+    projectId: string,
+    trackId: string,
+    trackInput: UpdateTrackNameInput,
+  ): Promise<UpdateTrackResult> {
+    const database = await readDatabase(dbFilePath);
+
+    const projectExists = database.projects.some((project) => {
+      return project.id === projectId;
+    });
+
+    if (!projectExists) {
+      return {
+        ok: false,
+        reason: "project-not-found",
+      };
+    }
+
+    const trackIndex = database.tracks.findIndex((track) => {
+      return track.projectId === projectId && track.id === trackId;
+    });
+
+    if (trackIndex === -1) {
+      return {
+        ok: false,
+        reason: "track-not-found",
+      };
+    }
+
+    const existingTrack = database.tracks[trackIndex];
+
+    if (!existingTrack) {
+      return {
+        ok: false,
+        reason: "track-not-found",
+      };
+    }
+
+    const updatedTrack: Track = {
+      ...existingTrack,
+      name: trackInput.name,
+    };
+
+    database.tracks[trackIndex] = updatedTrack;
+
+    await writeDatabase(dbFilePath, database);
+
+    return {
+      ok: true,
+      updatedTrack,
+    };
   }
 
   async function deleteTrackById(
@@ -115,6 +187,7 @@ export function createTracksJsonStore(
     getTracksByProjectId,
     getTrackById,
     createTrack,
+    updateTrackName,
     deleteTrackById,
   };
 }

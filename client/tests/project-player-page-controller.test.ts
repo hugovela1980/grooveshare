@@ -350,6 +350,26 @@ function createFakeTrackListElement() {
       };
     },
 
+    async clickTrackName(trackId: string): Promise<unknown> {
+      if (!clickHandler) {
+        throw new Error("Click handler was not registered.");
+      }
+
+      const target = {
+        textContent: "Track name",
+        dataset: {
+          trackNameEditor: "",
+          trackId,
+        },
+      };
+
+      await clickHandler({
+        target: target as unknown as EventTarget,
+      });
+
+      return target;
+    },
+
     getVolumeValueText(channelNumber: number): string {
       return volumeValueElements.get(channelNumber)?.textContent ?? "";
     },
@@ -392,12 +412,21 @@ function createFakeDeleteProjectButton() {
 }
 
 function createFakeEditableTextElement(initialText: string) {
+  type FakeEditableEvent = {
+    key?: string;
+    preventDefault?: () => void;
+  };
+
+  let clickHandler:
+    | ((event: FakeEditableEvent) => void | Promise<void>)
+    | null = null;
+
   let keydownHandler:
-    | ((event: { key?: string; preventDefault?: () => void }) => void)
+    | ((event: FakeEditableEvent) => void | Promise<void>)
     | null = null;
 
   let blurHandler:
-    | ((event: { key?: string; preventDefault?: () => void }) => void)
+    | ((event: FakeEditableEvent) => void | Promise<void>)
     | null = null;
 
   let blurCallCount = 0;
@@ -406,12 +435,13 @@ function createFakeEditableTextElement(initialText: string) {
     textContent: initialText,
 
     addEventListener(
-      eventName: "keydown" | "blur",
-      handler: (event: {
-        key?: string;
-        preventDefault?: () => void;
-      }) => void,
+      eventName: "click" | "keydown" | "blur",
+      handler: (event: FakeEditableEvent) => void | Promise<void>,
     ) {
+      if (eventName === "click") {
+        clickHandler = handler;
+      }
+
       if (eventName === "keydown") {
         keydownHandler = handler;
       }
@@ -421,12 +451,23 @@ function createFakeEditableTextElement(initialText: string) {
       }
     },
 
-    blur() {
-      blurCallCount += 1;
-      blurHandler?.({});
+    async click(): Promise<void> {
+      if (!clickHandler) {
+        throw new Error("Click handler was not registered.");
+      }
+
+      await clickHandler({});
     },
 
-    pressEnter(text: string) {
+    async blur(): Promise<void> {
+      blurCallCount += 1;
+      await blurHandler?.({});
+    },
+
+    async pressEnter(text: string): Promise<{
+      preventDefaultCallCount: number;
+      blurCallCount: number;
+    }> {
       if (!keydownHandler) {
         throw new Error("Keydown handler was not registered.");
       }
@@ -434,7 +475,7 @@ function createFakeEditableTextElement(initialText: string) {
       let preventDefaultCallCount = 0;
       element.textContent = text;
 
-      keydownHandler({
+      await keydownHandler({
         key: "Enter",
         preventDefault() {
           preventDefaultCallCount += 1;
@@ -447,13 +488,13 @@ function createFakeEditableTextElement(initialText: string) {
       };
     },
 
-    loseFocus(text: string) {
+    async loseFocus(text: string): Promise<void> {
       if (!blurHandler) {
         throw new Error("Blur handler was not registered.");
       }
 
       element.textContent = text;
-      blurHandler({});
+      await blurHandler({});
     },
 
     getBlurCallCount() {
@@ -1200,7 +1241,7 @@ tester.describe("project player page controller", () => {
     tester.expect(trackListElement.isLoadMixCurrent()).toBe(true);
   });
 
-  tester.it("keeps an edited track name local and uses it when loading the mix", async () => {
+  tester.it("persists an edited track name and uses it when loading the mix", async () => {
     const project = createProject();
     const trackListElement = createFakeTrackListElement();
     const track = createTrack();
@@ -1214,6 +1255,7 @@ tester.describe("project player page controller", () => {
       },
     ]);
 
+    let savedTrackName = "";
     let loadedTrackName = "";
 
     const controller = createProjectPlayerPageController({
@@ -1226,6 +1268,17 @@ tester.describe("project player page controller", () => {
 
         async deleteTrack() {
           return track;
+        },
+
+        async updateTrackName(projectId, trackId, name) {
+          tester.expect(projectId).toBe("project-1");
+          tester.expect(trackId).toBe("track-1");
+          savedTrackName = name;
+
+          return {
+            ...track,
+            name,
+          };
         },
       },
       renderTrackList(tracks) {
@@ -1249,6 +1302,7 @@ tester.describe("project player page controller", () => {
     );
 
     tester.expect(editedText).toBe("Lead Guitar");
+    tester.expect(savedTrackName).toBe("Lead Guitar");
 
     await trackListElement.clickLoadMixButton();
 
@@ -1287,13 +1341,18 @@ tester.describe("project player page controller", () => {
     tester.expect(result.blurCallCount).toBe(1);
   });
 
-  tester.it("edits the project title and description locally", async () => {
+  tester.it("persists edited project title and description", async () => {
+    const project = createProject();
     const trackListElement = createFakeTrackListElement();
     const projectTitleElement = createFakeEditableTextElement("Bass Groove");
     const projectDescriptionElement = createFakeEditableTextElement("Practice loop");
+    const projectDetailUpdates: Array<{
+      title?: string;
+      description?: string;
+    }> = [];
 
     const controller = createProjectPlayerPageController({
-      project: createProject(),
+      project,
       trackListElement,
       projectTitleElement,
       projectDescriptionElement,
@@ -1306,6 +1365,20 @@ tester.describe("project player page controller", () => {
           throw new Error("deleteTrack should not be called in this test.");
         },
       },
+      projectsApi: {
+        async deleteProject() {
+          return project;
+        },
+
+        async updateProjectDetails(_projectId, projectInput) {
+          projectDetailUpdates.push(projectInput);
+
+          return {
+            ...project,
+            ...projectInput,
+          };
+        },
+      },
       renderTrackList() {
         return "tracks";
       },
@@ -1313,17 +1386,70 @@ tester.describe("project player page controller", () => {
 
     await controller.init();
 
-    const titleResult = projectTitleElement.pressEnter("  New Project Title  ");
+    const titleResult = await projectTitleElement.pressEnter(
+      "  New Project Title  ",
+    );
 
     tester.expect(projectTitleElement.textContent).toBe("New Project Title");
     tester.expect(titleResult.preventDefaultCallCount).toBe(1);
     tester.expect(titleResult.blurCallCount).toBe(1);
 
-    projectDescriptionElement.loseFocus("  New project description  ");
+    await projectDescriptionElement.loseFocus(
+      "  New project description  ",
+    );
 
     tester.expect(projectDescriptionElement.textContent).toBe(
       "New project description",
     );
+
+    tester.expect(projectDetailUpdates).toEqual([
+      {
+        title: "New Project Title",
+      },
+      {
+        description: "New project description",
+      },
+    ]);
+  });
+
+  tester.it("selects all inline editable text when it is clicked", async () => {
+    const trackListElement = createFakeTrackListElement();
+    const projectTitleElement = createFakeEditableTextElement("Bass Groove");
+    const projectDescriptionElement = createFakeEditableTextElement("Practice loop");
+    const selectedElements: unknown[] = [];
+
+    const controller = createProjectPlayerPageController({
+      project: createProject(),
+      trackListElement,
+      projectTitleElement,
+      projectDescriptionElement,
+      tracksApi: {
+        async getTracksByProjectId() {
+          return [createTrack()];
+        },
+
+        async deleteTrack() {
+          return createTrack();
+        },
+      },
+      renderTrackList() {
+        return "tracks";
+      },
+      selectAllText(element) {
+        selectedElements.push(element);
+      },
+    });
+
+    await controller.init();
+
+    await projectTitleElement.click();
+    await projectDescriptionElement.click();
+    const trackNameTarget = await trackListElement.clickTrackName("track-1");
+
+    tester.expect(selectedElements.length).toBe(3);
+    tester.expect(selectedElements[0]).toBe(projectTitleElement);
+    tester.expect(selectedElements[1]).toBe(projectDescriptionElement);
+    tester.expect(selectedElements[2]).toBe(trackNameTarget);
   });
 
   tester.it("marks the loaded mix dirty when a channel enabled state changes", async () => {

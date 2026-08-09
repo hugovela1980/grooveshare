@@ -47,6 +47,25 @@ export function getTrackAudioUrl(projectId: string, trackId: string): string {
     )}/tracks/${encodeURIComponent(trackId)}/audio`;
 }
 
+export async function updateTrackName(
+    projectId: string,
+    trackId: string,
+    name: string,
+): Promise<Track> {
+    const response = await fetch(
+        `${API_BASE_URL}/api/projects/${projectId}/tracks/${trackId}`,
+        {
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ name }),
+        },
+    );
+
+    return parseApiResponse<Track>(response);
+}
+
 export async function deleteTrack(
     projectId: string,
     trackId: string,
@@ -64,5 +83,6 @@ export async function deleteTrack(
 export const tracksApi = {
     getTracksByProjectId,
     uploadTrack,
+    updateTrackName,
     deleteTrack,
 };

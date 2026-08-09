@@ -1400,4 +1400,220 @@ tester.describe("project API routes", () => {
       await closeServer(server);
     }
   });
+  tester.it("updates project title and description details", async () => {
+    const { baseUrl, server } = await createTestServer();
+
+    try {
+      const createResponse = await fetch(`${baseUrl}/api/projects`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: "Original Title",
+          description: "Original description",
+        }),
+      });
+
+      const createBody = (await createResponse.json()) as ApiResponse<Project>;
+      const projectId = createBody.data?.id;
+
+      if (!projectId) {
+        throw new Error("Created project did not include an ID.");
+      }
+
+      const titleResponse = await fetch(`${baseUrl}/api/projects/${projectId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: "Updated Title",
+        }),
+      });
+
+      const titleBody = (await titleResponse.json()) as ApiResponse<Project>;
+
+      tester.expect(titleResponse.status).toBe(200);
+      tester.expect(titleBody.data?.title).toBe("Updated Title");
+      tester.expect(titleBody.data?.description).toBe("Original description");
+
+      const descriptionResponse = await fetch(
+        `${baseUrl}/api/projects/${projectId}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            description: "Updated description",
+          }),
+        },
+      );
+
+      tester.expect(descriptionResponse.status).toBe(200);
+
+      const getResponse = await fetch(`${baseUrl}/api/projects/${projectId}`);
+      const getBody = (await getResponse.json()) as ApiResponse<Project>;
+
+      tester.expect(getBody.data?.title).toBe("Updated Title");
+      tester.expect(getBody.data?.description).toBe("Updated description");
+    } finally {
+      await closeServer(server);
+    }
+  });
+
+  tester.it("returns 400 for invalid project detail updates", async () => {
+    const { baseUrl, server } = await createTestServer();
+
+    try {
+      const createResponse = await fetch(`${baseUrl}/api/projects`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: "Project",
+          description: "Description",
+        }),
+      });
+
+      const createBody = (await createResponse.json()) as ApiResponse<Project>;
+      const projectId = createBody.data?.id;
+
+      if (!projectId) {
+        throw new Error("Created project did not include an ID.");
+      }
+
+      const response = await fetch(`${baseUrl}/api/projects/${projectId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: "   ",
+        }),
+      });
+
+      const body = (await response.json()) as ApiResponse<unknown>;
+
+      tester.expect(response.status).toBe(400);
+      tester.expect(body.ok).toBe(false);
+      tester.expect(body.error).toBe("Invalid project details.");
+    } finally {
+      await closeServer(server);
+    }
+  });
+
+  tester.it("updates a track name", async () => {
+    const project: Project = {
+      id: "project-1",
+      title: "Project One",
+      description: "Test project",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    };
+
+    const track: Track = {
+      id: "track-1",
+      projectId: "project-1",
+      name: "Guitar",
+      originalFilename: "guitar.wav",
+      filePath: "uploads/projects/project-1/guitar.wav",
+      mimeType: "audio/wav",
+      fileSize: 100,
+      createdAt: "2026-01-01T00:00:00.000Z",
+    };
+
+    await writeFile(
+      TEST_DB_FILE_PATH,
+      `${JSON.stringify({ projects: [project], tracks: [track] }, null, 2)}\n`,
+      "utf-8",
+    );
+
+    const { baseUrl, server } = await createTestServer();
+
+    try {
+      const response = await fetch(
+        `${baseUrl}/api/projects/project-1/tracks/track-1`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: "Lead Guitar",
+          }),
+        },
+      );
+
+      const body = (await response.json()) as ApiResponse<Track>;
+
+      tester.expect(response.status).toBe(200);
+      tester.expect(body.ok).toBe(true);
+      tester.expect(body.data?.name).toBe("Lead Guitar");
+
+      const tracksResponse = await fetch(
+        `${baseUrl}/api/projects/project-1/tracks`,
+      );
+      const tracksBody = (await tracksResponse.json()) as ApiResponse<Track[]>;
+
+      tester.expect(tracksBody.data?.[0]?.name).toBe("Lead Guitar");
+    } finally {
+      await closeServer(server);
+    }
+  });
+
+  tester.it("returns 400 for an invalid track name update", async () => {
+    const project: Project = {
+      id: "project-1",
+      title: "Project One",
+      description: "Test project",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    };
+
+    const track: Track = {
+      id: "track-1",
+      projectId: "project-1",
+      name: "Guitar",
+      originalFilename: "guitar.wav",
+      filePath: "uploads/projects/project-1/guitar.wav",
+      mimeType: "audio/wav",
+      fileSize: 100,
+      createdAt: "2026-01-01T00:00:00.000Z",
+    };
+
+    await writeFile(
+      TEST_DB_FILE_PATH,
+      `${JSON.stringify({ projects: [project], tracks: [track] }, null, 2)}\n`,
+      "utf-8",
+    );
+
+    const { baseUrl, server } = await createTestServer();
+
+    try {
+      const response = await fetch(
+        `${baseUrl}/api/projects/project-1/tracks/track-1`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: "   ",
+          }),
+        },
+      );
+
+      const body = (await response.json()) as ApiResponse<unknown>;
+
+      tester.expect(response.status).toBe(400);
+      tester.expect(body.ok).toBe(false);
+      tester.expect(body.error).toBe("Invalid track name.");
+    } finally {
+      await closeServer(server);
+    }
+  });
+
 });

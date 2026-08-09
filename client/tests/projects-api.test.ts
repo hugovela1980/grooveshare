@@ -1,6 +1,7 @@
 import {
     deleteProject,
     saveMixSettings,
+    updateProjectDetails,
 } from "../src/api/projects-api.js";
 import type {
     MixSettings,
@@ -207,4 +208,93 @@ tester.describe("projects API", () => {
             globalThis.fetch = originalFetch;
         }
     });
+    tester.it("updates project details", async () => {
+        const originalFetch = globalThis.fetch;
+        const fetchCalls: FetchCall[] = [];
+        const updatedProject = createProject({
+            title: "Updated Title",
+        });
+
+        globalThis.fetch = (async (...args: Parameters<typeof fetch>) => {
+            const [input, init] = args;
+
+            fetchCalls.push({
+                input,
+                init,
+            });
+
+            return createJsonResponse({
+                ok: true,
+                data: updatedProject,
+            });
+        }) as typeof fetch;
+
+        try {
+            const result = await updateProjectDetails(
+                "project-1",
+                {
+                    title: "Updated Title",
+                },
+            );
+
+            tester.expect(result).toEqual(updatedProject);
+            tester.expect(fetchCalls.length).toBe(1);
+
+            const firstCall = fetchCalls[0];
+
+            if (!firstCall) {
+                throw new Error("Expected fetch to be called.");
+            }
+
+            tester.expect(String(firstCall.input)).toBe(
+                "http://localhost:3000/api/projects/project-1",
+            );
+
+            tester.expect(firstCall.init).toEqual({
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    title: "Updated Title",
+                }),
+            });
+        } finally {
+            globalThis.fetch = originalFetch;
+        }
+    });
+
+    tester.it("throws the backend error when updating project details fails", async () => {
+        const originalFetch = globalThis.fetch;
+
+        globalThis.fetch = (async () => {
+            return createJsonResponse(
+                {
+                    ok: false,
+                    error: "Project not found.",
+                },
+                404,
+            );
+        }) as typeof fetch;
+
+        try {
+            let errorMessage = "";
+
+            try {
+                await updateProjectDetails("missing-project", {
+                    title: "Updated Title",
+                });
+            } catch (error) {
+                errorMessage =
+                    error instanceof Error
+                        ? error.message
+                        : String(error);
+            }
+
+            tester.expect(errorMessage).toBe("Project not found.");
+        } finally {
+            globalThis.fetch = originalFetch;
+        }
+    });
+
 });

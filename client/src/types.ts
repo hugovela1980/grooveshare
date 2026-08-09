@@ -23,6 +23,11 @@ export type CreateProjectInput = {
   description: string;
 };
 
+export type UpdateProjectDetailsInput = {
+  title?: string;
+  description?: string;
+};
+
 export type Track = {
   id: string;
   projectId: string;

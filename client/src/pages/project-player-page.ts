@@ -64,7 +64,6 @@ export function renderProjectPlayerPage(project: Project | null = null): string 
               spellcheck="false"
               data-project-title-editor
             >${heading}</h1>
-            ${project ? '<span class="project-player-editable__icon" aria-hidden="true" title="Edit project title">✎</span>' : ""}
           </div>
 
           <div class="project-player-editable project-player-editable--description${project ? " project-player-editable--enabled" : ""}">
@@ -76,7 +75,6 @@ export function renderProjectPlayerPage(project: Project | null = null): string 
               data-placeholder="No description provided."
               data-project-description-editor
             >${description}</p>
-            ${project ? '<span class="project-player-editable__icon" aria-hidden="true" title="Edit project description">✎</span>' : ""}
           </div>
         </div>
       </header>
