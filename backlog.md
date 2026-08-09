@@ -13,7 +13,7 @@
 - [x] 2.5A — Project data model + JSON store
 - [x] 2.5B — PUT /mix-settings API + client API
 - [x] 2.5C — Save/restore settings when Load Mix is pressed
-- [ ] 2.5D — Load Mix dirty/current appearance + live volume percentage
+- [x] 2.5D — Load Mix dirty/current appearance + live volume percentage
 
 Chunk 3:
 I’m ready for Chunk 3 of the Project Player polish. Please help me add inline editable track names to the Mix Channels UI and do a final polish pass. Track names should become editable when clicked, stop editing on Enter or blur, and remain local to the Project Player UI for Version 1 unless persistence is simple.

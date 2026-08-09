@@ -56,6 +56,7 @@ function renderAssignedChannelSlot(
             class="mix-channel-slot__enabled-input"
             type="checkbox"
             data-channel-enabled
+            data-mix-channel="${slot.channelNumber}"
             data-track-id="${escapeHtml(track.id)}"
             aria-label="Enable channel ${slot.channelNumber}"
             ${isEnabled ? "checked" : ""}
@@ -76,7 +77,11 @@ function renderAssignedChannelSlot(
 
       <div class="mix-channel-slot__volume-cell">
         <label class="mix-channel-slot__volume-label">
-        <span class="mix-channel-slot__volume-value">
+        <span
+            class="mix-channel-slot__volume-value"
+            data-channel-volume-value
+            data-mix-channel="${slot.channelNumber}"
+        >
             ${volumePercentage}%
         </span>
 
@@ -87,6 +92,7 @@ function renderAssignedChannelSlot(
             step="0.01"
             value="${volume}"
             data-channel-volume
+            data-mix-channel="${slot.channelNumber}"
             data-track-id="${escapeHtml(track.id)}"
             aria-label="Channel ${slot.channelNumber} volume"
           />
@@ -158,7 +164,7 @@ export function renderMixChannelSlots(
 
         <button
           id="load-mix-button"
-          class="button"
+          class="button mix-channel-panel__load-button"
           type="button"
           data-load-mix-button
         >
@@ -176,8 +182,8 @@ export function renderMixChannelSlots(
 
       <div class="mix-channel-slots">
         ${slots
-          .map((slot) => renderAssignedChannelSlot(slot, mixSettings))
-          .join("")}
+      .map((slot) => renderAssignedChannelSlot(slot, mixSettings))
+      .join("")}
       </div>
     </section>
   `;

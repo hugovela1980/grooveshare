@@ -241,4 +241,20 @@ tester.describe("mix channel slots template", () => {
         tester.expect(html.includes('value="1"')).toBe(true);
         tester.expect(html.includes("100%")).toBe(true);
     });
+
+    tester.it("renders a volume value target for each assigned channel", () => {
+        const html = renderMixChannelSlots([createTrack()]);
+
+        tester.expect(
+            html.includes("data-channel-volume-value"),
+        ).toBe(true);
+
+        tester.expect(
+            html.includes('data-mix-channel="1"'),
+        ).toBe(true);
+
+        tester.expect(
+            html.includes("mix-channel-panel__load-button"),
+        ).toBe(true);
+    });
 });

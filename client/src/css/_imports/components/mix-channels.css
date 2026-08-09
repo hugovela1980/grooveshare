@@ -23,6 +23,23 @@
 }
 
 
+/* Load Mix Button */
+.mix-channel-panel__load-button {
+    transition:
+        opacity 150ms ease,
+        filter 150ms ease;
+}
+
+.mix-channel-panel__load-button--current {
+    opacity: 0.45;
+    filter: saturate(0.45);
+}
+
+.mix-channel-panel__load-button--current:hover {
+    opacity: 0.6;
+}
+
+
 /* Column headings */
 
 .mix-channel-grid-header {

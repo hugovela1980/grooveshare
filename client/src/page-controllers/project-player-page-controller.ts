@@ -24,7 +24,7 @@ type ProjectsApi = {
     ) => Promise<Project>;
 };
 
-type ClickEventLike = {
+type TrackListEventLike = {
     target: EventTarget | null;
 };
 
@@ -47,11 +47,21 @@ type GetTrackNameFromFile = (audioFile: File) => string;
 
 type TrackListElementLike = {
     innerHTML: string;
+
     addEventListener: (
-        eventName: "click",
-        handler: (event: ClickEventLike) => void | Promise<void>,
+        eventName: "click" | "input",
+        handler: (
+            event: TrackListEventLike,
+        ) => void | Promise<void>,
     ) => void;
-    querySelectorAll?: (selector: string) => Iterable<ChannelSlotElementLike>;
+
+    querySelector?: (
+        selector: string,
+    ) => unknown;
+
+    querySelectorAll?: (
+        selector: string,
+    ) => Iterable<ChannelSlotElementLike>;
 };
 
 type ButtonElementLike = {
@@ -91,6 +101,25 @@ type ChannelSlotElementLike = {
     querySelector?: (
         selector: string,
     ) => ChannelEnabledInputLike | ChannelVolumeInputLike | null;
+};
+
+type ClassListLike = {
+    add: (className: string) => void;
+    remove: (className: string) => void;
+};
+
+type LoadMixButtonLike = {
+    classList?: ClassListLike;
+};
+
+type MixControlTargetLike = {
+    value?: string;
+
+    dataset?: {
+        channelVolume?: string;
+        channelEnabled?: string;
+        mixChannel?: string;
+    };
 };
 
 type ProjectPlayerPageControllerOptions = {
@@ -172,8 +201,12 @@ export function createProjectPlayerPageController({
 }: ProjectPlayerPageControllerOptions) {
     let currentTracks: Track[] = [];
     let currentMixSettings: MixSettings | undefined = project.mixSettings;
+    let lastLoadedMixSettings: MixSettings | null = null;
+    const LOAD_MIX_CURRENT_CLASS = "mix-channel-panel__load-button--current";
 
     async function loadTracks(): Promise<void> {
+        lastLoadedMixSettings = null;
+
         try {
             const tracks = await tracksApi.getTracksByProjectId(project.id);
             currentTracks = tracks;
@@ -181,6 +214,7 @@ export function createProjectPlayerPageController({
                 tracks,
                 currentMixSettings,
             );
+            setLoadMixButtonCurrent(false);
         } catch {
             trackListElement.innerHTML =
                 '<p class="empty-state">Could not load tracks.</p>';
@@ -252,6 +286,79 @@ export function createProjectPlayerPageController({
         };
     }
 
+    function areMixSettingsEqual(
+        left: MixSettings,
+        right: MixSettings,
+    ): boolean {
+        if (left.channels.length !== right.channels.length) {
+            return false;
+        }
+
+        return left.channels.every((leftChannel) => {
+            const rightChannel = right.channels.find((channel) => {
+                return (
+                    channel.channelNumber === leftChannel.channelNumber &&
+                    channel.trackId === leftChannel.trackId
+                );
+            });
+
+            if (!rightChannel) {
+                return false;
+            }
+
+            return (
+                rightChannel.enabled === leftChannel.enabled &&
+                rightChannel.volume === leftChannel.volume
+            );
+        });
+    }
+
+    function getLoadMixButton(): LoadMixButtonLike | null {
+        return (
+            trackListElement.querySelector?.(
+                "[data-load-mix-button]",
+            ) as LoadMixButtonLike | null
+        ) ?? null;
+    }
+
+    function setLoadMixButtonCurrent(
+        isCurrent: boolean,
+    ): void {
+        const loadMixButton = getLoadMixButton();
+
+        if (!loadMixButton?.classList) {
+            return;
+        }
+
+        if (isCurrent) {
+            loadMixButton.classList.add(
+                LOAD_MIX_CURRENT_CLASS,
+            );
+
+            return;
+        }
+
+        loadMixButton.classList.remove(
+            LOAD_MIX_CURRENT_CLASS,
+        );
+    }
+
+    function updateLoadMixButtonCurrentState(): void {
+        if (!lastLoadedMixSettings) {
+            setLoadMixButtonCurrent(false);
+            return;
+        }
+
+        const currentSettings = getMixSettings();
+
+        setLoadMixButtonCurrent(
+            areMixSettingsEqual(
+                currentSettings,
+                lastLoadedMixSettings,
+            ),
+        );
+    }
+
     function getEnabledMixChannels(
         mixSettings: MixSettings,
     ): MixChannelForPlayer[] {
@@ -288,6 +395,50 @@ export function createProjectPlayerPageController({
                     return channel !== null;
                 },
             );
+    }
+
+    function handleTrackListInput(
+        event: TrackListEventLike,
+    ): void {
+        const target =
+            event.target as MixControlTargetLike | null;
+
+        if (!target?.dataset) {
+            return;
+        }
+
+        const isVolumeInput =
+            target.dataset.channelVolume !== undefined;
+
+        const isEnabledInput =
+            target.dataset.channelEnabled !== undefined;
+
+        if (!isVolumeInput && !isEnabledInput) {
+            return;
+        }
+
+        if (isVolumeInput) {
+            const volume = Number(target.value ?? "0");
+            const channelNumber =
+                target.dataset.mixChannel;
+
+            if (
+                Number.isFinite(volume) &&
+                channelNumber
+            ) {
+                const volumeValueElement =
+                    trackListElement.querySelector?.(
+                        `[data-channel-volume-value][data-mix-channel="${channelNumber}"]`,
+                    ) as TextElementLike | null;
+
+                if (volumeValueElement) {
+                    volumeValueElement.textContent =
+                        `${Math.round(volume * 100)}%`;
+                }
+            }
+        }
+
+        updateLoadMixButtonCurrentState();
     }
 
     async function handleLoadMix(): Promise<void> {
@@ -339,6 +490,9 @@ export function createProjectPlayerPageController({
             enabledMixChannels,
         );
 
+        lastLoadedMixSettings = mixSettings;
+        setLoadMixButtonCurrent(true);
+
         const channelWord =
             enabledMixChannels.length === 1
                 ? "channel"
@@ -379,7 +533,9 @@ export function createProjectPlayerPageController({
         }
     }
 
-    async function handleTrackListClick(event: ClickEventLike): Promise<void> {
+    async function handleTrackListClick(
+        event: TrackListEventLike,
+    ): Promise<void> {
         const isLoadMixClick = getIsLoadMixClickFromTarget(event.target);
 
         if (isLoadMixClick) {
@@ -439,6 +595,10 @@ export function createProjectPlayerPageController({
     async function init(): Promise<void> {
         trackListElement.addEventListener("click", (event) => {
             return handleTrackListClick(event);
+        });
+
+        trackListElement.addEventListener("input", (event) => {
+            handleTrackListInput(event);
         });
 
         deleteProjectButton?.addEventListener("click", () => {
