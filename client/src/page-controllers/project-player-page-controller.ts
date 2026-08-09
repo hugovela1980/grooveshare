@@ -26,6 +26,8 @@ type ProjectsApi = {
 
 type TrackListEventLike = {
     target: EventTarget | null;
+    key?: string;
+    preventDefault?: () => void;
 };
 
 type MixChannelForPlayer = {
@@ -49,7 +51,7 @@ type TrackListElementLike = {
     innerHTML: string;
 
     addEventListener: (
-        eventName: "click" | "input",
+        eventName: "click" | "input" | "keydown" | "focusout",
         handler: (
             event: TrackListEventLike,
         ) => void | Promise<void>,
@@ -73,6 +75,19 @@ type ButtonElementLike = {
 
 type TextElementLike = {
     textContent: string | null;
+};
+
+type EditableTextEventLike = {
+    key?: string;
+    preventDefault?: () => void;
+};
+
+type EditableTextElementLike = TextElementLike & {
+    addEventListener: (
+        eventName: "keydown" | "blur",
+        handler: (event: EditableTextEventLike) => void,
+    ) => void;
+    blur?: () => void;
 };
 
 type DeleteButtonLike = {
@@ -112,13 +127,17 @@ type LoadMixButtonLike = {
     classList?: ClassListLike;
 };
 
-type MixControlTargetLike = {
+type TrackListTargetLike = {
     value?: string;
+    textContent?: string | null;
+    blur?: () => void;
 
     dataset?: {
         channelVolume?: string;
         channelEnabled?: string;
         mixChannel?: string;
+        trackNameEditor?: string;
+        trackId?: string;
     };
 };
 
@@ -127,6 +146,8 @@ type ProjectPlayerPageControllerOptions = {
     trackListElement: TrackListElementLike;
     statusElement?: TextElementLike | null;
     deleteProjectButton?: ButtonElementLike | null;
+    projectTitleElement?: EditableTextElementLike | null;
+    projectDescriptionElement?: EditableTextElementLike | null;
     tracksApi: TracksApi;
     projectsApi?: ProjectsApi;
     renderTrackList: (
@@ -189,6 +210,8 @@ export function createProjectPlayerPageController({
     trackListElement,
     statusElement,
     deleteProjectButton,
+    projectTitleElement,
+    projectDescriptionElement,
     tracksApi,
     projectsApi,
     renderTrackList,
@@ -202,16 +225,41 @@ export function createProjectPlayerPageController({
     let currentTracks: Track[] = [];
     let currentMixSettings: MixSettings | undefined = project.mixSettings;
     let lastLoadedMixSettings: MixSettings | null = null;
+    let currentProjectTitle = project.title;
+    const localTrackNames = new Map<string, string>();
     const LOAD_MIX_CURRENT_CLASS = "mix-channel-panel__load-button--current";
+
+    function applyLocalTrackNames(tracks: Track[]): Track[] {
+        const trackIds = new Set(tracks.map((track) => track.id));
+
+        for (const trackId of localTrackNames.keys()) {
+            if (!trackIds.has(trackId)) {
+                localTrackNames.delete(trackId);
+            }
+        }
+
+        return tracks.map((track) => {
+            const localName = localTrackNames.get(track.id);
+
+            if (localName === undefined) {
+                return track;
+            }
+
+            return {
+                ...track,
+                name: localName,
+            };
+        });
+    }
 
     async function loadTracks(): Promise<void> {
         lastLoadedMixSettings = null;
 
         try {
             const tracks = await tracksApi.getTracksByProjectId(project.id);
-            currentTracks = tracks;
+            currentTracks = applyLocalTrackNames(tracks);
             trackListElement.innerHTML = renderTrackList(
-                tracks,
+                currentTracks,
                 currentMixSettings,
             );
             setLoadMixButtonCurrent(false);
@@ -397,11 +445,153 @@ export function createProjectPlayerPageController({
             );
     }
 
+    function normalizeInlineText(value: string): string {
+        return value.trim().replace(/\s+/g, " ");
+    }
+
+    function getTrackNameEditorTarget(
+        event: TrackListEventLike,
+    ): TrackListTargetLike | null {
+        const target = event.target as TrackListTargetLike | null;
+
+        if (
+            !target?.dataset ||
+            target.dataset.trackNameEditor === undefined ||
+            !target.dataset.trackId
+        ) {
+            return null;
+        }
+
+        return target;
+    }
+
+    function commitTrackName(target: TrackListTargetLike): void {
+        const trackId = target.dataset?.trackId;
+
+        if (!trackId) {
+            return;
+        }
+
+        const track = currentTracks.find((currentTrack) => {
+            return currentTrack.id === trackId;
+        });
+
+        if (!track) {
+            return;
+        }
+
+        const editedName = normalizeInlineText(target.textContent ?? "");
+        const nextName = editedName || track.name;
+
+        target.textContent = nextName;
+
+        if (nextName === track.name) {
+            return;
+        }
+
+        localTrackNames.set(trackId, nextName);
+
+        currentTracks = currentTracks.map((currentTrack) => {
+            if (currentTrack.id !== trackId) {
+                return currentTrack;
+            }
+
+            return {
+                ...currentTrack,
+                name: nextName,
+            };
+        });
+    }
+
+    function handleTrackListKeydown(
+        event: TrackListEventLike,
+    ): void {
+        const trackNameEditor = getTrackNameEditorTarget(event);
+
+        if (!trackNameEditor || event.key !== "Enter") {
+            return;
+        }
+
+        event.preventDefault?.();
+        commitTrackName(trackNameEditor);
+        trackNameEditor.blur?.();
+    }
+
+    function handleTrackListFocusOut(
+        event: TrackListEventLike,
+    ): void {
+        const trackNameEditor = getTrackNameEditorTarget(event);
+
+        if (!trackNameEditor) {
+            return;
+        }
+
+        commitTrackName(trackNameEditor);
+    }
+
+    function commitProjectTitle(): void {
+        if (!projectTitleElement) {
+            return;
+        }
+
+        const editedTitle = normalizeInlineText(
+            projectTitleElement.textContent ?? "",
+        );
+
+        if (!editedTitle) {
+            projectTitleElement.textContent = currentProjectTitle;
+            return;
+        }
+
+        currentProjectTitle = editedTitle;
+        projectTitleElement.textContent = editedTitle;
+    }
+
+    function commitProjectDescription(): void {
+        if (!projectDescriptionElement) {
+            return;
+        }
+
+        projectDescriptionElement.textContent = normalizeInlineText(
+            projectDescriptionElement.textContent ?? "",
+        );
+    }
+
+    function registerProjectDetailEditors(): void {
+        projectTitleElement?.addEventListener("keydown", (event) => {
+            if (event.key !== "Enter") {
+                return;
+            }
+
+            event.preventDefault?.();
+            commitProjectTitle();
+            projectTitleElement.blur?.();
+        });
+
+        projectTitleElement?.addEventListener("blur", () => {
+            commitProjectTitle();
+        });
+
+        projectDescriptionElement?.addEventListener("keydown", (event) => {
+            if (event.key !== "Enter") {
+                return;
+            }
+
+            event.preventDefault?.();
+            commitProjectDescription();
+            projectDescriptionElement.blur?.();
+        });
+
+        projectDescriptionElement?.addEventListener("blur", () => {
+            commitProjectDescription();
+        });
+    }
+
     function handleTrackListInput(
         event: TrackListEventLike,
     ): void {
         const target =
-            event.target as MixControlTargetLike | null;
+            event.target as TrackListTargetLike | null;
 
         if (!target?.dataset) {
             return;
@@ -600,6 +790,16 @@ export function createProjectPlayerPageController({
         trackListElement.addEventListener("input", (event) => {
             handleTrackListInput(event);
         });
+
+        trackListElement.addEventListener("keydown", (event) => {
+            handleTrackListKeydown(event);
+        });
+
+        trackListElement.addEventListener("focusout", (event) => {
+            handleTrackListFocusOut(event);
+        });
+
+        registerProjectDetailEditors();
 
         deleteProjectButton?.addEventListener("click", () => {
             return handleDeleteProjectClick();

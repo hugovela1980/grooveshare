@@ -10,18 +10,18 @@
             "channelNumber": 1,
             "trackId": "85b916c0-7599-4bb3-807b-b6053c07c3bd",
             "enabled": true,
-            "volume": 0.45
+            "volume": 1
           },
           {
             "channelNumber": 2,
             "trackId": "65452c7f-3c87-47b5-bf0c-65ba960a8a97",
             "enabled": true,
-            "volume": 0.42
+            "volume": 1
           },
           {
             "channelNumber": 3,
             "trackId": "ec8f34eb-b377-40eb-a864-e493be63968b",
-            "enabled": false,
+            "enabled": true,
             "volume": 1
           },
           {
@@ -33,7 +33,7 @@
         ]
       },
       "createdAt": "2026-08-09T05:47:53.244Z",
-      "updatedAt": "2026-08-09T05:48:54.089Z"
+      "updatedAt": "2026-08-09T14:59:23.009Z"
     }
   ],
   "tracks": [

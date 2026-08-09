@@ -29,6 +29,8 @@ function createTrack(overrides: Partial<Track> = {}): Track {
 
 type FakeTrackListEvent = {
   target: EventTarget | null;
+  key?: string;
+  preventDefault?: () => void;
 };
 
 type FakeChannelSetting = {
@@ -44,6 +46,14 @@ function createFakeTrackListElement() {
     | null = null;
 
   let inputHandler:
+    | ((event: FakeTrackListEvent) => void | Promise<void>)
+    | null = null;
+
+  let keydownHandler:
+    | ((event: FakeTrackListEvent) => void | Promise<void>)
+    | null = null;
+
+  let focusoutHandler:
     | ((event: FakeTrackListEvent) => void | Promise<void>)
     | null = null;
 
@@ -109,7 +119,7 @@ function createFakeTrackListElement() {
     innerHTML: "",
 
     addEventListener(
-      eventName: "click" | "input",
+      eventName: "click" | "input" | "keydown" | "focusout",
       handler: (
         event: FakeTrackListEvent,
       ) => void | Promise<void>,
@@ -120,6 +130,14 @@ function createFakeTrackListElement() {
 
       if (eventName === "input") {
         inputHandler = handler;
+      }
+
+      if (eventName === "keydown") {
+        keydownHandler = handler;
+      }
+
+      if (eventName === "focusout") {
+        focusoutHandler = handler;
       }
     },
 
@@ -262,6 +280,76 @@ function createFakeTrackListElement() {
       });
     },
 
+    async editTrackNameOnBlur(
+      trackId: string,
+      name: string,
+    ): Promise<string> {
+      if (!focusoutHandler) {
+        throw new Error("Focusout handler was not registered.");
+      }
+
+      const target = {
+        textContent: name,
+        dataset: {
+          trackNameEditor: "",
+          trackId,
+        },
+      };
+
+      await focusoutHandler({
+        target: target as unknown as EventTarget,
+      });
+
+      return target.textContent;
+    },
+
+    async editTrackNameOnEnter(
+      trackId: string,
+      name: string,
+    ): Promise<{
+      textContent: string;
+      preventDefaultCallCount: number;
+      blurCallCount: number;
+    }> {
+      if (!keydownHandler) {
+        throw new Error("Keydown handler was not registered.");
+      }
+
+      let preventDefaultCallCount = 0;
+      let blurCallCount = 0;
+
+      const target = {
+        textContent: name,
+        dataset: {
+          trackNameEditor: "",
+          trackId,
+        },
+        async blur() {
+          blurCallCount += 1;
+
+          if (focusoutHandler) {
+            await focusoutHandler({
+              target: target as unknown as EventTarget,
+            });
+          }
+        },
+      };
+
+      await keydownHandler({
+        target: target as unknown as EventTarget,
+        key: "Enter",
+        preventDefault() {
+          preventDefaultCallCount += 1;
+        },
+      });
+
+      return {
+        textContent: target.textContent,
+        preventDefaultCallCount,
+        blurCallCount,
+      };
+    },
+
     getVolumeValueText(channelNumber: number): string {
       return volumeValueElements.get(channelNumber)?.textContent ?? "";
     },
@@ -301,6 +389,79 @@ function createFakeDeleteProjectButton() {
       await clickHandler();
     },
   };
+}
+
+function createFakeEditableTextElement(initialText: string) {
+  let keydownHandler:
+    | ((event: { key?: string; preventDefault?: () => void }) => void)
+    | null = null;
+
+  let blurHandler:
+    | ((event: { key?: string; preventDefault?: () => void }) => void)
+    | null = null;
+
+  let blurCallCount = 0;
+
+  const element = {
+    textContent: initialText,
+
+    addEventListener(
+      eventName: "keydown" | "blur",
+      handler: (event: {
+        key?: string;
+        preventDefault?: () => void;
+      }) => void,
+    ) {
+      if (eventName === "keydown") {
+        keydownHandler = handler;
+      }
+
+      if (eventName === "blur") {
+        blurHandler = handler;
+      }
+    },
+
+    blur() {
+      blurCallCount += 1;
+      blurHandler?.({});
+    },
+
+    pressEnter(text: string) {
+      if (!keydownHandler) {
+        throw new Error("Keydown handler was not registered.");
+      }
+
+      let preventDefaultCallCount = 0;
+      element.textContent = text;
+
+      keydownHandler({
+        key: "Enter",
+        preventDefault() {
+          preventDefaultCallCount += 1;
+        },
+      });
+
+      return {
+        preventDefaultCallCount,
+        blurCallCount,
+      };
+    },
+
+    loseFocus(text: string) {
+      if (!blurHandler) {
+        throw new Error("Blur handler was not registered.");
+      }
+
+      element.textContent = text;
+      blurHandler({});
+    },
+
+    getBlurCallCount() {
+      return blurCallCount;
+    },
+  };
+
+  return element;
 }
 
 tester.describe("project player page controller", () => {
@@ -1037,6 +1198,132 @@ tester.describe("project player page controller", () => {
     await trackListElement.inputVolume(1, 0.75);
 
     tester.expect(trackListElement.isLoadMixCurrent()).toBe(true);
+  });
+
+  tester.it("keeps an edited track name local and uses it when loading the mix", async () => {
+    const project = createProject();
+    const trackListElement = createFakeTrackListElement();
+    const track = createTrack();
+
+    trackListElement.setChannelSlots([
+      {
+        channelNumber: 1,
+        trackId: "track-1",
+        enabled: true,
+        volume: 1,
+      },
+    ]);
+
+    let loadedTrackName = "";
+
+    const controller = createProjectPlayerPageController({
+      project,
+      trackListElement,
+      tracksApi: {
+        async getTracksByProjectId() {
+          return [track];
+        },
+
+        async deleteTrack() {
+          return track;
+        },
+      },
+      renderTrackList(tracks) {
+        return tracks.map((currentTrack) => currentTrack.name).join(", ");
+      },
+      audioPlayerController: {
+        loadMix(channels) {
+          loadedTrackName = channels[0]?.name ?? "";
+        },
+      },
+      getTrackAudioUrl() {
+        return "audio-url";
+      },
+    });
+
+    await controller.init();
+
+    const editedText = await trackListElement.editTrackNameOnBlur(
+      "track-1",
+      "  Lead Guitar  ",
+    );
+
+    tester.expect(editedText).toBe("Lead Guitar");
+
+    await trackListElement.clickLoadMixButton();
+
+    tester.expect(loadedTrackName).toBe("Lead Guitar");
+  });
+
+  tester.it("ends inline track name editing on Enter", async () => {
+    const trackListElement = createFakeTrackListElement();
+
+    const controller = createProjectPlayerPageController({
+      project: createProject(),
+      trackListElement,
+      tracksApi: {
+        async getTracksByProjectId() {
+          return [createTrack()];
+        },
+
+        async deleteTrack() {
+          return createTrack();
+        },
+      },
+      renderTrackList(tracks) {
+        return tracks.map((track) => track.name).join(", ");
+      },
+    });
+
+    await controller.init();
+
+    const result = await trackListElement.editTrackNameOnEnter(
+      "track-1",
+      "  Rhythm Guitar  ",
+    );
+
+    tester.expect(result.textContent).toBe("Rhythm Guitar");
+    tester.expect(result.preventDefaultCallCount).toBe(1);
+    tester.expect(result.blurCallCount).toBe(1);
+  });
+
+  tester.it("edits the project title and description locally", async () => {
+    const trackListElement = createFakeTrackListElement();
+    const projectTitleElement = createFakeEditableTextElement("Bass Groove");
+    const projectDescriptionElement = createFakeEditableTextElement("Practice loop");
+
+    const controller = createProjectPlayerPageController({
+      project: createProject(),
+      trackListElement,
+      projectTitleElement,
+      projectDescriptionElement,
+      tracksApi: {
+        async getTracksByProjectId() {
+          return [];
+        },
+
+        async deleteTrack() {
+          throw new Error("deleteTrack should not be called in this test.");
+        },
+      },
+      renderTrackList() {
+        return "tracks";
+      },
+    });
+
+    await controller.init();
+
+    const titleResult = projectTitleElement.pressEnter("  New Project Title  ");
+
+    tester.expect(projectTitleElement.textContent).toBe("New Project Title");
+    tester.expect(titleResult.preventDefaultCallCount).toBe(1);
+    tester.expect(titleResult.blurCallCount).toBe(1);
+
+    projectDescriptionElement.loseFocus("  New project description  ");
+
+    tester.expect(projectDescriptionElement.textContent).toBe(
+      "New project description",
+    );
   });
 
   tester.it("marks the loaded mix dirty when a channel enabled state changes", async () => {

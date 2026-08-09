@@ -367,6 +367,16 @@ function initializeProjectPlayerPage({
     "#delete-project-button",
   );
 
+  const projectTitleElement = getElement<HTMLElement>(
+    appElement,
+    "[data-project-title-editor]",
+  );
+
+  const projectDescriptionElement = getElement<HTMLElement>(
+    appElement,
+    "[data-project-description-editor]",
+  );
+
   if (!trackListElement) {
     return;
   }
@@ -435,6 +445,8 @@ function initializeProjectPlayerPage({
     trackListElement,
     statusElement,
     deleteProjectButton,
+    projectTitleElement,
+    projectDescriptionElement,
     tracksApi,
     projectsApi,
     audioPlayerController,

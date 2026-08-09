@@ -4,11 +4,109 @@
 }
 
 .project-player-header {
+    margin-bottom: 2rem;
+}
+
+.project-player-header__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: center;
+    justify-content: space-between;
     margin-bottom: 1.5rem;
 }
 
-.project-player-header h1 {
-    margin-top: 0.5rem;
+.project-player-header__details {
+    display: grid;
+    gap: 0.65rem;
+}
+
+.project-player-header .eyebrow {
+    margin: 0;
+}
+
+.project-player-editable {
+    display: flex;
+    width: fit-content;
+    max-width: 100%;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.2rem 0.35rem;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    transition:
+        background 120ms ease,
+        border-color 120ms ease;
+}
+
+.project-player-editable--enabled:hover {
+    border-color: var(--border-input);
+}
+
+.project-player-editable--enabled:focus-within {
+    border-color: var(--color-light-button);
+    background: var(--color-light-button);
+}
+
+.project-player-editable__text {
+    min-width: 0;
+    margin: 0;
+    outline: none;
+}
+
+.project-player-editable__text[contenteditable="true"] {
+    cursor: text;
+}
+
+.project-player-editable--enabled:focus-within .project-player-editable__text {
+    color: var(--color-light-text);
+    caret-color: var(--color-light-text);
+}
+
+.project-player-editable__title {
+    max-width: 720px;
+    overflow-wrap: anywhere;
+}
+
+.project-player-editable--description {
+    max-width: min(100%, 48rem);
+    margin-top: 0.15rem;
+}
+
+.project-player-editable__description {
+    color: var(--color-text-muted-cool);
+    line-height: 1.55;
+    overflow-wrap: anywhere;
+}
+
+.project-player-editable__description:empty::before {
+    content: attr(data-placeholder);
+    color: var(--color-text-subtle-cool);
+}
+
+.project-player-editable__description:focus:empty::before {
+    content: "";
+}
+
+.project-player-editable__icon {
+    flex: 0 0 auto;
+    align-self: center;
+    color: var(--color-text-subtle-cool);
+    font-size: 0.8rem;
+    line-height: 1;
+    opacity: 0.65;
+    pointer-events: none;
+    transition: opacity 120ms ease;
+}
+
+.project-player-editable--enabled:hover .project-player-editable__icon,
+.project-player-editable--enabled:focus-within .project-player-editable__icon {
+    opacity: 1;
+}
+
+.project-player-editable--enabled:focus-within .project-player-editable__icon {
+    color: var(--color-light-muted);
 }
 
 .project-player-tracks-panel {
@@ -16,11 +114,28 @@
 }
 
 .project-player-tracks-panel h2 {
-    margin-top: 0;
+    margin: 0 0 1.25rem;
 }
 
 @media (max-width: 40rem) {
+    .project-player-header {
+        margin-bottom: 1.5rem;
+    }
+
+    .project-player-header__actions {
+        align-items: stretch;
+    }
+
+    .project-player-header__actions .button {
+        flex: 1 1 auto;
+        justify-content: center;
+    }
+
+    .project-player-editable {
+        width: 100%;
+    }
+
     .project-player-tracks-panel {
-        padding: 1.25rem;
+        padding: 1.1rem;
     }
 }

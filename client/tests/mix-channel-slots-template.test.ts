@@ -105,6 +105,16 @@ tester.describe("mix channel slots template", () => {
         tester.expect(html.includes("Add Track")).toBe(true);
     });
 
+    tester.it("renders assigned track names as inline editable text", () => {
+        const html = renderMixChannelSlots([createTrack()]);
+
+        tester.expect(html.includes("data-track-name-editor")).toBe(true);
+        tester.expect(html.includes('contenteditable="true"')).toBe(true);
+        tester.expect(html.includes('aria-label="Edit track name for channel 1"')).toBe(true);
+        tester.expect(html.includes("mix-channel-slot__edit-icon")).toBe(true);
+        tester.expect(html.includes("✎")).toBe(true);
+    });
+
     tester.it("renders enabled, volume, waveform, and delete controls for assigned tracks", () => {
         const html = renderMixChannelSlots([createTrack()]);
 

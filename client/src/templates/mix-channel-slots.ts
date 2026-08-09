@@ -70,20 +70,33 @@ function renderAssignedChannelSlot(
       </div>
 
       <div class="mix-channel-slot__name-cell">
-        <span class="mix-channel-slot__track-name">
-          ${escapeHtml(track.name)}
-        </span>
+        <div class="mix-channel-slot__editable-name">
+          <span
+            class="mix-channel-slot__track-name"
+            contenteditable="true"
+            role="textbox"
+            aria-label="Edit track name for channel ${slot.channelNumber}"
+            spellcheck="false"
+            data-track-name-editor
+            data-track-id="${escapeHtml(track.id)}"
+          >${escapeHtml(track.name)}</span>
+          <span
+            class="mix-channel-slot__edit-icon"
+            aria-hidden="true"
+            title="Edit track name"
+          >✎</span>
+        </div>
       </div>
 
       <div class="mix-channel-slot__volume-cell">
         <label class="mix-channel-slot__volume-label">
-        <span
+          <span
             class="mix-channel-slot__volume-value"
             data-channel-volume-value
             data-mix-channel="${slot.channelNumber}"
-        >
+          >
             ${volumePercentage}%
-        </span>
+          </span>
 
           <input
             type="range"
@@ -107,7 +120,7 @@ function renderAssignedChannelSlot(
 
       <div class="mix-channel-slot__actions">
         <button
-          class="button button--danger"
+          class="button button--danger mix-channel-slot__delete-button"
           type="button"
           data-track-delete-button
           data-track-id="${escapeHtml(track.id)}"
