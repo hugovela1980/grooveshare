@@ -351,6 +351,57 @@ tester.describe("audio player controller", () => {
         tester.expect(timestampElement.textContent).toBe("01:40 / 03:20");
     });
 
+    tester.it("seeks all loaded tracks to the same position", () => {
+        const secondAudioElement =
+            createFakeAudioElement();
+
+        const {
+            controller,
+            audioElement,
+            progressInput,
+        } = createControllerTestSetup({
+            createAudioElement: () =>
+                secondAudioElement,
+        });
+
+        controller.init();
+
+        controller.loadMix([
+            {
+                channelNumber: 1,
+                trackId: "track-1",
+                name: "Drums",
+                audioUrl:
+                    "http://localhost:3000/audio/drums.wav",
+                volume: 1,
+            },
+            {
+                channelNumber: 2,
+                trackId: "track-2",
+                name: "Bass",
+                audioUrl:
+                    "http://localhost:3000/audio/bass.wav",
+                volume: 1,
+            },
+        ]);
+
+        audioElement.duration = 200;
+        secondAudioElement.duration = 200;
+
+        progressInput.value = "50";
+
+        progressInput.input();
+        progressInput.change();
+
+        tester.expect(
+            audioElement.currentTime,
+        ).toBe(100);
+
+        tester.expect(
+            secondAudioElement.currentTime,
+        ).toBe(100);
+    });
+
     tester.it("loads a two-track mix and plays both tracks together", async () => {
         const secondAudioElement = createFakeAudioElement();
 

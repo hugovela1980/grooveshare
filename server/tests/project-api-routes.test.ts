@@ -741,7 +741,115 @@ tester.describe("project API routes", () => {
 
       tester.expect(audioResponse.status).toBe(200);
       tester.expect(audioResponse.headers.get("Content-Type")).toBe("audio/wav");
+      tester.expect(audioResponse.headers.get("Accept-Ranges")).toBe("bytes");
       tester.expect(audioBody.toString("utf-8")).toBe(fileData.toString("utf-8"));
+    } finally {
+      await closeServer(server);
+    }
+  });
+
+  tester.it("serves a requested byte range for an audio track", async () => {
+    const { baseUrl, server } = await createTestServer();
+    const boundary = "----GrooveShareBoundary";
+    const fileData = Buffer.from("fake wav data", "utf-8");
+
+    try {
+      const createProjectResponse = await fetch(
+        `${baseUrl}/api/projects`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            title: "Audio Range Test",
+            description: "Testing audio seeking",
+          }),
+        },
+      );
+
+      const createProjectBody =
+        (await createProjectResponse.json()) as ApiResponse<Project>;
+
+      const projectId = createProjectBody.data?.id;
+
+      if (!projectId) {
+        throw new Error(
+          "Created project did not include an ID.",
+        );
+      }
+
+      const multipartBody = createMultipartBody({
+        boundary,
+        parts: [
+          createTextPart({
+            boundary,
+            name: "trackName",
+            value: "Guitar",
+          }),
+          createFilePart({
+            boundary,
+            fieldName: "audioFile",
+            filename: "guitar-riff.wav",
+            mimeType: "audio/wav",
+            data: fileData,
+          }),
+        ],
+      });
+
+      const uploadResponse = await fetch(
+        `${baseUrl}/api/projects/${projectId}/tracks`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              `multipart/form-data; boundary=${boundary}`,
+          },
+          body: bufferToArrayBuffer(multipartBody),
+        },
+      );
+
+      const uploadBody =
+        (await uploadResponse.json()) as ApiResponse<Track>;
+
+      const uploadedTrack = uploadBody.data;
+
+      if (!uploadedTrack) {
+        throw new Error(
+          "Uploaded track was missing from response.",
+        );
+      }
+
+      const audioResponse = await fetch(
+        `${baseUrl}/api/projects/${projectId}/tracks/${uploadedTrack.id}/audio`,
+        {
+          headers: {
+            Range: "bytes=5-7",
+          },
+        },
+      );
+
+      const audioBody = Buffer.from(
+        await audioResponse.arrayBuffer(),
+      );
+
+      tester.expect(audioResponse.status).toBe(206);
+
+      tester.expect(
+        audioResponse.headers.get("Accept-Ranges"),
+      ).toBe("bytes");
+
+      tester.expect(
+        audioResponse.headers.get("Content-Range"),
+      ).toBe(`bytes 5-7/${fileData.length}`);
+
+      tester.expect(
+        audioResponse.headers.get("Content-Length"),
+      ).toBe("3");
+
+      tester.expect(audioBody).toEqual(
+        fileData.subarray(5, 8),
+      );
     } finally {
       await closeServer(server);
     }

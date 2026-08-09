@@ -1,4 +1,5 @@
-import { readFile, rm, rmdir, writeFile } from "node:fs/promises";
+import { createReadStream } from "node:fs";
+import { rm, rmdir, stat, writeFile } from "node:fs/promises";
 import http, { type IncomingMessage, type ServerResponse } from "node:http";
 import path from "node:path";
 import { handleDevResetRoute } from "./dev/dev-reset-route.js";
@@ -241,6 +242,83 @@ function getTrackAudioRouteParams(
   return {
     projectId: match[1],
     trackId: match[2],
+  };
+}
+
+type ByteRange = {
+  start: number;
+  end: number;
+};
+
+function parseByteRange(
+  rangeHeader: string | undefined,
+  fileSize: number,
+): ByteRange | null {
+  if (!rangeHeader) {
+    return null;
+  }
+
+  const match = rangeHeader.match(
+    /^bytes=(\d*)-(\d*)$/,
+  );
+
+  if (!match) {
+    return null;
+  }
+
+  const startText = match[1] ?? "";
+  const endText = match[2] ?? "";
+
+  if (!startText && !endText) {
+    return null;
+  }
+
+  if (!startText) {
+    const suffixLength = Number(endText);
+
+    if (
+      !Number.isFinite(suffixLength) ||
+      suffixLength <= 0
+    ) {
+      return null;
+    }
+
+    return {
+      start: Math.max(
+        fileSize - suffixLength,
+        0,
+      ),
+      end: fileSize - 1,
+    };
+  }
+
+  const start = Number(startText);
+
+  if (
+    !Number.isFinite(start) ||
+    start < 0 ||
+    start >= fileSize
+  ) {
+    return null;
+  }
+
+  const requestedEnd = endText
+    ? Number(endText)
+    : fileSize - 1;
+
+  if (
+    !Number.isFinite(requestedEnd) ||
+    requestedEnd < start
+  ) {
+    return null;
+  }
+
+  return {
+    start,
+    end: Math.min(
+      requestedEnd,
+      fileSize - 1,
+    ),
   };
 }
 
@@ -574,6 +652,7 @@ export function createAppServer({
   }
 
   async function handleGetTrackAudio(
+    req: IncomingMessage,
     res: ServerResponse,
     projectId: string,
     trackId: string,
@@ -614,15 +693,46 @@ export function createAppServer({
       ? track.filePath
       : path.resolve(process.cwd(), track.filePath);
 
-    const audioFile = await readFile(absoluteFilePath);
+    const fileStats = await stat(absoluteFilePath);
+    const fileSize = fileStats.size;
+
+    const byteRange = parseByteRange(
+      req.headers.range,
+      fileSize,
+    );
+
+    if (byteRange) {
+      const { start, end } = byteRange;
+
+      const contentLength = end - start + 1;
+
+      res.writeHead(206, {
+        "Content-Type": track.mimeType,
+        "Content-Length": contentLength,
+        "Content-Range":
+          `bytes ${start}-${end}/${fileSize}`,
+        "Accept-Ranges": "bytes",
+        "Access-Control-Allow-Origin":
+          clientOrigin,
+      });
+
+      createReadStream(absoluteFilePath, {
+        start,
+        end,
+      }).pipe(res);
+
+      return;
+    }
 
     res.writeHead(200, {
       "Content-Type": track.mimeType,
-      "Content-Length": audioFile.length,
-      "Access-Control-Allow-Origin": clientOrigin,
+      "Content-Length": fileSize,
+      "Accept-Ranges": "bytes",
+      "Access-Control-Allow-Origin":
+        clientOrigin,
     });
 
-    res.end(audioFile);
+    createReadStream(absoluteFilePath).pipe(res);
   }
 
   async function deleteUploadedTrackFile(filePath: string): Promise<void> {
@@ -952,6 +1062,7 @@ export function createAppServer({
 
       if (req.method === "GET" && trackAudioRouteParams) {
         await handleGetTrackAudio(
+          req,
           res,
           trackAudioRouteParams.projectId,
           trackAudioRouteParams.trackId,
