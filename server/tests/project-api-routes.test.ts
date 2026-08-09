@@ -1246,4 +1246,158 @@ tester.describe("project API routes", () => {
       await closeServer(server);
     }
   });
+
+  tester.it("updates mix settings for a project", async () => {
+    const { baseUrl, server } = await createTestServer();
+
+    try {
+      const createResponse = await fetch(`${baseUrl}/api/projects`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: "Mix Settings Test",
+          description: "Testing saved mix settings",
+        }),
+      });
+
+      const createBody =
+        (await createResponse.json()) as ApiResponse<Project>;
+
+      const projectId = createBody.data?.id;
+
+      if (!projectId) {
+        throw new Error("Created project did not include an ID.");
+      }
+
+      const mixSettings = {
+        channels: [
+          {
+            channelNumber: 1,
+            trackId: "track-1",
+            enabled: true,
+            volume: 0.75,
+          },
+          {
+            channelNumber: 2,
+            trackId: "track-2",
+            enabled: false,
+            volume: 0.4,
+          },
+        ],
+      };
+
+      const response = await fetch(
+        `${baseUrl}/api/projects/${projectId}/mix-settings`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(mixSettings),
+        },
+      );
+
+      const body = (await response.json()) as ApiResponse<Project>;
+
+      tester.expect(response.status).toBe(200);
+      tester.expect(body.ok).toBe(true);
+      tester.expect(body.data?.mixSettings).toEqual(mixSettings);
+
+      const getResponse = await fetch(
+        `${baseUrl}/api/projects/${projectId}`,
+      );
+
+      const getBody =
+        (await getResponse.json()) as ApiResponse<Project>;
+
+      tester.expect(getBody.data?.mixSettings).toEqual(mixSettings);
+    } finally {
+      await closeServer(server);
+    }
+  });
+
+  tester.it("returns 404 when updating mix settings for a missing project", async () => {
+    const { baseUrl, server } = await createTestServer();
+
+    try {
+      const response = await fetch(
+        `${baseUrl}/api/projects/missing-project/mix-settings`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            channels: [],
+          }),
+        },
+      );
+
+      const body =
+        (await response.json()) as ApiResponse<unknown>;
+
+      tester.expect(response.status).toBe(404);
+      tester.expect(body.ok).toBe(false);
+      tester.expect(body.error).toBe("Project not found.");
+    } finally {
+      await closeServer(server);
+    }
+  });
+
+  tester.it("returns 400 for invalid mix settings", async () => {
+    const { baseUrl, server } = await createTestServer();
+
+    try {
+      const createResponse = await fetch(`${baseUrl}/api/projects`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: "Invalid Mix Test",
+          description: "Testing invalid mix settings",
+        }),
+      });
+
+      const createBody =
+        (await createResponse.json()) as ApiResponse<Project>;
+
+      const projectId = createBody.data?.id;
+
+      if (!projectId) {
+        throw new Error("Created project did not include an ID.");
+      }
+
+      const response = await fetch(
+        `${baseUrl}/api/projects/${projectId}/mix-settings`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            channels: [
+              {
+                channelNumber: 1,
+                trackId: "track-1",
+                enabled: true,
+                volume: 2,
+              },
+            ],
+          }),
+        },
+      );
+
+      const body =
+        (await response.json()) as ApiResponse<unknown>;
+
+      tester.expect(response.status).toBe(400);
+      tester.expect(body.ok).toBe(false);
+      tester.expect(body.error).toBe("Invalid mix settings.");
+    } finally {
+      await closeServer(server);
+    }
+  });
 });

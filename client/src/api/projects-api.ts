@@ -1,4 +1,8 @@
-import type { CreateProjectInput, Project } from "../types.js";
+import type {
+  CreateProjectInput,
+  MixSettings,
+  Project,
+} from "../types.js";
 
 type ApiResponse<T> = {
   ok: boolean;
@@ -45,8 +49,27 @@ export async function deleteProject(projectId: string): Promise<Project> {
   return parseApiResponse<Project>(response);
 }
 
+export async function saveMixSettings(
+  projectId: string,
+  mixSettings: MixSettings,
+): Promise<Project> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/projects/${projectId}/mix-settings`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(mixSettings),
+    },
+  );
+
+  return parseApiResponse<Project>(response);
+}
+
 export const projectsApi = {
   getProjects,
   createProject,
   deleteProject,
+  saveMixSettings,
 };

@@ -9,7 +9,10 @@ import {
 } from "./dev/dev-seed-routes.js";
 import type { ProjectsStore } from "./stores/projects-json-store.js";
 import type { TracksStore } from "./stores/tracks-json-store.js";
-import type { CreateProjectInput } from "./types.js";
+import type {
+  CreateProjectInput,
+  MixSettings,
+} from "./types.js";
 import { parseMultipartFormData } from "./uploads/multipart-form-data.js";
 import {
   DEFAULT_UPLOAD_ROOT,
@@ -43,7 +46,7 @@ function sendJson(
   res.writeHead(statusCode, {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": clientOrigin,
-    "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
   });
 
@@ -88,12 +91,64 @@ function isCreateProjectInput(data: unknown): data is CreateProjectInput {
   );
 }
 
+function isMixSettings(data: unknown): data is MixSettings {
+  if (!data || typeof data !== "object") {
+    return false;
+  }
+
+  const input = data as Record<string, unknown>;
+
+  if (!Array.isArray(input.channels)) {
+    return false;
+  }
+
+  if (input.channels.length > 4) {
+    return false;
+  }
+
+  return input.channels.every((channel) => {
+    if (!channel || typeof channel !== "object") {
+      return false;
+    }
+
+    const channelInput = channel as Record<string, unknown>;
+
+    return (
+      typeof channelInput.channelNumber === "number" &&
+      Number.isInteger(channelInput.channelNumber) &&
+      channelInput.channelNumber >= 1 &&
+      channelInput.channelNumber <= 4 &&
+      typeof channelInput.trackId === "string" &&
+      channelInput.trackId.trim().length > 0 &&
+      typeof channelInput.enabled === "boolean" &&
+      typeof channelInput.volume === "number" &&
+      Number.isFinite(channelInput.volume) &&
+      channelInput.volume >= 0 &&
+      channelInput.volume <= 1
+    );
+  });
+}
+
 function getProjectRouteId(url: string | undefined): string | null {
   if (!url) {
     return null;
   }
 
   const match = url.match(/^\/api\/projects\/([^/]+)$/);
+
+  return match?.[1] ?? null;
+}
+
+function getMixSettingsRouteProjectId(
+  url: string | undefined,
+): string | null {
+  if (!url) {
+    return null;
+  }
+
+  const match = url.match(
+    /^\/api\/projects\/([^/]+)\/mix-settings$/,
+  );
 
   return match?.[1] ?? null;
 }
@@ -189,6 +244,76 @@ export function createAppServer({
     sendJson(
       res,
       201,
+      {
+        ok: true,
+        data: project,
+      },
+      clientOrigin,
+    );
+  }
+
+  async function handleUpdateProjectMixSettings(
+    req: IncomingMessage,
+    res: ServerResponse,
+    projectId: string,
+  ): Promise<void> {
+    const body = await readRequestBody(req);
+
+    let parsedBody: unknown;
+
+    try {
+      parsedBody = JSON.parse(body) as unknown;
+    } catch {
+      sendJson(
+        res,
+        400,
+        {
+          ok: false,
+          error: "Invalid mix settings.",
+        },
+        clientOrigin,
+      );
+
+      return;
+    }
+
+    if (!isMixSettings(parsedBody)) {
+      sendJson(
+        res,
+        400,
+        {
+          ok: false,
+          error: "Invalid mix settings.",
+        },
+        clientOrigin,
+      );
+
+      return;
+    }
+
+    const project =
+      await projectsStore.updateProjectMixSettings(
+        projectId,
+        parsedBody,
+      );
+
+    if (!project) {
+      sendJson(
+        res,
+        404,
+        {
+          ok: false,
+          error: "Project not found.",
+        },
+        clientOrigin,
+      );
+
+      return;
+    }
+
+    sendJson(
+      res,
+      200,
       {
         ok: true,
         data: project,
@@ -517,7 +642,7 @@ export function createAppServer({
       if (req.method === "OPTIONS") {
         res.writeHead(204, {
           "Access-Control-Allow-Origin": clientOrigin,
-          "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
+          "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
           "Access-Control-Allow-Headers": "Content-Type",
         });
 
@@ -598,6 +723,19 @@ export function createAppServer({
 
       if (req.method === "POST" && req.url === "/api/projects") {
         await handleCreateProject(req, res);
+        return;
+      }
+
+      const mixSettingsRouteProjectId =
+        getMixSettingsRouteProjectId(req.url);
+
+      if (req.method === "PUT" && mixSettingsRouteProjectId) {
+        await handleUpdateProjectMixSettings(
+          req,
+          res,
+          mixSettingsRouteProjectId,
+        );
+
         return;
       }
 
