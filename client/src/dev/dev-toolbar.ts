@@ -270,7 +270,7 @@ export function mountDevToolbar({
     });
 
     window.addEventListener("keydown", (event) => {
-        if (event.key !== "ArrowRight" || !isToolbarEnabledByDefault(enabledByDefault)) {
+        if (event.key !== "0" || !isToolbarEnabledByDefault(enabledByDefault)) {
             return;
         }
 
