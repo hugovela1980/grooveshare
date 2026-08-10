@@ -2,7 +2,31 @@
 
 GrooveShare is a lightweight browser-based music collaboration app for creating song projects, adding audio tracks, and playing those tracks in a simple stem-player interface.
 
-The current Version 1 goal is a local four-channel stem player. A user can create a project, add or seed audio tracks, open the Project Player, load up to four tracks into channel slots, and control playback from a shared Audio Player panel.
+Version 1 is a local four-channel stem player. A user can create a project, add or seed audio tracks, open the Project Player, save and load a four-channel mix, edit project/track labels, and control playback from a shared Audio Player panel.
+
+## Quick Start
+
+GrooveShare includes four sample audio files at the project root so the Version 1 workflow can be tried immediately:
+
+```txt
+sample-audio-files/
+  Bass.wav
+  Delay Guitar.wav
+  Drums.wav
+  Tremolo Guitar.wav
+```
+
+1. Start the backend and frontend using the local setup instructions below, then open `http://localhost:5173`.
+2. From the Project Menu, choose **Create Project**.
+3. Enter a project title and description.
+4. Click **Add Audio Tracks**. In the file picker, open the repository's `sample-audio-files/` folder and select the four sample `.wav` files.
+5. Review the selected tracks, optionally edit their pending names, then click **Create a New Project** and submit the confirmation modal.
+6. In the Project Player, use the numbered channel squares to enable or disable tracks and use the volume sliders to set each channel level.
+7. Click **Load Mix** to save the current mix settings and load the enabled channels into the Audio Player. Use Play/Pause, Stop, Loop, the timestamp, and the progress slider to test playback and seeking.
+8. Click a project title, description, or filled-channel track name to edit it inline. Press Enter or click away to finish editing; these text edits are saved to the project data.
+9. After `Load Mix`, the button dims while the visible mixer matches the loaded mix. Changing a channel's enabled state or volume makes the button prominent again until the mix is loaded again.
+
+The root `sample-audio-files/` folder is intended for the normal user-facing create-project workflow. The separate `server/data/seed-project/` folder is used by the development toolbar described later in this README.
 
 ## Running the App Locally
 
@@ -109,7 +133,7 @@ Run frontend tests inside Docker:
 
 ```bash
 docker compose exec client npm test
-docker compose exec client npm run test:typecheck
+docker compose exec client npm run typecheck
 ```
 
 Run backend tests inside Docker:
@@ -152,11 +176,15 @@ Current Project Player behavior includes:
 
 * Displaying up to four uploaded tracks as Channel 1 through Channel 4.
 * Automatically filling the channel slots from the first four uploaded tracks.
-* Showing an enabled toggle, volume slider, waveform placeholder, and delete button for assigned channels.
+* Using each numbered channel square as the channel enable/disable toggle.
+* Showing live volume percentages, a volume slider, waveform placeholder, and delete button for assigned channels.
 * Keeping empty channel slots visible when fewer than four tracks exist.
 * Showing an Add Track button in empty channel slots so a user can add another track to the current project.
+* Editing project title, project description, and assigned track names inline and persisting those edits.
 * Loading enabled channels into the Audio Player with `Load Mix`.
-* Playing, pausing, stopping, and resetting a loaded four-track mix from the Audio Player panel.
+* Saving the occupied-channel enabled/volume settings whenever `Load Mix` succeeds so they can be restored when the project is reopened.
+* Dimming `Load Mix` while the visible mixer still matches the loaded mix and making it prominent again when channel settings change.
+* Playing, pausing, stopping, seeking, and resetting a loaded four-track mix from the Audio Player panel.
 * Supporting a global Loop checkbox for the loaded mix.
 * Deleting individual tracks and deleting entire projects with their linked track metadata and uploaded files.
 
@@ -166,21 +194,22 @@ Version 1 uses browser audio elements for the current local stem-player implemen
 
 Expected transport behavior:
 
-* `Load Mix` reads the current channel setup from the Tracks panel.
+* `Load Mix` reads the current channel setup from the Tracks panel and persists the occupied-channel enabled/volume settings to the project.
 * Enabled channels are included in the loaded mix.
-* Disabled channels are excluded from the loaded mix.
+* Disabled channels are excluded from playback but their saved mixer settings are preserved.
 * Channel volume values are applied when the mix is loaded.
 * `Play` starts the loaded channels together from a shared start point.
-* `Pause` pauses the loaded mix.
+* `Pause` pauses the loaded mix and preserves the current playback position.
 * `Stop` pauses the loaded mix and resets playback to the beginning.
 * The progress control and timestamp represent the shared mix position.
+* Releasing the progress slider seeks all loaded tracks to the same shared position. The backend supports HTTP byte-range responses for audio seeking.
 * The Loop checkbox restarts the loaded mix when playback reaches the end.
 
 Current Version 1 limitations:
 
-* Changing a channel enabled state or volume after clicking `Load Mix` may require clicking `Load Mix` again before playback reflects the change.
+* Changing a channel enabled state or volume after clicking `Load Mix` requires clicking `Load Mix` again before playback reflects the change; the button's current/modified appearance indicates when this is needed.
 * Looping may have a small delay before the mix restarts because the current implementation uses HTML audio elements and reacts to the browser audio `ended` event.
-* Progress and seek behavior are prototype-level for multitrack playback and may be replaced when the app moves to a Web Audio engine.
+* Seeking works through the shared progress control and HTTP byte-range audio responses, but the current transport is still not DAW-level or sample-accurate.
 * Waveforms are placeholders only.
 * Manual channel assignment, pan, solo, offset/nudge, and trim/clipping are not implemented yet.
 
@@ -190,6 +219,12 @@ Gapless looping, waveform display, nudge, trim, and edited playback are planned 
 
 ```txt
 grooveshare/
+  sample-audio-files/
+    Bass.wav
+    Delay Guitar.wav
+    Drums.wav
+    Tremolo Guitar.wav
+
   client/
     src/
       api/
@@ -227,7 +262,7 @@ grooveshare/
   README.md
 ```
 
-`server/data/seed-project/` contains local development audio files that can be used by the dev toolbar to seed a test project. Runtime uploads go into `server/uploads/`, which is ignored by Git.
+`sample-audio-files/` contains the user-facing sample stems used by the Quick Start. `server/data/seed-project/` contains a separate copy of seed audio used by the dev toolbar to create test projects quickly. Runtime uploads go into `server/uploads/`, which is ignored by Git.
 
 ## Frontend Overview
 
@@ -301,11 +336,13 @@ The backend is a pure Node TypeScript API.
 
 It currently handles:
 
-* Creating projects
-* Reading projects
+* Creating and reading projects
+* Updating project title and description
+* Saving and restoring project mix settings
 * Uploading tracks
 * Reading track metadata
-* Serving uploaded audio files back to the browser
+* Updating persisted track names
+* Streaming uploaded audio files back to the browser, including byte-range responses for seeking
 * Deleting individual tracks
 * Deleting projects and linked tracks
 * Cleaning up uploaded audio files and empty project upload folders
@@ -338,9 +375,12 @@ GET    /api/health
 GET    /api/projects
 POST   /api/projects
 GET    /api/projects/:projectId
+PUT    /api/projects/:projectId
+PUT    /api/projects/:projectId/mix-settings
 DELETE /api/projects/:projectId
 POST   /api/projects/:projectId/tracks
 GET    /api/projects/:projectId/tracks
+PUT    /api/projects/:projectId/tracks/:trackId
 GET    /api/projects/:projectId/tracks/:trackId/audio
 DELETE /api/projects/:projectId/tracks/:trackId
 GET    /api/dev/seed-files
@@ -348,9 +388,32 @@ POST   /api/dev/seed-project
 DELETE /api/dev/reset
 ```
 
-Most API routes return JSON responses. The audio route returns the uploaded audio file content with the track's MIME type.
+Most API routes return JSON responses. The audio route streams the uploaded file with the track's MIME type and supports `Range` requests, returning `206 Partial Content` when the browser seeks.
 
 The `/api/dev/*` routes are development-only helper routes for local testing.
+
+## Development Toolbar
+
+The frontend development toolbar is mounted in `client/src/main.ts` with:
+
+```ts
+mountDevToolbar({ visibleByDefault: false, enabledByDefault: true });
+```
+
+With those settings, the toolbar is **hidden when the app first loads**, but its keyboard shortcut remains enabled.
+
+Press the **`0` (zero) key** to show or hide the toolbar.
+
+The toolbar provides two local-development shortcuts:
+
+* **Seed project + selected tracks** — loads the available files from `server/data/seed-project/`, lets you choose which seed files to use, creates a temporary `Dev Seed Project`, copies those files into the normal runtime upload area, and reloads the app.
+* **Reset dev data** — after confirmation, clears the local development database and removes runtime uploaded files, then reloads the app.
+
+The seed-file checkboxes are selected by default, so pressing the seed button without changing the selection creates a project with all available seed tracks.
+
+The toolbar uses the development-only backend routes under `/api/dev/*`. The backend returns `404` for those routes when `NODE_ENV=production`.
+
+The toolbar's seed files are separate from the root `sample-audio-files/` directory: use `sample-audio-files/` to exercise the normal Create Project upload flow, and use the dev toolbar when you want a faster test setup.
 
 ## Testing
 
@@ -360,7 +423,7 @@ Run frontend tests from `client/`:
 
 ```bash
 npm test
-npm run test:typecheck
+npm run typecheck
 ```
 
 Run backend tests from `server/`:
@@ -372,32 +435,28 @@ npm run typecheck
 
 ## Current Development Focus
 
-The current focus is finishing and stabilizing the Version 1 four-channel stem player.
+The Version 1 local four-channel stem player is now in its final stabilization/release pass.
 
-Recent work has focused on:
+Recent Version 1 work includes:
 
-* Serving uploaded audio files from the backend.
-* Adding a single Audio Player panel with play, pause, stop, loop, progress, and timestamp controls.
-* Replacing the simple track list with channel slots in the Project Player Tracks panel.
-* Rendering the first four uploaded tracks as Channel 1 through Channel 4.
-* Adding a `Load Mix` action that reads enabled channel slots and volume settings.
-* Playing a loaded four-track mix from a shared start point.
-* Moving Create Project track selection inline on the Create Project page.
-* Replacing the old separate confirmation screen with a confirmation modal on the Create Project page.
-* Adding an Add Track button to empty Project Player channel slots.
-* Organizing the frontend CSS into a structured `client/src/css/` import system.
-* Updating the dev toolbar so it can seed projects from real audio files in `server/data/seed-project/`.
-* Keeping delete flows for individual tracks and entire projects.
-* Cleaning up uploaded audio files and empty upload folders after deletions.
+* A four-slot Mix Channels UI with numbered enable/disable controls and live volume percentages.
+* Persisted mix settings saved through `Load Mix` and restored when a project is reopened.
+* A current/modified visual state for the `Load Mix` button.
+* Inline persistent editing of project title, project description, and track names.
+* Shared play, pause/resume, stop, loop, timestamp, and seek behavior for loaded tracks.
+* HTTP byte-range audio streaming so the progress slider can seek without restarting from byte zero.
+* Add Track and Delete Track behavior directly from the Project Player.
+* Project deletion with linked metadata/upload cleanup and audio shutdown.
+* A root `sample-audio-files/` set for the normal Quick Start workflow.
+* Development seed/reset tooling for faster manual testing.
+
 
 ## Next Planned Work
 
-Likely next steps before declaring Version 1 complete:
+Before tagging or publishing Version 1:
 
-* Finish small UI polish and bug fixes.
-* Confirm the full four-track stem-player workflow through manual testing.
-* Keep the README, architecture notes, and backlog aligned with the current app behavior.
-* Run all frontend and backend tests and typechecks.
+* Run the full client and server test/typecheck suites.
+* Complete one final manual pass through the Quick Start workflow.
 * Merge the stable Version 1 work to `main`.
 
 Planned Version 2 work:
@@ -408,13 +467,14 @@ Planned Version 2 work:
 * Add shared playhead behavior across channel waveforms.
 * Add offset/nudge and non-destructive trim/clipping controls.
 
+
 ## Roadmap
 
 ### Version 1: Four-Channel Stem Player
 
 The first useful version of GrooveShare is a browser-based four-channel stem player.
 
-The goal is for a user to create a project, upload multiple audio files, open a Project Player, load up to four tracks into a mix, and control playback from a shared Audio Player panel.
+Version 1 lets a user create a project, upload multiple audio files, open a Project Player, save/load up to four tracks as a mix, edit project and track labels, and control playback from a shared Audio Player panel.
 
 ### Version 2: Web Audio Mixer Engine
 

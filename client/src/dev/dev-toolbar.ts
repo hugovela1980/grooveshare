@@ -194,7 +194,7 @@ export function mountDevToolbar({
     titleElement.textContent = "Dev tools";
 
     const helpElement = document.createElement("span");
-    helpElement.textContent = "Right Arrow toggles this toolbar.";
+    helpElement.textContent = "Press '0' to toggle this toolbar.";
     helpElement.style.fontSize = "0.75rem";
 
     const seedFileHeading = document.createElement("span");
