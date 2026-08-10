@@ -2,5 +2,17 @@
     "name": "@hugovela/test-runner",
     "version": "0.1.0",
     "private": true,
-    "type": "module"
+    "type": "module",
+    "exports": {
+        ".": "./src/index.ts"
+    },
+    "scripts": {
+        "test": "tsx tests/run-tests.ts",
+        "typecheck": "tsc --noEmit"
+    },
+    "devDependencies": {
+        "@types/node": "^25.9.3",
+        "tsx": "^4.22.4",
+        "typescript": "^6.0.3"
+    }
 }
