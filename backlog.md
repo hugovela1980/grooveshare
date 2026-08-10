@@ -9,7 +9,7 @@
 
 ## Current Focus
 
-- Make the first commit of v2 development - update documentation and update server test failure output
+- Make the first commits of v2 development - update documentation and update server test failure output
 
 ### Version 2 Milestone 1 — Accounts and Authorization Foundation
 
