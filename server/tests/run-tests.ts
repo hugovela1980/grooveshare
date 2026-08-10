@@ -1,4 +1,3 @@
-import "./test-runner/tester.test.js";
 import "./projects-json-store.test.js";
 import "./tracks-json-store.test.js";
 import "./upload-paths.test.js";

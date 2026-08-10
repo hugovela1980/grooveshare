@@ -1,4 +1,3 @@
-import "./test-runner/tester.test.js";
 import "./app-router.test.js";
 import "./page-templates.test.js";
 import "./grooveshare-app.test.js";
