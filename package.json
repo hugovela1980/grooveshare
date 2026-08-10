@@ -1,0 +1,9 @@
+{
+    "name": "grooveshare",
+    "private": true,
+    "workspaces": [
+        "client",
+        "server",
+        "packages/*"
+    ]
+}
