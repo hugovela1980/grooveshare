@@ -1,4 +1,4 @@
-import { tester } from "../src/tester.js";
+import { tester } from "./tester-instance.js";
 
 tester.describe("tester mock functions", () => {
   tester.it("tracks mock function calls", () => {

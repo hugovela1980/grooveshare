@@ -1,1 +1,1 @@
-export { tester } from "./tester.js";
+export { createTester } from "./tester.js";

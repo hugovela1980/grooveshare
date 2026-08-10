@@ -30,9 +30,6 @@ type TestFailure = {
   result: string;
 };
 
-const testSuites: TestSuite[] = [];
-let currentSuite: TestSuite | null = null;
-
 function formatValue(value: unknown): string {
   return typeof value === "string" ? `"${value}"` : JSON.stringify(value, null, 2);
 }
@@ -170,9 +167,12 @@ function extractFileReferenceFromStackLine(stackLine: string): string | null {
 }
 
 function isTestRunnerInternalFile(fileReference: string): boolean {
-  return fileReference
-    .replaceAll("\\", "/")
-    .includes("/tests/test-runner/tester.ts");
+  const normalizedFileReference = fileReference.replaceAll("\\", "/");
+
+  return (
+    normalizedFileReference.includes("/tests/test-runner/tester.ts") ||
+    normalizedFileReference.includes("/packages/test-runner/src/tester.ts")
+  );
 }
 
 function getFailureFileUrl(error: unknown): string {
@@ -278,42 +278,9 @@ function isMockFunction(value: unknown): value is MockFunction {
   );
 }
 
-function describe(name: string, callback: () => void): void {
-  const suite: TestSuite = {
-    name,
-    tests: [],
-    beforeEachCallbacks: [],
-  };
-
-  testSuites.push(suite);
-
-  const previousSuite = currentSuite;
-  currentSuite = suite;
-
-  callback();
-
-  currentSuite = previousSuite;
-}
-
-function beforeEach(callback: TestCallback): void {
-  if (!currentSuite) {
-    throw new Error("tester.beforeEach() must be inside tester.describe().");
-  }
-
-  currentSuite.beforeEachCallbacks.push(callback);
-}
-
-function it(name: string, callback: TestCallback): void {
-  if (!currentSuite) {
-    throw new Error(`Test "${name}" must be inside tester.describe().`);
-  }
-
-  currentSuite.tests.push({ name, callback });
-}
-
-const test = it;
-
-function fn(implementation: (...args: unknown[]) => unknown = () => undefined) {
+function fn(
+  implementation: (...args: unknown[]) => unknown = () => undefined,
+) {
   const mockFunction = ((...args: unknown[]) => {
     mockFunction.calls.push(args);
     return implementation(...args);
@@ -328,85 +295,125 @@ function fn(implementation: (...args: unknown[]) => unknown = () => undefined) {
   return mockFunction;
 }
 
-async function run() {
-  let total = 0;
-  let passed = 0;
-  let failed = 0;
-  const failures: TestFailure[] = [];
+export function createTester() {
+  const testSuites: TestSuite[] = [];
+  let currentSuite: TestSuite | null = null;
 
-  console.log("\nRunning tests...\n");
+  function describe(name: string, callback: () => void): void {
+    const suite: TestSuite = {
+      name,
+      tests: [],
+      beforeEachCallbacks: [],
+    };
 
-  for (const suite of testSuites) {
-    console.log(`\n${suite.name}`);
+    testSuites.push(suite);
 
-    for (const testCase of suite.tests) {
-      total += 1;
+    const previousSuite = currentSuite;
+    currentSuite = suite;
 
-      try {
-        for (const beforeEachCallback of suite.beforeEachCallbacks) {
-          await beforeEachCallback();
+    callback();
+
+    currentSuite = previousSuite;
+  }
+
+  function beforeEach(callback: TestCallback): void {
+    if (!currentSuite) {
+      throw new Error("tester.beforeEach() must be inside tester.describe().");
+    }
+
+    currentSuite.beforeEachCallbacks.push(callback);
+  }
+
+  function it(name: string, callback: TestCallback): void {
+    if (!currentSuite) {
+      throw new Error(`Test "${name}" must be inside tester.describe().`);
+    }
+
+    currentSuite.tests.push({ name, callback });
+  }
+
+  const test = it;
+
+  async function run() {
+    let total = 0;
+    let passed = 0;
+    let failed = 0;
+    const failures: TestFailure[] = [];
+
+    console.log("\nRunning tests...\n");
+
+    for (const suite of testSuites) {
+      console.log(`\n${suite.name}`);
+
+      for (const testCase of suite.tests) {
+        total += 1;
+
+        try {
+          for (const beforeEachCallback of suite.beforeEachCallbacks) {
+            await beforeEachCallback();
+          }
+
+          await testCase.callback();
+
+          passed += 1;
+          console.log(` ✓ ${testCase.name}`);
+        } catch (error) {
+          failed += 1;
+
+          const errorMessage = getErrorMessage(error);
+          const fileUrl = getFailureFileUrl(error);
+          const assertion = getAssertionLine(fileUrl);
+          const result = getFailureResult(errorMessage);
+
+          failures.push({
+            suite: suite.name,
+            test: testCase.name,
+            error: errorMessage,
+            fileUrl,
+            assertion,
+            result,
+          });
+
+          console.log(` ✗ ${testCase.name}`);
+          console.log(` ${errorMessage}`);
         }
-
-        await testCase.callback();
-
-        passed += 1;
-        console.log(` ✓ ${testCase.name}`);
-      } catch (error) {
-        failed += 1;
-
-        const errorMessage = getErrorMessage(error);
-        const fileUrl = getFailureFileUrl(error);
-        const assertion = getAssertionLine(fileUrl);
-        const result = getFailureResult(errorMessage);
-
-        failures.push({
-          suite: suite.name,
-          test: testCase.name,
-          error: errorMessage,
-          fileUrl,
-          assertion,
-          result,
-        });
-
-        console.log(` ✗ ${testCase.name}`);
-        console.log(` ${errorMessage}`);
       }
     }
+
+    console.log("\nTest Summary");
+    console.log(` Total: ${total}`);
+    console.log(` Passed: ${passed}`);
+    console.log(` Failed: ${failed}`);
+
+    if (failures.length > 0) {
+      console.log("\nFailed Test Details");
+
+      failures.forEach((failure, index) => {
+        const filename = getFailureFilename(failure.fileUrl);
+
+        console.log(`\n${index + 1}.   ===== ${filename} =====`);
+        console.log(`   test: ${failure.test}`);
+        console.log(`   assertion: ${failure.assertion}`);
+        console.log(`   error: ${failure.result}`);
+        console.log(`   suite: ${failure.suite}`);
+        console.log(`   url: ${failure.fileUrl}`);
+      });
+    }
+
+    if (failed > 0) {
+      process.exitCode = 1;
+    }
+
+    return { total, passed, failed };
   }
 
-  console.log("\nTest Summary");
-  console.log(` Total: ${total}`);
-  console.log(` Passed: ${passed}`);
-  console.log(` Failed: ${failed}`);
-
-  if (failures.length > 0) {
-    console.log("\nFailed Test Details");
-
-    failures.forEach((failure, index) => {
-      const filename = getFailureFilename(failure.fileUrl);
-
-      console.log(`\n${index + 1}.   ===== ${filename} =====`);
-      console.log(`   test: ${failure.test}`);
-      console.log(`   assertion: ${failure.assertion}`);
-      console.log(`   error: ${failure.result}`);
-      console.log(`   suite: ${failure.suite}`);
-      console.log(`   url: ${failure.fileUrl}`);
-    });
-  }
-
-  if (failed > 0) {
-    process.exitCode = 1;
-  }
-
-  return { total, passed, failed };
+  return {
+    describe,
+    it,
+    test,
+    beforeEach,
+    expect,
+    fn,
+    run,
+  };
 }
-
-export const tester = {
-  describe,
-  it,
-  test,
-  beforeEach,
-  expect,
-  fn,
-  run,
-};
