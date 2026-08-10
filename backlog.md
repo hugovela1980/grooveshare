@@ -2,116 +2,115 @@
 
 ## Current Version
 
-- Current stable release: ``
+- Current stable release: v1.0.0
 - Stable branch: `main`
 - Development branch: `develop`
+- Next planned release: Version 2 — Multi-user hosted beta
 
 ## Current Focus
 
-- Update server test failure output
+- Make the first commit of v2 development - update documentation and update server test failure output
 
-### Redesign the Project Player page
+### Version 2 Milestone 1 — Accounts and Authorization Foundation
 
-### Replace multitrack playback with Web Audio engine
-  Move multitrack playback from multiple HTML audio elements to a Web Audio based engine. Decode selected tracks into AudioBuffers, route each channel through Web Audio nodes, schedule playback from a shared AudioContext clock, and prepare the app for waveform display, gapless looping, nudge, trim, and edited playback.
+Move GrooveShare from the Version 1 single-user/local-data model toward a true multi-user application. Establish PostgreSQL-backed metadata, authenticated users, project membership roles, and server-enforced authorization before deploying the Version 2 beta.
 
-  - [ ] Add audio buffer loading helper
-    Fetch a track audio URL, decode it with `AudioContext.decodeAudioData`, and return an `AudioBuffer` for playback and waveform analysis.
+- [ ] Chunk 1 — Add PostgreSQL persistence and migrate project/track metadata
+  Define the relational schema for projects, tracks, and existing persisted mix/project data; add the database connection layer; migrate the current JSON-backed metadata behavior without changing the user-facing workflow.
 
-  - [ ] Add Web Audio channel engine
-    Create one channel object per loaded track with track metadata, an AudioBuffer, GainNode, enabled state, volume value, offset/nudge value, clip start, and clip end.
+- [ ] Chunk 2 — Add user accounts and authentication
+  Add a User model plus account creation/login/logout behavior, secure password handling, and persistent authentication/session support so the server can identify the user making each request.
 
-  - [ ] Replace HTML audio elements with Web Audio playback
-    Keep the existing Project Player UI, but replace the underlying multitrack playback implementation with AudioContext, AudioBufferSourceNode, and GainNode behavior.
+- [ ] Chunk 3 — Add project memberships and roles
+  Add project membership records with the initial `Viewer`, `Contributor`, and `Owner` roles. Define ownership for existing/new projects and make the role model ready for Contributors to upload now and record later.
 
-  - [ ] Add shared scheduled playback
-    Start all enabled channels from the same AudioContext time so tracks begin together from a shared start point.
+- [ ] Chunk 4 — Enforce authorization in the server API
+  Protect project, track, upload, edit, and delete routes based on membership and role. Viewers can read/play, Contributors can upload and manage their own contributions, and Owners can manage the project and its members.
 
-  - [ ] Add Web Audio pause, resume, and stop behavior
-    Track the shared playback position manually so pause, resume, stop, and reset work predictably across the loaded mix.
-
-  - [ ] Add gapless loop behavior
-    Loop the loaded mix using Web Audio scheduling, buffer source loop settings, or scheduled restart logic instead of waiting for HTML audio ended events.
-
-  - [ ] Add read-only waveform display for each channel
-    Use the decoded AudioBuffer data to calculate waveform peaks and draw a simple waveform inside each channel slot.
-
-  - [ ] Add shared playhead across channel waveforms
-    Show one shared playhead position across all active channel waveforms so the user can see where playback is in the mix.
-
-  - [ ] Add channel offset/nudge controls
-    Let each channel store a timing offset in seconds. Add simple nudge controls so tracks can be shifted slightly earlier or later to help sync rough recordings.
-
-  - [ ] Add non-destructive trim/clipping controls
-    Let each channel store a clip start and clip end value without permanently editing the original audio file.
-
-  - [ ] Add edited multitrack playback
-    Make playback respect each channel’s enabled state, volume, offset, clip start, and clip end values.
-
-  - [ ] Preserve current UI controls
-    Keep the existing Audio Player panel and channel slots, but make the controls operate through the Web Audio engine instead of direct HTML audio element playback.
-
-  - [ ] Manually test full four-track Web Audio mixing and editing
-    Upload up to four tracks, load the mix, play all enabled tracks together, adjust volume, toggle channels, loop playback, nudge tracks, trim clips, stop, restart, and verify the mix behaves predictably.
+- [ ] Chunk 5 — Complete authorization integration tests and development tooling
+  Add end-to-end server tests for allowed and forbidden actions, update seed/dev data so each role can be tested easily, verify migration behavior, and run the full client/server test and typecheck suites.
 
 ## Backlog
 
+### Version 2 Milestone 2 — Permission-Aware UI
 
-- [ ] Add project detail page
-  Create a focused project view where the user can see project notes, uploaded tracks, and playback controls in one place.
+Make the client reflect the permissions already enforced by the server. Show or hide upload, edit, delete, project-management, and future recording controls according to the current user's role while keeping server authorization as the actual security boundary.
 
-- [ ] Add share-link style route
-  Create a simple shareable project URL that opens a collaborator-friendly view without requiring authentication.
+### Version 2 Milestone 3 — Production Configuration
 
-- [ ] Add collaborator playback view
-  Build a simplified view for bandmates that focuses only on reading the project notes and playing, muting, soloing, adjusting volume, and panning tracks.
+Remove development-only assumptions before hosting. Move database, upload directory, port, API/client origins, and other deployment settings into environment-based configuration, and establish a stable production hostname so later infrastructure changes do not require redesigning the clients.
 
-- [ ] Add basic project notes
-  Let the project owner add short instructions for collaborators, such as what part to practice or what kind of drum part to try.
+### Version 2 Milestone 4 — VPS Deployment
 
-- [ ] Add basic file validation
-  Check uploaded files for supported audio types and reject files that are too large or not usable by the app.
+Deploy the multi-user application to a small Linux VPS. Configure Node, PostgreSQL, persistent audio storage, process startup, a reverse proxy, HTTPS, firewall rules, logs, and backups so trusted friends and band members can use GrooveShare through a normal public URL.
 
-- [ ] Add simple error and loading states
-  Display clear messages when projects, uploads, audio files, or backend requests fail.
+### Version 2 Milestone 5 — Web Audio Engine and Sync Tools
 
-- [ ] Add basic responsive layout
-  Make the Version 1 project and playback views usable on both desktop and phone screens.
+Replace the multiple-HTML-audio-element playback model when the product needs tighter musical editing and synchronization. Use a shared Web Audio clock and decoded buffers to support reliable multitrack scheduling, gapless looping, waveforms, a shared playhead, channel offset/nudge, non-destructive trimming, and playback that respects edited channel settings.
 
-- [ ] Add Version 1 README notes
-  Document the local Phase 1 setup, current features, known limitations, and how to run the client and server locally.
+### Version 2.x — Private Beta and Stabilization
+
+Use GrooveShare with real bandmates after the VPS deployment. Fix production bugs as patch releases, improve file validation and loading/error states where real usage exposes weaknesses, watch storage and bandwidth behavior, and use feedback to decide what Version 3 actually needs.
+
+### Version 3 Milestone 1 — Desktop/Home Hosting with Cloudflare Tunnel
+
+Begin the self-hosting path by running the same GrooveShare server from the desktop and publishing it safely through Cloudflare Tunnel, with the option to move the workload to a dedicated home server later. Keep the public API contract and hostname stable so the move from the VPS is primarily an infrastructure migration rather than an application rewrite.
+
+### Version 3 Milestone 2 — Mobile-Ready Web Client
+
+Do a full responsive/mobile interaction pass before creating native wrappers. Make the Project Player, mixer, authentication, uploads, and controls comfortable on phone-sized touch screens so the same web UI can be reused by Capacitor instead of maintaining a separate mobile interface.
+
+### Version 3 Milestone 3 — Microphone Recording Workflow
+
+Add recording to the web client first using browser microphone APIs. Let an authorized Contributor listen to the existing mix, record a rough take, stop and preview it, name it, and upload it as a normal project track without prematurely adding DAW-grade monitoring or native-audio complexity.
+
+### Version 3 Milestone 4 — Capacitor Android/iOS Apps
+
+Wrap the proven responsive GrooveShare client with Capacitor, beginning with Android and then iOS. Keep the mobile apps connected to the same centralized GrooveShare API and only introduce native audio plugins if real device testing shows that the browser/WebView recording implementation is insufficient.
+
+### Version 4 Milestone 1 — Collaboration Workflow Polish
+
+Expand GrooveShare from a shared stem/recording tool into a fuller band collaboration workflow. Add features such as invitations, project notes/instructions, comments, collaborator identity, notifications, private project access, project status, and useful history/version information based on what beta users actually need.
 
 ## Known Issues
 
-- [ ] Revisit audio progress slider seeking
-  The single-track audio player can load, play, pause, stop, and display timestamps, but slider seeking may need to be redesigned when the app moves toward simultaneous multitrack playback and streaming/range support.
+- [ ] Version 1 has no user authentication or project permissions
+  The current stable release assumes trusted/local use. There is no server-enforced distinction between a viewer, contributor, and project owner; Version 2 Milestone 1 addresses this directly.
+
+- [ ] Version 1 JSON metadata storage is not intended for concurrent multi-user production use
+  The current file-backed metadata model was appropriate for the local MVP but should be replaced before the hosted multi-user beta. Version 2 Milestone 1 moves metadata to PostgreSQL.
 
 ## Phases
 
-- [ ] Phase 1 Architecture
-    Keep the first implementation focused on Vite + Vanilla TypeScript, pure Node backend, local file storage, and JSON file metadata before adding external services.
+- [x] Phase 1 — Local MVP foundation
+  Build the initial GrooveShare stem-player experience with Vite + Vanilla TypeScript, a pure Node backend, JSON metadata, local audio storage, project/track management, four-channel playback, persistent mix settings, and the completed Version 1 release.
 
-- [ ] Move to Phase 2 architecture
-  Replace early local development pieces with a more realistic backend setup, including Express, PostgreSQL or Supabase metadata storage, and cloud/object storage for uploaded audio files.
+- [ ] Phase 2 — Multi-user production web application
+  Introduce PostgreSQL, user authentication, project memberships and role-based authorization, permission-aware client behavior, production configuration, and deployment to a VPS for a real private beta.
 
-- [ ] Move to Phase 3 collaboration features
-  Add authentication, share links, email notifications, and stronger project permissions after the core local prototype is working.
+- [ ] Phase 3 — Self-hosting, recording, and mobile clients
+  Move the centralized service from the VPS toward desktop/home hosting through Cloudflare Tunnel, make the web UI truly mobile-ready, add microphone recording, and package the existing client for Android/iOS with Capacitor.
+
+- [ ] Phase 4 — Mature collaboration and audio workflow
+  Deepen the collaborative band workflow with invitations, comments, notifications, project history/status, stronger private sharing, and more advanced Web Audio/synchronization tools when real usage justifies them.
 
 ## Versions
 
-- [ ] Build Version 1: Stem player
-  Create the first useful MVP where a user can create a project, upload multiple audio files, and share a link where someone can play, mute, solo, adjust volume, and pan tracks.
+- [x] Version 1 — Stem Player MVP
+  Create projects, upload and delete tracks, edit project/track details, configure a persistent four-channel mix, and play/pause/stop/loop/seek the shared audio locally with the Version 1 JSON/local-file architecture.
 
-- [ ] Build Version 2: Record a take
-  Add browser microphone recording so a collaborator can listen to the shared tracks, record a rough part, save it, and make it available to the project owner.
+- [ ] Version 2 — Multi-User Hosted Beta
+  Add PostgreSQL-backed users/projects, authentication, Viewer/Contributor/Owner permissions, permission-aware UI, and production deployment to a VPS so trusted friends and band members can use one centralized GrooveShare instance over the internet.
 
-- [ ] Build Version 3: Sync tools
-  Add practical tools for making rough phone recordings usable, such as count-in behavior, manual offset/nudge controls, waveform preview, and trimming.
+- [ ] Version 3 — Self-Hosted Mobile Recording
+  Move toward desktop/home-server hosting through Cloudflare Tunnel, complete the mobile web experience, add microphone recording for Contributors, and distribute Android/iOS clients with Capacitor while keeping one shared GrooveShare backend.
 
-- [ ] Build Version 4: Collaboration polish
-  Add features that make the app feel like a real band workflow, such as email notifications, comments, version history, private links, collaborator names, and project status.
+- [ ] Version 4 — Mature Collaboration Platform
+  Build on the stable multi-user/mobile foundation with richer collaboration, notifications, project history/status, invitations/private sharing, and advanced audio/sync tools that support a practical remote band workflow.
 
 ## Completed
+
+### Project Definition and Initial Architecture
 
 - [x] Define initial project idea
   Established GrooveShare as a lightweight music collaboration app for sharing stems, practicing parts, and capturing rough remote takes from bandmates.
@@ -128,6 +127,8 @@
 - [x] Add backend test runner
   Added a custom TypeScript test runner for the backend, based on the lightweight testing pattern from the split-timer project, including support for grouped tests, assertions, setup callbacks, and mock functions.
 
+### Project Metadata and Upload Foundation
+
 - [x] Build local project metadata foundation
   Created the first full project metadata flow using a local JSON data store, TypeScript backend types, tested store helpers, tested API routes, and a frontend project creation UI that can create, save, load, and display projects.
 
@@ -137,37 +138,43 @@
 - [x] Add local audio file upload
   Added the first full local audio upload workflow, including track metadata types, separated JSON store helpers, tested track store functions, pure Node multipart upload handling, local project-specific upload folders, upload validation, tested upload/list API routes, a frontend upload form, uploaded track metadata display, and readable upload error handling.
 
+### Frontend Structure and Project Management
+
 - [x] Refactor the frontend
-  Refactor so that `main.ts` starts the app only and `app.ts` does routing coordination, app state, and page initialization.  Create and add directories and files to handle screen changes (`router/`), render page HTML templates (`pages/`), and handle page-specific behavior (`page-controllers/`)
+  Refactor so that `main.ts` starts the app only and `app.ts` does routing coordination, app state, and page initialization. Create and add directories and files to handle screen changes (`router/`), render page HTML templates (`pages/`), and handle page-specific behavior (`page-controllers/`).
 
 - [x] Restyled the main app pages
   Updated the UI for the main project workflow so the app now feels more like a guided multi-page experience instead of a collection of rough development screens.
 
 - [x] Added reusable track deletion
-Added backend and frontend support for deleting individual tracks, including removing track metadata from `db.json`, deleting the linked uploaded audio file from `server/uploads/`, exposing a reusable `deleteTrack(projectId, trackId)` API helper, and wiring the first delete UI into the Project Player so tracks can be removed and the track list refreshes after deletion.
+  Added backend and frontend support for deleting individual tracks, including removing track metadata from `db.json`, deleting the linked uploaded audio file from `server/uploads/`, exposing a reusable `deleteTrack(projectId, trackId)` API helper, and wiring the first delete UI into the Project Player so tracks can be removed and the track list refreshes after deletion.
 
 - [x] Added project deletion with linked track cleanup
-Added backend and frontend support for deleting entire projects, including removing project metadata from `db.json`, removing linked track metadata, deleting uploaded audio files and project upload folders from `server/uploads/`, exposing a reusable `deleteProject(projectId)` API helper, and wiring delete buttons into the Project Menu and Project Player flows with confirmation prompts and status messages.
+  Added backend and frontend support for deleting entire projects, including removing project metadata from `db.json`, removing linked track metadata, deleting uploaded audio files and project upload folders from `server/uploads/`, exposing a reusable `deleteProject(projectId)` API helper, and wiring delete buttons into the Project Menu and Project Player flows with confirmation prompts and status messages.
+
+### Playback and Mixer Development
 
 - [x] Add single-track audio playback path
-Added backend audio serving, a single audio player template, an audio player controller, track Load buttons, and Project Player wiring so one uploaded track can be loaded and played from the browser.
+  Added backend audio serving, a single audio player template, an audio player controller, track Load buttons, and Project Player wiring so one uploaded track can be loaded and played from the browser.
 
 - [x] Design four-channel track mixer layout
-Replace the simple track list mindset with four channel slots in the Project Player Tracks panel. Each slot should be designed to eventually support an assigned track, enabled toggle, volume control, waveform display, offset/nudge controls, and trim/clipping controls.
+  Replace the simple track list mindset with four channel slots in the Project Player Tracks panel. Each slot should be designed to eventually support an assigned track, enabled toggle, volume control, waveform display, offset/nudge controls, and trim/clipping controls.
 
 - [x] Add two-channel slot prototype
-Render the first two uploaded tracks as Channel 1 and Channel 2. Each channel should show the assigned track name, enabled toggle, volume slider, and a placeholder waveform area.
+  Render the first two uploaded tracks as Channel 1 and Channel 2. Each channel should show the assigned track name, enabled toggle, volume slider, and a placeholder waveform area.
 
 - [x] Add Load Mix behavior for two channels
   Add a Load Mix button that prepares the enabled channel slots for playback instead of loading one individual track at a time.
 
 - [x] Update dev toolbar for real seed audio files
-List audio files from `server/data/seed-project`, allow selecting which files to include, seed a project using the selected real audio files, keep reset-dev-data behavior, and keep the dev toolbar isolated so it can be removed later with minimal code changes.
+  List audio files from `server/data/seed-project`, allow selecting which files to include, seed a project using the selected real audio files, keep reset-dev-data behavior, and keep the dev toolbar isolated so it can be removed later with minimal code changes.
 
 - [x] Add two-track playback controller
-Play, pause, stop, and reset two enabled tracks from a shared start point. Each track should respect its channel volume setting.
+  Play, pause, stop, and reset two enabled tracks from a shared start point. Each track should respect its channel volume setting.
 
 - [x] Expand mixer slots to four channels
+
+### Version 1 Polish and Release
 
 - [x] Final Version 1 cleanup pass
   Remove obviously stale code, update backlog checkboxes, run all tests/typechecks, and merge to main when stable.
@@ -182,3 +189,5 @@ Play, pause, stop, and reset two enabled tracks from a shared start point. Each 
 - [x] Add data persistance to project details after editting on the project player page.
 
 - [x] Fix progress slider not seeking
+
+### Accounts and Authorization Foundation
