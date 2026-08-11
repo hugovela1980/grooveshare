@@ -5,6 +5,48 @@ import {
 } from "./db/postgres-test-db.js";
 import { tester } from "./test-runner/tester.js";
 
+async function createTestTrack(
+    projectId: string,
+): Promise<string> {
+    const trackId = crypto.randomUUID();
+
+    await postgresTestPool.query(
+        `
+            INSERT INTO tracks (
+                id,
+                project_id,
+                name,
+                original_filename,
+                file_path,
+                mime_type,
+                file_size,
+                created_at
+            )
+            VALUES (
+                $1,
+                $2,
+                $3,
+                $4,
+                $5,
+                $6,
+                $7,
+                NOW()
+            )
+        `,
+        [
+            trackId,
+            projectId,
+            "Guitar",
+            "guitar.wav",
+            "uploads/guitar.wav",
+            "audio/wav",
+            100,
+        ],
+    );
+
+    return trackId;
+}
+
 tester.describe("projects PostgreSQL store", () => {
     tester.beforeEach(async () => {
         await resetPostgresTestDatabase();
@@ -89,4 +131,220 @@ tester.describe("projects PostgreSQL store", () => {
             tester.expect(foundProject).toBe(null);
         },
     );
+
+    tester.it(
+        "updates project details",
+        async () => {
+            const store =
+                createProjectsPostgresStore(postgresTestPool);
+
+            const project = await store.createProject({
+                title: "Old Title",
+                description: "Old description",
+            });
+
+            const updatedProject =
+                await store.updateProjectDetails(project.id, {
+                    title: "New Title",
+                });
+
+            tester.expect(updatedProject?.title).toBe(
+                "New Title",
+            );
+
+            tester.expect(updatedProject?.description).toBe(
+                "Old description",
+            );
+
+            tester.expect(
+                updatedProject?.updatedAt === project.updatedAt,
+            ).toBe(false);
+        },
+    );
+
+    tester.it("returns null when updating a missing project", async () => {
+        const store = createProjectsPostgresStore(postgresTestPool);
+
+        const updatedProject = await store.updateProjectDetails(
+            "00000000-0000-0000-0000-000000000001",
+            {
+                title: "New Title",
+            },
+        );
+
+        tester.expect(updatedProject).toBe(null);
+    },
+    );
+
+    tester.it("saves and returns project mix settings", async () => {
+        const store = createProjectsPostgresStore(postgresTestPool);
+
+        const project = await store.createProject({
+            title: "Mix Project",
+            description: "Testing saved mix",
+        });
+
+        const trackId = await createTestTrack(project.id);
+
+        const updatedProject = await store.updateProjectMixSettings(
+            project.id,
+            {
+                channels: [
+                    {
+                        channelNumber: 1,
+                        trackId,
+                        enabled: true,
+                        volume: 0.75,
+                    },
+                ],
+            },
+        );
+
+        tester.expect(updatedProject?.mixSettings).toEqual({
+            channels: [
+                {
+                    channelNumber: 1,
+                    trackId,
+                    enabled: true,
+                    volume: 0.75,
+                },
+            ],
+        });
+
+        const loadedProject = await store.getProjectById(project.id);
+
+        tester.expect(loadedProject?.mixSettings).toEqual({
+            channels: [
+                {
+                    channelNumber: 1,
+                    trackId,
+                    enabled: true,
+                    volume: 0.75,
+                },
+            ],
+        });
+    });
+
+    tester.it("replaces existing project mix settings", async () => {
+        const store = createProjectsPostgresStore(postgresTestPool);
+
+        const project = await store.createProject({
+            title: "Replace Mix",
+            description: "Testing mix replacement",
+        });
+
+        const trackId = await createTestTrack(project.id);
+
+        await store.updateProjectMixSettings(
+            project.id,
+            {
+                channels: [
+                    {
+                        channelNumber: 1,
+                        trackId,
+                        enabled: true,
+                        volume: 0.5,
+                    },
+                ],
+            },
+        );
+
+        const updatedProject = await store.updateProjectMixSettings(
+            project.id,
+            {
+                channels: [
+                    {
+                        channelNumber: 2,
+                        trackId,
+                        enabled: false,
+                        volume: 0.8,
+                    },
+                ],
+            },
+        );
+
+        tester.expect(updatedProject?.mixSettings).toEqual({
+            channels: [
+                {
+                    channelNumber: 2,
+                    trackId,
+                    enabled: false,
+                    volume: 0.8,
+                },
+            ],
+        });
+    });
+
+    tester.it(
+        "deletes a project and its related track metadata",
+        async () => {
+            const store =
+                createProjectsPostgresStore(postgresTestPool);
+
+            const project = await store.createProject({
+                title: "Delete Project",
+                description: "Testing deletion",
+            });
+
+            const trackId =
+                await createTestTrack(project.id);
+
+            const result =
+                await store.deleteProjectById(project.id);
+
+            tester.expect(result.ok).toBe(true);
+
+            if (!result.ok) {
+                throw new Error(
+                    "Expected project deletion to succeed.",
+                );
+            }
+
+            tester.expect(result.deletedProject.id).toBe(
+                project.id,
+            );
+
+            tester.expect(result.deletedTracks.length).toBe(1);
+
+            tester.expect(result.deletedTracks[0]?.id).toBe(
+                trackId,
+            );
+
+            const projectRows =
+                await postgresTestPool.query(
+                    `
+          SELECT id
+          FROM projects
+          WHERE id = $1
+        `,
+                    [project.id],
+                );
+
+            const trackRows =
+                await postgresTestPool.query(
+                    `
+          SELECT id
+          FROM tracks
+          WHERE project_id = $1
+        `,
+                    [project.id],
+                );
+
+            tester.expect(projectRows.rows).toEqual([]);
+            tester.expect(trackRows.rows).toEqual([]);
+        },
+    );
+
+    tester.it("returns project-not-found when deleting a missing project", async () => {
+        const store = createProjectsPostgresStore(postgresTestPool);
+
+        const result = await store.deleteProjectById(
+            "00000000-0000-0000-0000-000000000001",
+        );
+
+        tester.expect(result).toEqual({
+            ok: false,
+            reason: "project-not-found",
+        });
+    });
 });
