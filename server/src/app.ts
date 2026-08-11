@@ -8,8 +8,8 @@ import {
   handleDevSeedFilesRoute,
   handleDevSeedProjectRoute,
 } from "./dev/dev-seed-routes.js";
-import type { ProjectsStore } from "./stores/projects-json-store.js";
-import type { TracksStore } from "./stores/tracks-json-store.js";
+import type { ProjectsStore } from "./stores/projects-store.js";
+import type { TracksStore } from "./stores/tracks-store.js";
 import type {
   CreateProjectInput,
   MixSettings,

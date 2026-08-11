@@ -2,8 +2,8 @@ import { copyFile, mkdir, readdir, stat } from "node:fs/promises";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { ProjectsStore } from "../stores/projects-json-store.js";
-import type { TracksStore } from "../stores/tracks-json-store.js";
+import type { ProjectsStore } from "../stores/projects-store.js";
+import type { TracksStore } from "../stores/tracks-store.js";
 import type { Project, Track } from "../types.js";
 import { ensureProjectUploadDir } from "../uploads/upload-paths.js";
 
