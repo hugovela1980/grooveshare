@@ -6,6 +6,12 @@ import { createProjectsJsonStore } from "../src/stores/projects-json-store.js";
 import { createTracksJsonStore } from "../src/stores/tracks-json-store.js";
 import type { UsersStore } from "../src/stores/users-store.js";
 import { createTestUsersStore } from "./helpers/create-test-users-store.js";
+import {
+    hashSessionToken,
+} from "../src/auth/session.js";
+import type { SessionsStore } from "../src/stores/sessions-store.js";
+import { createTestSessionsStore } from "./helpers/create-test-sessions-store.js";
+
 import { tester } from "./test-runner/tester.js";
 
 type ApiResponse<T> = {
@@ -53,8 +59,13 @@ async function createTestServer(): Promise<{
     baseUrl: string;
     server: http.Server;
     usersStore: UsersStore;
+    sessionsStore: SessionsStore;
 }> {
-    const usersStore = createTestUsersStore();
+    const usersStore =
+        createTestUsersStore();
+
+    const sessionsStore =
+        createTestSessionsStore();
 
     const projectsStore =
         createProjectsJsonStore(
@@ -70,6 +81,7 @@ async function createTestServer(): Promise<{
         projectsStore,
         tracksStore,
         usersStore,
+        sessionsStore,
         clientOrigin: "http://localhost:5173",
     });
 
@@ -80,6 +92,7 @@ async function createTestServer(): Promise<{
         baseUrl,
         server,
         usersStore,
+        sessionsStore,
     };
 }
 
@@ -99,6 +112,26 @@ async function registerUser(
                 password: "My Long Password 123!",
             }),
         },
+    );
+}
+
+function getSessionTokenFromSetCookie(
+    setCookie: string,
+): string {
+    const cookiePair =
+        setCookie.split(";")[0];
+
+    const separatorIndex =
+        cookiePair.indexOf("=");
+
+    if (separatorIndex === -1) {
+        throw new Error(
+            "Session cookie did not contain a value.",
+        );
+    }
+
+    return cookiePair.slice(
+        separatorIndex + 1,
     );
 }
 
@@ -368,6 +401,174 @@ tester.describe("auth API routes", () => {
 
                 tester.expect(response.status).toBe(400);
                 tester.expect(body.ok).toBe(false);
+            } finally {
+                await closeServer(server);
+            }
+        },
+    );
+
+    tester.it(
+        "creates a server session when login succeeds",
+        async () => {
+            const {
+                baseUrl,
+                server,
+                sessionsStore,
+            } = await createTestServer();
+
+            try {
+                await registerUser(baseUrl);
+
+                const response = await fetch(
+                    `${baseUrl}/api/auth/login`,
+                    {
+                        method: "POST",
+                        headers: {
+                            "Content-Type":
+                                "application/json",
+                        },
+                        body: JSON.stringify({
+                            email: "hugo@example.com",
+                            password:
+                                "My Long Password 123!",
+                        }),
+                    },
+                );
+
+                const setCookie =
+                    response.headers.get(
+                        "set-cookie",
+                    );
+
+                tester.expect(
+                    typeof setCookie,
+                ).toBe("string");
+
+                if (!setCookie) {
+                    throw new Error(
+                        "Login did not set a session cookie.",
+                    );
+                }
+
+                tester.expect(
+                    setCookie.includes("HttpOnly"),
+                ).toBe(true);
+
+                tester.expect(
+                    setCookie.includes(
+                        "SameSite=Lax",
+                    ),
+                ).toBe(true);
+
+                const sessionToken =
+                    getSessionTokenFromSetCookie(
+                        setCookie,
+                    );
+
+                const session =
+                    await sessionsStore
+                        .getSessionByTokenHash(
+                            hashSessionToken(
+                                sessionToken,
+                            ),
+                        );
+
+                tester.expect(
+                    session !== null,
+                ).toBe(true);
+            } finally {
+                await closeServer(server);
+            }
+        },
+    );
+
+    tester.it(
+        "logs out and deletes the server session",
+        async () => {
+            const {
+                baseUrl,
+                server,
+                sessionsStore,
+            } = await createTestServer();
+
+            try {
+                await registerUser(baseUrl);
+
+                const loginResponse =
+                    await fetch(
+                        `${baseUrl}/api/auth/login`,
+                        {
+                            method: "POST",
+                            headers: {
+                                "Content-Type":
+                                    "application/json",
+                            },
+                            body: JSON.stringify({
+                                email:
+                                    "hugo@example.com",
+                                password:
+                                    "My Long Password 123!",
+                            }),
+                        },
+                    );
+
+                const setCookie =
+                    loginResponse.headers.get(
+                        "set-cookie",
+                    );
+
+                if (!setCookie) {
+                    throw new Error(
+                        "Login did not set a session cookie.",
+                    );
+                }
+
+                const cookiePair =
+                    setCookie.split(";")[0];
+
+                const sessionToken =
+                    getSessionTokenFromSetCookie(
+                        setCookie,
+                    );
+
+                const tokenHash =
+                    hashSessionToken(
+                        sessionToken,
+                    );
+
+                const logoutResponse =
+                    await fetch(
+                        `${baseUrl}/api/auth/logout`,
+                        {
+                            method: "POST",
+                            headers: {
+                                Cookie: cookiePair,
+                            },
+                        },
+                    );
+
+                tester.expect(
+                    logoutResponse.status,
+                ).toBe(200);
+
+                const session =
+                    await sessionsStore
+                        .getSessionByTokenHash(
+                            tokenHash,
+                        );
+
+                tester.expect(session).toBe(null);
+
+                const clearedCookie =
+                    logoutResponse.headers.get(
+                        "set-cookie",
+                    );
+
+                tester.expect(
+                    clearedCookie?.includes(
+                        "Max-Age=0",
+                    ),
+                ).toBe(true);
             } finally {
                 await closeServer(server);
             }

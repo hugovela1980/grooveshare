@@ -8,6 +8,7 @@ import "./tracks-postgres-store.test.js";
 import "./users-postgres-store.test.js";
 import "./password.test.js";
 import "./auth-api-routes.test.js";
+import "./sessions-postgres-store.test.js";
 
 import { tester } from "./test-runner/tester.js";
 import { closePostgresTestDatabase } from "./db/postgres-test-db.js";

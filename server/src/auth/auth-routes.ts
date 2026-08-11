@@ -2,15 +2,27 @@ import type {
     IncomingMessage,
     ServerResponse,
 } from "node:http";
+
 import type { UsersStore } from "../stores/users-store.js";
 import {
     hashPassword,
     verifyPassword,
 } from "./password.js";
+
 import type {
     StoredUser,
     User,
 } from "./types.js";
+
+import type { SessionsStore } from "../stores/sessions-store.js";
+import {
+    createClearedSessionCookie,
+    createSessionCookie,
+    createSessionToken,
+    getSessionToken,
+    hashSessionToken,
+    SESSION_DURATION_MS,
+} from "./session.js";
 
 type JsonResponse =
     Record<string, unknown>;
@@ -29,6 +41,11 @@ type AuthRouteOptions = {
     clientOrigin: string;
     usersStore: UsersStore;
 };
+
+type AuthSessionRouteOptions =
+    AuthRouteOptions & {
+        sessionsStore: SessionsStore;
+    };
 
 type RegisterInput = {
     email: string;
@@ -252,7 +269,8 @@ export async function handleLoginRoute({
     sendJson,
     clientOrigin,
     usersStore,
-}: AuthRouteOptions): Promise<void> {
+    sessionsStore,
+}: AuthSessionRouteOptions): Promise<void> {
     const parsedBody =
         await readJsonBody(req);
 
@@ -312,12 +330,93 @@ export async function handleLoginRoute({
         return;
     }
 
+    const sessionToken =
+        createSessionToken();
+
+    const tokenHash =
+        hashSessionToken(sessionToken);
+
+    const expiresAt =
+        new Date(
+            Date.now() +
+            SESSION_DURATION_MS,
+        ).toISOString();
+
+    await sessionsStore.createSession({
+        userId: storedUser.id,
+        tokenHash,
+        expiresAt,
+    });
+
+    const secureCookie =
+        process.env.NODE_ENV ===
+        "production";
+
+    res.setHeader(
+        "Set-Cookie",
+        createSessionCookie(
+            sessionToken,
+            secureCookie,
+        ),
+    );
+
+    res.setHeader(
+        "Cache-Control",
+        "no-store",
+    );
+
     sendJson(
         res,
         200,
         {
             ok: true,
             data: toPublicUser(storedUser),
+        },
+        clientOrigin,
+    );
+}
+
+export async function handleLogoutRoute({
+    req,
+    res,
+    sendJson,
+    clientOrigin,
+    usersStore: _usersStore,
+    sessionsStore,
+}: AuthSessionRouteOptions): Promise<void> {
+    const sessionToken =
+        getSessionToken(req);
+
+    if (sessionToken) {
+        await sessionsStore
+            .deleteSessionByTokenHash(
+                hashSessionToken(
+                    sessionToken,
+                ),
+            );
+    }
+
+    const secureCookie =
+        process.env.NODE_ENV ===
+        "production";
+
+    res.setHeader(
+        "Set-Cookie",
+        createClearedSessionCookie(
+            secureCookie,
+        ),
+    );
+
+    res.setHeader(
+        "Cache-Control",
+        "no-store",
+    );
+
+    sendJson(
+        res,
+        200,
+        {
+            ok: true,
         },
         clientOrigin,
     );

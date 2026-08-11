@@ -28,6 +28,7 @@ export async function resetPostgresTestDatabase(): Promise<void> {
       project_mix_channels,
       tracks,
       projects,
+      sessions,
       users
     CASCADE
   `);

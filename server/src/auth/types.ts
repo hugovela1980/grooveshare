@@ -15,3 +15,17 @@ export type CreateUserInput = {
   displayName: string;
   passwordHash: string;
 };
+
+export type Session = {
+  id: string;
+  userId: string;
+  tokenHash: string;
+  createdAt: string;
+  expiresAt: string;
+};
+
+export type CreateSessionInput = {
+  userId: string;
+  tokenHash: string;
+  expiresAt: string;
+};

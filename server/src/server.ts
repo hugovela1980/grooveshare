@@ -4,6 +4,7 @@ import { createDatabasePool } from "./db/pool.js";
 import { createProjectsPostgresStore } from "./stores/projects-postgres-store.js";
 import { createTracksPostgresStore } from "./stores/tracks-postgres-store.js";
 import { createUsersPostgresStore } from "./stores/users-postgres-store.js";
+import { createSessionsPostgresStore } from "./stores/sessions-postgres-store.js";
 
 loadEnvFile();
 
@@ -22,12 +23,16 @@ const tracksStore =
   createTracksPostgresStore(pool);
 
 const usersStore =
-  createUsersPostgresStore(pool);;
+  createUsersPostgresStore(pool);
+
+const sessionsStore =
+  createSessionsPostgresStore(pool);
 
 const server = createAppServer({
   projectsStore,
   tracksStore,
   usersStore,
+  sessionsStore,
 });
 
 try {

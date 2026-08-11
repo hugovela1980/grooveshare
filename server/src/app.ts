@@ -28,9 +28,11 @@ import {
 } from "./uploads/upload-validation.js";
 import {
   handleLoginRoute,
+  handleLogoutRoute,
   handleRegisterRoute,
 } from "./auth/auth-routes.js";
 import type { UsersStore } from "./stores/users-store.js";
+import type { SessionsStore } from "./stores/sessions-store.js";
 
 type JsonResponse = Record<string, unknown>;
 
@@ -42,6 +44,7 @@ type AppOptions = {
   uploadRoot?: string;
   seedProjectDir?: string;
   maxUploadFileSizeBytes?: number;
+  sessionsStore: SessionsStore;
 };
 
 function sendJson(
@@ -57,6 +60,7 @@ function sendJson(
     "Access-Control-Allow-Origin": clientOrigin,
     "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Credentials": "true",
   });
 
   res.end(json);
@@ -336,6 +340,7 @@ export function createAppServer({
   projectsStore,
   tracksStore,
   usersStore,
+  sessionsStore,
   clientOrigin = "http://localhost:5173",
   uploadRoot = DEFAULT_UPLOAD_ROOT,
   seedProjectDir = DEFAULT_SEED_PROJECT_DIR,
@@ -958,6 +963,7 @@ export function createAppServer({
           "Access-Control-Allow-Origin": clientOrigin,
           "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
           "Access-Control-Allow-Headers": "Content-Type",
+          "Access-Control-Allow-Credentials": "true",
         });
 
         res.end();
@@ -1004,6 +1010,23 @@ export function createAppServer({
           sendJson,
           clientOrigin,
           usersStore,
+          sessionsStore,
+        });
+
+        return;
+      }
+
+      if (
+        req.method === "POST" &&
+        req.url === "/api/auth/logout"
+      ) {
+        await handleLogoutRoute({
+          req,
+          res,
+          sendJson,
+          clientOrigin,
+          usersStore,
+          sessionsStore,
         });
 
         return;
