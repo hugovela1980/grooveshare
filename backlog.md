@@ -190,4 +190,30 @@ Expand GrooveShare from a shared stem/recording tool into a fuller band collabor
 
 - [x] Fix progress slider not seeking
 
+### Shared Test Runner Migration
+
+- [x] Set up npm workspace structure
+  Added a root workspace configuration for the client, server, and reusable test-runner package.
+
+- [x] Consolidate workspace dependency management
+  Replaced the separate client and server lockfiles with a single root `package-lock.json` and verified clean workspace installation.
+
+- [x] Add reusable test-runner package
+  Created `packages/test-runner` as an independent `@hugovela/test-runner` workspace with its own configuration, tests, and typechecking.
+
+- [x] Refactor test runner to create independent instances
+  Replaced module-level tester state with `createTester()` so each consumer can use its own isolated test-runner instance.
+
+- [x] Migrate client and server to the shared test runner
+  Replaced the duplicated client and server tester implementations with lightweight adapters that use `@hugovela/test-runner`.
+
+- [x] Remove duplicate test-runner tests
+  Moved responsibility for testing the custom framework into the shared package and removed duplicate framework tests from the client and server suites.
+
+- [x] Standardize client and server test failure output
+  Both test suites now use the same shared failure-reporting implementation, including filename, test, assertion, error, suite, and URL details.
+
+- [x] Add root workspace test scripts
+  Added root commands for running each workspace's tests and typecheck together, plus a command for checking all workspaces.
+
 ### Accounts and Authorization Foundation
