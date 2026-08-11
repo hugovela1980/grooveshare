@@ -1,5 +1,7 @@
-import { Pool } from "pg";
+import { Pool, type PoolConfig } from "pg";
 
-export function createDatabasePool(): Pool {
-    return new Pool();
+export function createDatabasePool(
+    config: PoolConfig = {},
+): Pool {
+    return new Pool(config);
 }
