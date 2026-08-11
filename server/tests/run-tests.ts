@@ -5,6 +5,7 @@ import "./multipart-form-data.test.js";
 import "./project-api-routes.test.js";
 import "./projects-postgres-store.test.js";
 import { closePostgresTestDatabase } from "./db/postgres-test-db.js";
+import "./tracks-postgres-store.test.js";
 import { tester } from "./test-runner/tester.js";
 
 try {
