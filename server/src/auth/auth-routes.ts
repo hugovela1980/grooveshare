@@ -9,11 +9,6 @@ import {
     verifyPassword,
 } from "./password.js";
 
-import type {
-    StoredUser,
-    User,
-} from "./types.js";
-
 import type { SessionsStore } from "../stores/sessions-store.js";
 import {
     createClearedSessionCookie,
@@ -23,6 +18,9 @@ import {
     hashSessionToken,
     SESSION_DURATION_MS,
 } from "./session.js";
+
+import { toPublicUser } from "./user.js";
+import { getAuthenticatedUser } from "./authentication.js";
 
 type JsonResponse =
     Record<string, unknown>;
@@ -138,18 +136,6 @@ function isLoginInput(
         length > 0 &&
         length <= MAX_PASSWORD_LENGTH
     );
-}
-
-function toPublicUser(
-    storedUser: StoredUser,
-): User {
-    return {
-        id: storedUser.id,
-        email: storedUser.email,
-        displayName: storedUser.displayName,
-        createdAt: storedUser.createdAt,
-        updatedAt: storedUser.updatedAt,
-    };
 }
 
 async function readRequestBody(
@@ -371,6 +357,52 @@ export async function handleLoginRoute({
         {
             ok: true,
             data: toPublicUser(storedUser),
+        },
+        clientOrigin,
+    );
+}
+
+export async function handleCurrentUserRoute({
+    req,
+    res,
+    sendJson,
+    clientOrigin,
+    usersStore,
+    sessionsStore,
+}: AuthSessionRouteOptions): Promise<void> {
+    const user =
+        await getAuthenticatedUser({
+            req,
+            usersStore,
+            sessionsStore,
+        });
+
+    if (!user) {
+        sendJson(
+            res,
+            401,
+            {
+                ok: false,
+                error:
+                    "Authentication required.",
+            },
+            clientOrigin,
+        );
+
+        return;
+    }
+
+    res.setHeader(
+        "Cache-Control",
+        "no-store",
+    );
+
+    sendJson(
+        res,
+        200,
+        {
+            ok: true,
+            data: user,
         },
         clientOrigin,
     );

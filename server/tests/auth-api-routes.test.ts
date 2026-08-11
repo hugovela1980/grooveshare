@@ -574,4 +574,141 @@ tester.describe("auth API routes", () => {
             }
         },
     );
+
+    tester.it(
+        "returns the authenticated user",
+        async () => {
+            const {
+                baseUrl,
+                server,
+            } = await createTestServer();
+
+            try {
+                await registerUser(baseUrl);
+
+                const loginResponse =
+                    await fetch(
+                        `${baseUrl}/api/auth/login`,
+                        {
+                            method: "POST",
+                            headers: {
+                                "Content-Type":
+                                    "application/json",
+                            },
+                            body: JSON.stringify({
+                                email:
+                                    "hugo@example.com",
+                                password:
+                                    "My Long Password 123!",
+                            }),
+                        },
+                    );
+
+                const setCookie =
+                    loginResponse.headers.get(
+                        "set-cookie",
+                    );
+
+                if (!setCookie) {
+                    throw new Error(
+                        "Login did not set a session cookie.",
+                    );
+                }
+
+                const cookiePair =
+                    setCookie.split(";")[0];
+
+                const response = await fetch(
+                    `${baseUrl}/api/auth/me`,
+                    {
+                        headers: {
+                            Cookie: cookiePair,
+                        },
+                    },
+                );
+
+                const body =
+                    (await response.json()) as ApiResponse<User>;
+
+                tester.expect(response.status).toBe(200);
+                tester.expect(body.ok).toBe(true);
+
+                tester.expect(body.data?.email).toBe(
+                    "hugo@example.com",
+                );
+
+                tester.expect(body.data?.displayName).toBe(
+                    "Hugo",
+                );
+
+                tester.expect(
+                    "passwordHash" in (body.data ?? {}),
+                ).toBe(false);
+            } finally {
+                await closeServer(server);
+            }
+        },
+    );
+
+    tester.it(
+        "rejects a current-user request without a session",
+        async () => {
+            const {
+                baseUrl,
+                server,
+            } = await createTestServer();
+
+            try {
+                const response = await fetch(
+                    `${baseUrl}/api/auth/me`,
+                );
+
+                const body =
+                    (await response.json()) as ApiResponse<unknown>;
+
+                tester.expect(response.status).toBe(401);
+                tester.expect(body.ok).toBe(false);
+
+                tester.expect(body.error).toBe(
+                    "Authentication required.",
+                );
+            } finally {
+                await closeServer(server);
+            }
+        },
+    );
+
+    tester.it(
+        "rejects an invalid session",
+        async () => {
+            const {
+                baseUrl,
+                server,
+            } = await createTestServer();
+
+            try {
+                const response = await fetch(
+                    `${baseUrl}/api/auth/me`,
+                    {
+                        headers: {
+                            Cookie:
+                                `session=${"a".repeat(64)}`,
+                        },
+                    },
+                );
+
+                const body =
+                    (await response.json()) as ApiResponse<unknown>;
+
+                tester.expect(response.status).toBe(401);
+                tester.expect(body.ok).toBe(false);
+
+                tester.expect(body.error).toBe(
+                    "Authentication required.",
+                );
+            } finally {
+                await closeServer(server);
+            }
+        },
+    );
 });

@@ -27,6 +27,7 @@ import {
   validateAudioUploadFile,
 } from "./uploads/upload-validation.js";
 import {
+  handleCurrentUserRoute,
   handleLoginRoute,
   handleLogoutRoute,
   handleRegisterRoute,
@@ -1021,6 +1022,22 @@ export function createAppServer({
         req.url === "/api/auth/logout"
       ) {
         await handleLogoutRoute({
+          req,
+          res,
+          sendJson,
+          clientOrigin,
+          usersStore,
+          sessionsStore,
+        });
+
+        return;
+      }
+
+      if (
+        req.method === "GET" &&
+        req.url === "/api/auth/me"
+      ) {
+        await handleCurrentUserRoute({
           req,
           res,
           sendJson,
