@@ -9,8 +9,8 @@
     "scripts": {
         "dev-server": "npm run dev -w server",
         "dev-client": "npm run dev -w client",
-        "test-client": "npm run typecheck -w client && npm test -w client",
-        "test-server": "npm run typecheck -w server && npm test -w server",
+        "test-server": "npm test -w server && npm run typecheck -w server",
+        "test-client": "npm test -w client && npm run typecheck -w client",
         "test-runner": "npm run typecheck -w packages/test-runner && npm test -w packages/test-runner",
         "test-all": "npm run typecheck --workspaces --if-present && npm test --workspaces --if-present",
         "db:check": "npm run db:check -w server"

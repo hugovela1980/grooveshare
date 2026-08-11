@@ -97,6 +97,8 @@ async function createTestServer(): Promise<{
   usersStore: UsersStore;
   sessionsStore: SessionsStore;
   projectMembershipsStore: ProjectMembershipsStore;
+  authCookie: string;
+  request: typeof fetch;
 }> {
   const projectsStore =
     createProjectsJsonStore(TEST_DB_FILE_PATH);
@@ -108,6 +110,27 @@ async function createTestServer(): Promise<{
     createTestSessionsStore();
   const projectMembershipsStore =
     createTestProjectMembershipsStore();
+
+  const {
+    user: defaultOwner,
+    cookie: authCookie,
+  } = await createAuthenticatedTestSession({
+    usersStore,
+    sessionsStore,
+    email: "default-owner@example.com",
+    displayName: "Default Project Owner",
+  });
+
+  const existingProjects =
+    await projectsStore.getProjects();
+
+  for (const project of existingProjects) {
+    await projectMembershipsStore.createMembership({
+      projectId: project.id,
+      userId: defaultOwner.id,
+      role: "owner",
+    });
+  }
 
   const server = createAppServer({
     projectsStore,
@@ -123,12 +146,28 @@ async function createTestServer(): Promise<{
 
   const baseUrl = await listenOnRandomPort(server);
 
+  const request: typeof fetch = (
+    input,
+    init = {},
+  ) => {
+    const headers = new Headers(init.headers);
+
+    headers.set("Cookie", authCookie);
+
+    return fetch(input, {
+      ...init,
+      headers,
+    });
+  };
+
   return {
     baseUrl,
     server,
     usersStore,
     sessionsStore,
     projectMembershipsStore,
+    authCookie,
+    request,
   };
 }
 
@@ -202,10 +241,10 @@ tester.describe("project API routes", () => {
   });
 
   tester.it("returns API health status", async () => {
-    const { baseUrl, server } = await createTestServer();
+    const { baseUrl, server, request } = await createTestServer();
 
     try {
-      const response = await fetch(`${baseUrl}/api/health`);
+      const response = await request(`${baseUrl}/api/health`);
       const body = (await response.json()) as ApiResponse<unknown>;
 
       tester.expect(response.status).toBe(200);
@@ -217,10 +256,10 @@ tester.describe("project API routes", () => {
   });
 
   tester.it("returns an empty project list when no projects exist", async () => {
-    const { baseUrl, server } = await createTestServer();
+    const { baseUrl, server, request } = await createTestServer();
 
     try {
-      const response = await fetch(`${baseUrl}/api/projects`);
+      const response = await request(`${baseUrl}/api/projects`);
       const body = (await response.json()) as ApiResponse<Project[]>;
 
       tester.expect(response.status).toBe(200);
@@ -232,10 +271,10 @@ tester.describe("project API routes", () => {
   });
 
   tester.it("creates a project", async () => {
-    const { baseUrl, server } = await createTestServer();
+    const { baseUrl, server, request } = await createTestServer();
 
     try {
-      const response = await fetch(`${baseUrl}/api/projects`, {
+      const response = await request(`${baseUrl}/api/projects`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -259,10 +298,10 @@ tester.describe("project API routes", () => {
   });
 
   tester.it("returns a created project by ID", async () => {
-    const { baseUrl, server } = await createTestServer();
+    const { baseUrl, server, request } = await createTestServer();
 
     try {
-      const createResponse = await fetch(`${baseUrl}/api/projects`, {
+      const createResponse = await request(`${baseUrl}/api/projects`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -280,7 +319,7 @@ tester.describe("project API routes", () => {
         throw new Error("Created project did not include an ID.");
       }
 
-      const getResponse = await fetch(`${baseUrl}/api/projects/${projectId}`);
+      const getResponse = await request(`${baseUrl}/api/projects/${projectId}`);
       const getBody = (await getResponse.json()) as ApiResponse<Project>;
 
       tester.expect(getResponse.status).toBe(200);
@@ -292,10 +331,10 @@ tester.describe("project API routes", () => {
   });
 
   tester.it("returns 404 when a project does not exist", async () => {
-    const { baseUrl, server } = await createTestServer();
+    const { baseUrl, server, request } = await createTestServer();
 
     try {
-      const response = await fetch(`${baseUrl}/api/projects/not-real`);
+      const response = await request(`${baseUrl}/api/projects/not-real`);
       const body = (await response.json()) as ApiResponse<unknown>;
 
       tester.expect(response.status).toBe(404);
@@ -307,10 +346,10 @@ tester.describe("project API routes", () => {
   });
 
   tester.it("returns 400 when project title is missing", async () => {
-    const { baseUrl, server } = await createTestServer();
+    const { baseUrl, server, request } = await createTestServer();
 
     try {
-      const response = await fetch(`${baseUrl}/api/projects`, {
+      const response = await request(`${baseUrl}/api/projects`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -334,12 +373,12 @@ tester.describe("project API routes", () => {
   });
 
   tester.it("uploads an audio file for an existing project", async () => {
-    const { baseUrl, server } = await createTestServer();
+    const { baseUrl, server, request } = await createTestServer();
     const boundary = "----GrooveShareBoundary";
     const fileData = Buffer.from("fake wav data", "utf-8");
 
     try {
-      const createProjectResponse = await fetch(`${baseUrl}/api/projects`, {
+      const createProjectResponse = await request(`${baseUrl}/api/projects`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -377,7 +416,7 @@ tester.describe("project API routes", () => {
         ],
       });
 
-      const uploadResponse = await fetch(
+      const uploadResponse = await request(
         `${baseUrl}/api/projects/${projectId}/tracks`,
         {
           method: "POST",
@@ -406,7 +445,7 @@ tester.describe("project API routes", () => {
   });
 
   tester.it("returns 404 when uploading a track for a missing project", async () => {
-    const { baseUrl, server } = await createTestServer();
+    const { baseUrl, server, request } = await createTestServer();
     const boundary = "----GrooveShareBoundary";
 
     try {
@@ -428,7 +467,7 @@ tester.describe("project API routes", () => {
         ],
       });
 
-      const response = await fetch(`${baseUrl}/api/projects/not-real/tracks`, {
+      const response = await request(`${baseUrl}/api/projects/not-real/tracks`, {
         method: "POST",
         headers: {
           "Content-Type": `multipart/form-data; boundary=${boundary}`,
@@ -447,11 +486,11 @@ tester.describe("project API routes", () => {
   });
 
   tester.it("returns 400 when upload request has no audio file", async () => {
-    const { baseUrl, server } = await createTestServer();
+    const { baseUrl, server, request } = await createTestServer();
     const boundary = "----GrooveShareBoundary";
 
     try {
-      const createProjectResponse = await fetch(`${baseUrl}/api/projects`, {
+      const createProjectResponse = await request(`${baseUrl}/api/projects`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -482,7 +521,7 @@ tester.describe("project API routes", () => {
         ],
       });
 
-      const response = await fetch(`${baseUrl}/api/projects/${projectId}/tracks`, {
+      const response = await request(`${baseUrl}/api/projects/${projectId}/tracks`, {
         method: "POST",
         headers: {
           "Content-Type": `multipart/form-data; boundary=${boundary}`,
@@ -501,11 +540,11 @@ tester.describe("project API routes", () => {
   });
 
   tester.it("returns 415 when uploaded file type is unsupported", async () => {
-    const { baseUrl, server } = await createTestServer();
+    const { baseUrl, server, request } = await createTestServer();
     const boundary = "----GrooveShareBoundary";
 
     try {
-      const createProjectResponse = await fetch(`${baseUrl}/api/projects`, {
+      const createProjectResponse = await request(`${baseUrl}/api/projects`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -543,7 +582,7 @@ tester.describe("project API routes", () => {
         ],
       });
 
-      const response = await fetch(`${baseUrl}/api/projects/${projectId}/tracks`, {
+      const response = await request(`${baseUrl}/api/projects/${projectId}/tracks`, {
         method: "POST",
         headers: {
           "Content-Type": `multipart/form-data; boundary=${boundary}`,
@@ -562,11 +601,11 @@ tester.describe("project API routes", () => {
   });
 
   tester.it("returns 413 when uploaded file is too large", async () => {
-    const { baseUrl, server } = await createTestServer();
+    const { baseUrl, server, request } = await createTestServer();
     const boundary = "----GrooveShareBoundary";
 
     try {
-      const createProjectResponse = await fetch(`${baseUrl}/api/projects`, {
+      const createProjectResponse = await request(`${baseUrl}/api/projects`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -604,7 +643,7 @@ tester.describe("project API routes", () => {
         ],
       });
 
-      const response = await fetch(`${baseUrl}/api/projects/${projectId}/tracks`, {
+      const response = await request(`${baseUrl}/api/projects/${projectId}/tracks`, {
         method: "POST",
         headers: {
           "Content-Type": `multipart/form-data; boundary=${boundary}`,
@@ -623,11 +662,11 @@ tester.describe("project API routes", () => {
   });
 
   tester.it("returns tracks for a project", async () => {
-    const { baseUrl, server } = await createTestServer();
+    const { baseUrl, server, request } = await createTestServer();
     const boundary = "----GrooveShareBoundary";
 
     try {
-      const createProjectResponse = await fetch(`${baseUrl}/api/projects`, {
+      const createProjectResponse = await request(`${baseUrl}/api/projects`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -665,7 +704,7 @@ tester.describe("project API routes", () => {
         ],
       });
 
-      await fetch(`${baseUrl}/api/projects/${projectId}/tracks`, {
+      await request(`${baseUrl}/api/projects/${projectId}/tracks`, {
         method: "POST",
         headers: {
           "Content-Type": `multipart/form-data; boundary=${boundary}`,
@@ -673,7 +712,7 @@ tester.describe("project API routes", () => {
         body: bufferToArrayBuffer(multipartBody),
       });
 
-      const response = await fetch(`${baseUrl}/api/projects/${projectId}/tracks`);
+      const response = await request(`${baseUrl}/api/projects/${projectId}/tracks`);
       const body = (await response.json()) as ApiResponse<Track[]>;
 
       tester.expect(response.status).toBe(200);
@@ -689,10 +728,10 @@ tester.describe("project API routes", () => {
   });
 
   tester.it("returns 404 when listing tracks for a missing project", async () => {
-    const { baseUrl, server } = await createTestServer();
+    const { baseUrl, server, request } = await createTestServer();
 
     try {
-      const response = await fetch(`${baseUrl}/api/projects/not-real/tracks`);
+      const response = await request(`${baseUrl}/api/projects/not-real/tracks`);
       const body = (await response.json()) as ApiResponse<unknown>;
 
       tester.expect(response.status).toBe(404);
@@ -704,12 +743,12 @@ tester.describe("project API routes", () => {
   });
 
   tester.it("serves an uploaded audio file for a track", async () => {
-    const { baseUrl, server } = await createTestServer();
+    const { baseUrl, server, request } = await createTestServer();
     const boundary = "----GrooveShareBoundary";
     const fileData = Buffer.from("fake wav data", "utf-8");
 
     try {
-      const createProjectResponse = await fetch(`${baseUrl}/api/projects`, {
+      const createProjectResponse = await request(`${baseUrl}/api/projects`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -747,7 +786,7 @@ tester.describe("project API routes", () => {
         ],
       });
 
-      const uploadResponse = await fetch(
+      const uploadResponse = await request(
         `${baseUrl}/api/projects/${projectId}/tracks`,
         {
           method: "POST",
@@ -765,7 +804,7 @@ tester.describe("project API routes", () => {
         throw new Error("Uploaded track was missing from response.");
       }
 
-      const audioResponse = await fetch(
+      const audioResponse = await request(
         `${baseUrl}/api/projects/${projectId}/tracks/${uploadedTrack.id}/audio`,
       );
 
@@ -781,12 +820,12 @@ tester.describe("project API routes", () => {
   });
 
   tester.it("serves a requested byte range for an audio track", async () => {
-    const { baseUrl, server } = await createTestServer();
+    const { baseUrl, server, request } = await createTestServer();
     const boundary = "----GrooveShareBoundary";
     const fileData = Buffer.from("fake wav data", "utf-8");
 
     try {
-      const createProjectResponse = await fetch(
+      const createProjectResponse = await request(
         `${baseUrl}/api/projects`,
         {
           method: "POST",
@@ -829,7 +868,7 @@ tester.describe("project API routes", () => {
         ],
       });
 
-      const uploadResponse = await fetch(
+      const uploadResponse = await request(
         `${baseUrl}/api/projects/${projectId}/tracks`,
         {
           method: "POST",
@@ -852,7 +891,7 @@ tester.describe("project API routes", () => {
         );
       }
 
-      const audioResponse = await fetch(
+      const audioResponse = await request(
         `${baseUrl}/api/projects/${projectId}/tracks/${uploadedTrack.id}/audio`,
         {
           headers: {
@@ -888,10 +927,10 @@ tester.describe("project API routes", () => {
   });
 
   tester.it("returns 404 when serving audio for a missing track", async () => {
-    const { baseUrl, server } = await createTestServer();
+    const { baseUrl, server, request } = await createTestServer();
 
     try {
-      const createProjectResponse = await fetch(`${baseUrl}/api/projects`, {
+      const createProjectResponse = await request(`${baseUrl}/api/projects`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -911,7 +950,7 @@ tester.describe("project API routes", () => {
         throw new Error("Created project did not include an ID.");
       }
 
-      const response = await fetch(
+      const response = await request(
         `${baseUrl}/api/projects/${projectId}/tracks/missing-track/audio`,
       );
 
@@ -926,12 +965,12 @@ tester.describe("project API routes", () => {
   });
 
   tester.it("deletes a track and its uploaded audio file", async () => {
-    const { baseUrl, server } = await createTestServer();
+    const { baseUrl, server, request } = await createTestServer();
     const boundary = "----GrooveShareBoundary";
     const fileData = Buffer.from("fake wav data", "utf-8");
 
     try {
-      const createProjectResponse = await fetch(`${baseUrl}/api/projects`, {
+      const createProjectResponse = await request(`${baseUrl}/api/projects`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -969,7 +1008,7 @@ tester.describe("project API routes", () => {
         ],
       });
 
-      const uploadResponse = await fetch(
+      const uploadResponse = await request(
         `${baseUrl}/api/projects/${projectId}/tracks`,
         {
           method: "POST",
@@ -996,7 +1035,7 @@ tester.describe("project API routes", () => {
       tester.expect(await fileExists(absoluteUploadedFilePath)).toBe(true);
       tester.expect(await fileExists(projectUploadDir)).toBe(true);
 
-      const deleteResponse = await fetch(
+      const deleteResponse = await request(
         `${baseUrl}/api/projects/${projectId}/tracks/${uploadedTrack.id}`,
         {
           method: "DELETE",
@@ -1020,12 +1059,12 @@ tester.describe("project API routes", () => {
   });
 
   tester.it("does not remove the project upload folder when deleting one track and another track still exists", async () => {
-    const { baseUrl, server } = await createTestServer();
+    const { baseUrl, server, request } = await createTestServer();
     const boundary = "----GrooveShareBoundary";
     const fileData = Buffer.from("fake wav data", "utf-8");
 
     try {
-      const createProjectResponse = await fetch(`${baseUrl}/api/projects`, {
+      const createProjectResponse = await request(`${baseUrl}/api/projects`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1064,7 +1103,7 @@ tester.describe("project API routes", () => {
           ],
         });
 
-        const response = await fetch(`${baseUrl}/api/projects/${projectId}/tracks`, {
+        const response = await request(`${baseUrl}/api/projects/${projectId}/tracks`, {
           method: "POST",
           headers: {
             "Content-Type": `multipart/form-data; boundary=${boundary}`,
@@ -1092,7 +1131,7 @@ tester.describe("project API routes", () => {
       tester.expect(await fileExists(keptFilePath)).toBe(true);
       tester.expect(await fileExists(projectUploadDir)).toBe(true);
 
-      const deleteResponse = await fetch(
+      const deleteResponse = await request(
         `${baseUrl}/api/projects/${projectId}/tracks/${trackToDelete.id}`,
         {
           method: "DELETE",
@@ -1118,10 +1157,10 @@ tester.describe("project API routes", () => {
   });
 
   tester.it("returns 404 when deleting a track from a missing project", async () => {
-    const { baseUrl, server } = await createTestServer();
+    const { baseUrl, server, request } = await createTestServer();
 
     try {
-      const response = await fetch(
+      const response = await request(
         `${baseUrl}/api/projects/not-real/tracks/track-1`,
         {
           method: "DELETE",
@@ -1139,10 +1178,10 @@ tester.describe("project API routes", () => {
   });
 
   tester.it("returns 404 when deleting a missing track from an existing project", async () => {
-    const { baseUrl, server } = await createTestServer();
+    const { baseUrl, server, request } = await createTestServer();
 
     try {
-      const createProjectResponse = await fetch(`${baseUrl}/api/projects`, {
+      const createProjectResponse = await request(`${baseUrl}/api/projects`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1162,7 +1201,7 @@ tester.describe("project API routes", () => {
         throw new Error("Created project did not include an ID.");
       }
 
-      const response = await fetch(
+      const response = await request(
         `${baseUrl}/api/projects/${projectId}/tracks/not-real`,
         {
           method: "DELETE",
@@ -1180,12 +1219,12 @@ tester.describe("project API routes", () => {
   });
 
   tester.it("deletes a project, its linked track metadata, and uploaded audio files", async () => {
-    const { baseUrl, server } = await createTestServer();
+    const { baseUrl, server, request } = await createTestServer();
     const boundary = "----GrooveShareBoundary";
     const fileData = Buffer.from("fake wav data", "utf-8");
 
     try {
-      const createProjectResponse = await fetch(`${baseUrl}/api/projects`, {
+      const createProjectResponse = await request(`${baseUrl}/api/projects`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1223,7 +1262,7 @@ tester.describe("project API routes", () => {
         ],
       });
 
-      const uploadResponse = await fetch(
+      const uploadResponse = await request(
         `${baseUrl}/api/projects/${project.id}/tracks`,
         {
           method: "POST",
@@ -1251,7 +1290,7 @@ tester.describe("project API routes", () => {
       tester.expect(await fileExists(absoluteUploadedFilePath)).toBe(true);
       tester.expect(await fileExists(projectUploadDir)).toBe(true);
 
-      const deleteResponse = await fetch(
+      const deleteResponse = await request(
         `${baseUrl}/api/projects/${project.id}`,
         {
           method: "DELETE",
@@ -1275,10 +1314,10 @@ tester.describe("project API routes", () => {
   });
 
   tester.it("returns 404 when deleting a missing project", async () => {
-    const { baseUrl, server } = await createTestServer();
+    const { baseUrl, server, request } = await createTestServer();
 
     try {
-      const response = await fetch(`${baseUrl}/api/projects/not-real`, {
+      const response = await request(`${baseUrl}/api/projects/not-real`, {
         method: "DELETE",
       });
 
@@ -1293,13 +1332,13 @@ tester.describe("project API routes", () => {
   });
 
   tester.it("does not delete other projects, tracks, or uploaded files", async () => {
-    const { baseUrl, server } = await createTestServer();
+    const { baseUrl, server, request } = await createTestServer();
     const boundary = "----GrooveShareBoundary";
     const fileData = Buffer.from("fake wav data", "utf-8");
 
     try {
       async function createProject(title: string): Promise<Project> {
-        const response = await fetch(`${baseUrl}/api/projects`, {
+        const response = await request(`${baseUrl}/api/projects`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -1338,7 +1377,7 @@ tester.describe("project API routes", () => {
           ],
         });
 
-        const response = await fetch(`${baseUrl}/api/projects/${projectId}/tracks`, {
+        const response = await request(`${baseUrl}/api/projects/${projectId}/tracks`, {
           method: "POST",
           headers: {
             "Content-Type": `multipart/form-data; boundary=${boundary}`,
@@ -1367,7 +1406,7 @@ tester.describe("project API routes", () => {
       tester.expect(await fileExists(deletedFilePath)).toBe(true);
       tester.expect(await fileExists(keptFilePath)).toBe(true);
 
-      const deleteResponse = await fetch(
+      const deleteResponse = await request(
         `${baseUrl}/api/projects/${projectToDelete.id}`,
         {
           method: "DELETE",
@@ -1388,10 +1427,10 @@ tester.describe("project API routes", () => {
   });
 
   tester.it("updates mix settings for a project", async () => {
-    const { baseUrl, server } = await createTestServer();
+    const { baseUrl, server, request } = await createTestServer();
 
     try {
-      const createResponse = await fetch(`${baseUrl}/api/projects`, {
+      const createResponse = await request(`${baseUrl}/api/projects`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1428,7 +1467,7 @@ tester.describe("project API routes", () => {
         ],
       };
 
-      const response = await fetch(
+      const response = await request(
         `${baseUrl}/api/projects/${projectId}/mix-settings`,
         {
           method: "PUT",
@@ -1445,7 +1484,7 @@ tester.describe("project API routes", () => {
       tester.expect(body.ok).toBe(true);
       tester.expect(body.data?.mixSettings).toEqual(mixSettings);
 
-      const getResponse = await fetch(
+      const getResponse = await request(
         `${baseUrl}/api/projects/${projectId}`,
       );
 
@@ -1459,10 +1498,10 @@ tester.describe("project API routes", () => {
   });
 
   tester.it("returns 404 when updating mix settings for a missing project", async () => {
-    const { baseUrl, server } = await createTestServer();
+    const { baseUrl, server, request } = await createTestServer();
 
     try {
-      const response = await fetch(
+      const response = await request(
         `${baseUrl}/api/projects/missing-project/mix-settings`,
         {
           method: "PUT",
@@ -1487,10 +1526,10 @@ tester.describe("project API routes", () => {
   });
 
   tester.it("returns 400 for invalid mix settings", async () => {
-    const { baseUrl, server } = await createTestServer();
+    const { baseUrl, server, request } = await createTestServer();
 
     try {
-      const createResponse = await fetch(`${baseUrl}/api/projects`, {
+      const createResponse = await request(`${baseUrl}/api/projects`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1510,7 +1549,7 @@ tester.describe("project API routes", () => {
         throw new Error("Created project did not include an ID.");
       }
 
-      const response = await fetch(
+      const response = await request(
         `${baseUrl}/api/projects/${projectId}/mix-settings`,
         {
           method: "PUT",
@@ -1541,10 +1580,10 @@ tester.describe("project API routes", () => {
     }
   });
   tester.it("updates project title and description details", async () => {
-    const { baseUrl, server } = await createTestServer();
+    const { baseUrl, server, request } = await createTestServer();
 
     try {
-      const createResponse = await fetch(`${baseUrl}/api/projects`, {
+      const createResponse = await request(`${baseUrl}/api/projects`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1562,7 +1601,7 @@ tester.describe("project API routes", () => {
         throw new Error("Created project did not include an ID.");
       }
 
-      const titleResponse = await fetch(`${baseUrl}/api/projects/${projectId}`, {
+      const titleResponse = await request(`${baseUrl}/api/projects/${projectId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -1578,7 +1617,7 @@ tester.describe("project API routes", () => {
       tester.expect(titleBody.data?.title).toBe("Updated Title");
       tester.expect(titleBody.data?.description).toBe("Original description");
 
-      const descriptionResponse = await fetch(
+      const descriptionResponse = await request(
         `${baseUrl}/api/projects/${projectId}`,
         {
           method: "PUT",
@@ -1593,7 +1632,7 @@ tester.describe("project API routes", () => {
 
       tester.expect(descriptionResponse.status).toBe(200);
 
-      const getResponse = await fetch(`${baseUrl}/api/projects/${projectId}`);
+      const getResponse = await request(`${baseUrl}/api/projects/${projectId}`);
       const getBody = (await getResponse.json()) as ApiResponse<Project>;
 
       tester.expect(getBody.data?.title).toBe("Updated Title");
@@ -1604,10 +1643,10 @@ tester.describe("project API routes", () => {
   });
 
   tester.it("returns 400 for invalid project detail updates", async () => {
-    const { baseUrl, server } = await createTestServer();
+    const { baseUrl, server, request } = await createTestServer();
 
     try {
-      const createResponse = await fetch(`${baseUrl}/api/projects`, {
+      const createResponse = await request(`${baseUrl}/api/projects`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1625,7 +1664,7 @@ tester.describe("project API routes", () => {
         throw new Error("Created project did not include an ID.");
       }
 
-      const response = await fetch(`${baseUrl}/api/projects/${projectId}`, {
+      const response = await request(`${baseUrl}/api/projects/${projectId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -1671,10 +1710,10 @@ tester.describe("project API routes", () => {
       "utf-8",
     );
 
-    const { baseUrl, server } = await createTestServer();
+    const { baseUrl, server, request } = await createTestServer();
 
     try {
-      const response = await fetch(
+      const response = await request(
         `${baseUrl}/api/projects/project-1/tracks/track-1`,
         {
           method: "PUT",
@@ -1693,7 +1732,7 @@ tester.describe("project API routes", () => {
       tester.expect(body.ok).toBe(true);
       tester.expect(body.data?.name).toBe("Lead Guitar");
 
-      const tracksResponse = await fetch(
+      const tracksResponse = await request(
         `${baseUrl}/api/projects/project-1/tracks`,
       );
       const tracksBody = (await tracksResponse.json()) as ApiResponse<Track[]>;
@@ -1730,10 +1769,10 @@ tester.describe("project API routes", () => {
       "utf-8",
     );
 
-    const { baseUrl, server } = await createTestServer();
+    const { baseUrl, server, request } = await createTestServer();
 
     try {
-      const response = await fetch(
+      const response = await request(
         `${baseUrl}/api/projects/project-1/tracks/track-1`,
         {
           method: "PUT",
@@ -1777,7 +1816,7 @@ tester.describe("project API routes", () => {
             sessionsStore,
           });
 
-        const response = await fetch(
+        const response = await globalThis.fetch(
           `${baseUrl}/api/projects`,
           {
             method: "POST",
@@ -1842,7 +1881,7 @@ tester.describe("project API routes", () => {
       } = await createTestServer();
 
       try {
-        const response = await fetch(
+        const response = await globalThis.fetch(
           `${baseUrl}/api/projects`,
           {
             method: "POST",
@@ -1883,4 +1922,405 @@ tester.describe("project API routes", () => {
       }
     },
   );
+
+  tester.it(
+    "requires authentication to list projects",
+    async () => {
+      const {
+        baseUrl,
+        server,
+      } = await createTestServer();
+
+      try {
+        const response = await globalThis.fetch(
+          `${baseUrl}/api/projects`,
+        );
+        const body =
+          (await response.json()) as ApiResponse<unknown>;
+
+        tester.expect(response.status).toBe(401);
+        tester.expect(body.ok).toBe(false);
+        tester.expect(body.error).toBe(
+          "Authentication required.",
+        );
+      } finally {
+        await closeServer(server);
+      }
+    },
+  );
+
+  tester.it(
+    "lists only projects where the authenticated user is a member",
+    async () => {
+      const {
+        baseUrl,
+        server,
+        usersStore,
+        sessionsStore,
+        request,
+      } = await createTestServer();
+
+      try {
+        const ownerProjectResponse = await request(
+          `${baseUrl}/api/projects`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              title: "Owner Project",
+              description: "Visible to the default owner",
+            }),
+          },
+        );
+
+        tester.expect(ownerProjectResponse.status).toBe(201);
+
+        const {
+          cookie: otherUserCookie,
+        } = await createAuthenticatedTestSession({
+          usersStore,
+          sessionsStore,
+          email: "other-owner@example.com",
+          displayName: "Other Owner",
+        });
+
+        const otherProjectResponse = await globalThis.fetch(
+          `${baseUrl}/api/projects`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Cookie: otherUserCookie,
+            },
+            body: JSON.stringify({
+              title: "Other User Project",
+              description: "Should not appear for the default owner",
+            }),
+          },
+        );
+
+        tester.expect(otherProjectResponse.status).toBe(201);
+
+        const listResponse = await request(
+          `${baseUrl}/api/projects`,
+        );
+        const listBody =
+          (await listResponse.json()) as ApiResponse<Project[]>;
+
+        tester.expect(listResponse.status).toBe(200);
+        tester.expect(listBody.data?.length).toBe(1);
+        tester.expect(listBody.data?.[0]?.title).toBe(
+          "Owner Project",
+        );
+      } finally {
+        await closeServer(server);
+      }
+    },
+  );
+
+  tester.it(
+    "rejects project access for an authenticated non-member",
+    async () => {
+      const {
+        baseUrl,
+        server,
+        usersStore,
+        sessionsStore,
+        request,
+      } = await createTestServer();
+
+      try {
+        const createResponse = await request(
+          `${baseUrl}/api/projects`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              title: "Private Project",
+              description: "Members only",
+            }),
+          },
+        );
+
+        const createBody =
+          (await createResponse.json()) as ApiResponse<Project>;
+        const projectId = createBody.data?.id;
+
+        if (!projectId) {
+          throw new Error(
+            "Created project did not include an ID.",
+          );
+        }
+
+        const {
+          cookie: strangerCookie,
+        } = await createAuthenticatedTestSession({
+          usersStore,
+          sessionsStore,
+          email: "stranger@example.com",
+          displayName: "Stranger",
+        });
+
+        const response = await globalThis.fetch(
+          `${baseUrl}/api/projects/${projectId}`,
+          {
+            headers: {
+              Cookie: strangerCookie,
+            },
+          },
+        );
+        const body =
+          (await response.json()) as ApiResponse<unknown>;
+
+        tester.expect(response.status).toBe(403);
+        tester.expect(body.ok).toBe(false);
+        tester.expect(body.error).toBe(
+          "Project access denied.",
+        );
+      } finally {
+        await closeServer(server);
+      }
+    },
+  );
+
+  tester.it(
+    "allows a viewer to read a project but not contribute",
+    async () => {
+      const {
+        baseUrl,
+        server,
+        usersStore,
+        sessionsStore,
+        projectMembershipsStore,
+        request,
+      } = await createTestServer();
+
+      try {
+        const createResponse = await request(
+          `${baseUrl}/api/projects`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              title: "Viewer Project",
+              description: "Viewer permission test",
+            }),
+          },
+        );
+
+        const createBody =
+          (await createResponse.json()) as ApiResponse<Project>;
+        const projectId = createBody.data?.id;
+
+        if (!projectId) {
+          throw new Error(
+            "Created project did not include an ID.",
+          );
+        }
+
+        const {
+          user: viewer,
+          cookie: viewerCookie,
+        } = await createAuthenticatedTestSession({
+          usersStore,
+          sessionsStore,
+          email: "viewer@example.com",
+          displayName: "Project Viewer",
+        });
+
+        await projectMembershipsStore.createMembership({
+          projectId,
+          userId: viewer.id,
+          role: "viewer",
+        });
+
+        const readResponse = await globalThis.fetch(
+          `${baseUrl}/api/projects/${projectId}`,
+          {
+            headers: {
+              Cookie: viewerCookie,
+            },
+          },
+        );
+
+        tester.expect(readResponse.status).toBe(200);
+
+        const tracksResponse = await globalThis.fetch(
+          `${baseUrl}/api/projects/${projectId}/tracks`,
+          {
+            headers: {
+              Cookie: viewerCookie,
+            },
+          },
+        );
+
+        tester.expect(tracksResponse.status).toBe(200);
+
+        const uploadResponse = await globalThis.fetch(
+          `${baseUrl}/api/projects/${projectId}/tracks`,
+          {
+            method: "POST",
+            headers: {
+              Cookie: viewerCookie,
+            },
+          },
+        );
+        const uploadBody =
+          (await uploadResponse.json()) as ApiResponse<unknown>;
+
+        tester.expect(uploadResponse.status).toBe(403);
+        tester.expect(uploadBody.error).toBe(
+          "Project access denied.",
+        );
+      } finally {
+        await closeServer(server);
+      }
+    },
+  );
+
+  tester.it(
+    "allows a contributor to change project content but not manage the project",
+    async () => {
+      const {
+        baseUrl,
+        server,
+        usersStore,
+        sessionsStore,
+        projectMembershipsStore,
+        request,
+      } = await createTestServer();
+      const boundary = "----GrooveShareContributorBoundary";
+
+      try {
+        const createResponse = await request(
+          `${baseUrl}/api/projects`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              title: "Contributor Project",
+              description: "Contributor permission test",
+            }),
+          },
+        );
+
+        const createBody =
+          (await createResponse.json()) as ApiResponse<Project>;
+        const projectId = createBody.data?.id;
+
+        if (!projectId) {
+          throw new Error(
+            "Created project did not include an ID.",
+          );
+        }
+
+        const {
+          user: contributor,
+          cookie: contributorCookie,
+        } = await createAuthenticatedTestSession({
+          usersStore,
+          sessionsStore,
+          email: "contributor@example.com",
+          displayName: "Project Contributor",
+        });
+
+        await projectMembershipsStore.createMembership({
+          projectId,
+          userId: contributor.id,
+          role: "contributor",
+        });
+
+        const multipartBody = createMultipartBody({
+          boundary,
+          parts: [
+            createTextPart({
+              boundary,
+              name: "trackName",
+              value: "Contributor Guitar",
+            }),
+            createFilePart({
+              boundary,
+              fieldName: "audioFile",
+              filename: "contributor.wav",
+              mimeType: "audio/wav",
+              data: Buffer.from("audio", "utf-8"),
+            }),
+          ],
+        });
+
+        const uploadResponse = await globalThis.fetch(
+          `${baseUrl}/api/projects/${projectId}/tracks`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type":
+                `multipart/form-data; boundary=${boundary}`,
+              Cookie: contributorCookie,
+            },
+            body: bufferToArrayBuffer(multipartBody),
+          },
+        );
+        const uploadBody =
+          (await uploadResponse.json()) as ApiResponse<Track>;
+
+        tester.expect(uploadResponse.status).toBe(201);
+
+        const trackId = uploadBody.data?.id;
+
+        if (!trackId) {
+          throw new Error(
+            "Contributor upload did not return a track ID.",
+          );
+        }
+
+        const renameResponse = await globalThis.fetch(
+          `${baseUrl}/api/projects/${projectId}/tracks/${trackId}`,
+          {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              Cookie: contributorCookie,
+            },
+            body: JSON.stringify({
+              name: "Renamed Contributor Guitar",
+            }),
+          },
+        );
+
+        tester.expect(renameResponse.status).toBe(200);
+
+        const projectUpdateResponse = await globalThis.fetch(
+          `${baseUrl}/api/projects/${projectId}`,
+          {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              Cookie: contributorCookie,
+            },
+            body: JSON.stringify({
+              title: "Contributor Should Not Rename Project",
+            }),
+          },
+        );
+        const projectUpdateBody =
+          (await projectUpdateResponse.json()) as ApiResponse<unknown>;
+
+        tester.expect(projectUpdateResponse.status).toBe(403);
+        tester.expect(projectUpdateBody.error).toBe(
+          "Project access denied.",
+        );
+      } finally {
+        await closeServer(server);
+      }
+    },
+  );
+
 });

@@ -40,6 +40,10 @@ import type {
 import {
   getAuthenticatedUser,
 } from "./auth/authentication.js";
+import {
+  authorizeProjectRequest,
+  type ProjectPermission,
+} from "./auth/project-authorization.js";
 
 type JsonResponse = Record<string, unknown>;
 
@@ -355,6 +359,97 @@ export function createAppServer({
   seedProjectDir = DEFAULT_SEED_PROJECT_DIR,
   maxUploadFileSizeBytes = DEFAULT_MAX_AUDIO_FILE_SIZE_BYTES,
 }: AppOptions): http.Server {
+  async function requireProjectPermission(
+    req: IncomingMessage,
+    res: ServerResponse,
+    projectId: string,
+    permission: ProjectPermission,
+  ): Promise<boolean> {
+    const authorization =
+      await authorizeProjectRequest({
+        req,
+        projectId,
+        permission,
+        projectsStore,
+        usersStore,
+        sessionsStore,
+        projectMembershipsStore,
+      });
+
+    if (authorization.ok) {
+      return true;
+    }
+
+    sendJson(
+      res,
+      authorization.statusCode,
+      {
+        ok: false,
+        error: authorization.error,
+      },
+      clientOrigin,
+    );
+
+    return false;
+  }
+
+  async function handleGetProjects(
+    req: IncomingMessage,
+    res: ServerResponse,
+  ): Promise<void> {
+    const authenticatedUser =
+      await getAuthenticatedUser({
+        req,
+        usersStore,
+        sessionsStore,
+      });
+
+    if (!authenticatedUser) {
+      sendJson(
+        res,
+        401,
+        {
+          ok: false,
+          error: "Authentication required.",
+        },
+        clientOrigin,
+      );
+
+      return;
+    }
+
+    const memberships =
+      await projectMembershipsStore
+        .getMembershipsByUserId(
+          authenticatedUser.id,
+        );
+
+    const visibleProjectIds = new Set(
+      memberships.map(
+        (membership) =>
+          membership.projectId,
+      ),
+    );
+
+    const projects =
+      await projectsStore.getProjects();
+
+    sendJson(
+      res,
+      200,
+      {
+        ok: true,
+        data: projects.filter(
+          (project) =>
+            visibleProjectIds.has(
+              project.id,
+            ),
+        ),
+      },
+      clientOrigin,
+    );
+  }
+
   async function handleCreateProject(
     req: IncomingMessage,
     res: ServerResponse,
@@ -770,6 +865,8 @@ export function createAppServer({
         "Accept-Ranges": "bytes",
         "Access-Control-Allow-Origin":
           clientOrigin,
+        "Access-Control-Allow-Credentials":
+          "true",
       });
 
       createReadStream(absoluteFilePath, {
@@ -786,6 +883,8 @@ export function createAppServer({
       "Accept-Ranges": "bytes",
       "Access-Control-Allow-Origin":
         clientOrigin,
+      "Access-Control-Allow-Credentials":
+        "true",
     });
 
     createReadStream(absoluteFilePath).pipe(res);
@@ -1133,18 +1232,7 @@ export function createAppServer({
       // ============================================= //
 
       if (req.method === "GET" && req.url === "/api/projects") {
-        const projects = await projectsStore.getProjects();
-
-        sendJson(
-          res,
-          200,
-          {
-            ok: true,
-            data: projects,
-          },
-          clientOrigin,
-        );
-
+        await handleGetProjects(req, res);
         return;
       }
 
@@ -1157,6 +1245,17 @@ export function createAppServer({
         getMixSettingsRouteProjectId(req.url);
 
       if (req.method === "PUT" && mixSettingsRouteProjectId) {
+        if (
+          !await requireProjectPermission(
+            req,
+            res,
+            mixSettingsRouteProjectId,
+            "contribute",
+          )
+        ) {
+          return;
+        }
+
         await handleUpdateProjectMixSettings(
           req,
           res,
@@ -1168,12 +1267,73 @@ export function createAppServer({
 
       const projectRouteId = getProjectRouteId(req.url);
 
+      if (req.method === "GET" && projectRouteId) {
+        const authorization =
+          await authorizeProjectRequest({
+            req,
+            projectId: projectRouteId,
+            permission: "read",
+            projectsStore,
+            usersStore,
+            sessionsStore,
+            projectMembershipsStore,
+          });
+
+        if (!authorization.ok) {
+          sendJson(
+            res,
+            authorization.statusCode,
+            {
+              ok: false,
+              error: authorization.error,
+            },
+            clientOrigin,
+          );
+
+          return;
+        }
+
+        sendJson(
+          res,
+          200,
+          {
+            ok: true,
+            data: authorization.project,
+          },
+          clientOrigin,
+        );
+
+        return;
+      }
+
       if (req.method === "PUT" && projectRouteId) {
+        if (
+          !await requireProjectPermission(
+            req,
+            res,
+            projectRouteId,
+            "manage",
+          )
+        ) {
+          return;
+        }
+
         await handleUpdateProjectDetails(req, res, projectRouteId);
         return;
       }
 
       if (req.method === "DELETE" && projectRouteId) {
+        if (
+          !await requireProjectPermission(
+            req,
+            res,
+            projectRouteId,
+            "manage",
+          )
+        ) {
+          return;
+        }
+
         await handleDeleteProject(res, projectRouteId);
         return;
       }
@@ -1181,6 +1341,17 @@ export function createAppServer({
       const trackAudioRouteParams = getTrackAudioRouteParams(req.url);
 
       if (req.method === "GET" && trackAudioRouteParams) {
+        if (
+          !await requireProjectPermission(
+            req,
+            res,
+            trackAudioRouteParams.projectId,
+            "read",
+          )
+        ) {
+          return;
+        }
+
         await handleGetTrackAudio(
           req,
           res,
@@ -1194,11 +1365,33 @@ export function createAppServer({
       const tracksRouteProjectId = getTracksRouteProjectId(req.url);
 
       if (req.method === "POST" && tracksRouteProjectId) {
+        if (
+          !await requireProjectPermission(
+            req,
+            res,
+            tracksRouteProjectId,
+            "contribute",
+          )
+        ) {
+          return;
+        }
+
         await handleTrackUpload(req, res, tracksRouteProjectId);
         return;
       }
 
       if (req.method === "GET" && tracksRouteProjectId) {
+        if (
+          !await requireProjectPermission(
+            req,
+            res,
+            tracksRouteProjectId,
+            "read",
+          )
+        ) {
+          return;
+        }
+
         await handleGetProjectTracks(res, tracksRouteProjectId);
         return;
       }
@@ -1206,6 +1399,17 @@ export function createAppServer({
       const trackRouteParams = getTrackRouteParams(req.url);
 
       if (req.method === "PUT" && trackRouteParams) {
+        if (
+          !await requireProjectPermission(
+            req,
+            res,
+            trackRouteParams.projectId,
+            "contribute",
+          )
+        ) {
+          return;
+        }
+
         await handleUpdateTrackName(
           req,
           res,
@@ -1217,6 +1421,17 @@ export function createAppServer({
       }
 
       if (req.method === "DELETE" && trackRouteParams) {
+        if (
+          !await requireProjectPermission(
+            req,
+            res,
+            trackRouteParams.projectId,
+            "contribute",
+          )
+        ) {
+          return;
+        }
+
         await handleDeleteTrack(
           res,
           trackRouteParams.projectId,
@@ -1234,37 +1449,6 @@ export function createAppServer({
           uploadRoot,
           projectsStore,
         });
-
-        return;
-      }
-
-      if (req.method === "GET" && req.url?.startsWith("/api/projects/")) {
-        const projectId = req.url.replace("/api/projects/", "");
-        const project = await projectsStore.getProjectById(projectId);
-
-        if (!project) {
-          sendJson(
-            res,
-            404,
-            {
-              ok: false,
-              error: "Project not found.",
-            },
-            clientOrigin,
-          );
-
-          return;
-        }
-
-        sendJson(
-          res,
-          200,
-          {
-            ok: true,
-            data: project,
-          },
-          clientOrigin,
-        );
 
         return;
       }
