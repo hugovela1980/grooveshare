@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit",
     "build": "tsc",
     "start": "node dist/server.js",
-    "test": "tsx tests/run-tests.ts"
+    "test": "tsx tests/run-tests.ts",
+    "db:check": "tsx src/db/check-connection.ts"
   },
   "keywords": [],
   "author": "",
@@ -17,7 +18,11 @@
   "devDependencies": {
     "@hugovela/test-runner": "^0.1.0",
     "@types/node": "^25.9.3",
+    "@types/pg": "^8.21.0",
     "tsx": "^4.22.4",
     "typescript": "^6.0.3"
+  },
+  "dependencies": {
+    "pg": "^8.23.0"
   }
 }
