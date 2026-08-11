@@ -27,7 +27,8 @@ export async function resetPostgresTestDatabase(): Promise<void> {
     TRUNCATE TABLE
       project_mix_channels,
       tracks,
-      projects
+      projects,
+      users
     CASCADE
   `);
 }
