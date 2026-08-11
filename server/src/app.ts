@@ -1112,6 +1112,7 @@ export function createAppServer({
           sendJson,
           clientOrigin,
           uploadRoot,
+          projectsStore,
         });
 
         return;

@@ -1,15 +1,14 @@
 import { mkdir, rm } from "node:fs/promises";
 import type { ServerResponse } from "node:http";
-import type { Database } from "../types.js";
-import { DEFAULT_DB_FILE_PATH, writeDatabase } from "../stores/json-db.js";
+import type { ProjectsStore } from "../stores/projects-store.js";
 
 type JsonResponse = Record<string, unknown>;
 
 type SendJson = (
-  res: ServerResponse,
-  statusCode: number,
-  body: JsonResponse,
-  clientOrigin: string,
+    res: ServerResponse,
+    statusCode: number,
+    body: JsonResponse,
+    clientOrigin: string,
 ) => void;
 
 type DevResetRouteOptions = {
@@ -17,11 +16,7 @@ type DevResetRouteOptions = {
     sendJson: SendJson;
     clientOrigin: string;
     uploadRoot: string;
-};
-
-const emptyDatabase: Database = {
-    projects: [],
-    tracks: [],
+    projectsStore: ProjectsStore;
 };
 
 export async function handleDevResetRoute({
@@ -29,6 +24,7 @@ export async function handleDevResetRoute({
     sendJson,
     clientOrigin,
     uploadRoot,
+    projectsStore,
 }: DevResetRouteOptions): Promise<void> {
     if (process.env.NODE_ENV === "production") {
         sendJson(
@@ -44,7 +40,18 @@ export async function handleDevResetRoute({
         return;
     }
 
-    await writeDatabase(DEFAULT_DB_FILE_PATH, emptyDatabase);
+    const projects = await projectsStore.getProjects();
+
+    for (const project of projects) {
+        const result =
+            await projectsStore.deleteProjectById(project.id);
+
+        if (!result.ok) {
+            throw new Error(
+                `Could not reset project ${project.id}.`,
+            );
+        }
+    }
 
     await rm(uploadRoot, {
         recursive: true,

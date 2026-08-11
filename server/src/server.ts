@@ -1,14 +1,37 @@
+import { loadEnvFile } from "node:process";
 import { createAppServer } from "./app.js";
-import { projectsJsonStore } from "./stores/projects-json-store.js";
-import { tracksJsonStore } from "./stores/tracks-json-store.js";
+import { createDatabasePool } from "./db/pool.js";
+import { createProjectsPostgresStore } from "./stores/projects-postgres-store.js";
+import { createTracksPostgresStore } from "./stores/tracks-postgres-store.js";
+
+loadEnvFile();
 
 const PORT = 3000;
 
-const server = createAppServer({
-  projectsStore: projectsJsonStore,
-  tracksStore: tracksJsonStore,
+const pool = createDatabasePool();
+
+pool.on("error", (error) => {
+  console.error("Unexpected PostgreSQL pool error.", error);
 });
 
-server.listen(PORT, () => {
-  console.log(`GrooveShare API running at http://localhost:${PORT}`);
+const projectsStore = createProjectsPostgresStore(pool);
+
+const tracksStore = createTracksPostgresStore(pool);
+
+const server = createAppServer({
+  projectsStore,
+  tracksStore,
 });
+
+try {
+  await pool.query("SELECT 1");
+
+  server.listen(PORT, () => {
+    console.log(`GrooveShare API running at http://localhost:${PORT}`);
+  });
+} catch (error) {
+  console.error("Could not connect to PostgreSQL.", error);
+
+  await pool.end();
+  process.exitCode = 1;
+}
