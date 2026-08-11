@@ -34,6 +34,12 @@ import {
 } from "./auth/auth-routes.js";
 import type { UsersStore } from "./stores/users-store.js";
 import type { SessionsStore } from "./stores/sessions-store.js";
+import type {
+  ProjectMembershipsStore,
+} from "./stores/project-memberships-store.js";
+import {
+  getAuthenticatedUser,
+} from "./auth/authentication.js";
 
 type JsonResponse = Record<string, unknown>;
 
@@ -46,6 +52,7 @@ type AppOptions = {
   seedProjectDir?: string;
   maxUploadFileSizeBytes?: number;
   sessionsStore: SessionsStore;
+  projectMembershipsStore: ProjectMembershipsStore;
 };
 
 function sendJson(
@@ -342,6 +349,7 @@ export function createAppServer({
   tracksStore,
   usersStore,
   sessionsStore,
+  projectMembershipsStore,
   clientOrigin = "http://localhost:5173",
   uploadRoot = DEFAULT_UPLOAD_ROOT,
   seedProjectDir = DEFAULT_SEED_PROJECT_DIR,
@@ -351,6 +359,27 @@ export function createAppServer({
     req: IncomingMessage,
     res: ServerResponse,
   ): Promise<void> {
+    const authenticatedUser =
+      await getAuthenticatedUser({
+        req,
+        usersStore,
+        sessionsStore,
+      });
+
+    if (!authenticatedUser) {
+      sendJson(
+        res,
+        401,
+        {
+          ok: false,
+          error: "Authentication required.",
+        },
+        clientOrigin,
+      );
+
+      return;
+    }
+
     const body = await readRequestBody(req);
     const parsedBody = JSON.parse(body) as unknown;
 
@@ -372,6 +401,20 @@ export function createAppServer({
       title: parsedBody.title.trim(),
       description: parsedBody.description.trim(),
     });
+
+    try {
+      await projectMembershipsStore.createMembership({
+        projectId: project.id,
+        userId: authenticatedUser.id,
+        role: "owner",
+      });
+    } catch (error) {
+      await projectsStore.deleteProjectById(
+        project.id,
+      );
+
+      throw error;
+    }
 
     sendJson(
       res,

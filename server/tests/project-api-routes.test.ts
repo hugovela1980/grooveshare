@@ -2,11 +2,22 @@ import { access, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import type http from "node:http";
 import path from "node:path";
 import { createAppServer } from "../src/app.js";
+import type {
+  ProjectMembershipsStore,
+} from "../src/stores/project-memberships-store.js";
 import { createProjectsJsonStore } from "../src/stores/projects-json-store.js";
+import type { SessionsStore } from "../src/stores/sessions-store.js";
 import { createTracksJsonStore } from "../src/stores/tracks-json-store.js";
+import type { UsersStore } from "../src/stores/users-store.js";
 import type { Database, Project, Track } from "../src/types.js";
 import { createTestUsersStore } from "./helpers/create-test-users-store.js";
 import { createTestSessionsStore } from "./helpers/create-test-sessions-store.js";
+import {
+  createTestProjectMembershipsStore,
+} from "./helpers/create-test-project-memberships-store.js";
+import {
+  createAuthenticatedTestSession,
+} from "./helpers/create-authenticated-test-session.js";
 
 import { tester } from "./test-runner/tester.js";
 
@@ -83,6 +94,9 @@ function closeServer(server: http.Server): Promise<void> {
 async function createTestServer(): Promise<{
   baseUrl: string;
   server: http.Server;
+  usersStore: UsersStore;
+  sessionsStore: SessionsStore;
+  projectMembershipsStore: ProjectMembershipsStore;
 }> {
   const projectsStore =
     createProjectsJsonStore(TEST_DB_FILE_PATH);
@@ -92,12 +106,15 @@ async function createTestServer(): Promise<{
     createTestUsersStore();
   const sessionsStore =
     createTestSessionsStore();
+  const projectMembershipsStore =
+    createTestProjectMembershipsStore();
 
   const server = createAppServer({
     projectsStore,
     tracksStore,
     usersStore,
     sessionsStore,
+    projectMembershipsStore,
     clientOrigin:
       "http://localhost:5173",
     uploadRoot: TEST_UPLOAD_ROOT,
@@ -109,6 +126,9 @@ async function createTestServer(): Promise<{
   return {
     baseUrl,
     server,
+    usersStore,
+    sessionsStore,
+    projectMembershipsStore,
   };
 }
 
@@ -1736,4 +1756,131 @@ tester.describe("project API routes", () => {
     }
   });
 
+  tester.it(
+    "makes the authenticated project creator the owner",
+    async () => {
+      const {
+        baseUrl,
+        server,
+        usersStore,
+        sessionsStore,
+        projectMembershipsStore,
+      } = await createTestServer();
+
+      try {
+        const {
+          user,
+          cookie,
+        } =
+          await createAuthenticatedTestSession({
+            usersStore,
+            sessionsStore,
+          });
+
+        const response = await fetch(
+          `${baseUrl}/api/projects`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type":
+                "application/json",
+              Cookie: cookie,
+            },
+            body: JSON.stringify({
+              title:
+                "Owned Test Project",
+              description:
+                "Created by an authenticated user.",
+            }),
+          },
+        );
+
+        tester.expect(
+          response.status,
+        ).toBe(201);
+
+        const body =
+          (await response.json()) as {
+            ok: boolean;
+            data?: {
+              id: string;
+            };
+          };
+
+        if (!body.data) {
+          throw new Error(
+            "Project creation did not return project data.",
+          );
+        }
+
+        const membership =
+          await projectMembershipsStore
+            .getMembership(
+              body.data.id,
+              user.id,
+            );
+
+        tester.expect(
+          membership !== null,
+        ).toBe(true);
+
+        tester.expect(
+          membership?.role,
+        ).toBe("owner");
+      } finally {
+        await closeServer(server);
+      }
+    },
+  );
+
+  tester.it(
+    "rejects unauthenticated project creation",
+    async () => {
+      const {
+        baseUrl,
+        server,
+      } = await createTestServer();
+
+      try {
+        const response = await fetch(
+          `${baseUrl}/api/projects`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body: JSON.stringify({
+              title:
+                "Unauthorized Project",
+              description:
+                "This should not be created.",
+            }),
+          },
+        );
+
+        tester.expect(
+          response.status,
+        ).toBe(401);
+
+        const body =
+          (await response.json()) as {
+            ok: boolean;
+            error?: string;
+          };
+
+        tester.expect(body.ok).toBe(
+          false,
+        );
+
+        tester.expect(
+          body.error,
+        ).toBe(
+          "Authentication required.",
+        );
+      } finally {
+        await closeServer(server);
+      }
+    },
+  );
 });
