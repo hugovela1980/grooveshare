@@ -210,8 +210,8 @@ Expand GrooveShare from a shared stem/recording tool into a fuller band collabor
 
 ### Accounts and Authorization Foundation
 
-- [x] Chunk 1 — Add PostgreSQL persistence for project/track metadata
+- [x] Add PostgreSQL persistence for project/track metadata
   Define the relational schema for projects, tracks, and persisted mix/project data; add the database connection layer; implement PostgreSQL-backed stores; and switch the application from JSON metadata persistence to PostgreSQL without changing the user-facing workflow.
 
-  - Add user accounts and authentication
+- [x] Add user accounts and authentication
   Add a User model plus account creation/login/logout behavior, secure password handling, and persistent authentication/session support so the server can identify the user making each request.
