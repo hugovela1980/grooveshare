@@ -9,20 +9,12 @@
 
 ## Current Focus
 
-- Make the first commits of v2 development - update documentation and update server test failure output
+- [ ] Chunk 3 — Add project memberships and roles
+  Add project membership records with the initial `Viewer`, `Contributor`, and `Owner` roles. Define ownership for existing/new projects and make the role model ready for Contributors to upload now and record later.
 
 ### Version 2 Milestone 1 — Accounts and Authorization Foundation
 
 Move GrooveShare from the Version 1 single-user/local-data model toward a true multi-user application. Establish PostgreSQL-backed metadata, authenticated users, project membership roles, and server-enforced authorization before deploying the Version 2 beta.
-
-- [ ] Chunk 1 — Add PostgreSQL persistence and migrate project/track metadata
-  Define the relational schema for projects, tracks, and existing persisted mix/project data; add the database connection layer; migrate the current JSON-backed metadata behavior without changing the user-facing workflow.
-
-- [ ] Chunk 2 — Add user accounts and authentication
-  Add a User model plus account creation/login/logout behavior, secure password handling, and persistent authentication/session support so the server can identify the user making each request.
-
-- [ ] Chunk 3 — Add project memberships and roles
-  Add project membership records with the initial `Viewer`, `Contributor`, and `Owner` roles. Define ownership for existing/new projects and make the role model ready for Contributors to upload now and record later.
 
 - [ ] Chunk 4 — Enforce authorization in the server API
   Protect project, track, upload, edit, and delete routes based on membership and role. Viewers can read/play, Contributors can upload and manage their own contributions, and Owners can manage the project and its members.
@@ -217,3 +209,9 @@ Expand GrooveShare from a shared stem/recording tool into a fuller band collabor
   Added root commands for running each workspace's tests and typecheck together, plus a command for checking all workspaces.
 
 ### Accounts and Authorization Foundation
+
+- [x] Chunk 1 — Add PostgreSQL persistence for project/track metadata
+  Define the relational schema for projects, tracks, and persisted mix/project data; add the database connection layer; implement PostgreSQL-backed stores; and switch the application from JSON metadata persistence to PostgreSQL without changing the user-facing workflow.
+
+  - Add user accounts and authentication
+  Add a User model plus account creation/login/logout behavior, secure password handling, and persistent authentication/session support so the server can identify the user making each request.
