@@ -5,6 +5,8 @@ import { createAppServer } from "../src/app.js";
 import { createProjectsJsonStore } from "../src/stores/projects-json-store.js";
 import { createTracksJsonStore } from "../src/stores/tracks-json-store.js";
 import type { Database, Project, Track } from "../src/types.js";
+import { createTestUsersStore } from "./helpers/create-test-users-store.js";
+
 import { tester } from "./test-runner/tester.js";
 
 const TEST_DB_DIR = path.join(process.cwd(), "tests/.tmp");
@@ -83,10 +85,12 @@ async function createTestServer(): Promise<{
 }> {
   const projectsStore = createProjectsJsonStore(TEST_DB_FILE_PATH);
   const tracksStore = createTracksJsonStore(TEST_DB_FILE_PATH);
+  const usersStore = createTestUsersStore();
 
   const server = createAppServer({
     projectsStore,
     tracksStore,
+    usersStore,
     clientOrigin: "http://localhost:5173",
     uploadRoot: TEST_UPLOAD_ROOT,
     maxUploadFileSizeBytes: 20,

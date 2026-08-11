@@ -3,6 +3,7 @@ import { createAppServer } from "./app.js";
 import { createDatabasePool } from "./db/pool.js";
 import { createProjectsPostgresStore } from "./stores/projects-postgres-store.js";
 import { createTracksPostgresStore } from "./stores/tracks-postgres-store.js";
+import { createUsersPostgresStore } from "./stores/users-postgres-store.js";
 
 loadEnvFile();
 
@@ -14,13 +15,19 @@ pool.on("error", (error) => {
   console.error("Unexpected PostgreSQL pool error.", error);
 });
 
-const projectsStore = createProjectsPostgresStore(pool);
+const projectsStore =
+  createProjectsPostgresStore(pool);
 
-const tracksStore = createTracksPostgresStore(pool);
+const tracksStore =
+  createTracksPostgresStore(pool);
+
+const usersStore =
+  createUsersPostgresStore(pool);;
 
 const server = createAppServer({
   projectsStore,
   tracksStore,
+  usersStore,
 });
 
 try {

@@ -7,6 +7,8 @@
         "packages/*"
     ],
     "scripts": {
+        "dev-server": "npm run dev -w server",
+        "dev-client": "npm run dev -w client",
         "test-client": "npm run typecheck -w client && npm test -w client",
         "test-server": "npm run typecheck -w server && npm test -w server",
         "test-runner": "npm run typecheck -w packages/test-runner && npm test -w packages/test-runner",

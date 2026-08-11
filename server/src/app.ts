@@ -26,12 +26,18 @@ import {
   DEFAULT_MAX_AUDIO_FILE_SIZE_BYTES,
   validateAudioUploadFile,
 } from "./uploads/upload-validation.js";
+import {
+  handleLoginRoute,
+  handleRegisterRoute,
+} from "./auth/auth-routes.js";
+import type { UsersStore } from "./stores/users-store.js";
 
 type JsonResponse = Record<string, unknown>;
 
 type AppOptions = {
   projectsStore: ProjectsStore;
   tracksStore: TracksStore;
+  usersStore: UsersStore;
   clientOrigin?: string;
   uploadRoot?: string;
   seedProjectDir?: string;
@@ -329,6 +335,7 @@ function sanitizeFilename(filename: string): string {
 export function createAppServer({
   projectsStore,
   tracksStore,
+  usersStore,
   clientOrigin = "http://localhost:5173",
   uploadRoot = DEFAULT_UPLOAD_ROOT,
   seedProjectDir = DEFAULT_SEED_PROJECT_DIR,
@@ -968,6 +975,36 @@ export function createAppServer({
           },
           clientOrigin,
         );
+
+        return;
+      }
+
+      if (
+        req.method === "POST" &&
+        req.url === "/api/auth/register"
+      ) {
+        await handleRegisterRoute({
+          req,
+          res,
+          sendJson,
+          clientOrigin,
+          usersStore,
+        });
+
+        return;
+      }
+
+      if (
+        req.method === "POST" &&
+        req.url === "/api/auth/login"
+      ) {
+        await handleLoginRoute({
+          req,
+          res,
+          sendJson,
+          clientOrigin,
+          usersStore,
+        });
 
         return;
       }
