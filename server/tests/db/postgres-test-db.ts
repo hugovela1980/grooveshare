@@ -26,6 +26,7 @@ export async function resetPostgresTestDatabase(): Promise<void> {
     await postgresTestPool.query(`
     TRUNCATE TABLE
       project_mix_channels,
+      project_memberships,
       tracks,
       projects,
       sessions,
