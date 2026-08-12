@@ -1,3 +1,6 @@
+import "./api-client.test.js";
+import "./auth-api.test.js";
+import "./auth-page-controller.test.js";
 import "./app-router.test.js";
 import "./page-templates.test.js";
 import "./grooveshare-app.test.js";

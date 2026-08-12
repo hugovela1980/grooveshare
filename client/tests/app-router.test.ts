@@ -7,6 +7,10 @@ import { tester } from "./test-runner/tester.js";
 
 function createPageRenderers() {
     return {
+        auth() {
+            return "<main>Authentication</main>";
+        },
+
         "project-menu"() {
             return "<main>Project Menu</main>";
         },

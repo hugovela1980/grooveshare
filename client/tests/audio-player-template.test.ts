@@ -8,6 +8,7 @@ tester.describe("audio player template", () => {
         tester.expect(html.includes("Audio Player")).toBe(true);
         tester.expect(html.includes("No track loaded.")).toBe(true);
         tester.expect(html.includes("project-audio-player")).toBe(true);
+        tester.expect(html.includes('crossorigin="use-credentials"')).toBe(true);
         tester.expect(html.includes("audio-play-pause-button")).toBe(true);
         tester.expect(html.includes("audio-stop-button")).toBe(true);
         tester.expect(html.includes("audio-progress")).toBe(true);

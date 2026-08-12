@@ -1,9 +1,35 @@
+import { renderAuthPage } from "../src/pages/auth-page.js";
 import { renderCreateProjectPage } from "../src/pages/create-project-page.js";
 import { renderProjectMenuPage } from "../src/pages/project-menu-page.js";
 import { renderProjectPlayerPage } from "../src/pages/project-player-page.js";
 import { tester } from "./test-runner/tester.js";
 
 tester.describe("page templates", () => {
+  tester.it("renders login and registration forms", () => {
+    const html = renderAuthPage();
+
+    tester.expect(html.includes("Log in")).toBe(true);
+    tester.expect(html.includes('id="login-form"')).toBe(true);
+    tester.expect(html.includes('id="register-form"')).toBe(true);
+    tester.expect(html.includes('id="auth-status"')).toBe(true);
+    tester.expect(html.includes('minlength="15"')).toBe(true);
+  });
+
+  tester.it("renders the current user and logout control on the Project Menu", () => {
+    const html = renderProjectMenuPage({
+      id: "user-1",
+      email: "musician@example.com",
+      displayName: "Musician",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    });
+
+    tester.expect(html.includes("Signed in as")).toBe(true);
+    tester.expect(html.includes("Musician")).toBe(true);
+    tester.expect(html.includes("musician@example.com")).toBe(true);
+    tester.expect(html.includes('id="logout-button"')).toBe(true);
+  });
+
   tester.it("renders the Project Menu page", () => {
     const html = renderProjectMenuPage();
 

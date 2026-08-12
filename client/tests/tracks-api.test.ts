@@ -71,6 +71,7 @@ tester.describe("tracks API", () => {
 
             tester.expect(firstCall.init).toEqual({
                 method: "DELETE",
+                credentials: "include",
             });
         } finally {
             globalThis.fetch = originalFetch;
@@ -153,6 +154,7 @@ tester.describe("tracks API", () => {
                 body: JSON.stringify({
                     name: "Lead Guitar",
                 }),
+                credentials: "include",
             });
         } finally {
             globalThis.fetch = originalFetch;

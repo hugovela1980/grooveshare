@@ -72,6 +72,7 @@ tester.describe("projects API", () => {
 
             tester.expect(firstCall.init).toEqual({
                 method: "DELETE",
+                credentials: "include",
             });
         } finally {
             globalThis.fetch = originalFetch;
@@ -170,6 +171,7 @@ tester.describe("projects API", () => {
                     "Content-Type": "application/json",
                 },
                 body: JSON.stringify(mixSettings),
+                credentials: "include",
             });
         } finally {
             globalThis.fetch = originalFetch;
@@ -258,6 +260,7 @@ tester.describe("projects API", () => {
                 body: JSON.stringify({
                     title: "Updated Title",
                 }),
+                credentials: "include",
             });
         } finally {
             globalThis.fetch = originalFetch;
