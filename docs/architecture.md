@@ -21,64 +21,76 @@ The app should stay focused on collaboration and practice rather than becoming a
 
 ## Current Phase
 
-The current codebase is the local Version 1 four-channel stem-player implementation.
+The stable release is **Version 1 v1.0.0**, but active development is now **Version 2 — Multi-User Hosted Beta**.
 
-Current Version 1 stack:
+Version 2 Milestone 1 — Accounts and Authorization Foundation — is complete on the development path. The current server architecture includes:
 
-* Vite + Vanilla TypeScript frontend
-* Pure Node TypeScript backend
-* Local JSON metadata storage
-* Local file storage
-* Organized CSS import structure
-* Custom lightweight TypeScript tests
-* Local development seed/reset tooling
+* Vite + Vanilla TypeScript frontend.
+* Pure Node TypeScript backend.
+* PostgreSQL metadata persistence.
+* Local filesystem audio storage.
+* User accounts with hashed passwords.
+* Server-managed authentication sessions.
+* Project memberships with `viewer`, `contributor`, and `owner` roles.
+* Server-side authorization for project, track, upload, edit, delete, mix, and membership-management operations.
+* Track ownership through `uploadedByUserId`.
+* A reusable workspace test-runner package.
+* Authorization integration and PostgreSQL migration-behavior tests.
+* Development seed/reset tooling protected from production use.
 
-Version 1 remains intentionally small and focused: create projects, upload up to four audio tracks, edit project/track labels, save a simple mix, and control multitrack playback in the browser.
+The current focus is **Version 2 Milestone 2 — Permission-Aware UI**. The client will be updated to participate in the session system and reflect the permissions already enforced by the server.
+
+A later **Version 2.1 — Public Guest Sharing** patch is planned after the initial hosted release. Public guests will be able to use approved share links for anonymous read/play access and browser-local mix persistence without becoming project members.
 
 ## Version Plan
 
 ### Version 1: Four-Channel Stem Player
 
-Version 1 is the first useful MVP.
+Version 1 v1.0.0 is the completed local MVP: project creation, up to four uploaded tracks, saved mix settings, inline project/track editing, multitrack playback, seeking, looping, and project/track deletion.
 
-The user should be able to:
+### Version 2: Multi-User Hosted Beta
 
-* Create a project.
-* Add up to four audio files during project creation.
-* Review project details and selected tracks in a confirmation modal.
-* Submit the project and move directly to the Project Player.
-* Add another track from an empty Project Player channel slot.
-* Open a Project Player.
-* See up to four channel slots.
-* Automatically fill Channel 1 through Channel 4 from the first four uploaded tracks.
-* Enable or disable each assigned channel from the numbered channel square.
-* Adjust channel volume and see the value as a percentage.
-* Load the selected channel setup into the Audio Player and persist the mix settings.
-* Restore saved enabled/volume settings when a project is reopened.
-* Edit project title, project description, and track names inline with persisted updates.
-* Play, pause/resume, stop, seek, loop, and reset the loaded mix from a shared transport.
-* Delete individual tracks.
-* Delete entire projects and their linked uploaded files.
+Version 2 adds the production-oriented multi-user foundation and hosted workflow.
 
-Version 1 uses the current local Node, JSON, and file-storage architecture.
+Milestone sequence:
 
-### Version 2: Web Audio Mixer Engine
+1. **Accounts and Authorization Foundation — complete**
+   PostgreSQL persistence, users, sessions, project memberships, Viewer/Contributor/Owner roles, track ownership, server authorization, integration coverage, and development tooling.
 
-Version 2 should replace the current HTML audio element based multitrack playback with a Web Audio engine.
+2. **Permission-Aware UI — current**
+   Add register/login/logout/current-user UI, credentialed client API requests, role-aware controls, track-ownership-aware controls, and Owner member management.
 
-This version should support tighter synchronization, gapless looping, waveform analysis, shared playhead behavior, channel offset/nudge controls, and non-destructive trim/clipping.
+3. **Production Configuration**
+   Move deployment-sensitive values into environment-based configuration and remove local-development assumptions.
 
-### Version 3: Record a Take
+4. **VPS Deployment**
+   Run the centralized service on a Linux VPS with PostgreSQL, persistent audio storage, HTTPS, process management, firewall rules, logs, and backups.
 
-Version 3 should add browser microphone recording.
+5. **Web Audio Engine and Sync Tools**
+   Replace the multi-element playback engine when tighter synchronization, gapless looping, waveform display, nudge, trim, and edited playback are needed.
 
-A collaborator should be able to listen to the uploaded tracks, record a rough part through the browser, save that recording, and make it available in the project.
+### Version 2.1: Public Guest Sharing
 
-### Version 4: Collaboration and Production Services
+After the initial hosted authenticated release, add a separate anonymous share-link path:
 
-Version 4 should move GrooveShare closer to a complete remote music collaboration workflow.
+* No registration/login required to open an approved public/share link.
+* Guest may read shared project information and stream project tracks.
+* Guest may enable/disable channels and adjust a personal mix.
+* Guest mix settings persist only in that browser's `localStorage`.
+* Guest mix settings are never written to PostgreSQL.
+* Guest is not inserted into `project_memberships` and is not treated as a Viewer.
+* Guest cannot upload, record, rename, delete, edit project data, manage members, or persist shared project settings.
+* Server must explicitly authorize public/share reads and audio streaming; the client cannot safely bypass authenticated server routes.
 
-This may include authentication, private share links, collaborator permissions, comments, notifications, version history, persistent database storage, cloud audio storage, and production deployment.
+The client architecture in Milestone 2 should therefore avoid assuming that every future route requires a `currentUser`.
+
+### Version 3: Self-Hosted Mobile Recording
+
+Move the centralized service toward desktop/home hosting through Cloudflare Tunnel, complete the mobile web experience, add browser microphone recording for Contributors, and package the client for Android/iOS with Capacitor.
+
+### Version 4: Collaboration Workflow Polish
+
+Expand based on real beta usage with invitations, comments, notifications, project status/history, stronger sharing controls, and other collaboration features that prove useful.
 
 ## High-Level Structure
 
@@ -87,49 +99,49 @@ grooveshare/
   sample-audio-files/
   client/
   server/
+    db/
+      migrations/
+  packages/
+    test-runner/
   docs/
+    architecture.md
   backlog.md
+  package.json
   docker-compose.yml
   README.md
 ```
 
-The `sample-audio-files/` folder contains the four user-facing sample stems used by the README Quick Start.
+The `sample-audio-files/` folder contains user-facing sample stems.
 
 The `client/` folder contains the browser app.
 
-The `server/` folder contains the pure Node backend.
+The `server/` folder contains the pure Node backend, PostgreSQL migration files, database/store modules, authentication/authorization modules, upload behavior, and server tests.
 
-The `docs/` folder contains project documentation such as architecture notes.
+The `packages/test-runner/` workspace contains the reusable custom TypeScript test runner used by the client and server suites.
 
-The `backlog.md` file tracks current focus, planned work, and completed work.
+The `docs/` folder contains project architecture notes, while `backlog.md` tracks current focus, planned work, and completed work.
 
 ## Frontend Architecture
 
-The frontend is a Vite + Vanilla TypeScript app.
-
-Vite is used as the frontend development server, TypeScript build tool, and production bundler. The app uses browser DOM APIs rather than a frontend framework.
+The frontend is a Vite + Vanilla TypeScript app using browser DOM APIs rather than a frontend framework.
 
 The frontend is responsible for:
 
 * Rendering the GrooveShare interface.
 * Calling backend API routes with `fetch`.
-* Displaying project data returned from the backend.
-* Displaying loading, error, and status messages.
-* Managing the project creation flow.
-* Managing pending track selection before project submission.
-* Uploading selected tracks after project creation.
-* Displaying uploaded track metadata.
-* Persisting inline edits to project title, project description, and track names.
-* Persisting the current occupied-channel enabled/volume settings when a mix is loaded.
-* Restoring saved mixer settings when a project is reopened.
-* Deleting individual tracks and projects through backend API calls.
-* Showing confirmation, success, and error messages for destructive actions.
-* Rendering the Project Player Tracks panel as four channel slots.
-* Reading channel enabled state and volume settings before loading a mix.
-* Tracking whether the visible mixer still matches the currently loaded mix.
-* Updating volume percentages while the user moves a channel slider.
-* Managing browser audio playback and shared seeking through the Audio Player panel.
-* Eventually managing browser microphone recording through browser APIs.
+* Managing registration/login/logout/current-user UI during Version 2 Milestone 2.
+* Sending session-aware requests to the backend.
+* Displaying only projects returned as visible to the authenticated user.
+* Reflecting Viewer/Contributor/Owner permissions in visible controls.
+* Reflecting track ownership when deciding whether a Contributor should see rename/delete controls.
+* Treating the server response as authoritative when an action is rejected.
+* Managing project creation and pending track drafts.
+* Uploading selected tracks.
+* Rendering Project Player mixer and playback controls.
+* Displaying loading, error, status, and session-expired states.
+* Eventually supporting a separate public-share guest route that can exist without an authenticated `currentUser`.
+* For public guests, storing personal mix settings in `localStorage` rather than sending project mix updates to the database.
+* Eventually managing browser microphone recording through browser APIs for authorized Contributors.
 
 Current frontend structure:
 
@@ -139,12 +151,6 @@ client/src/
   css/
     main.css
     _imports/
-      base.css
-      layout.css
-      utilities.css
-      components/
-      pages/
-      responsive.css
   dev/
   page-controllers/
   pages/
@@ -156,19 +162,19 @@ client/src/
   types.ts
 ```
 
-Frontend module responsibilities:
+Module responsibilities remain separated:
 
 * `api/` contains functions that communicate with the backend.
 * `css/` contains the CSS entry point and organized stylesheet imports.
-* `dev/` contains local-only development helpers, such as the development toolbar.
-* `page-controllers/` contains page-specific behavior that can be tested with fake DOM helpers.
-* `pages/` contains page-level markup for the main app screens.
-* `project-draft/` contains temporary state for project details and selected audio files before submission.
-* `router/` controls which app screen is currently shown.
-* `templates/` contains smaller reusable markup helpers.
-* `types.ts` contains shared frontend types.
+* `dev/` contains local-only development helpers.
+* `page-controllers/` contains page-specific behavior.
+* `pages/` contains page-level markup.
+* `project-draft/` contains temporary create-project state.
+* `router/` controls browser screens/routes.
+* `templates/` contains repeated markup helpers.
+* `types.ts` contains frontend types.
 
-Markup may be created from TypeScript template strings. Page-level markup should live in `pages/`, repeated markup should live in `templates/`, and page behavior should live in `page-controllers/` rather than being placed directly in `main.ts`.
+Page-level markup should stay in `pages/`, repeated markup in `templates/`, and page behavior in `page-controllers/` rather than accumulating in `main.ts`.
 
 ## CSS Architecture
 
@@ -266,6 +272,84 @@ The Tracks panel renders up to four channel slots. Assigned slots use the number
 
 Saved mix settings are restored into the Mix Channels UI when the project is reopened. The Audio Player itself is not automatically loaded on page entry; the user still presses `Load Mix` to load the current mixer state into playback.
 
+## Authentication, Authorization, and Guest Access Direction
+
+### Authenticated users
+
+Version 2 Milestone 1 establishes the server-side identity and permission model:
+
+```txt
+Authentication
+  Who is making the request?
+
+Authorization
+  Is that user a member of this project?
+  What role do they have?
+  Do they own this contributed track?
+  Is the requested action allowed?
+```
+
+Project roles are:
+
+```txt
+Viewer
+  read/play
+
+Contributor
+  Viewer abilities
+  upload/contribute
+  manage their own contributed tracks
+  use contribution-level project controls
+
+Owner
+  Contributor abilities
+  manage all project tracks
+  manage project details/deletion
+  manage project memberships
+```
+
+The server is the security boundary. Milestone 2 will make the UI reflect these rules for usability, but hiding a button is not authorization.
+
+The first permission-aware UI pass will keep the current email-based identity flow. Username-based login is a product decision to reassess after the complete UI can be experienced.
+
+### Public guest users
+
+Public Guest is a **separate access mode**, not a fourth project membership role.
+
+A guest arrives through a future approved public/share link and is not inserted into `project_memberships`.
+
+Target guest behavior:
+
+```txt
+public/share link
+      ↓
+anonymous guest
+      ↓
+read project metadata
+read track metadata
+stream audio
+adjust enabled/volume mix locally
+      ↓
+localStorage only
+```
+
+Guest mix settings should be scoped to the project/share context in browser `localStorage`. They may survive reloads on the same browser, but they are not synchronized across devices and may disappear when browser storage is cleared.
+
+The guest client must not call the persisted project mix-setting mutation route. The Owner's shared/database mix and the guest's personal browser mix are separate concepts.
+
+Anonymous read/play cannot be implemented as a client-only patch because the current server protects project and audio routes. Version 2.1 will need explicit server-side public/share authorization for the resources a guest is allowed to read.
+
+Guest collaboration actions remain blocked:
+
+* no upload
+* no recording
+* no project/track edits
+* no deletion
+* no membership management
+* no persisted shared mix mutation
+
+When a guest wants to collaborate, they should register/authenticate and then receive an appropriate project role.
+
 ## Project Draft State
 
 The project creation workflow uses temporary frontend draft state before submitting to the backend.
@@ -284,33 +368,39 @@ The draft is cleared only after the project is successfully created and pending 
 
 ## Backend Architecture
 
-The backend is a pure Node TypeScript server.
+The backend is a pure Node TypeScript server. `server/src/server.ts` wires the real development/production stores and starts the process; `server/src/app.ts` creates the testable HTTP application and route behavior.
 
-The backend is responsible for:
+Version 2 backend responsibilities include:
 
-* Handling API requests from the frontend.
-* Reading and writing local JSON metadata.
-* Creating, reading, and updating project data.
-* Persisting project title/description edits and mix settings.
-* Receiving local audio uploads.
-* Saving uploaded files to project-specific local folders.
-* Creating and updating track metadata records, including persisted track-name edits.
-* Streaming uploaded audio files from local storage with HTTP byte-range support for seeking.
-* Deleting individual tracks and their uploaded files.
-* Deleting projects, linked track metadata, uploaded files, and project upload folders.
-* Returning clear JSON responses and error messages.
-* Handling CORS for the local Vite frontend.
-* Supporting local development reset behavior.
-* Supporting local development seed-project behavior from real audio files.
+* Handling API requests and CORS.
+* PostgreSQL-backed project, track, mix, user, session, and membership persistence.
+* User registration/login/logout/current-user resolution.
+* Password hashing and verification.
+* Server-managed authentication sessions.
+* Creating a project and assigning the authenticated creator as Owner.
+* Resolving project memberships and Viewer/Contributor/Owner permissions.
+* Enforcing server-side authorization before mutation handlers run.
+* Recording track uploader identity.
+* Allowing Contributors to manage their own tracks and Owners to manage any project track.
+* Managing project memberships through Owner-only routes.
+* Receiving and validating audio uploads.
+* Saving audio files to project-specific local folders.
+* Streaming audio with HTTP byte-range support.
+* Deleting project/track metadata and related audio files.
+* Supporting development-only seed/reset/authorization scenarios.
+* Returning clear 401/403/404 distinctions where appropriate.
 
-Current backend structure:
+Current backend structure includes:
 
 ```txt
 server/
+  db/
+    migrations/
   data/
-    db.json
     seed-project/
   src/
+    auth/
+    db/
     dev/
     stores/
     uploads/
@@ -320,160 +410,114 @@ server/
   tests/
 ```
 
-The backend is separated into two startup/request layers:
+The data-access layer remains behind store interfaces. PostgreSQL is the real Version 2 implementation while JSON stores remain useful for isolated tests and storage abstraction.
 
-* `server/src/server.ts` starts the development server.
-* `server/src/app.ts` creates the testable app server and route behavior.
-
-The backend data access layer lives in `server/src/stores/`.
-
-Upload-related helpers live in `server/src/uploads/`.
-
-Development-only backend behavior, such as resetting local development data and seeding projects from local audio files, lives in `server/src/dev/`.
-
-The current project and track stores use JSON storage, but they are shaped so future database-backed stores can use the same general function interfaces.
+The planned Version 2.1 guest-sharing work will add a deliberately narrow anonymous read path rather than weakening the authenticated membership checks used by normal project routes.
 
 ## Backend Framework Direction
 
-Version 1 uses Node's built-in HTTP, file system, and stream tools.
+The server currently continues to use Node's built-in HTTP, file-system, stream, and crypto capabilities rather than Express.
 
-This keeps the local backend implementation direct and keeps the project dependency surface small while the core product flow is being established.
+That choice is no longer meant to imply a toy backend. The route layer is now supported by separate authentication, authorization, store, upload, database, and development modules plus integration tests.
 
-In a later version, the backend may move to Express or another framework to simplify routing, middleware, upload handling, validation, authentication, and production concerns.
+Moving to Express or another framework remains optional. It should happen only if routing/middleware/validation complexity creates enough friction to justify a migration; it is not required merely because the application is becoming multi-user.
 
 ## Frontend and Backend Communication
 
-During local development, the frontend and backend run on separate local servers:
+During local development:
 
 ```txt
 Frontend: http://localhost:5173
 Backend:  http://localhost:3000
 ```
 
-The frontend calls the backend using `fetch`.
+The frontend calls the backend with `fetch`.
 
-Because the frontend and backend use different local origins, the backend allows the frontend origin through CORS headers.
+Because these are different origins, the backend allows the configured client origin through CORS and permits credentials. Version 2 Milestone 2 must make client API helpers send session credentials so the browser's authentication cookie participates in protected API calls.
 
-For local development, the allowed frontend origin is:
+Conceptually:
 
 ```txt
-http://localhost:5173
+browser fetch
+   + session cookie
+        ↓
+server
+   authenticate user
+        ↓
+authorize project/track action
+        ↓
+perform or reject request
 ```
 
-The backend should handle preflight `OPTIONS` requests for routes that receive JSON or uploads from the frontend.
+For the later guest-share route, the request may intentionally have no authenticated session. The server must distinguish a valid public/share read from a normal protected project request instead of simply disabling authentication globally.
 
 ## Data Storage Direction
 
-In Version 1, GrooveShare uses local JSON metadata instead of a database.
+Version 1 used local JSON metadata. Version 2 now uses PostgreSQL for application metadata while audio files continue to live on the server filesystem.
 
-The current local metadata file is:
-
-```txt
-server/data/db.json
-```
-
-The repository contains two intentionally separate sample/seed locations:
+The current relational model includes tables for:
 
 ```txt
-sample-audio-files/        # user-facing files for the normal Create Project Quick Start
-server/data/seed-project/  # development-toolbar seed source
+projects
+tracks
+project_mix_channels
+users
+sessions
+project_memberships
 ```
 
-The root sample files exercise the real browser file-picker/upload workflow. The backend seed files are used only by the development toolbar to create test projects quickly.
-
-The initial metadata shape is:
-
-```json
-{
-  "projects": [],
-  "tracks": []
-}
-```
-
-This structure maps to future database tables:
+SQL schema changes are tracked as migrations under:
 
 ```txt
-projects → future projects table
-tracks   → future tracks table
+server/db/migrations/
 ```
 
-The JSON file stores metadata only. Audio files are stored separately in local folders.
+Local development uses separate development and test PostgreSQL databases configured through server environment variables.
+
+Audio files remain separate from database metadata. Track records store the path and metadata needed to locate/serve those files.
+
+JSON project/track stores remain in the codebase as alternate/test implementations of the same store contracts rather than the active production-direction persistence layer.
+
+Version 2.1 introduces one intentional client-local data category: anonymous guest personal mix settings. Those settings belong in browser `localStorage`, not PostgreSQL, because they represent one guest/browser's listening preference rather than shared project state.
 
 ## Future Data Storage Direction
 
-In a later version, JSON metadata should be replaced by a real database.
+PostgreSQL is now the selected metadata database for Version 2.
 
-Likely future options include:
+Near-term production work should focus on operating that database safely on the VPS: environment configuration, migrations, backups, connection handling, and recovery expectations.
 
-* PostgreSQL
-* Supabase PostgreSQL
-* Another managed database service
+Uploaded audio remains on local server storage for the initial hosted beta. Object storage such as Cloudflare R2, S3, Supabase Storage, or another S3-compatible service can be introduced later if real usage makes server-disk storage inconvenient.
 
-In a later version, local audio file storage should be replaced by cloud object storage.
+The database should continue to store metadata; audio/object storage should store audio bytes.
 
-Likely future options include:
-
-* Supabase Storage
-* Cloudflare R2
-* AWS S3
-* Other S3-compatible storage
-
-The database should store metadata. The object storage service should store audio files.
+Guest `localStorage` mix data is intentionally outside both categories. It is ephemeral/personal client state and should not be treated as shared project persistence.
 
 ## Store Pattern
 
-The backend should use store functions instead of placing raw JSON read/write logic directly in route handlers.
+Backend route handlers call store interfaces instead of embedding persistence logic directly in HTTP routing code.
 
-Current JSON store pattern:
+Current implementations include both JSON and PostgreSQL stores. The active Version 2 server wires PostgreSQL-backed stores, while JSON-backed stores remain useful for isolated tests and as evidence that the route layer is not coupled to one persistence technology.
 
-```txt
-server/src/stores/
-  json-db.ts
-  projects-json-store.ts
-  tracks-json-store.ts
-```
-
-Current project store functions include:
+Conceptually:
 
 ```txt
-getProjects()
-getProjectById(projectId)
-createProject(projectInput)
-updateProjectDetails(projectId, projectInput)
-updateProjectMixSettings(projectId, mixSettings)
-deleteProjectById(projectId)
+route / authorization layer
+        ↓
+ProjectsStore / TracksStore / UsersStore /
+SessionsStore / ProjectMembershipsStore
+        ↓
+PostgreSQL implementation
 ```
 
-Current track store functions include:
+This separation lets tests substitute disposable implementations and keeps SQL out of high-level request-routing logic.
 
-```txt
-getTracksByProjectId(projectId)
-getTrackById(projectId, trackId)
-createTrack(trackInput)
-updateTrackName(projectId, trackId, trackInput)
-deleteTrackById(projectId, trackId)
-```
-
-The route layer should call these functions without needing to know whether data comes from a JSON file or a future database.
-
-For testing, the JSON store can be created with a disposable test database path. This allows tests to verify real JSON file read/write behavior without modifying the development database at `server/data/db.json`.
-
-Future store direction:
-
-```txt
-projects-json-store.ts      → Version 1 local JSON implementation
-projects-postgres-store.ts  → possible future database implementation
-```
-
-The goal is to keep the route layer stable while changing the storage implementation later.
+Track rows returned by PostgreSQL are mapped from database naming such as `uploaded_by_user_id` into TypeScript application naming such as `uploadedByUserId`.
 
 ## Current Data Model
 
 ### Project
 
-A project represents one song idea, riff, section, or practice session.
-
-Current mix-setting shapes:
+A project represents one song idea, riff, section, rehearsal part, or practice track.
 
 ```ts
 type MixChannelSetting = {
@@ -486,11 +530,7 @@ type MixChannelSetting = {
 type MixSettings = {
   channels: MixChannelSetting[];
 };
-```
 
-Current project shape:
-
-```ts
 type Project = {
   id: string;
   title: string;
@@ -501,34 +541,11 @@ type Project = {
 };
 ```
 
-New projects are created with an empty `mixSettings.channels` array. `mixSettings` remains optional in the TypeScript type so older local JSON records can still be read safely.
-
-A project is created from:
-
-```ts
-type CreateProjectInput = {
-  title: string;
-  description: string;
-};
-```
-
-Project title and description can later be updated independently:
-
-```ts
-type UpdateProjectDetailsInput = {
-  title?: string;
-  description?: string;
-};
-```
-
-Pressing `Load Mix` persists the occupied channel settings on the project. Disabled occupied channels are saved too, so their enabled state and volume can be restored later.
-
+Authenticated project creation also creates an Owner membership for the user who created it.
 
 ### Track
 
 A track represents one uploaded audio file connected to a project.
-
-Current track shape:
 
 ```ts
 type Track = {
@@ -539,101 +556,100 @@ type Track = {
   filePath: string;
   mimeType: string;
   fileSize: number;
+  uploadedByUserId: string | null;
   createdAt: string;
 };
 ```
 
-Tracks are stored separately from projects in the JSON metadata file, using `projectId` to connect a track to a project.
+`uploadedByUserId` is the server-side ownership link used to determine whether a Contributor may rename/delete a particular contribution. Legacy/dev-seeded tracks may have `null`; Owners can manage them while Contributors cannot claim them.
 
-Track names can be updated after upload:
+### User and Session
 
-```ts
-type UpdateTrackNameInput = {
-  name: string;
-};
+A User represents an account identity. Password hashes are stored server-side and are not returned as public user data.
+
+A Session links an opaque browser session token (stored/compared securely by the server) to a user and expiration time so later requests can resolve the authenticated user.
+
+The current account identity is email-based. Username-based login remains a product decision to reconsider after the permission-aware client flow is usable.
+
+### Project Membership
+
+A membership connects one User to one Project with a role:
+
+```txt
+viewer
+contributor
+owner
 ```
 
-This keeps the Version 1 JSON structure close to a future relational database shape.
+The role hierarchy is used for project-level `read`, `contribute`, and `manage` permissions.
+
+Public guests planned for Version 2.1 are not represented by User or ProjectMembership records merely because they open a share link.
 
 ## API Direction
 
-The API should stay small and grow only as needed.
+The API remains intentionally small but now includes authentication and membership management.
 
-Current routes:
+Current product routes include:
 
 ```txt
 GET    /api/health
+
+POST   /api/auth/register
+POST   /api/auth/login
+POST   /api/auth/logout
+GET    /api/auth/me
+
 GET    /api/projects
 POST   /api/projects
 GET    /api/projects/:projectId
 PUT    /api/projects/:projectId
 PUT    /api/projects/:projectId/mix-settings
 DELETE /api/projects/:projectId
+
 POST   /api/projects/:projectId/tracks
 GET    /api/projects/:projectId/tracks
 PUT    /api/projects/:projectId/tracks/:trackId
 GET    /api/projects/:projectId/tracks/:trackId/audio
 DELETE /api/projects/:projectId/tracks/:trackId
-GET    /api/dev/seed-files
-POST   /api/dev/seed-project
-DELETE /api/dev/reset
+
+GET    /api/projects/:projectId/members
+POST   /api/projects/:projectId/members
+PUT    /api/projects/:projectId/members/:userId
+DELETE /api/projects/:projectId/members/:userId
 ```
 
-Most routes return JSON responses.
+Most successful/error responses use the existing JSON envelope. Audio streaming is the main exception and supports byte ranges.
 
-Successful JSON response shape:
+Protected project routes resolve authentication and authorization server-side. Typical outcomes are:
 
-```json
-{
-  "ok": true,
-  "data": {}
-}
+```txt
+404  resource/project does not exist
+401  authentication required
+403  authenticated user lacks project/track permission
 ```
 
-Error JSON response shape:
+Development-only routes remain separate under `/api/dev/*` and should be unavailable in production.
 
-```json
-{
-  "ok": false,
-  "error": "Error message"
-}
-```
-
-The uploaded audio route is an exception to the normal JSON response pattern. `GET /api/projects/:projectId/tracks/:trackId/audio` streams the audio file with the track's stored MIME type. It advertises `Accept-Ranges: bytes` and returns `206 Partial Content` with `Content-Range` for valid browser `Range` requests, which allows the shared progress slider to seek without restarting from the beginning of the file.
-
-The `/api/dev/*` routes are development helpers. The backend returns `404` for them when `NODE_ENV=production`.
-
-Likely future routes may include waveform peak data, collaboration data, comments, or recording metadata.
+Version 2.1 public sharing will require new or explicitly distinguished share/public routes. Anonymous access should be narrow and intentional; it should not convert the normal protected project endpoints into globally public endpoints.
 
 ## File Upload Direction
 
-Version 1 supports local audio uploads using pure Node.
+Audio uploads continue to use the pure Node upload path.
 
-The current upload flow:
+The current authenticated upload flow:
 
-* Receives an audio file from the frontend.
-* Validates that the project exists.
-* Validates that a file was provided.
-* Validates that the file type is supported.
-* Validates that the file is not too large.
-* Saves the file to a local project-specific upload folder.
-* Creates a track metadata record in `server/data/db.json`.
-* Returns the created track metadata to the frontend.
-* Displays uploaded track metadata in the client UI.
-* Deletes uploaded files when tracks are deleted.
-* Deletes linked uploaded files and project upload folders when projects are deleted.
+* Authorize the request for project `contribute` permission.
+* Resolve the authenticated user's ID on the server.
+* Validate the project and multipart upload.
+* Validate supported file type and size.
+* Save the file to the project-specific upload directory.
+* Create PostgreSQL track metadata including `uploadedByUserId`.
+* Return the created track to the client.
+* Delete linked files when tracks/projects are deleted.
 
-Current local upload structure:
+The uploader ID comes from the authenticated server session, not a client-supplied user ID.
 
-```txt
-server/
-  uploads/
-    projects/
-      project-id/
-        random-id-sanitized-filename.wav
-```
-
-The upload implementation should stay modular so local file-writing behavior can later be replaced with cloud object storage.
+Public guests in Version 2.1 will not have upload access. To contribute or later record a take, a guest must authenticate and receive a Contributor or Owner role.
 
 ## Deletion and Cleanup Direction
 
@@ -718,7 +734,7 @@ Known Version 1 transport limitations:
 * Seeking is functional, but the current multi-element transport does not provide DAW-level or sample-accurate synchronization.
 * Gapless looping is deferred to the Web Audio engine.
 
-## Version 2 Web Audio Engine Plan
+## Version 2 Milestone 5 — Web Audio Engine Plan
 
 Version 2 should replace multitrack playback with a Web Audio engine.
 
@@ -781,67 +797,65 @@ Sync may not be perfect across all devices, so offset/nudge controls should exis
 
 ## Development Tooling Direction
 
-GrooveShare includes development tooling to make repeated local manual testing faster.
+GrooveShare keeps development tooling isolated from product behavior.
 
-The frontend toolbar lives in:
+Existing helpers include frontend seed/reset controls plus server-side development routes and a role-aware authorization seed workflow.
 
-```txt
-client/src/dev/dev-toolbar.ts
-```
-
-It is currently mounted from `client/src/main.ts` as:
-
-```ts
-mountDevToolbar({ visibleByDefault: false, enabledByDefault: true });
-```
-
-This means the toolbar is hidden on initial page load while its keyboard shortcut remains enabled. Pressing the `0` (zero) key toggles the toolbar.
-
-The toolbar can:
-
-* List supported seed audio files from `server/data/seed-project/`.
-* Create a temporary `Dev Seed Project` from the selected seed files.
-* Copy those seed files into the same runtime upload area used by normal projects.
-* Reset local development metadata and uploaded files after confirmation.
-
-Development backend routes live in `server/src/dev/`:
+The authorization seed tooling prepares a repeatable development scenario with:
 
 ```txt
-GET    /api/dev/seed-files
-POST   /api/dev/seed-project
-DELETE /api/dev/reset
+Owner account
+Contributor account
+Viewer account
+one project
+three memberships
+tracks owned by different users
 ```
 
-The backend dev routes return `404` when `NODE_ENV=production`.
+The root command:
 
-The root `sample-audio-files/` directory and `server/data/seed-project/` serve different purposes: the root samples document and exercise the normal user-facing upload flow, while the seed directory powers the faster dev-toolbar workflow.
+```bash
+npm run seed-auth
+```
 
-Development tooling should stay isolated from normal product behavior and should not become a dependency of the user-facing project flow.
+exists to avoid manually rebuilding that scenario every time permission behavior needs to be exercised.
 
+Development-only routes/commands must refuse production use. `NODE_ENV=development` is appropriate locally; `NODE_ENV=production` protects production deployments from development seed/reset behavior.
+
+Development tooling should never become a required part of the normal user flow.
 
 ## Testing Direction
 
-The project uses custom lightweight TypeScript test runners for both client and server tests.
+The repository uses the shared `@hugovela/test-runner` workspace for lightweight TypeScript testing.
 
-Test coverage should focus on behavior and module boundaries:
+Coverage should continue at several levels:
 
-* API helper functions should test request shape and response handling.
-* Page controllers should be tested with fake DOM helpers.
-* Templates should be tested for meaningful rendered markup.
-* Router behavior should be tested independently from page logic.
-* Backend routes should be tested with disposable local database files and upload folders.
-* Store tests should verify metadata behavior without depending on the development database.
+* API helpers — request shape, credential behavior, and response handling.
+* Page controllers — DOM behavior and permission-aware visibility/actions.
+* Templates — meaningful rendered markup.
+* Router/app state — authentication and guest/public navigation.
+* Store tests — PostgreSQL and alternate store contracts.
+* Authentication/session tests — account and session behavior.
+* Authorization tests — role and track-ownership rules.
+* Integration tests — exercise real HTTP request flows with separate session cookies.
+* Migration tests — verify schema constraints and migration behavior.
 
-Run frontend tests from `client/`:
+The existing authorization integration scenario acts like several automated users:
 
-```bash
-npm test
-npm run typecheck
+```txt
+unauthenticated user
+non-member
+Viewer
+Contributor
+Owner
 ```
 
-Run backend tests from `server/`:
+It sends HTTP requests with separate sessions and verifies allowed/forbidden outcomes across the same server behavior used by the app.
 
-```bash
-npm test
-npm run typecheck
-```
+Milestone 2 should extend client coverage so the UI reflects those same rules without treating hidden buttons as the security boundary.
+
+When Version 2.1 guest sharing is added, tests should explicitly verify that:
+* guest read/audio routes work without a session only through approved share access;
+* guest mutation routes remain forbidden;
+* guest mix changes stay in `localStorage` and do not call the persisted project mix API.
+

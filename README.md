@@ -4,7 +4,26 @@ GrooveShare is a lightweight browser-based music collaboration app for creating 
 
 Version 1 is a local four-channel stem player. A user can create a project, add or seed audio tracks, open the Project Player, save and load a four-channel mix, edit project/track labels, and control playback from a shared Audio Player panel.
 
+## Current Development Status
+
+The stable release remains **v1.0.0**, but active development is now on **Version 2 — Multi-User Hosted Beta**.
+
+Version 2 Milestone 1 is complete on the development path. The server now has PostgreSQL-backed project/track metadata, user accounts and sessions, project memberships, Viewer/Contributor/Owner authorization, track-upload ownership, membership-management routes, and integration tests for the permission model.
+
+The current focus is **Version 2 Milestone 2 — Permission-Aware UI**. The browser client will be updated to log users in, send authenticated session requests, understand the current user's project role, and show only the controls appropriate to that role while the server remains the actual security boundary.
+
+The first Milestone 2 UI pass will keep the current email-based account model. Username-based login will be reconsidered after the complete permission-aware flow can be used and evaluated.
+
+### Planned Public Guest Mode
+
+After the initial authenticated multi-user app is deployed, a Version 2.1 public-sharing patch is planned for low-friction listening. A person with a public/share link should be able to open shared projects without registering, read project information, stream tracks, and adjust a personal mix.
+
+Guest mix settings will be stored in that browser's `localStorage`, not PostgreSQL. This lets the guest's mix survive reloads on the same browser without changing the Owner's persisted project mix. Public guests will not be project members and will not receive Viewer membership automatically. Uploading, recording, editing, deleting, member management, and other collaboration actions will continue to require authentication and the appropriate project role.
+
+
 ## Quick Start
+
+> **Stable-release note:** this walkthrough describes the completed v1.0.0 user flow. The active Version 2 development branch is currently between the completed server authorization foundation and the permission-aware client work, so the browser flow may temporarily require additional development setup until Milestone 2 is complete.
 
 GrooveShare includes four sample audio files at the project root so the Version 1 workflow can be tried immediately:
 
@@ -29,6 +48,9 @@ sample-audio-files/
 The root `sample-audio-files/` folder is intended for the normal user-facing create-project workflow. The separate `server/data/seed-project/` folder is used by the development toolbar described later in this README.
 
 ## Running the App Locally
+
+> **Version 2 development note:** the active multi-user branch requires PostgreSQL and server environment configuration in addition to the frontend/backend processes below. Use `server/.env.example` as the template for local values. Local development should use `NODE_ENV=development`; production will use `NODE_ENV=production`.
+
 
 The app has two parts:
 
@@ -145,7 +167,7 @@ docker compose exec server npm run typecheck
 
 ## Current App Flow
 
-The current app flow is:
+The established Version 1 screen flow is:
 
 ```txt
 Project Menu
@@ -153,40 +175,54 @@ Project Menu
 → Project Player
 ```
 
-The Create Project page owns the full project creation workflow:
+The Create Project page owns the project creation workflow: collect title/description, select up to four audio files, review/edit pending track names, confirm the project, upload the selected tracks, and move to the Project Player.
 
-* Enter project title and description.
-* Click the Add Audio Tracks button to open the browser's native file picker.
-* Select up to four audio files.
-* Review selected tracks inline on the Create Project page.
-* Edit pending track names before submission.
-* Remove pending tracks before submission.
-* Click `Create a New Project` to open a confirmation modal.
-* Review project details and selected tracks in the modal.
-* Submit the modal to create the project, upload the selected tracks, clear the draft, and move directly to the Project Player.
+The Project Player remains the center of playback and mixing. It renders up to four channel slots, supports enabled/disabled state and volume, loads the visible mix into the Audio Player, and provides project/track editing and deletion controls.
 
-The Project Player uses a small stem-mixer layout:
+### Version 2 permission-aware flow in progress
+
+Version 2 Milestone 1 changed the server before changing the browser UI. The server now expects authenticated sessions and enforces project roles. Milestone 2 will make the client participate in that system:
 
 ```txt
-Tracks panel       = channel setup
-Audio Player panel = global playback controls
+Open GrooveShare
+→ Register or Log In
+→ Resolve current user/session
+→ Load only projects the user belongs to
+→ Open Project Player
+→ UI reflects Owner / Contributor / Viewer permissions
 ```
 
-Current Project Player behavior includes:
+The target role behavior is:
 
-* Displaying up to four uploaded tracks as Channel 1 through Channel 4.
-* Automatically filling the channel slots from the first four uploaded tracks.
-* Using each numbered channel square as the channel enable/disable toggle.
-* Showing live volume percentages, a volume slider, waveform placeholder, and delete button for assigned channels.
-* Keeping empty channel slots visible when fewer than four tracks exist.
-* Showing an Add Track button in empty channel slots so a user can add another track to the current project.
-* Editing project title, project description, and assigned track names inline and persisting those edits.
-* Loading enabled channels into the Audio Player with `Load Mix`.
-* Saving the occupied-channel enabled/volume settings whenever `Load Mix` succeeds so they can be restored when the project is reopened.
-* Dimming `Load Mix` while the visible mixer still matches the loaded mix and making it prominent again when channel settings change.
-* Playing, pausing, stopping, seeking, and resetting a loaded four-track mix from the Audio Player panel.
-* Supporting a global Loop checkbox for the loaded mix.
-* Deleting individual tracks and deleting entire projects with their linked track metadata and uploaded files.
+```txt
+Viewer
+  read and play
+
+Contributor
+  read and play
+  upload tracks
+  manage their own contributed tracks
+  use persisted project mix controls allowed by the server
+
+Owner
+  contributor abilities
+  manage all tracks
+  edit/delete the project
+  manage project members
+```
+
+A later Version 2.1 public-share flow will add a second unauthenticated path:
+
+```txt
+Open public/share link
+→ no login required
+→ read project/track information
+→ stream audio
+→ adjust a personal mix
+→ save that guest mix only in browser localStorage
+```
+
+The guest flow will not persist mix changes to PostgreSQL and will not grant upload/edit/delete/member-management permissions.
 
 ## Version 1 Transport Expectations
 
@@ -220,17 +256,11 @@ Gapless looping, waveform display, nudge, trim, and edited playback are planned 
 ```txt
 grooveshare/
   sample-audio-files/
-    Bass.wav
-    Delay Guitar.wav
-    Drums.wav
-    Tremolo Guitar.wav
 
   client/
     src/
       api/
       css/
-        main.css
-        _imports/
       dev/
       page-controllers/
       pages/
@@ -243,10 +273,13 @@ grooveshare/
     tests/
 
   server/
+    db/
+      migrations/
     data/
-      db.json
       seed-project/
     src/
+      auth/
+      db/
       dev/
       stores/
       uploads/
@@ -255,14 +288,19 @@ grooveshare/
       types.ts
     tests/
 
+  packages/
+    test-runner/
+
   docs/
     architecture.md
+
   backlog.md
   docker-compose.yml
+  package.json
   README.md
 ```
 
-`sample-audio-files/` contains the user-facing sample stems used by the Quick Start. `server/data/seed-project/` contains a separate copy of seed audio used by the dev toolbar to create test projects quickly. Runtime uploads go into `server/uploads/`, which is ignored by Git.
+`sample-audio-files/` contains user-facing sample stems. `server/data/seed-project/` contains development seed audio. Runtime uploads remain outside version control. Version 2 metadata lives in PostgreSQL; SQL schema changes are tracked in `server/db/migrations/`. The shared custom tester lives in the `packages/test-runner/` workspace.
 
 ## Frontend Overview
 
@@ -334,164 +372,168 @@ Contains reusable smaller rendering helpers.
 
 The backend is a pure Node TypeScript API.
 
-It currently handles:
+Version 2 Milestone 1 expanded it from the Version 1 local JSON prototype into a PostgreSQL-backed multi-user server. It now handles:
 
-* Creating and reading projects
-* Updating project title and description
-* Saving and restoring project mix settings
-* Uploading tracks
-* Reading track metadata
-* Updating persisted track names
-* Streaming uploaded audio files back to the browser, including byte-range responses for seeking
-* Deleting individual tracks
-* Deleting projects and linked tracks
-* Cleaning up uploaded audio files and empty project upload folders
-* Saving metadata to a local JSON file
-* Saving uploaded audio files locally
-* Listing local seed audio files for development
-* Creating seeded development projects from selected real audio files
-* Supporting local development reset tools
+* PostgreSQL-backed project, track, mix, user, session, and project-membership data.
+* User registration, login, logout, and current-user resolution.
+* Server-managed authentication sessions.
+* Viewer / Contributor / Owner project memberships.
+* Server-side authorization for project, track, upload, edit, delete, mix, and membership-management routes.
+* Track ownership through `uploadedByUserId` so Contributors can manage their own contributions while Owners can manage all project tracks.
+* Creating projects with the authenticated creator as Owner.
+* Uploading and streaming local audio files, including HTTP byte-range seeking.
+* Project and track cleanup on deletion.
+* Development-only seed/reset tooling.
+* Authorization integration tests and PostgreSQL migration-behavior tests.
 
-## Local Data Storage
+The server remains the security boundary. Milestone 2 may hide or disable controls in the browser for usability, but manually sending a forbidden HTTP request should still be rejected by the server.
 
-Project and track metadata are stored in:
+## Data Storage
 
-```txt
-server/data/db.json
-```
+Version 2 development uses PostgreSQL for application metadata.
 
-Uploaded audio files are stored in:
+The local server environment identifies the development and test databases through `server/.env`, with non-secret example keys documented in `server/.env.example`.
+
+PostgreSQL currently stores relational data such as:
 
 ```txt
-server/uploads/
+projects
+tracks
+project_mix_channels
+users
+sessions
+project_memberships
 ```
 
-The `server/uploads/` folder is ignored by Git because it contains runtime upload files. When tracks or projects are deleted, the backend also cleans up the related uploaded files and removes empty project upload folders.
+Uploaded audio files are still stored on the server filesystem under the runtime upload directory. Database metadata stores the file path and related track/project information.
+
+SQL migrations live in:
+
+```txt
+server/db/migrations/
+```
+
+The Version 1 JSON stores remain useful as testable storage implementations and historical/local abstractions, but the active Version 2 server persistence path is PostgreSQL.
+
+For the planned Version 2.1 guest mode, personal guest mix settings will be different: they will live in the guest browser's `localStorage` and will not be written to PostgreSQL.
 
 ## Current API Routes
 
+Core and authentication routes include:
+
 ```txt
 GET    /api/health
+
+POST   /api/auth/register
+POST   /api/auth/login
+POST   /api/auth/logout
+GET    /api/auth/me
+
 GET    /api/projects
 POST   /api/projects
 GET    /api/projects/:projectId
 PUT    /api/projects/:projectId
 PUT    /api/projects/:projectId/mix-settings
 DELETE /api/projects/:projectId
+
 POST   /api/projects/:projectId/tracks
 GET    /api/projects/:projectId/tracks
 PUT    /api/projects/:projectId/tracks/:trackId
 GET    /api/projects/:projectId/tracks/:trackId/audio
 DELETE /api/projects/:projectId/tracks/:trackId
-GET    /api/dev/seed-files
-POST   /api/dev/seed-project
-DELETE /api/dev/reset
+
+GET    /api/projects/:projectId/members
+POST   /api/projects/:projectId/members
+PUT    /api/projects/:projectId/members/:userId
+DELETE /api/projects/:projectId/members/:userId
 ```
 
-Most API routes return JSON responses. The audio route streams the uploaded file with the track's MIME type and supports `Range` requests, returning `206 Partial Content` when the browser seeks.
+Development-only routes support seed/reset workflows, including the authorization-role test scenario. Development helpers are not product APIs and should return `404` when `NODE_ENV=production`.
 
-The `/api/dev/*` routes are development-only helper routes for local testing.
+Most routes return JSON. The audio route streams the stored file with its MIME type and supports `Range` requests for seeking.
 
-## Development Toolbar
+The planned Version 2.1 guest-sharing work will require explicit server-side public/share access for project metadata, track metadata, and audio. It cannot be implemented securely as a client-only bypass of the authenticated routes.
 
-The frontend development toolbar is mounted in `client/src/main.ts` with:
+## Development Tooling
 
-```ts
-mountDevToolbar({ visibleByDefault: false, enabledByDefault: true });
+The frontend development toolbar remains a local helper and can be toggled with the **`0` (zero) key** when enabled from `client/src/main.ts`.
+
+It supports fast seed/reset workflows using audio from `server/data/seed-project/`. Version 2 authentication development also includes role-aware authorization seed tooling so an Owner, Contributor, and Viewer scenario can be prepared without manually rebuilding the database state each time.
+
+The root convenience command:
+
+```bash
+npm run seed-auth
 ```
 
-With those settings, the toolbar is **hidden when the app first loads**, but its keyboard shortcut remains enabled.
+creates a development authorization playground with reserved development accounts, a project, memberships for the three roles, and tracks owned by different users. This is development data only.
 
-Press the **`0` (zero) key** to show or hide the toolbar.
-
-The toolbar provides two local-development shortcuts:
-
-* **Seed project + selected tracks** — loads the available files from `server/data/seed-project/`, lets you choose which seed files to use, creates a temporary `Dev Seed Project`, copies those files into the normal runtime upload area, and reloads the app.
-* **Reset dev data** — after confirmation, clears the local development database and removes runtime uploaded files, then reloads the app.
-
-The seed-file checkboxes are selected by default, so pressing the seed button without changing the selection creates a project with all available seed tracks.
-
-The toolbar uses the development-only backend routes under `/api/dev/*`. The backend returns `404` for those routes when `NODE_ENV=production`.
-
-The toolbar's seed files are separate from the root `sample-audio-files/` directory: use `sample-audio-files/` to exercise the normal Create Project upload flow, and use the dev toolbar when you want a faster test setup.
+Development-only routes/commands must not be available as production account-provisioning behavior. `NODE_ENV=production` is used to protect these helpers.
 
 ## Testing
 
-The app uses custom lightweight TypeScript test runners.
+GrooveShare uses the reusable `@hugovela/test-runner` workspace for lightweight TypeScript tests across the client and server.
 
-Run frontend tests from `client/`:
-
-```bash
-npm test
-npm run typecheck
-```
-
-Run backend tests from `server/`:
+Useful root commands include:
 
 ```bash
-npm test
-npm run typecheck
+npm run test-client
+npm run test-server
+npm run test-runner
+npm run test-all
+npm run db:check
+npm run verify
 ```
+
+Server coverage now includes unit/store tests, API route tests, PostgreSQL store tests, authentication/session tests, project-membership tests, role/authorization integration tests, and migration-behavior tests.
+
+The authorization integration suite exercises the system through HTTP requests using separate session cookies for Owner, Contributor, Viewer, unauthenticated, and non-member scenarios. This helps verify that authentication, memberships, roles, track ownership, routes, and storage behavior work together rather than only testing isolated helpers.
 
 ## Current Development Focus
 
-The Version 1 local four-channel stem player is now in its final stabilization/release pass.
+**Version 2 Milestone 2 — Permission-Aware UI**
 
-Recent Version 1 work includes:
+The backend account/authorization foundation is complete. The next work is intentionally client-heavy and will be implemented in three larger chunks:
 
-* A four-slot Mix Channels UI with numbered enable/disable controls and live volume percentages.
-* Persisted mix settings saved through `Load Mix` and restored when a project is reopened.
-* A current/modified visual state for the `Load Mix` button.
-* Inline persistent editing of project title, project description, and track names.
-* Shared play, pause/resume, stop, loop, timestamp, and seek behavior for loaded tracks.
-* HTTP byte-range audio streaming so the progress slider can seek without restarting from byte zero.
-* Add Track and Delete Track behavior directly from the Project Player.
-* Project deletion with linked metadata/upload cleanup and audio shutdown.
-* A root `sample-audio-files/` set for the normal Quick Start workflow.
-* Development seed/reset tooling for faster manual testing.
+1. **Client authentication and session-aware API access** — register/login/logout/current-user UI, credentialed requests, and session-expired handling.
+2. **Permission-aware project and track UI** — expose the current project role to the client and show/hide controls for Viewer, Contributor, and Owner behavior, including track ownership.
+3. **Owner membership-management UI and final integration** — add member management, finish permission-aware tests/errors, manually exercise all roles, and run full repository verification.
 
+The first pass will keep email-based accounts so the complete flow can be evaluated before deciding whether username login would be a better low-friction product choice.
 
 ## Next Planned Work
 
-Before tagging or publishing Version 1:
+Near-term Version 2 sequence:
 
-* Run the full client and server test/typecheck suites.
-* Complete one final manual pass through the Quick Start workflow.
-* Merge the stable Version 1 work to `main`.
+1. Finish **Milestone 2 — Permission-Aware UI**.
+2. Complete **Milestone 3 — Production Configuration**.
+3. Complete **Milestone 4 — VPS Deployment** for the first trusted-user hosted beta.
+4. Add **Version 2.1 — Public Guest Sharing** so a person with a share link can listen without an account and keep a browser-local personal mix.
+5. Continue with the Web Audio/synchronization work when the hosted collaboration workflow is stable enough to justify deeper audio-engine changes.
 
-Planned Version 2 work:
-
-* Replace multitrack playback with a Web Audio engine.
-* Add gapless loop behavior.
-* Add read-only waveform displays inside channel slots.
-* Add shared playhead behavior across channel waveforms.
-* Add offset/nudge and non-destructive trim/clipping controls.
-
+Version 2.1 guest access is intentionally deferred rather than patched into the current client. The server must explicitly support anonymous read/audio access. The client-side portion will store guest mix settings in `localStorage` and never write those personal guest settings to the shared database.
 
 ## Roadmap
 
 ### Version 1: Four-Channel Stem Player
 
-The first useful version of GrooveShare is a browser-based four-channel stem player.
+The completed v1.0.0 release established the local browser-based four-channel stem-player workflow: create projects, upload tracks, save/load a simple mix, edit project/track labels, and control shared playback.
 
-Version 1 lets a user create a project, upload multiple audio files, open a Project Player, save/load up to four tracks as a mix, edit project and track labels, and control playback from a shared Audio Player panel.
+### Version 2: Multi-User Hosted Beta
 
-### Version 2: Web Audio Mixer Engine
+Version 2 turns the local prototype into a centralized multi-user application. The server foundation now uses PostgreSQL, user accounts/sessions, project memberships, Viewer/Contributor/Owner roles, track ownership, and server-side authorization.
 
-After the local stem player works, the next goal is a Web Audio based playback engine.
+Remaining Version 2 work centers on permission-aware client behavior, production configuration, VPS deployment, and later Web Audio/synchronization improvements.
 
-This version should support better synchronized playback, gapless looping, waveform display, shared playhead behavior, offset/nudge controls, and non-destructive trim/clipping.
+### Version 2.1: Public Guest Sharing
 
-### Version 3: Record a Take
+Add public/share links for low-friction listening. Anonymous guests can read and stream shared projects without registering and can keep a personal enabled/volume mix in browser `localStorage`. Guest settings do not change the project database. Uploading, recording, editing, deletion, and member-management continue to require an authenticated account with the appropriate role.
 
-After the playback engine is stable, the next goal is browser-based recording.
+### Version 3: Self-Hosted Mobile Recording
 
-A collaborator should be able to listen to the uploaded tracks, record a rough part through the browser, save that recording, and make it available in the project.
+Move the centralized service toward desktop/home hosting through Cloudflare Tunnel, complete the mobile web experience, add browser microphone recording for Contributors, and package the proven client with Capacitor.
 
-### Version 4: Collaboration and Production Services
+### Version 4: Mature Collaboration Platform
 
-Later versions should make GrooveShare feel more like a complete remote collaboration workflow.
+Build on real beta usage with richer invitations, comments, notifications, project history/status, private-sharing controls, and advanced audio/sync features where they solve demonstrated collaboration needs.
 
-This may include private share links, authentication, collaborator permissions, comments, notifications, version history, persistent database storage, cloud audio storage, and production deployment.
-
-For more detail, see the full [architecture notes](./docs/architecture.md).

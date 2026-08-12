@@ -9,11 +9,28 @@
 
 ## Current Focus
 
+### Version 2 Milestone 2 — Permission-Aware UI
+
+Make the existing browser client usable with the account, session, membership, role, and track-ownership system completed in Version 2 Milestone 1.
+
+Use three larger implementation chunks:
+
+- [ ] **Chunk 1 — Client authentication and session-aware API access**
+  Add register/login/logout/current-user UI, send session credentials with client API requests, handle unauthenticated/session-expired states, and restore normal project loading/creation for authenticated users.
+
+- [ ] **Chunk 2 — Permission-aware project and track UI**
+  Get the current user's project role into the client and make the Project Player reflect Viewer/Contributor/Owner permissions. Show or hide upload, edit, delete, project-management, and track-management controls while keeping the server as the actual security boundary.
+
+- [ ] **Chunk 3 — Owner membership-management UI and final integration**
+  Add member listing/add/update/remove controls for Owners, finish permission-aware error handling and client tests, manually walk through Owner/Contributor/Viewer scenarios, and run the full repository verification suite.
+
+Initial Milestone 2 implementation will keep the current email-based account model. Reassess whether GrooveShare should use usernames instead of email login after the first complete permission-aware UI flow can be experienced end to end.
+
 ## Backlog
 
 ### Version 2 Milestone 2 — Permission-Aware UI
 
-Make the client reflect the permissions already enforced by the server. Show or hide upload, edit, delete, project-management, and future recording controls according to the current user's role while keeping server authorization as the actual security boundary.
+Make the client reflect the permissions already enforced by the server. Add account/session UI, role-aware project and track controls, and Owner membership-management UI while keeping server authorization as the security boundary. Use the active three-chunk plan listed under **Current Focus**.
 
 ### Version 2 Milestone 3 — Production Configuration
 
@@ -22,6 +39,16 @@ Remove development-only assumptions before hosting. Move database, upload direct
 ### Version 2 Milestone 4 — VPS Deployment
 
 Deploy the multi-user application to a small Linux VPS. Configure Node, PostgreSQL, persistent audio storage, process startup, a reverse proxy, HTTPS, firewall rules, logs, and backups so trusted friends and band members can use GrooveShare through a normal public URL.
+
+### Version 2.1 — Public Guest Sharing
+
+Add a low-friction anonymous listening mode after the first hosted multi-user release. A person who receives a public/share link should be able to open shared projects without registering or authenticating, read project information, stream tracks, and create a temporary personal mix.
+
+Guest mix settings should be stored only in that browser's `localStorage`, scoped to the shared project, so the guest's enabled/volume choices survive page reloads on the same browser without being written to PostgreSQL. Clearing browser storage or using another device/browser should reset that guest mix.
+
+Public guests are **not** project members and should not be represented by the existing Viewer role. Anonymous access will require explicit server-side public/share authorization for project metadata, track metadata, and audio streaming. Guests cannot upload, record, rename, delete, edit project data, manage members, or persist shared project mix settings. Collaboration actions should continue to require an account and an assigned project role.
+
+Milestone 2 should avoid assuming that every future client route requires an authenticated user so this public share-link flow can be added later without redesigning the entire client.
 
 ### Version 2 Milestone 5 — Web Audio Engine and Sync Tools
 
@@ -53,11 +80,11 @@ Expand GrooveShare from a shared stem/recording tool into a fuller band collabor
 
 ## Known Issues
 
-- [ ] Version 1 has no user authentication or project permissions
-  The current stable release assumes trusted/local use. There is no server-enforced distinction between a viewer, contributor, and project owner; Version 2 Milestone 1 addresses this directly.
+- [ ] Version 1 stable release has no user authentication or project permissions
+  The v1.0.0 stable release still assumes trusted/local use. The active Version 2 development path has already added server-enforced Viewer/Contributor/Owner authorization; Milestone 2 is making that foundation usable from the client.
 
-- [ ] Version 1 JSON metadata storage is not intended for concurrent multi-user production use
-  The current file-backed metadata model was appropriate for the local MVP but should be replaced before the hosted multi-user beta. Version 2 Milestone 1 moves metadata to PostgreSQL.
+- [ ] Version 1 stable release uses JSON metadata storage
+  The v1.0.0 file-backed metadata model remains part of the stable local MVP. The active Version 2 development path has already moved real project/track/account metadata persistence to PostgreSQL.
 
 ## Phases
 
@@ -65,7 +92,7 @@ Expand GrooveShare from a shared stem/recording tool into a fuller band collabor
   Build the initial GrooveShare stem-player experience with Vite + Vanilla TypeScript, a pure Node backend, JSON metadata, local audio storage, project/track management, four-channel playback, persistent mix settings, and the completed Version 1 release.
 
 - [ ] Phase 2 — Multi-user production web application
-  Introduce PostgreSQL, user authentication, project memberships and role-based authorization, permission-aware client behavior, production configuration, and deployment to a VPS for a real private beta.
+  Introduce PostgreSQL, user authentication, project memberships and role-based authorization, permission-aware client behavior, production configuration, and deployment to a VPS for a real private beta. After the initial hosted release, add public share-link guest playback with browser-local mix persistence so listening can remain low-friction without weakening authenticated collaboration permissions.
 
 - [ ] Phase 3 — Self-hosting, recording, and mobile clients
   Move the centralized service from the VPS toward desktop/home hosting through Cloudflare Tunnel, make the web UI truly mobile-ready, add microphone recording, and package the existing client for Android/iOS with Capacitor.
@@ -79,7 +106,7 @@ Expand GrooveShare from a shared stem/recording tool into a fuller band collabor
   Create projects, upload and delete tracks, edit project/track details, configure a persistent four-channel mix, and play/pause/stop/loop/seek the shared audio locally with the Version 1 JSON/local-file architecture.
 
 - [ ] Version 2 — Multi-User Hosted Beta
-  Add PostgreSQL-backed users/projects, authentication, Viewer/Contributor/Owner permissions, permission-aware UI, and production deployment to a VPS so trusted friends and band members can use one centralized GrooveShare instance over the internet.
+  Add PostgreSQL-backed users/projects, authentication, Viewer/Contributor/Owner permissions, permission-aware UI, and production deployment to a VPS so trusted friends and band members can use one centralized GrooveShare instance over the internet. Follow with Version 2.1 public guest sharing so anyone with an approved share link can listen without an account and keep a personal mix in `localStorage` rather than the shared database.
 
 - [ ] Version 3 — Self-Hosted Mobile Recording
   Move toward desktop/home-server hosting through Cloudflare Tunnel, complete the mobile web experience, add microphone recording for Contributors, and distribute Android/iOS clients with Capacitor while keeping one shared GrooveShare backend.
