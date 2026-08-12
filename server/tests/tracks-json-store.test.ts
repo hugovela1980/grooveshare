@@ -56,6 +56,7 @@ function createTestTrack(overrides: Partial<Track> = {}): Track {
     filePath: "uploads/projects/project-1/track-1-guitar.wav",
     mimeType: "audio/wav",
     fileSize: 100,
+    uploadedByUserId: null,
     createdAt: "2026-01-01T00:00:00.000Z",
     ...overrides,
   };
@@ -76,6 +77,7 @@ tester.describe("tracks JSON store", () => {
       filePath: "uploads/projects/project-1/track-1-guitar-riff.wav",
       mimeType: "audio/wav",
       fileSize: 123456,
+      uploadedByUserId: null,
     });
 
     tester.expect(typeof track.id).toBe("string");
@@ -100,6 +102,7 @@ tester.describe("tracks JSON store", () => {
       filePath: "uploads/projects/project-1/track-2-scratch-drums.wav",
       mimeType: "audio/wav",
       fileSize: 654321,
+      uploadedByUserId: null,
     });
 
     const database = await readTestDatabase();
@@ -118,6 +121,7 @@ tester.describe("tracks JSON store", () => {
       filePath: "uploads/projects/project-1/track-1-guitar.wav",
       mimeType: "audio/wav",
       fileSize: 100,
+      uploadedByUserId: null,
     });
 
     const drumTrack = await store.createTrack({
@@ -127,6 +131,7 @@ tester.describe("tracks JSON store", () => {
       filePath: "uploads/projects/project-1/track-2-drums.wav",
       mimeType: "audio/wav",
       fileSize: 200,
+      uploadedByUserId: null,
     });
 
     await store.createTrack({
@@ -136,6 +141,7 @@ tester.describe("tracks JSON store", () => {
       filePath: "uploads/projects/project-2/track-3-bass.wav",
       mimeType: "audio/wav",
       fileSize: 300,
+      uploadedByUserId: null,
     });
 
     const tracks = await store.getTracksByProjectId("project-1");
@@ -153,6 +159,7 @@ tester.describe("tracks JSON store", () => {
       filePath: "uploads/projects/project-2/track-1-bass.wav",
       mimeType: "audio/wav",
       fileSize: 300,
+      uploadedByUserId: null,
     });
 
     const tracks = await store.getTracksByProjectId("project-1");
@@ -170,6 +177,7 @@ tester.describe("tracks JSON store", () => {
       filePath: "uploads/projects/project-1/track-1-guitar.wav",
       mimeType: "audio/wav",
       fileSize: 100,
+      uploadedByUserId: null,
     });
 
     const database = await readTestDatabase();
@@ -303,6 +311,7 @@ tester.describe("tracks JSON store", () => {
       filePath: "server/uploads/projects/project-1/guitar.wav",
       mimeType: "audio/wav",
       fileSize: 123,
+      uploadedByUserId: null,
     });
 
     const foundTrack = await store.getTrackById("project-1", createdTrack.id);
@@ -392,6 +401,29 @@ tester.describe("tracks JSON store", () => {
       ok: false,
       reason: "track-not-found",
     });
+  });
+
+  tester.it("persists the user who uploaded a track", async () => {
+    const store = createTracksJsonStore(TEST_DB_FILE_PATH);
+    const uploaderUserId = "user-1";
+
+    const track = await store.createTrack({
+      projectId: "project-1",
+      name: "Owned Guitar",
+      originalFilename: "owned-guitar.wav",
+      filePath: "uploads/projects/project-1/owned-guitar.wav",
+      mimeType: "audio/wav",
+      fileSize: 100,
+      uploadedByUserId: uploaderUserId,
+    });
+
+    tester.expect(track.uploadedByUserId).toBe(uploaderUserId);
+
+    const database = await readTestDatabase();
+
+    tester.expect(database.tracks[0]?.uploadedByUserId).toBe(
+      uploaderUserId,
+    );
   });
 
 });

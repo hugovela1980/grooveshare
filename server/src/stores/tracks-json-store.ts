@@ -39,6 +39,7 @@ export function createTracksJsonStore(
       filePath: trackInput.filePath,
       mimeType: trackInput.mimeType,
       fileSize: trackInput.fileSize,
+      uploadedByUserId: trackInput.uploadedByUserId,
       createdAt: now,
     };
 

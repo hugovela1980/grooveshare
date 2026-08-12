@@ -45,6 +45,9 @@ import {
   type ProjectPermission,
 } from "./auth/project-authorization.js";
 import {
+  authorizeTrackManagementRequest,
+} from "./auth/track-authorization.js";
+import {
   getProjectMemberRouteParams,
   getProjectMembersRouteProjectId,
   handleAddProjectMember,
@@ -682,6 +685,7 @@ export function createAppServer({
     req: IncomingMessage,
     res: ServerResponse,
     projectId: string,
+    uploadedByUserId: string,
   ): Promise<void> {
     const project = await projectsStore.getProjectById(projectId);
 
@@ -764,6 +768,7 @@ export function createAppServer({
       filePath: relativeFilePath,
       mimeType: audioFile.mimeType,
       fileSize: audioFile.size,
+      uploadedByUserId,
     });
 
     sendJson(
@@ -1393,7 +1398,7 @@ export function createAppServer({
             projectMembershipsStore,
           });
 
-        if (!authorization.ok) {
+        if (authorization.ok === false) {
           sendJson(
             res,
             authorization.statusCode,
@@ -1479,18 +1484,37 @@ export function createAppServer({
       const tracksRouteProjectId = getTracksRouteProjectId(req.url);
 
       if (req.method === "POST" && tracksRouteProjectId) {
-        if (
-          !await requireProjectPermission(
+        const authorization =
+          await authorizeProjectRequest({
             req,
+            projectId: tracksRouteProjectId,
+            permission: "contribute",
+            projectsStore,
+            usersStore,
+            sessionsStore,
+            projectMembershipsStore,
+          });
+
+        if (authorization.ok === false) {
+          sendJson(
             res,
-            tracksRouteProjectId,
-            "contribute",
-          )
-        ) {
+            authorization.statusCode,
+            {
+              ok: false,
+              error: authorization.error,
+            },
+            clientOrigin,
+          );
+
           return;
         }
 
-        await handleTrackUpload(req, res, tracksRouteProjectId);
+        await handleTrackUpload(
+          req,
+          res,
+          tracksRouteProjectId,
+          authorization.user.id,
+        );
         return;
       }
 
@@ -1513,14 +1537,29 @@ export function createAppServer({
       const trackRouteParams = getTrackRouteParams(req.url);
 
       if (req.method === "PUT" && trackRouteParams) {
-        if (
-          !await requireProjectPermission(
+        const authorization =
+          await authorizeTrackManagementRequest({
             req,
+            projectId: trackRouteParams.projectId,
+            trackId: trackRouteParams.trackId,
+            projectsStore,
+            tracksStore,
+            usersStore,
+            sessionsStore,
+            projectMembershipsStore,
+          });
+
+        if (authorization.ok === false) {
+          sendJson(
             res,
-            trackRouteParams.projectId,
-            "contribute",
-          )
-        ) {
+            authorization.statusCode,
+            {
+              ok: false,
+              error: authorization.error,
+            },
+            clientOrigin,
+          );
+
           return;
         }
 
@@ -1535,14 +1574,29 @@ export function createAppServer({
       }
 
       if (req.method === "DELETE" && trackRouteParams) {
-        if (
-          !await requireProjectPermission(
+        const authorization =
+          await authorizeTrackManagementRequest({
             req,
+            projectId: trackRouteParams.projectId,
+            trackId: trackRouteParams.trackId,
+            projectsStore,
+            tracksStore,
+            usersStore,
+            sessionsStore,
+            projectMembershipsStore,
+          });
+
+        if (authorization.ok === false) {
+          sendJson(
             res,
-            trackRouteParams.projectId,
-            "contribute",
-          )
-        ) {
+            authorization.statusCode,
+            {
+              ok: false,
+              error: authorization.error,
+            },
+            clientOrigin,
+          );
+
           return;
         }
 

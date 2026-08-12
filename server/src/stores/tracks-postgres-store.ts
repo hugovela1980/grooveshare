@@ -18,6 +18,7 @@ type TrackRow = {
     file_path: string;
     mime_type: string;
     file_size: number;
+    uploaded_by_user_id: string | null;
     created_at: Date;
 };
 
@@ -32,6 +33,7 @@ function trackRowToTrack(
         filePath: row.file_path,
         mimeType: row.mime_type,
         fileSize: row.file_size,
+        uploadedByUserId: row.uploaded_by_user_id,
         createdAt: row.created_at.toISOString(),
     };
 }
@@ -53,6 +55,7 @@ export function createTracksPostgresStore(
             file_path,
             mime_type,
             file_size,
+            uploaded_by_user_id,
             created_at
           FROM tracks
           WHERE project_id = $1
@@ -79,6 +82,7 @@ export function createTracksPostgresStore(
             file_path,
             mime_type,
             file_size,
+            uploaded_by_user_id,
             created_at
           FROM tracks
           WHERE project_id = $1
@@ -113,6 +117,7 @@ export function createTracksPostgresStore(
             file_path,
             mime_type,
             file_size,
+            uploaded_by_user_id,
             created_at
           )
           VALUES (
@@ -123,6 +128,7 @@ export function createTracksPostgresStore(
             $5,
             $6,
             $7,
+            $8,
             NOW()
           )
           RETURNING
@@ -133,6 +139,7 @@ export function createTracksPostgresStore(
             file_path,
             mime_type,
             file_size,
+            uploaded_by_user_id,
             created_at
         `,
                 [
@@ -143,6 +150,7 @@ export function createTracksPostgresStore(
                     trackInput.filePath,
                     trackInput.mimeType,
                     trackInput.fileSize,
+                    trackInput.uploadedByUserId,
                 ],
             );
 
@@ -194,6 +202,7 @@ export function createTracksPostgresStore(
             file_path,
             mime_type,
             file_size,
+            uploaded_by_user_id,
             created_at
         `,
                 [
@@ -253,6 +262,7 @@ export function createTracksPostgresStore(
             file_path,
             mime_type,
             file_size,
+            uploaded_by_user_id,
             created_at
         `,
                 [

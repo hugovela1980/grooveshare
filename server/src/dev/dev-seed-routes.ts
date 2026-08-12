@@ -291,6 +291,7 @@ export async function handleDevSeedProjectRoute({
             filePath: path.relative(process.cwd(), destinationFilePath),
             mimeType: getMimeTypeForFilename(filename),
             fileSize: sourceFileStats.size,
+            uploadedByUserId: null,
         });
 
         tracks.push(track);

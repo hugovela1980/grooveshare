@@ -38,6 +38,7 @@ function createTestTrack(overrides: Partial<Track> = {}): Track {
     fileSize: 100,
     createdAt: "2026-01-01T00:00:00.000Z",
     ...overrides,
+    uploadedByUserId: overrides.uploadedByUserId ?? null,
   };
 }
 

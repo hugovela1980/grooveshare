@@ -56,6 +56,7 @@ tester.describe("tracks PostgreSQL store", () => {
                     "uploads/projects/guitar-riff.wav",
                 mimeType: "audio/wav",
                 fileSize: 123456,
+                uploadedByUserId: null,
             });
 
             tester.expect(typeof track.id).toBe("string");
@@ -95,6 +96,7 @@ tester.describe("tracks PostgreSQL store", () => {
                 filePath: "uploads/guitar.wav",
                 mimeType: "audio/wav",
                 fileSize: 100,
+                uploadedByUserId: null,
             });
 
             const drumTrack = await store.createTrack({
@@ -104,6 +106,7 @@ tester.describe("tracks PostgreSQL store", () => {
                 filePath: "uploads/drums.wav",
                 mimeType: "audio/wav",
                 fileSize: 200,
+                uploadedByUserId: null,
             });
 
             await store.createTrack({
@@ -113,6 +116,7 @@ tester.describe("tracks PostgreSQL store", () => {
                 filePath: "uploads/bass.wav",
                 mimeType: "audio/wav",
                 fileSize: 300,
+                uploadedByUserId: null,
             });
 
             const tracks =
@@ -157,6 +161,7 @@ tester.describe("tracks PostgreSQL store", () => {
                 filePath: "uploads/guitar.wav",
                 mimeType: "audio/wav",
                 fileSize: 100,
+                uploadedByUserId: null,
             });
 
             const foundTrack = await store.getTrackById(
@@ -200,6 +205,7 @@ tester.describe("tracks PostgreSQL store", () => {
                 filePath: "uploads/guitar.wav",
                 mimeType: "audio/wav",
                 fileSize: 100,
+                uploadedByUserId: null,
             });
 
             const result = await store.updateTrackName(
@@ -293,6 +299,7 @@ tester.describe("tracks PostgreSQL store", () => {
                     filePath: "uploads/guitar.wav",
                     mimeType: "audio/wav",
                     fileSize: 100,
+                    uploadedByUserId: null,
                 });
 
             const trackToKeep =
@@ -303,6 +310,7 @@ tester.describe("tracks PostgreSQL store", () => {
                     filePath: "uploads/bass.wav",
                     mimeType: "audio/wav",
                     fileSize: 200,
+                    uploadedByUserId: null,
                 });
 
             const result = await store.deleteTrackById(
@@ -368,4 +376,63 @@ tester.describe("tracks PostgreSQL store", () => {
             });
         },
     );
+    tester.it(
+        "persists the user who uploaded a track",
+        async () => {
+            const store =
+                createTracksPostgresStore(postgresTestPool);
+
+            const projectId = await createTestProject();
+            const userId = crypto.randomUUID();
+
+            await postgresTestPool.query(
+                `
+          INSERT INTO users (
+            id,
+            email,
+            display_name,
+            password_hash,
+            created_at,
+            updated_at
+          )
+          VALUES (
+            $1,
+            $2,
+            $3,
+            $4,
+            NOW(),
+            NOW()
+          )
+        `,
+                [
+                    userId,
+                    "track-uploader@example.com",
+                    "Track Uploader",
+                    "test-password-hash",
+                ],
+            );
+
+            const track = await store.createTrack({
+                projectId,
+                name: "Owned Guitar",
+                originalFilename: "owned-guitar.wav",
+                filePath: "uploads/owned-guitar.wav",
+                mimeType: "audio/wav",
+                fileSize: 100,
+                uploadedByUserId: userId,
+            });
+
+            tester.expect(track.uploadedByUserId).toBe(userId);
+
+            const savedTrack = await store.getTrackById(
+                projectId,
+                track.id,
+            );
+
+            tester.expect(savedTrack?.uploadedByUserId).toBe(
+                userId,
+            );
+        },
+    );
+
 });

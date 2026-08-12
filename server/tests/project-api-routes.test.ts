@@ -1701,6 +1701,7 @@ tester.describe("project API routes", () => {
       filePath: "uploads/projects/project-1/guitar.wav",
       mimeType: "audio/wav",
       fileSize: 100,
+      uploadedByUserId: null,
       createdAt: "2026-01-01T00:00:00.000Z",
     };
 
@@ -1760,6 +1761,7 @@ tester.describe("project API routes", () => {
       filePath: "uploads/projects/project-1/guitar.wav",
       mimeType: "audio/wav",
       fileSize: 100,
+      uploadedByUserId: null,
       createdAt: "2026-01-01T00:00:00.000Z",
     };
 
@@ -2317,6 +2319,390 @@ tester.describe("project API routes", () => {
         tester.expect(projectUpdateBody.error).toBe(
           "Project access denied.",
         );
+
+        const ownTrackDeleteResponse = await globalThis.fetch(
+          `${baseUrl}/api/projects/${projectId}/tracks/${trackId}`,
+          {
+            method: "DELETE",
+            headers: {
+              Cookie: contributorCookie,
+            },
+          },
+        );
+
+        tester.expect(ownTrackDeleteResponse.status).toBe(200);
+      } finally {
+        await closeServer(server);
+      }
+    },
+  );
+
+  tester.it(
+    "records the authenticated contributor as the track uploader",
+    async () => {
+      const {
+        baseUrl,
+        server,
+        usersStore,
+        sessionsStore,
+        projectMembershipsStore,
+        request,
+      } = await createTestServer();
+      const boundary = "----GrooveShareTrackOwnerBoundary";
+
+      try {
+        const createResponse = await request(
+          `${baseUrl}/api/projects`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              title: "Track Ownership Project",
+              description: "Uploader ownership test",
+            }),
+          },
+        );
+        const createBody =
+          (await createResponse.json()) as ApiResponse<Project>;
+        const projectId = createBody.data?.id;
+
+        if (!projectId) {
+          throw new Error(
+            "Created project did not include an ID.",
+          );
+        }
+
+        const {
+          user: contributor,
+          cookie: contributorCookie,
+        } = await createAuthenticatedTestSession({
+          usersStore,
+          sessionsStore,
+          email: "track-owner@example.com",
+          displayName: "Track Owner",
+        });
+
+        await projectMembershipsStore.createMembership({
+          projectId,
+          userId: contributor.id,
+          role: "contributor",
+        });
+
+        const multipartBody = createMultipartBody({
+          boundary,
+          parts: [
+            createTextPart({
+              boundary,
+              name: "trackName",
+              value: "Owned Guitar",
+            }),
+            createFilePart({
+              boundary,
+              fieldName: "audioFile",
+              filename: "owned-guitar.wav",
+              mimeType: "audio/wav",
+              data: Buffer.from("audio", "utf-8"),
+            }),
+          ],
+        });
+
+        const uploadResponse = await globalThis.fetch(
+          `${baseUrl}/api/projects/${projectId}/tracks`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type":
+                `multipart/form-data; boundary=${boundary}`,
+              Cookie: contributorCookie,
+            },
+            body: bufferToArrayBuffer(multipartBody),
+          },
+        );
+        const uploadBody =
+          (await uploadResponse.json()) as ApiResponse<Track>;
+
+        tester.expect(uploadResponse.status).toBe(201);
+        tester.expect(uploadBody.data?.uploadedByUserId).toBe(
+          contributor.id,
+        );
+      } finally {
+        await closeServer(server);
+      }
+    },
+  );
+
+  tester.it(
+    "prevents a contributor from renaming or deleting another contributor's track",
+    async () => {
+      const {
+        baseUrl,
+        server,
+        usersStore,
+        sessionsStore,
+        projectMembershipsStore,
+        request,
+      } = await createTestServer();
+      const boundary = "----GrooveShareOtherTrackBoundary";
+
+      try {
+        const createResponse = await request(
+          `${baseUrl}/api/projects`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              title: "Shared Contributor Project",
+              description: "Track ownership authorization test",
+            }),
+          },
+        );
+        const createBody =
+          (await createResponse.json()) as ApiResponse<Project>;
+        const projectId = createBody.data?.id;
+
+        if (!projectId) {
+          throw new Error(
+            "Created project did not include an ID.",
+          );
+        }
+
+        const contributorOne =
+          await createAuthenticatedTestSession({
+            usersStore,
+            sessionsStore,
+            email: "contributor-one@example.com",
+            displayName: "Contributor One",
+          });
+        const contributorTwo =
+          await createAuthenticatedTestSession({
+            usersStore,
+            sessionsStore,
+            email: "contributor-two@example.com",
+            displayName: "Contributor Two",
+          });
+
+        await projectMembershipsStore.createMembership({
+          projectId,
+          userId: contributorOne.user.id,
+          role: "contributor",
+        });
+        await projectMembershipsStore.createMembership({
+          projectId,
+          userId: contributorTwo.user.id,
+          role: "contributor",
+        });
+
+        const multipartBody = createMultipartBody({
+          boundary,
+          parts: [
+            createTextPart({
+              boundary,
+              name: "trackName",
+              value: "Contributor One Guitar",
+            }),
+            createFilePart({
+              boundary,
+              fieldName: "audioFile",
+              filename: "contributor-one.wav",
+              mimeType: "audio/wav",
+              data: Buffer.from("audio", "utf-8"),
+            }),
+          ],
+        });
+
+        const uploadResponse = await globalThis.fetch(
+          `${baseUrl}/api/projects/${projectId}/tracks`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type":
+                `multipart/form-data; boundary=${boundary}`,
+              Cookie: contributorOne.cookie,
+            },
+            body: bufferToArrayBuffer(multipartBody),
+          },
+        );
+        const uploadBody =
+          (await uploadResponse.json()) as ApiResponse<Track>;
+        const trackId = uploadBody.data?.id;
+
+        if (!trackId) {
+          throw new Error(
+            "Contributor upload did not return a track ID.",
+          );
+        }
+
+        const renameResponse = await globalThis.fetch(
+          `${baseUrl}/api/projects/${projectId}/tracks/${trackId}`,
+          {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              Cookie: contributorTwo.cookie,
+            },
+            body: JSON.stringify({
+              name: "Unauthorized Rename",
+            }),
+          },
+        );
+        const renameBody =
+          (await renameResponse.json()) as ApiResponse<unknown>;
+
+        tester.expect(renameResponse.status).toBe(403);
+        tester.expect(renameBody.error).toBe(
+          "Track access denied.",
+        );
+
+        const deleteResponse = await globalThis.fetch(
+          `${baseUrl}/api/projects/${projectId}/tracks/${trackId}`,
+          {
+            method: "DELETE",
+            headers: {
+              Cookie: contributorTwo.cookie,
+            },
+          },
+        );
+        const deleteBody =
+          (await deleteResponse.json()) as ApiResponse<unknown>;
+
+        tester.expect(deleteResponse.status).toBe(403);
+        tester.expect(deleteBody.error).toBe(
+          "Track access denied.",
+        );
+
+        const tracksResponse = await request(
+          `${baseUrl}/api/projects/${projectId}/tracks`,
+        );
+        const tracksBody =
+          (await tracksResponse.json()) as ApiResponse<Track[]>;
+
+        tester.expect(tracksBody.data?.[0]?.name).toBe(
+          "Contributor One Guitar",
+        );
+      } finally {
+        await closeServer(server);
+      }
+    },
+  );
+
+  tester.it(
+    "allows an owner to manage a contributor's track",
+    async () => {
+      const {
+        baseUrl,
+        server,
+        usersStore,
+        sessionsStore,
+        projectMembershipsStore,
+        request,
+      } = await createTestServer();
+      const boundary = "----GrooveShareOwnerTrackBoundary";
+
+      try {
+        const createResponse = await request(
+          `${baseUrl}/api/projects`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              title: "Owner Track Management Project",
+              description: "Owner management test",
+            }),
+          },
+        );
+        const createBody =
+          (await createResponse.json()) as ApiResponse<Project>;
+        const projectId = createBody.data?.id;
+
+        if (!projectId) {
+          throw new Error(
+            "Created project did not include an ID.",
+          );
+        }
+
+        const contributor =
+          await createAuthenticatedTestSession({
+            usersStore,
+            sessionsStore,
+            email: "owner-managed-contributor@example.com",
+            displayName: "Owner Managed Contributor",
+          });
+
+        await projectMembershipsStore.createMembership({
+          projectId,
+          userId: contributor.user.id,
+          role: "contributor",
+        });
+
+        const multipartBody = createMultipartBody({
+          boundary,
+          parts: [
+            createTextPart({
+              boundary,
+              name: "trackName",
+              value: "Contributor Bass",
+            }),
+            createFilePart({
+              boundary,
+              fieldName: "audioFile",
+              filename: "contributor-bass.wav",
+              mimeType: "audio/wav",
+              data: Buffer.from("audio", "utf-8"),
+            }),
+          ],
+        });
+
+        const uploadResponse = await globalThis.fetch(
+          `${baseUrl}/api/projects/${projectId}/tracks`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type":
+                `multipart/form-data; boundary=${boundary}`,
+              Cookie: contributor.cookie,
+            },
+            body: bufferToArrayBuffer(multipartBody),
+          },
+        );
+        const uploadBody =
+          (await uploadResponse.json()) as ApiResponse<Track>;
+        const trackId = uploadBody.data?.id;
+
+        if (!trackId) {
+          throw new Error(
+            "Contributor upload did not return a track ID.",
+          );
+        }
+
+        const renameResponse = await request(
+          `${baseUrl}/api/projects/${projectId}/tracks/${trackId}`,
+          {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              name: "Owner Renamed Bass",
+            }),
+          },
+        );
+
+        tester.expect(renameResponse.status).toBe(200);
+
+        const deleteResponse = await request(
+          `${baseUrl}/api/projects/${projectId}/tracks/${trackId}`,
+          {
+            method: "DELETE",
+          },
+        );
+
+        tester.expect(deleteResponse.status).toBe(200);
       } finally {
         await closeServer(server);
       }

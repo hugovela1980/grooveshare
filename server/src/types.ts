@@ -26,6 +26,7 @@ export type Track = {
     filePath: string;
     mimeType: string;
     fileSize: number;
+    uploadedByUserId: string | null;
     createdAt: string;
 };
 
@@ -55,4 +56,5 @@ export type CreateTrackInput = {
     filePath: string;
     mimeType: string;
     fileSize: number;
+    uploadedByUserId: string | null;
 };
