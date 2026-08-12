@@ -9,16 +9,6 @@
 
 ## Current Focus
 
-- [ ] Chunk 4 — Enforce authorization in the server API
-  Protect project, track, upload, edit, and delete routes based on membership and role. Viewers can read/play, Contributors can upload and manage their own contributions, and Owners can manage the project and its members.
-
-### Version 2 Milestone 1 — Accounts and Authorization Foundation
-
-Move GrooveShare from the Version 1 single-user/local-data model toward a true multi-user application. Establish PostgreSQL-backed metadata, authenticated users, project membership roles, and server-enforced authorization before deploying the Version 2 beta.
-
-- [ ] Chunk 5 — Complete authorization integration tests and development tooling
-  Add end-to-end server tests for allowed and forbidden actions, update seed/dev data so each role can be tested easily, verify migration behavior, and run the full client/server test and typecheck suites.
-
 ## Backlog
 
 ### Version 2 Milestone 2 — Permission-Aware UI
@@ -215,3 +205,9 @@ Expand GrooveShare from a shared stem/recording tool into a fuller band collabor
 
 - [x] Add project memberships and roles
   Add project membership records with the initial `Viewer`, `Contributor`, and `Owner` roles. Define ownership for existing/new projects and make the role model ready for Contributors to upload now and record later.
+
+- [x] Enforce authorization in the server API
+  Protect project, track, upload, edit, and delete routes based on membership and role. Viewers can read/play, Contributors can upload and manage their own contributions, and Owners can manage the project and its members.
+
+- [x] Chunk 5 — Complete authorization integration tests and development tooling
+  Add end-to-end server tests for allowed and forbidden actions, update seed/dev data so each role can be tested easily, verify migration behavior, and run the full client/server test and typecheck suites.

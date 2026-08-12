@@ -13,6 +13,8 @@
         "test-client": "npm test -w client && npm run typecheck -w client",
         "test-runner": "npm run typecheck -w packages/test-runner && npm test -w packages/test-runner",
         "test-all": "npm run typecheck --workspaces --if-present && npm test --workspaces --if-present",
-        "db:check": "npm run db:check -w server"
+        "db:check": "npm run db:check -w server",
+        "seed-auth": "npm run dev:seed-auth -w server",
+        "verify": "npm run db:check && npm run test-all"
     }
 }

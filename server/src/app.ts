@@ -3,6 +3,7 @@ import { rm, rmdir, stat, writeFile } from "node:fs/promises";
 import http, { type IncomingMessage, type ServerResponse } from "node:http";
 import path from "node:path";
 import { handleDevResetRoute } from "./dev/dev-reset-route.js";
+import { handleDevAuthorizationSeedRoute } from "./dev/dev-authorization-seed-route.js";
 import {
   DEFAULT_SEED_PROJECT_DIR,
   handleDevSeedFilesRoute,
@@ -1230,6 +1231,26 @@ export function createAppServer({
           clientOrigin,
           projectsStore,
           tracksStore,
+          uploadRoot,
+          seedProjectDir,
+        });
+
+        return;
+      }
+
+      if (
+        req.method === "POST" &&
+        req.url === "/api/dev/seed-authorization"
+      ) {
+        await handleDevAuthorizationSeedRoute({
+          req,
+          res,
+          sendJson,
+          clientOrigin,
+          projectsStore,
+          tracksStore,
+          usersStore,
+          projectMembershipsStore,
           uploadRoot,
           seedProjectDir,
         });
