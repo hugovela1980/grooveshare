@@ -13,6 +13,7 @@ type LoadedMixChannel = {
 
 type AudioElementLike = {
     src: string;
+    crossOrigin?: string | null;
     currentTime: number;
     duration: number;
     paused: boolean;
@@ -237,6 +238,7 @@ export function createAudioPlayerController({
             const channelAudioElement =
                 index === 0 ? audioElement : createAudioElement();
 
+            channelAudioElement.crossOrigin = "use-credentials";
             channelAudioElement.src = channel.audioUrl;
             channelAudioElement.currentTime = 0;
             channelAudioElement.volume = clampVolume(channel.volume);

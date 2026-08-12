@@ -15,7 +15,7 @@ export function renderAudioPlayer(): string {
         </p>
       </div>
 
-      <audio id="project-audio-player"></audio>
+      <audio id="project-audio-player" crossorigin="use-credentials"></audio>
 
       <div class="audio-player__controls">
         <button
