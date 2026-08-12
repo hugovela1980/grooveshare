@@ -44,6 +44,14 @@ import {
   authorizeProjectRequest,
   type ProjectPermission,
 } from "./auth/project-authorization.js";
+import {
+  getProjectMemberRouteParams,
+  getProjectMembersRouteProjectId,
+  handleAddProjectMember,
+  handleDeleteProjectMember,
+  handleListProjectMembers,
+  handleUpdateProjectMember,
+} from "./auth/project-membership-routes.js";
 
 type JsonResponse = Record<string, unknown>;
 
@@ -1238,6 +1246,112 @@ export function createAppServer({
 
       if (req.method === "POST" && req.url === "/api/projects") {
         await handleCreateProject(req, res);
+        return;
+      }
+
+      const projectMemberRouteParams =
+        getProjectMemberRouteParams(req.url);
+
+      if (req.method === "PUT" && projectMemberRouteParams) {
+        if (
+          !await requireProjectPermission(
+            req,
+            res,
+            projectMemberRouteParams.projectId,
+            "manage",
+          )
+        ) {
+          return;
+        }
+
+        await handleUpdateProjectMember({
+          req,
+          res,
+          projectId: projectMemberRouteParams.projectId,
+          userId: projectMemberRouteParams.userId,
+          sendJson,
+          clientOrigin,
+          usersStore,
+          projectMembershipsStore,
+        });
+
+        return;
+      }
+
+      if (req.method === "DELETE" && projectMemberRouteParams) {
+        if (
+          !await requireProjectPermission(
+            req,
+            res,
+            projectMemberRouteParams.projectId,
+            "manage",
+          )
+        ) {
+          return;
+        }
+
+        await handleDeleteProjectMember({
+          res,
+          projectId: projectMemberRouteParams.projectId,
+          userId: projectMemberRouteParams.userId,
+          sendJson,
+          clientOrigin,
+          usersStore,
+          projectMembershipsStore,
+        });
+
+        return;
+      }
+
+      const projectMembersRouteProjectId =
+        getProjectMembersRouteProjectId(req.url);
+
+      if (req.method === "GET" && projectMembersRouteProjectId) {
+        if (
+          !await requireProjectPermission(
+            req,
+            res,
+            projectMembersRouteProjectId,
+            "manage",
+          )
+        ) {
+          return;
+        }
+
+        await handleListProjectMembers({
+          res,
+          projectId: projectMembersRouteProjectId,
+          sendJson,
+          clientOrigin,
+          usersStore,
+          projectMembershipsStore,
+        });
+
+        return;
+      }
+
+      if (req.method === "POST" && projectMembersRouteProjectId) {
+        if (
+          !await requireProjectPermission(
+            req,
+            res,
+            projectMembersRouteProjectId,
+            "manage",
+          )
+        ) {
+          return;
+        }
+
+        await handleAddProjectMember({
+          req,
+          res,
+          projectId: projectMembersRouteProjectId,
+          sendJson,
+          clientOrigin,
+          usersStore,
+          projectMembershipsStore,
+        });
+
         return;
       }
 
