@@ -6,6 +6,8 @@ import { createTracksPostgresStore } from "./stores/tracks-postgres-store.js";
 import { createUsersPostgresStore } from "./stores/users-postgres-store.js";
 import { createSessionsPostgresStore } from "./stores/sessions-postgres-store.js";
 import { createProjectMembershipsPostgresStore } from "./stores/project-memberships-postgres-store.js";
+import { resetDevelopmentData } from "./dev/reset-development-data.js";
+import { DEFAULT_UPLOAD_ROOT } from "./uploads/upload-paths.js";
 
 loadEnvFile();
 
@@ -40,6 +42,10 @@ const server = createAppServer({
   usersStore,
   sessionsStore,
   projectMembershipsStore,
+  resetDevelopmentData: () => resetDevelopmentData({
+    database: pool,
+    uploadRoot: DEFAULT_UPLOAD_ROOT,
+  }),
 });
 
 try {

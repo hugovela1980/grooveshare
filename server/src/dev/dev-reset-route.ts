@@ -17,6 +17,7 @@ type DevResetRouteOptions = {
     clientOrigin: string;
     uploadRoot: string;
     projectsStore: ProjectsStore;
+    resetDevelopmentData?: () => Promise<void>;
 };
 
 export async function handleDevResetRoute({
@@ -25,6 +26,7 @@ export async function handleDevResetRoute({
     clientOrigin,
     uploadRoot,
     projectsStore,
+    resetDevelopmentData,
 }: DevResetRouteOptions): Promise<void> {
     if (process.env.NODE_ENV === "production") {
         sendJson(
@@ -33,6 +35,24 @@ export async function handleDevResetRoute({
             {
                 ok: false,
                 error: "Not found.",
+            },
+            clientOrigin,
+        );
+
+        return;
+    }
+
+    if (resetDevelopmentData) {
+        await resetDevelopmentData();
+
+        sendJson(
+            res,
+            200,
+            {
+                ok: true,
+                data: {
+                    reset: "all-development-data",
+                },
             },
             clientOrigin,
         );

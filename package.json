@@ -15,6 +15,7 @@
         "test-all": "npm run typecheck --workspaces --if-present && npm test --workspaces --if-present",
         "db:check": "npm run db:check -w server",
         "seed-auth": "npm run dev:seed-auth -w server",
-        "verify": "npm run db:check && npm run test-all"
+        "verify": "npm run db:check && npm run test-all",
+        "reset-dev-data": "npm run dev:reset-data -w server"
     }
 }

@@ -237,10 +237,6 @@ function initializeCreateProjectPage({
     "#back-to-menu-button",
   );
 
-  backButton?.addEventListener("click", () => {
-    navigateTo("project-menu");
-  });
-
   const form = getElement<HTMLFormElement>(appElement, "#project-form");
   const titleInput = getElement<HTMLInputElement>(appElement, "#project-title");
   const descriptionInput = getElement<HTMLTextAreaElement>(
@@ -429,10 +425,6 @@ function initializeProjectPlayerPage({
     "#player-back-button",
   );
 
-  backButton?.addEventListener("click", () => {
-    navigateTo("project-menu");
-  });
-
   const logoutButton = getElement<HTMLButtonElement>(
     appElement,
     "#player-logout-button",
@@ -446,10 +438,6 @@ function initializeProjectPlayerPage({
     appElement,
     "#player-menu-button",
   );
-
-  menuButton?.addEventListener("click", () => {
-    navigateTo("project-menu");
-  });
 
   if (!selectedProject) {
     return;
@@ -542,6 +530,16 @@ function initializeProjectPlayerPage({
   });
 
   audioPlayerController.init();
+
+  backButton?.addEventListener("click", () => {
+    audioPlayerController.stop();
+    navigateTo("project-menu");
+  });
+
+  menuButton?.addEventListener("click", () => {
+    audioPlayerController.stop();
+    navigateTo("project-menu");
+  });
 
   const controller = createProjectPlayerPageController({
     project: selectedProject,

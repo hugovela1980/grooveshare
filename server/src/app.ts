@@ -70,6 +70,7 @@ type AppOptions = {
   maxUploadFileSizeBytes?: number;
   sessionsStore: SessionsStore;
   projectMembershipsStore: ProjectMembershipsStore;
+  resetDevelopmentData?: () => Promise<void>;
 };
 
 function sendJson(
@@ -371,6 +372,7 @@ export function createAppServer({
   uploadRoot = DEFAULT_UPLOAD_ROOT,
   seedProjectDir = DEFAULT_SEED_PROJECT_DIR,
   maxUploadFileSizeBytes = DEFAULT_MAX_AUDIO_FILE_SIZE_BYTES,
+  resetDevelopmentData,
 }: AppOptions): http.Server {
   async function requireProjectPermission(
     req: IncomingMessage,
@@ -1647,6 +1649,7 @@ export function createAppServer({
           clientOrigin,
           uploadRoot,
           projectsStore,
+          resetDevelopmentData,
         });
 
         return;

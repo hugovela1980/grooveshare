@@ -339,11 +339,12 @@ export function createTester() {
     let passed = 0;
     let failed = 0;
     const failures: TestFailure[] = [];
+    const failureDivider = "===================================";
 
     console.log("\nRunning tests...\n");
 
     for (const suite of testSuites) {
-      console.log(`\n${suite.name}`);
+      const suiteFailures: TestFailure[] = [];
 
       for (const testCase of suite.tests) {
         total += 1;
@@ -356,7 +357,6 @@ export function createTester() {
           await testCase.callback();
 
           passed += 1;
-          console.log(` ✓ ${testCase.name}`);
         } catch (error) {
           failed += 1;
 
@@ -364,20 +364,37 @@ export function createTester() {
           const fileUrl = getFailureFileUrl(error);
           const assertion = getAssertionLine(fileUrl);
           const result = getFailureResult(errorMessage);
-
-          failures.push({
+          const failure: TestFailure = {
             suite: suite.name,
             test: testCase.name,
             error: errorMessage,
             fileUrl,
             assertion,
             result,
-          });
+          };
 
-          console.log(` ✗ ${testCase.name}`);
-          console.log(` ${errorMessage}`);
+          failures.push(failure);
+          suiteFailures.push(failure);
         }
       }
+
+      if (suiteFailures.length === 0) {
+        console.log(`✓ ${suite.name}`);
+        continue;
+      }
+
+      console.log("");
+      console.log(`✗ ${suite.name}`);
+
+      for (const failure of suiteFailures) {
+        console.log(` ✗ ${failure.test}`);
+      }
+    }
+
+    if (failures.length > 0) {
+      console.log("");
+      console.log(failureDivider);
+      console.log(failureDivider);
     }
 
     console.log("\nTest Summary");
@@ -398,6 +415,10 @@ export function createTester() {
         console.log(`   suite: ${failure.suite}`);
         console.log(`   url: ${failure.fileUrl}`);
       });
+
+      console.log("");
+      console.log(failureDivider);
+      console.log(failureDivider);
     }
 
     if (failed > 0) {

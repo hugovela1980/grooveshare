@@ -38,6 +38,17 @@ type SeedProjectResponse = {
     }>;
 };
 
+type AuthorizationSeedResponse = {
+    project: {
+        id: string;
+        title: string;
+    };
+    tracks: Array<{
+        id: string;
+        name: string;
+    }>;
+};
+
 function createButton(label: string): HTMLButtonElement {
     const button = document.createElement("button");
 
@@ -84,6 +95,28 @@ async function seedProjectWithSelectedFiles(
 
     if (!response.ok || !body.ok || !body.data) {
         throw new Error(body.error ?? "Unable to seed project.");
+    }
+
+    return body.data;
+}
+
+async function seedAuthorizationDemo(
+    filenames: string[],
+): Promise<AuthorizationSeedResponse> {
+    const response = await fetch(`${API_BASE_URL}/api/dev/seed-authorization`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+            filenames,
+        }),
+    });
+
+    const body = (await response.json()) as ApiResponse<AuthorizationSeedResponse>;
+
+    if (!response.ok || !body.ok || !body.data) {
+        throw new Error(body.error ?? "Unable to seed authorization demo.");
     }
 
     return body.data;
@@ -213,12 +246,13 @@ export function mountDevToolbar({
     });
 
     const seedButton = createButton("Seed project + selected tracks");
-    const resetButton = createButton("Reset dev data");
+    const seedAuthButton = createButton("Seed authorization demo");
+    const resetButton = createButton("Reset all dev data");
     const statusElement = document.createElement("span");
 
     statusElement.textContent = "Loading seed files...";
 
-    buttonRow.append(seedButton, resetButton);
+    buttonRow.append(seedButton, seedAuthButton, resetButton);
 
     seedButton.addEventListener("click", async () => {
         try {
@@ -246,10 +280,40 @@ export function mountDevToolbar({
         }
     });
 
+    seedAuthButton.addEventListener("click", async () => {
+        try {
+            const selectedFilenames = getSelectedSeedFilenames(seedFileList)
+                .slice(0, 3);
+
+            if (selectedFilenames.length < 2) {
+                setStatus(
+                    statusElement,
+                    "Choose at least two seed audio files for the authorization demo.",
+                );
+                return;
+            }
+
+            setStatus(statusElement, "Seeding authorization role demo...");
+
+            const seededData = await seedAuthorizationDemo(selectedFilenames);
+
+            setStatus(
+                statusElement,
+                `Seeded ${seededData.tracks.length} authorization-demo track(s). Reloading...`,
+            );
+
+            window.location.reload();
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+
+            setStatus(statusElement, message);
+        }
+    });
+
     resetButton.addEventListener("click", async () => {
         try {
             const confirmed = window.confirm(
-                "Reset dev data? This will clear db.json and remove uploaded files.",
+                "Reset ALL GrooveShare development data? This deletes projects, tracks, memberships, sessions, users, and uploaded files from the local development environment.",
             );
 
             if (!confirmed) {
