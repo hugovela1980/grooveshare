@@ -76,7 +76,11 @@ function closeServer(server: http.Server): Promise<void> {
     });
 }
 
-async function createTestServer(): Promise<{
+async function createTestServer({
+    secureCookies = false,
+}: {
+    secureCookies?: boolean;
+} = {}): Promise<{
     baseUrl: string;
     server: http.Server;
     usersStore: UsersStore;
@@ -96,6 +100,7 @@ async function createTestServer(): Promise<{
         projectMembershipsStore,
         clientOrigin: CLIENT_ORIGIN,
         uploadRoot: TEST_UPLOAD_ROOT,
+        secureCookies,
     });
 
     const baseUrl = await listenOnRandomPort(server);
@@ -376,6 +381,26 @@ tester.describe("auth API routes", () => {
             await closeServer(server);
         }
     });
+
+    tester.it(
+        "adds Secure to session cookies when production cookie mode is enabled",
+        async () => {
+            const { baseUrl, server } = await createTestServer({
+                secureCookies: true,
+            });
+
+            try {
+                await registerUser(baseUrl);
+                const response = await loginUser(baseUrl);
+                const setCookie = response.headers.get("set-cookie");
+
+                tester.expect(typeof setCookie).toBe("string");
+                tester.expect(setCookie?.includes("Secure")).toBe(true);
+            } finally {
+                await closeServer(server);
+            }
+        },
+    );
 
     tester.it("returns the authenticated current user", async () => {
         const { baseUrl, server } = await createTestServer();

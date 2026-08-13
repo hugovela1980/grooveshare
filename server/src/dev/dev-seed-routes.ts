@@ -288,7 +288,7 @@ export async function handleDevSeedProjectRoute({
             projectId: project.id,
             name: path.parse(filename).name,
             originalFilename: filename,
-            filePath: path.relative(process.cwd(), destinationFilePath),
+            filePath: path.resolve(destinationFilePath),
             mimeType: getMimeTypeForFilename(filename),
             fileSize: sourceFileStats.size,
             uploadedByUserId: null,

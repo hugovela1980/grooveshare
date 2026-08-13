@@ -1,4 +1,6 @@
-export const API_BASE_URL = "http://localhost:3000";
+import { clientConfig } from "../config/client-config.js";
+
+export const API_BASE_URL = clientConfig.apiBaseUrl;
 
 type ApiResponse<T> = {
   ok: boolean;

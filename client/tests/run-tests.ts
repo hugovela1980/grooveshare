@@ -22,6 +22,7 @@ import "./viewer-mix-controller.test.js";
 import "./viewer-mix-storage.test.js";
 import "./project-members-api.test.js";
 import "./project-members-controller.test.js";
+import "./client-config.test.js";
 
 import { tester } from "./test-runner/tester.js";
 

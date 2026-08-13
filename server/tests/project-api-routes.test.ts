@@ -446,6 +446,9 @@ tester.describe("project API routes", () => {
       tester.expect(uploadBody.data?.mimeType).toBe("audio/wav");
       tester.expect(uploadBody.data?.fileSize).toBe(fileData.length);
       tester.expect(typeof uploadBody.data?.filePath).toBe("string");
+      tester.expect(
+        path.isAbsolute(uploadBody.data?.filePath ?? ""),
+      ).toBe(true);
       tester.expect(typeof uploadBody.data?.createdAt).toBe("string");
     } finally {
       await closeServer(server);

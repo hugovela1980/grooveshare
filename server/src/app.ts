@@ -71,6 +71,8 @@ type AppOptions = {
   sessionsStore: SessionsStore;
   projectMembershipsStore: ProjectMembershipsStore;
   resetDevelopmentData?: () => Promise<void>;
+  secureCookies?: boolean;
+  developmentRoutesEnabled?: boolean;
 };
 
 function sendJson(
@@ -373,6 +375,8 @@ export function createAppServer({
   seedProjectDir = DEFAULT_SEED_PROJECT_DIR,
   maxUploadFileSizeBytes = DEFAULT_MAX_AUDIO_FILE_SIZE_BYTES,
   resetDevelopmentData,
+  secureCookies = false,
+  developmentRoutesEnabled = true,
 }: AppOptions): http.Server {
   async function requireProjectPermission(
     req: IncomingMessage,
@@ -769,13 +773,11 @@ export function createAppServer({
 
     await writeFile(absoluteFilePath, audioFile.data);
 
-    const relativeFilePath = path.relative(process.cwd(), absoluteFilePath);
-
     const track = await tracksStore.createTrack({
       projectId,
       name: trackName,
       originalFilename: audioFile.filename,
-      filePath: relativeFilePath,
+      filePath: absoluteFilePath,
       mimeType: audioFile.mimeType,
       fileSize: audioFile.size,
       uploadedByUserId,
@@ -1177,6 +1179,7 @@ export function createAppServer({
           clientOrigin,
           usersStore,
           sessionsStore,
+          secureCookie: secureCookies,
         });
 
         return;
@@ -1193,6 +1196,7 @@ export function createAppServer({
           clientOrigin,
           usersStore,
           sessionsStore,
+          secureCookie: secureCookies,
         });
 
         return;
@@ -1221,7 +1225,11 @@ export function createAppServer({
       // ============================================= //
       // ============================================= //
       // ============================================= //
-      if (req.method === "GET" && req.url === "/api/dev/seed-files") {
+      if (
+        developmentRoutesEnabled &&
+        req.method === "GET" &&
+        req.url === "/api/dev/seed-files"
+      ) {
         await handleDevSeedFilesRoute({
           res,
           sendJson,
@@ -1232,7 +1240,11 @@ export function createAppServer({
         return;
       }
 
-      if (req.method === "POST" && req.url === "/api/dev/seed-project") {
+      if (
+        developmentRoutesEnabled &&
+        req.method === "POST" &&
+        req.url === "/api/dev/seed-project"
+      ) {
         await handleDevSeedProjectRoute({
           req,
           res,
@@ -1248,6 +1260,7 @@ export function createAppServer({
       }
 
       if (
+        developmentRoutesEnabled &&
         req.method === "POST" &&
         req.url === "/api/dev/seed-authorization"
       ) {
@@ -1642,7 +1655,11 @@ export function createAppServer({
         return;
       }
 
-      if (req.method === "DELETE" && req.url === "/api/dev/reset") {
+      if (
+        developmentRoutesEnabled &&
+        req.method === "DELETE" &&
+        req.url === "/api/dev/reset"
+      ) {
         await handleDevResetRoute({
           res,
           sendJson,

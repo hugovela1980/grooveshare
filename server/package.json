@@ -11,6 +11,7 @@
     "start": "node dist/server.js",
     "test": "tsx tests/run-tests.ts",
     "db:check": "tsx src/db/check-connection.ts",
+    "config:check": "tsx src/config/check-config.ts",
     "dev:seed-auth": "tsx src/dev/seed-authorization.ts",
     "dev:reset-data": "tsx src/dev/reset-development-data-command.ts"
   },

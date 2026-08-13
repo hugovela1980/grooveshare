@@ -232,10 +232,10 @@ function initializeCreateProjectPage({
   setSelectedProject: (project: Project) => void;
   projectDraftState: ProjectDraftState;
 }): void {
-  const backButton = getElement<HTMLButtonElement>(
-    appElement,
-    "#back-to-menu-button",
-  );
+  // const backButton = getElement<HTMLButtonElement>(
+  //   appElement,
+  //   "#back-to-menu-button",
+  // );
 
   const form = getElement<HTMLFormElement>(appElement, "#project-form");
   const titleInput = getElement<HTMLInputElement>(appElement, "#project-title");

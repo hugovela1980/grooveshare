@@ -1,10 +1,10 @@
-import { loadEnvFile } from "node:process";
+import { loadLocalEnvironmentFile } from "../config/load-environment.js";
+import { createServerConfig } from "../config/server-config.js";
 import { createDatabasePool } from "../db/pool.js";
 import { createProjectMembershipsPostgresStore } from "../stores/project-memberships-postgres-store.js";
 import { createProjectsPostgresStore } from "../stores/projects-postgres-store.js";
 import { createTracksPostgresStore } from "../stores/tracks-postgres-store.js";
 import { createUsersPostgresStore } from "../stores/users-postgres-store.js";
-import { DEFAULT_UPLOAD_ROOT } from "../uploads/upload-paths.js";
 import {
   seedAuthorizationScenario,
 } from "./authorization-seed.js";
@@ -15,15 +15,17 @@ import {
 
 const AUTHORIZATION_SEED_TRACK_LIMIT = 3;
 
-loadEnvFile();
+loadLocalEnvironmentFile();
 
-if (process.env.NODE_ENV === "production") {
+const config = createServerConfig();
+
+if (!config.developmentRoutesEnabled) {
   throw new Error(
     "Authorization development seeding is disabled in production.",
   );
 }
 
-const pool = createDatabasePool();
+const pool = createDatabasePool(config.database);
 
 try {
   await pool.query("SELECT 1");
@@ -43,7 +45,7 @@ try {
       .slice(0, AUTHORIZATION_SEED_TRACK_LIMIT)
       .map((seedFile) => seedFile.filename),
     seedProjectDir: DEFAULT_SEED_PROJECT_DIR,
-    uploadRoot: DEFAULT_UPLOAD_ROOT,
+    uploadRoot: config.uploadRoot,
     projectsStore: createProjectsPostgresStore(pool),
     tracksStore: createTracksPostgresStore(pool),
     usersStore: createUsersPostgresStore(pool),

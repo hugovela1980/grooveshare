@@ -1,18 +1,27 @@
-import { loadEnvFile } from "node:process";
+import { loadLocalEnvironmentFile } from "../config/load-environment.js";
+import { createServerConfig } from "../config/server-config.js";
 import { createDatabasePool } from "../db/pool.js";
-import { DEFAULT_UPLOAD_ROOT } from "../uploads/upload-paths.js";
 import { resetDevelopmentData } from "./reset-development-data.js";
 
-loadEnvFile();
+loadLocalEnvironmentFile();
 
-const pool = createDatabasePool();
+const config = createServerConfig();
+
+if (!config.developmentRoutesEnabled) {
+  throw new Error(
+    "Development database reset is disabled in production.",
+  );
+}
+
+const pool = createDatabasePool(config.database);
 
 try {
   await pool.query("SELECT 1");
 
   await resetDevelopmentData({
     database: pool,
-    uploadRoot: DEFAULT_UPLOAD_ROOT,
+    uploadRoot: config.uploadRoot,
+    nodeEnv: config.nodeEnv,
   });
 
   console.log(

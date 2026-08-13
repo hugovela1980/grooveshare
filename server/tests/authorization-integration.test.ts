@@ -106,7 +106,11 @@ async function resetAuthorizationTestFiles(): Promise<void> {
   );
 }
 
-async function createAuthorizationTestServer(): Promise<{
+async function createAuthorizationTestServer({
+  developmentRoutesEnabled = true,
+}: {
+  developmentRoutesEnabled?: boolean;
+} = {}): Promise<{
   baseUrl: string;
   server: http.Server;
 }> {
@@ -131,6 +135,7 @@ async function createAuthorizationTestServer(): Promise<{
     uploadRoot: TEST_UPLOAD_ROOT,
     seedProjectDir: TEST_SEED_PROJECT_DIR,
     maxUploadFileSizeBytes: 1024,
+    developmentRoutesEnabled,
   });
 
   const baseUrl = await listenOnRandomPort(server);
@@ -265,13 +270,12 @@ tester.describe("authorization integration", () => {
   tester.it(
     "hides the authorization seed route in production",
     async () => {
-      const previousNodeEnv = process.env.NODE_ENV;
-      process.env.NODE_ENV = "production";
-
       const {
         baseUrl,
         server,
-      } = await createAuthorizationTestServer();
+      } = await createAuthorizationTestServer({
+        developmentRoutesEnabled: false,
+      });
 
       try {
         const response = await globalThis.fetch(
@@ -292,18 +296,10 @@ tester.describe("authorization integration", () => {
 
         tester.expect(response.status).toBe(404);
       } finally {
-        if (previousNodeEnv === undefined) {
-          delete process.env.NODE_ENV;
-        } else {
-          process.env.NODE_ENV = previousNodeEnv;
-        }
-
         await closeServer(server);
       }
     },
   );
-
-
 
   tester.it(
     "replaces the previous authorization demo project when reseeded",

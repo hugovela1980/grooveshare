@@ -1,4 +1,5 @@
 import { createGrooveShareApp } from "./app.js";
+import { clientConfig } from "./config/client-config.js";
 import { mountDevToolbar } from "./dev/dev-toolbar.js";
 import "./css/main.css";
 
@@ -14,4 +15,9 @@ const app = createGrooveShareApp({
 
 void app.start();
 
-mountDevToolbar({ visibleByDefault: false, enabledByDefault: true });
+if (clientConfig.isDevelopment) {
+  mountDevToolbar({
+    visibleByDefault: false,
+    enabledByDefault: true,
+  });
+}

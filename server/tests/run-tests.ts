@@ -15,6 +15,7 @@ import "./sessions-postgres-store.test.js";
 import "./project-memberships-postgres-store.test.js";
 import "./migration-behavior.test.js";
 import "./reset-development-data.test.js";
+import "./server-config.test.js";
 
 import { tester } from "./test-runner/tester.js";
 import { closePostgresTestDatabase } from "./db/postgres-test-db.js";

@@ -1,4 +1,4 @@
-const API_BASE_URL = "http://localhost:3000";
+import { API_BASE_URL } from "../api/api-client.js";
 
 type DevToolbarVisibility = boolean | 0 | 1;
 type DevToolbarEnabled = boolean | 0 | 1;
@@ -68,7 +68,9 @@ function setStatus(statusElement: HTMLSpanElement, message: string): void {
 }
 
 async function fetchSeedAudioFiles(): Promise<SeedAudioFile[]> {
-    const response = await fetch(`${API_BASE_URL}/api/dev/seed-files`);
+    const response = await fetch(`${API_BASE_URL}/api/dev/seed-files`, {
+        credentials: "include",
+    });
     const body = (await response.json()) as ApiResponse<SeedAudioFile[]>;
 
     if (!response.ok || !body.ok || !body.data) {
@@ -83,6 +85,7 @@ async function seedProjectWithSelectedFiles(
 ): Promise<SeedProjectResponse> {
     const response = await fetch(`${API_BASE_URL}/api/dev/seed-project`, {
         method: "POST",
+        credentials: "include",
         headers: {
             "Content-Type": "application/json",
         },
@@ -105,6 +108,7 @@ async function seedAuthorizationDemo(
 ): Promise<AuthorizationSeedResponse> {
     const response = await fetch(`${API_BASE_URL}/api/dev/seed-authorization`, {
         method: "POST",
+        credentials: "include",
         headers: {
             "Content-Type": "application/json",
         },
@@ -125,6 +129,7 @@ async function seedAuthorizationDemo(
 async function resetDevData(): Promise<void> {
     const response = await fetch(`${API_BASE_URL}/api/dev/reset`, {
         method: "DELETE",
+        credentials: "include",
     });
 
     const body = (await response.json()) as ApiResponse<unknown>;

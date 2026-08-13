@@ -9,13 +9,16 @@
     "scripts": {
         "dev-server": "npm run dev -w server",
         "dev-client": "npm run dev -w client",
+        "build": "npm run build -w server && npm run build -w client",
+        "start-server": "npm start -w server",
         "test-server": "npm test -w server && npm run typecheck -w server",
         "test-client": "npm test -w client && npm run typecheck -w client",
         "test-runner": "npm run typecheck -w packages/test-runner && npm test -w packages/test-runner",
         "test-all": "npm run typecheck --workspaces --if-present && npm test --workspaces --if-present",
+        "config:check": "npm run config:check -w server",
         "db:check": "npm run db:check -w server",
         "seed-auth": "npm run dev:seed-auth -w server",
-        "verify": "npm run db:check && npm run test-all",
-        "reset-dev-data": "npm run dev:reset-data -w server"
+        "reset-dev-data": "npm run dev:reset-data -w server",
+        "verify": "npm run config:check && npm run db:check && npm run test-all && npm run build"
     }
 }

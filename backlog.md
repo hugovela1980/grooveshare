@@ -9,16 +9,14 @@
 
 ## Current Focus
 
-- [ ] Remove development-only assumptions before hosting. Move database, upload directory, port, API/client origins, and other deployment settings into environment-based configuration, and establish a stable production hostname so later infrastructure changes do not require redesigning the clients.
+### Version 2 Milestone 4 — VPS Deployment
 
-- [ ] Chunk 1 — Centralize server runtime configuration. 
-  Create one clear server configuration boundary for NODE_ENV, PORT, CLIENT_ORIGIN, UPLOAD_ROOT, and the PostgreSQL PG* settings. Development can retain safe conveniences, while production should fail clearly if required settings are missing.
-
-- [ ] Chunk 2 — Deployment-aware client/API origins and stable hostname contract. 
-  Remove the client's permanent dependence on http://localhost:3000, make the API base environment-aware, and define how development versus production URLs work. Locally, Vite and Node can remain on separate ports. 
-
-- [ ] Chunk 3 — Production safety and configuration verification. 
-  Verify production cookie/CORS behavior, persistent upload location, development-route isolation, .env.example, startup validation, database-secret handling, and the absence of accidental localhost or developer-specific path assumptions. Then run the full test/typecheck suite and create a development-vs-production configuration checklist.
+- [ ] Choose and configure the stable public GrooveShare hostname.
+- [ ] Provision the Linux VPS and production PostgreSQL database.
+- [ ] Configure the production environment and persistent upload directory.
+- [ ] Build the client/server, configure the reverse proxy and HTTPS, and run Node under a process/service manager.
+- [ ] Configure firewall rules, logs, and backups.
+- [ ] Run production Owner/Contributor/Viewer smoke tests.
 
 ## Backlog
 
@@ -236,6 +234,13 @@ Expand GrooveShare from a shared stem/recording tool into a fuller band collabor
 - [x] Owner membership-management UI and final integration**
   Add member listing/add/update/remove controls for Owners, finish permission-aware error handling and client tests, manually walk through Owner/Contributor/Viewer scenarios, and run the full repository verification suite.
 
-  ### Production Configuration in preparation for VPS deployment
+### Production Configuration
+
+- [x] Centralize server runtime configuration for `NODE_ENV`, `PORT`, `CLIENT_ORIGIN`, `UPLOAD_ROOT`, and PostgreSQL settings.
+- [x] Make client API origins deployment-aware with same-origin production as the default.
+- [x] Require/validate production-critical configuration and absolute persistent upload storage.
+- [x] Use secure production session cookies and disable development-only API routes/commands in production.
+- [x] Add configuration tests, environment examples, root build/config commands, and production verification documentation.
+
 
   

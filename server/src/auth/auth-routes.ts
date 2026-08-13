@@ -45,6 +45,11 @@ type AuthSessionRouteOptions =
         sessionsStore: SessionsStore;
     };
 
+type AuthCookieRouteOptions =
+    AuthSessionRouteOptions & {
+        secureCookie: boolean;
+    };
+
 type RegisterInput = {
     email: string;
     displayName: string;
@@ -256,7 +261,8 @@ export async function handleLoginRoute({
     clientOrigin,
     usersStore,
     sessionsStore,
-}: AuthSessionRouteOptions): Promise<void> {
+    secureCookie,
+}: AuthCookieRouteOptions): Promise<void> {
     const parsedBody =
         await readJsonBody(req);
 
@@ -333,10 +339,6 @@ export async function handleLoginRoute({
         tokenHash,
         expiresAt,
     });
-
-    const secureCookie =
-        process.env.NODE_ENV ===
-        "production";
 
     res.setHeader(
         "Set-Cookie",
@@ -415,7 +417,8 @@ export async function handleLogoutRoute({
     clientOrigin,
     usersStore: _usersStore,
     sessionsStore,
-}: AuthSessionRouteOptions): Promise<void> {
+    secureCookie,
+}: AuthCookieRouteOptions): Promise<void> {
     const sessionToken =
         getSessionToken(req);
 
@@ -427,10 +430,6 @@ export async function handleLogoutRoute({
                 ),
             );
     }
-
-    const secureCookie =
-        process.env.NODE_ENV ===
-        "production";
 
     res.setHeader(
         "Set-Cookie",
