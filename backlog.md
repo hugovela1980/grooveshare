@@ -10,15 +10,22 @@
 ## Current Focus
 
 ### Version 2 Milestone 4 — VPS Deployment
+- [x] Choose and configure the stable public GrooveShare hostname.
+  - [x] Choose `grooveshare.hugovela.com` as the canonical hostname.
+  - [x] Identify DNS management through Square/Weebly.
+  - [x] Inventory the existing DNS records.
+  - [x] Verify the existing wildcard Netlify behavior.
+  - [x] Create an explicit `A` record for `grooveshare.hugovela.com`.
+  - [x] Verify that `grooveshare.hugovela.com` resolves to `216.225.203.248`.
 
-- [ ] Choose and configure the stable public GrooveShare hostname.
 - [ ] Provision the Linux VPS and production PostgreSQL database.
+
+## Backlog
+
 - [ ] Configure the production environment and persistent upload directory.
 - [ ] Build the client/server, configure the reverse proxy and HTTPS, and run Node under a process/service manager.
 - [ ] Configure firewall rules, logs, and backups.
 - [ ] Run production Owner/Contributor/Viewer smoke tests.
-
-## Backlog
 
 ### Version 2 Milestone 4 — VPS Deployment
 
@@ -241,6 +248,3 @@ Expand GrooveShare from a shared stem/recording tool into a fuller band collabor
 - [x] Require/validate production-critical configuration and absolute persistent upload storage.
 - [x] Use secure production session cookies and disable development-only API routes/commands in production.
 - [x] Add configuration tests, environment examples, root build/config commands, and production verification documentation.
-
-
-  
