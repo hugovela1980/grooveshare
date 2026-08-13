@@ -1,4 +1,5 @@
 export type AppScreen =
+    | "auth"
     | "project-menu"
     | "create-project"
     | "project-player";

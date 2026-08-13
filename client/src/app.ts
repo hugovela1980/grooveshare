@@ -1,16 +1,23 @@
 import { projectsApi } from "./api/projects-api.js";
 import { tracksApi } from "./api/tracks-api.js";
+import { authApi, type AuthApi } from "./api/auth-api.js";
+import {
+  ApiError,
+  setAuthenticationRequiredHandler,
+} from "./api/api-client.js";
 import { createCreateProjectPageController } from "./page-controllers/create-project-page-controller.js";
 import { createProjectMenuPageController } from "./page-controllers/project-menu-page-controller.js";
 import { createProjectPlayerPageController } from "./page-controllers/project-player-page-controller.js";
 import { createAudioPlayerController } from "./page-controllers/audio-player-controller.js";
 import { createProjectTrackSelectionController } from "./page-controllers/create-project-track-selection-controller.js";
 import { createCreateProjectConfirmationController } from "./page-controllers/create-project-confirmation-controller.js";
+import { createAuthPageController } from "./page-controllers/auth-page-controller.js";
 import { renderPendingTrackList } from "./templates/pending-track-list.js";
 import { getTrackAudioUrl } from "./api/tracks-api.js";
 import { renderCreateProjectPage } from "./pages/create-project-page.js";
 import { renderProjectMenuPage } from "./pages/project-menu-page.js";
 import { renderProjectPlayerPage } from "./pages/project-player-page.js";
+import { renderAuthPage } from "./pages/auth-page.js";
 import {
   createProjectDraftState,
   type PendingTrackDraft,
@@ -21,7 +28,7 @@ import {
 } from "./router/app-router.js";
 import { renderProjectList } from "./templates/project-list.js";
 import { renderMixChannelSlots } from "./templates/mix-channel-slots.js";
-import type { Project } from "./types.js";
+import type { Project, User } from "./types.js";
 
 type AppElementLike = {
   innerHTML: string;
@@ -30,7 +37,8 @@ type AppElementLike = {
 
 type GrooveShareAppOptions = {
   appElement: AppElementLike;
-  initialScreen?: AppScreen;
+  initialScreen?: Exclude<AppScreen, "auth">;
+  authenticationApi?: AuthApi;
 };
 
 type ProjectDraftState = ReturnType<typeof createProjectDraftState>;
@@ -88,16 +96,86 @@ function chooseAudioFile(): Promise<File | null> {
   });
 }
 
+function initializeAuthPage({
+  appElement,
+  authenticationApi,
+  onAuthenticated,
+}: {
+  appElement: AppElementLike;
+  authenticationApi: AuthApi;
+  onAuthenticated: (user: User) => void;
+}): void {
+  const loginForm = getElement<HTMLFormElement>(appElement, "#login-form");
+  const loginEmailInput = getElement<HTMLInputElement>(
+    appElement,
+    "#login-email",
+  );
+  const loginPasswordInput = getElement<HTMLInputElement>(
+    appElement,
+    "#login-password",
+  );
+  const registerForm = getElement<HTMLFormElement>(
+    appElement,
+    "#register-form",
+  );
+  const registerDisplayNameInput = getElement<HTMLInputElement>(
+    appElement,
+    "#register-display-name",
+  );
+  const registerEmailInput = getElement<HTMLInputElement>(
+    appElement,
+    "#register-email",
+  );
+  const registerPasswordInput = getElement<HTMLInputElement>(
+    appElement,
+    "#register-password",
+  );
+  const statusElement = getElement<HTMLParagraphElement>(
+    appElement,
+    "#auth-status",
+  );
+
+  if (
+    !loginForm ||
+    !loginEmailInput ||
+    !loginPasswordInput ||
+    !registerForm ||
+    !registerDisplayNameInput ||
+    !registerEmailInput ||
+    !registerPasswordInput ||
+    !statusElement
+  ) {
+    return;
+  }
+
+  const controller = createAuthPageController({
+    loginForm,
+    loginEmailInput,
+    loginPasswordInput,
+    registerForm,
+    registerDisplayNameInput,
+    registerEmailInput,
+    registerPasswordInput,
+    statusElement,
+    authApi: authenticationApi,
+    onAuthenticated,
+  });
+
+  controller.init();
+}
+
 function initializeProjectMenuPage({
   appElement,
   navigateTo,
   setSelectedProject,
   projectDraftState,
+  onLogout,
 }: {
   appElement: AppElementLike;
   navigateTo: (screen: AppScreen) => void;
   setSelectedProject: (project: Project) => void;
   projectDraftState: ProjectDraftState;
+  onLogout: () => Promise<void>;
 }): void {
   const addProjectButton = getElement<HTMLButtonElement>(
     appElement,
@@ -107,6 +185,15 @@ function initializeProjectMenuPage({
   addProjectButton?.addEventListener("click", () => {
     projectDraftState.clear();
     navigateTo("create-project");
+  });
+
+  const logoutButton = getElement<HTMLButtonElement>(
+    appElement,
+    "#logout-button",
+  );
+
+  logoutButton?.addEventListener("click", () => {
+    void onLogout();
   });
 
   const projectListElement = getElement<HTMLDivElement>(
@@ -468,6 +555,9 @@ function initializeCurrentPage({
   setSelectedProject,
   selectedProject,
   projectDraftState,
+  authenticationApi,
+  onAuthenticated,
+  onLogout,
 }: {
   appElement: AppElementLike;
   currentScreen: AppScreen;
@@ -475,13 +565,27 @@ function initializeCurrentPage({
   setSelectedProject: (project: Project) => void;
   selectedProject: Project | null;
   projectDraftState: ProjectDraftState;
+  authenticationApi: AuthApi;
+  onAuthenticated: (user: User) => void;
+  onLogout: () => Promise<void>;
 }): void {
+  if (currentScreen === "auth") {
+    initializeAuthPage({
+      appElement,
+      authenticationApi,
+      onAuthenticated,
+    });
+
+    return;
+  }
+
   if (currentScreen === "project-menu") {
     initializeProjectMenuPage({
       appElement,
       navigateTo,
       setSelectedProject,
       projectDraftState,
+      onLogout,
     });
 
     return;
@@ -510,8 +614,11 @@ function initializeCurrentPage({
 export function createGrooveShareApp({
   appElement,
   initialScreen = "project-menu",
+  authenticationApi = authApi,
 }: GrooveShareAppOptions) {
   let selectedProject: Project | null = null;
+  let currentUser: User | null = null;
+  let authMessage = "";
   const projectDraftState = createProjectDraftState();
 
   function setSelectedProject(project: Project): void {
@@ -522,16 +629,15 @@ export function createGrooveShareApp({
     appElement,
     initialScreen,
     pageRenderers: {
-      "project-menu": renderProjectMenuPage,
+      auth: () => renderAuthPage({ message: authMessage }),
+      "project-menu": () => renderProjectMenuPage(currentUser),
       "create-project": () =>
         renderCreateProjectPage(projectDraftState.getProjectDraft()),
       "project-player": () => renderProjectPlayerPage(selectedProject),
     },
   });
 
-  function start(): void {
-    router.start();
-
+  function initializeRenderedPage(): void {
     initializeCurrentPage({
       appElement,
       currentScreen: router.getCurrentScreen(),
@@ -539,25 +645,99 @@ export function createGrooveShareApp({
       setSelectedProject,
       selectedProject,
       projectDraftState,
+      authenticationApi,
+      onAuthenticated: handleAuthenticated,
+      onLogout: handleLogout,
     });
   }
 
   function navigateTo(screen: AppScreen): void {
-    router.navigateTo(screen);
+    const nextScreen =
+      currentUser || screen === "auth"
+        ? screen
+        : "auth";
 
-    initializeCurrentPage({
-      appElement,
-      currentScreen: router.getCurrentScreen(),
-      navigateTo,
-      setSelectedProject,
-      selectedProject,
-      projectDraftState,
-    });
+    router.navigateTo(nextScreen);
+    initializeRenderedPage();
+  }
+
+  function handleAuthenticated(user: User): void {
+    currentUser = user;
+    authMessage = "";
+    navigateTo("project-menu");
+  }
+
+  async function handleLogout(): Promise<void> {
+    try {
+      await authenticationApi.logout();
+    } catch (error) {
+      const statusElement = getElement<HTMLParagraphElement>(
+        appElement,
+        "#project-menu-status",
+      );
+
+      if (statusElement) {
+        statusElement.textContent =
+          error instanceof Error
+            ? error.message
+            : "Could not log out.";
+      }
+
+      return;
+    }
+
+    currentUser = null;
+    selectedProject = null;
+    projectDraftState.clear();
+    authMessage = "You have been signed out.";
+    navigateTo("auth");
+  }
+
+  function handleAuthenticationRequired(): void {
+    if (!currentUser) {
+      return;
+    }
+
+    currentUser = null;
+    selectedProject = null;
+    projectDraftState.clear();
+    authMessage = "Your session has expired. Sign in again.";
+    navigateTo("auth");
+  }
+
+  setAuthenticationRequiredHandler(
+    handleAuthenticationRequired,
+  );
+
+  async function start(): Promise<void> {
+    try {
+      currentUser =
+        await authenticationApi.getCurrentUser();
+      authMessage = "";
+      router.navigateTo(initialScreen);
+    } catch (error) {
+      currentUser = null;
+
+      if (
+        error instanceof ApiError &&
+        error.statusCode === 401
+      ) {
+        authMessage = "";
+      } else {
+        authMessage =
+          "Could not restore your session. Sign in to continue.";
+      }
+
+      router.navigateTo("auth");
+    }
+
+    initializeRenderedPage();
   }
 
   return {
     start,
     navigateTo,
     getCurrentScreen: router.getCurrentScreen,
+    getCurrentUser: () => currentUser,
   };
 }

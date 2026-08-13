@@ -20,6 +20,7 @@
 @import "./_imports/components/audio-player.css";
 @import "./_imports/components/mix-channels.css";
 
+@import "./_imports/pages/auth.css";
 @import "./_imports/pages/home.css";
 @import "./_imports/pages/create-project.css";
 @import "./_imports/pages/project-player.css";
