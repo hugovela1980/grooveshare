@@ -9,11 +9,14 @@ export type MixSettings = {
   channels: MixChannelSetting[];
 };
 
+export type ProjectRole = "owner" | "contributor" | "viewer";
+
 export type Project = {
   id: string;
   title: string;
   description: string;
   mixSettings?: MixSettings;
+  role?: ProjectRole;
   createdAt: string;
   updatedAt: string;
 };
@@ -36,6 +39,7 @@ export type Track = {
   filePath: string;
   mimeType: string;
   fileSize: number;
+  uploadedByUserId?: string | null;
   createdAt: string;
 };
 
@@ -62,4 +66,16 @@ export type RegisterUserInput = {
 export type LoginInput = {
   email: string;
   password: string;
+};
+
+export type ProjectMember = {
+  user: User;
+  role: ProjectRole;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AddProjectMemberInput = {
+  email: string;
+  role: Exclude<ProjectRole, "owner">;
 };

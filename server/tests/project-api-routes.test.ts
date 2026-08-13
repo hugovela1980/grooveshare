@@ -64,6 +64,14 @@ async function fileExists(filePath: string): Promise<boolean> {
   }
 }
 
+function toStoredProject(
+  project: Project & { role?: "viewer" | "contributor" | "owner" },
+): Project {
+  const { role: _role, ...storedProject } = project;
+
+  return storedProject;
+}
+
 function listenOnRandomPort(server: http.Server): Promise<string> {
   return new Promise((resolve) => {
     server.listen(0, () => {
@@ -1301,7 +1309,7 @@ tester.describe("project API routes", () => {
 
       tester.expect(deleteResponse.status).toBe(200);
       tester.expect(deleteBody.ok).toBe(true);
-      tester.expect(deleteBody.data).toEqual(project);
+      tester.expect(deleteBody.data).toEqual(toStoredProject(project));
 
       const database = await readTestDatabase();
 
@@ -1417,7 +1425,7 @@ tester.describe("project API routes", () => {
 
       const database = await readTestDatabase();
 
-      tester.expect(database.projects).toEqual([projectToKeep]);
+      tester.expect(database.projects).toEqual([toStoredProject(projectToKeep)]);
       tester.expect(database.tracks).toEqual([trackToKeep]);
       tester.expect(await fileExists(deletedFilePath)).toBe(false);
       tester.expect(await fileExists(keptFilePath)).toBe(true);

@@ -1,10 +1,28 @@
-import type { MixSettings, Track } from "../types.js";
+import {
+  canContribute,
+  canManageTrack,
+} from "../permissions/project-permissions.js";
+import type {
+  MixSettings,
+  ProjectRole,
+  Track,
+} from "../types.js";
 
 const MIX_CHANNEL_SLOT_COUNT = 4;
 
 type ChannelSlot = {
   channelNumber: number;
   track: Track | null;
+};
+
+export type MixChannelRenderContext = {
+  role: ProjectRole;
+  currentUserId: string | null;
+};
+
+const DEFAULT_RENDER_CONTEXT: MixChannelRenderContext = {
+  role: "owner",
+  currentUserId: null,
 };
 
 function escapeHtml(value: string): string {
@@ -27,12 +45,13 @@ function createMixChannelSlots(tracks: Track[]): ChannelSlot[] {
 
 function renderAssignedChannelSlot(
   slot: ChannelSlot,
-  mixSettings?: MixSettings,
+  mixSettings: MixSettings | undefined,
+  context: MixChannelRenderContext,
 ): string {
   const track = slot.track;
 
   if (!track) {
-    return renderEmptyChannelSlot(slot.channelNumber);
+    return renderEmptyChannelSlot(slot.channelNumber, context);
   }
 
   const savedChannelSetting = mixSettings?.channels.find((channel) => {
@@ -42,6 +61,29 @@ function renderAssignedChannelSlot(
   const isEnabled = savedChannelSetting?.enabled ?? true;
   const volume = savedChannelSetting?.volume ?? 1;
   const volumePercentage = Math.round(volume * 100);
+  const mayManageTrack = canManageTrack({
+    role: context.role,
+    currentUserId: context.currentUserId,
+    track,
+  });
+
+  const trackNameMarkup = mayManageTrack
+    ? /*html*/ `
+      <span
+        class="mix-channel-slot__track-name"
+        contenteditable="true"
+        role="textbox"
+        aria-label="Edit track name for channel ${slot.channelNumber}"
+        spellcheck="false"
+        data-track-name-editor
+        data-track-id="${escapeHtml(track.id)}"
+      >${escapeHtml(track.name)}</span>
+    `
+    : /*html*/ `
+      <span class="mix-channel-slot__track-name">
+        ${escapeHtml(track.name)}
+      </span>
+    `;
 
   return /*html*/ `
     <article
@@ -70,16 +112,8 @@ function renderAssignedChannelSlot(
       </div>
 
       <div class="mix-channel-slot__name-cell">
-        <div class="mix-channel-slot__editable-name">
-          <span
-            class="mix-channel-slot__track-name"
-            contenteditable="true"
-            role="textbox"
-            aria-label="Edit track name for channel ${slot.channelNumber}"
-            spellcheck="false"
-            data-track-name-editor
-            data-track-id="${escapeHtml(track.id)}"
-          >${escapeHtml(track.name)}</span>
+        <div class="mix-channel-slot__editable-name${mayManageTrack ? " mix-channel-slot__editable-name--enabled" : ""}">
+          ${trackNameMarkup}
         </div>
       </div>
 
@@ -114,20 +148,40 @@ function renderAssignedChannelSlot(
       </div>
 
       <div class="mix-channel-slot__actions">
-        <button
-          class="button button--danger mix-channel-slot__delete-button"
-          type="button"
-          data-track-delete-button
-          data-track-id="${escapeHtml(track.id)}"
-        >
-          Delete
-        </button>
+        ${mayManageTrack
+          ? /*html*/ `
+            <button
+              class="button button--danger mix-channel-slot__delete-button"
+              type="button"
+              data-track-delete-button
+              data-track-id="${escapeHtml(track.id)}"
+            >
+              Delete
+            </button>
+          `
+          : ""}
       </div>
     </article>
   `;
 }
 
-function renderEmptyChannelSlot(channelNumber: number): string {
+function renderEmptyChannelSlot(
+  channelNumber: number,
+  context: MixChannelRenderContext,
+): string {
+  const addTrackMarkup = canContribute(context.role)
+    ? /*html*/ `
+      <button
+        class="button mix-channel-slot__add-track-button"
+        type="button"
+        data-track-add-button
+        data-mix-channel="${channelNumber}"
+      >
+        Add Track
+      </button>
+    `
+    : '<span class="mix-channel-slot__empty-label">Empty</span>';
+
   return /*html*/ `
     <article
       class="mix-channel-slot mix-channel-slot--empty"
@@ -135,14 +189,7 @@ function renderEmptyChannelSlot(channelNumber: number): string {
       data-mix-channel="${channelNumber}"
     >
       <div class="mix-channel-slot__channel-cell">
-        <button
-          class="button mix-channel-slot__add-track-button"
-          type="button"
-          data-track-add-button
-          data-mix-channel="${channelNumber}"
-        >
-          Add Track
-        </button>
+        ${addTrackMarkup}
       </div>
 
       <div class="mix-channel-slot__name-cell" aria-hidden="true"></div>
@@ -156,6 +203,7 @@ function renderEmptyChannelSlot(channelNumber: number): string {
 export function renderMixChannelSlots(
   tracks: Track[],
   mixSettings?: MixSettings,
+  context: MixChannelRenderContext = DEFAULT_RENDER_CONTEXT,
 ): string {
   const slots = createMixChannelSlots(tracks);
 
@@ -190,8 +238,10 @@ export function renderMixChannelSlots(
 
       <div class="mix-channel-slots">
         ${slots
-      .map((slot) => renderAssignedChannelSlot(slot, mixSettings))
-      .join("")}
+          .map((slot) =>
+            renderAssignedChannelSlot(slot, mixSettings, context),
+          )
+          .join("")}
       </div>
     </section>
   `;

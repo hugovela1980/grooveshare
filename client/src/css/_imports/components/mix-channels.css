@@ -192,11 +192,11 @@
         border-color 120ms ease;
 }
 
-.mix-channel-slot__editable-name:hover {
+.mix-channel-slot__editable-name--enabled:hover {
     border-color: var(--border-input);
 }
 
-.mix-channel-slot__editable-name:focus-within {
+.mix-channel-slot__editable-name--enabled:focus-within {
     border-color: var(--color-light-button);
     background: var(--color-light-button);
 }
@@ -207,12 +207,16 @@
     overflow: hidden;
     color: var(--color-text);
     outline: none;
-    cursor: text;
+    cursor: default;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.mix-channel-slot__editable-name:focus-within .mix-channel-slot__track-name {
+.mix-channel-slot__track-name[data-track-name-editor] {
+    cursor: text;
+}
+
+.mix-channel-slot__editable-name--enabled:focus-within .mix-channel-slot__track-name {
     overflow: visible;
     color: var(--color-light-text);
     caret-color: var(--color-light-text);

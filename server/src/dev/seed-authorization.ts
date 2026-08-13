@@ -13,6 +13,8 @@ import {
   getSeedAudioFiles,
 } from "./dev-seed-routes.js";
 
+const AUTHORIZATION_SEED_TRACK_LIMIT = 3;
+
 loadEnvFile();
 
 if (process.env.NODE_ENV === "production") {
@@ -37,7 +39,9 @@ try {
   }
 
   const result = await seedAuthorizationScenario({
-    filenames: seedFiles.map((seedFile) => seedFile.filename),
+    filenames: seedFiles
+      .slice(0, AUTHORIZATION_SEED_TRACK_LIMIT)
+      .map((seedFile) => seedFile.filename),
     seedProjectDir: DEFAULT_SEED_PROJECT_DIR,
     uploadRoot: DEFAULT_UPLOAD_ROOT,
     projectsStore: createProjectsPostgresStore(pool),

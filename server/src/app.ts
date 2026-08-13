@@ -37,6 +37,7 @@ import type { UsersStore } from "./stores/users-store.js";
 import type { SessionsStore } from "./stores/sessions-store.js";
 import type {
   ProjectMembershipsStore,
+  ProjectRole,
 } from "./stores/project-memberships-store.js";
 import {
   getAuthenticatedUser,
@@ -436,27 +437,30 @@ export function createAppServer({
           authenticatedUser.id,
         );
 
-    const visibleProjectIds = new Set(
-      memberships.map(
-        (membership) =>
-          membership.projectId,
-      ),
+    const roleByProjectId = new Map<string, ProjectRole>(
+      memberships.map((membership) => [
+        membership.projectId,
+        membership.role,
+      ]),
     );
 
     const projects =
       await projectsStore.getProjects();
+
+    const visibleProjects = projects.flatMap((project) => {
+      const role = roleByProjectId.get(project.id);
+
+      return role
+        ? [{ ...project, role }]
+        : [];
+    });
 
     sendJson(
       res,
       200,
       {
         ok: true,
-        data: projects.filter(
-          (project) =>
-            visibleProjectIds.has(
-              project.id,
-            ),
-        ),
+        data: visibleProjects,
       },
       clientOrigin,
     );
@@ -528,7 +532,10 @@ export function createAppServer({
       201,
       {
         ok: true,
-        data: project,
+        data: {
+          ...project,
+          role: "owner",
+        },
       },
       clientOrigin,
     );
@@ -1438,7 +1445,10 @@ export function createAppServer({
           200,
           {
             ok: true,
-            data: authorization.project,
+            data: {
+              ...authorization.project,
+              role: authorization.membership.role,
+            },
           },
           clientOrigin,
         );

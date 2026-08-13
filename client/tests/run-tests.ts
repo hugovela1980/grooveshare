@@ -16,6 +16,12 @@ import "./projects-api.test.js";
 import "./audio-player-template.test.js";
 import "./audio-player-controller.test.js";
 import "./mix-channel-slots-template.test.js";
+import "./project-permissions.test.js";
+import "./permission-aware-templates.test.js";
+import "./viewer-mix-controller.test.js";
+import "./viewer-mix-storage.test.js";
+import "./project-members-api.test.js";
+import "./project-members-controller.test.js";
 
 import { tester } from "./test-runner/tester.js";
 

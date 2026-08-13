@@ -121,3 +121,105 @@
         padding: 1.1rem;
     }
 }
+.project-player-header__eyebrow-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.project-role-badge,
+.project-member-row__role-badge {
+    display: inline-flex;
+    align-items: center;
+    min-height: 1.8rem;
+    padding: 0.25rem 0.65rem;
+    border: 1px solid var(--border-input);
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.mix-channel-slot__empty-label {
+    font-size: 0.85rem;
+    opacity: 0.65;
+}
+
+.project-members-panel {
+    margin-top: 1.5rem;
+}
+
+.project-members-panel__header {
+    margin-bottom: 1rem;
+}
+
+.project-member-form {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(9rem, 0.35fr) auto;
+    gap: 0.75rem;
+    align-items: end;
+    margin-bottom: 1rem;
+}
+
+.project-member-form__field {
+    display: grid;
+    gap: 0.4rem;
+}
+
+.project-member-form input,
+.project-member-form select,
+.project-member-row select {
+    width: 100%;
+    min-height: 2.75rem;
+    padding: 0.65rem 0.75rem;
+    border: 1px solid var(--border-input);
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: inherit;
+}
+
+.project-member-list {
+    display: grid;
+    gap: 0.75rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.project-member-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(9rem, 0.35fr) auto;
+    gap: 0.75rem;
+    align-items: center;
+    padding: 0.85rem 0;
+    border-top: 1px solid var(--border-input);
+}
+
+.project-member-row__identity {
+    display: grid;
+    gap: 0.15rem;
+    min-width: 0;
+}
+
+.project-member-row__identity span {
+    overflow-wrap: anywhere;
+    opacity: 0.75;
+}
+
+.project-member-row__role-badge {
+    justify-self: start;
+}
+
+@media (max-width: 42rem) {
+    .project-member-form,
+    .project-member-row {
+        grid-template-columns: 1fr;
+    }
+
+    .project-member-row__remove-button,
+    .project-member-row__role-control {
+        width: 100%;
+    }
+}

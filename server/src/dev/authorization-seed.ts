@@ -1,4 +1,4 @@
-import { copyFile, stat } from "node:fs/promises";
+import { copyFile, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import { hashPassword } from "../auth/password.js";
 import type { ProjectMembershipsStore, ProjectRole } from "../stores/project-memberships-store.js";
@@ -6,7 +6,12 @@ import type { ProjectsStore } from "../stores/projects-store.js";
 import type { TracksStore } from "../stores/tracks-store.js";
 import type { UsersStore } from "../stores/users-store.js";
 import type { Project, Track } from "../types.js";
-import { ensureProjectUploadDir } from "../uploads/upload-paths.js";
+import {
+  ensureProjectUploadDir,
+  getProjectUploadDir,
+} from "../uploads/upload-paths.js";
+
+export const DEV_AUTHORIZATION_PROJECT_TITLE = "Authorization Role Demo";
 
 export type DevAuthorizationAccount = {
   role: ProjectRole;
@@ -99,6 +104,40 @@ function sanitizeFilename(filename: string): string {
   return filename.replace(/[^a-zA-Z0-9._-]/g, "-");
 }
 
+async function removeExistingAuthorizationSeedProjects({
+  projectsStore,
+  uploadRoot,
+}: {
+  projectsStore: ProjectsStore;
+  uploadRoot: string;
+}): Promise<void> {
+  const projects = await projectsStore.getProjects();
+  const existingSeedProjects = projects.filter((project) => {
+    return project.title === DEV_AUTHORIZATION_PROJECT_TITLE;
+  });
+
+  for (const project of existingSeedProjects) {
+    const result = await projectsStore.deleteProjectById(project.id);
+
+    if (!result.ok) {
+      throw new Error(
+        `Could not replace authorization seed project ${project.id}.`,
+      );
+    }
+
+    await rm(
+      getProjectUploadDir({
+        uploadRoot,
+        projectId: project.id,
+      }),
+      {
+        recursive: true,
+        force: true,
+      },
+    );
+  }
+}
+
 async function getOrCreateDevAccount(
   accountDefinition: DevAuthorizationAccountDefinition,
   usersStore: UsersStore,
@@ -137,6 +176,11 @@ export async function seedAuthorizationScenario({
     );
   }
 
+  await removeExistingAuthorizationSeedProjects({
+    projectsStore,
+    uploadRoot,
+  });
+
   const accounts: DevAuthorizationAccount[] = [];
 
   for (const accountDefinition of DEV_AUTHORIZATION_ACCOUNT_DEFINITIONS) {
@@ -158,7 +202,7 @@ export async function seedAuthorizationScenario({
   }
 
   const project = await projectsStore.createProject({
-    title: "Authorization Role Demo",
+    title: DEV_AUTHORIZATION_PROJECT_TITLE,
     description:
       "Development project seeded with Owner, Contributor, and Viewer roles.",
   });

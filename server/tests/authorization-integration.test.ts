@@ -303,6 +303,68 @@ tester.describe("authorization integration", () => {
     },
   );
 
+
+
+  tester.it(
+    "replaces the previous authorization demo project when reseeded",
+    async () => {
+      const { baseUrl, server } = await createAuthorizationTestServer();
+
+      try {
+        const seedRequest = () => globalThis.fetch(
+          `${baseUrl}/api/dev/seed-authorization`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              filenames: [
+                "Owner Guitar.wav",
+                "Contributor Guitar.wav",
+              ],
+            }),
+          },
+        );
+
+        const firstResponse = await seedRequest();
+        const firstBody =
+          (await firstResponse.json()) as ApiResponse<DevAuthorizationSeedResult>;
+        const secondResponse = await seedRequest();
+        const secondBody =
+          (await secondResponse.json()) as ApiResponse<DevAuthorizationSeedResult>;
+
+        if (!firstBody.data || !secondBody.data) {
+          throw new Error("Authorization seed response did not include data.");
+        }
+
+        tester.expect(firstResponse.status).toBe(201);
+        tester.expect(secondResponse.status).toBe(201);
+        tester.expect(
+          firstBody.data.project.id === secondBody.data.project.id,
+        ).toBe(false);
+
+        const owner = getAccount(secondBody.data.accounts, "owner");
+        const ownerCookie = await login(baseUrl, owner);
+        const projectsResponse = await requestWithCookie(
+          baseUrl,
+          ownerCookie,
+          "/api/projects",
+        );
+        const projectsBody =
+          (await projectsResponse.json()) as ApiResponse<Project[]>;
+
+        tester.expect(projectsResponse.status).toBe(200);
+        tester.expect(projectsBody.data?.length).toBe(1);
+        tester.expect(projectsBody.data?.[0]?.id).toBe(
+          secondBody.data.project.id,
+        );
+      } finally {
+        await closeServer(server);
+      }
+    },
+  );
+
   tester.it(
     "enforces the full Owner, Contributor, Viewer, and non-member permission flow",
     async () => {

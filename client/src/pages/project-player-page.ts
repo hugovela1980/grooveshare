@@ -1,5 +1,6 @@
 import { renderAudioPlayer } from "../templates/audio-player.js";
-import type { Project } from "../types.js";
+import { renderProjectMembersPanel } from "../templates/project-members.js";
+import type { Project, ProjectRole } from "../types.js";
 
 function escapeHtml(value: string): string {
   return value
@@ -11,25 +12,45 @@ function escapeHtml(value: string): string {
 }
 
 function renderProjectHeading(project: Project | null): string {
-  if (!project) {
-    return "Project Player";
-  }
-
-  return escapeHtml(project.title);
+  return project ? escapeHtml(project.title) : "Project Player";
 }
 
 function renderProjectDescription(project: Project | null): string {
-  if (!project) {
-    return "Select a project from the Project Menu.";
+  return project
+    ? escapeHtml(project.description)
+    : "Select a project from the Project Menu.";
+}
+
+function getProjectRole(project: Project | null): ProjectRole {
+  // Existing tests and legacy project objects may omit role. Real Version 2
+  // project responses include it; owner preserves the previous editable UI
+  // for those legacy objects while server authorization remains authoritative.
+  return project?.role ?? "owner";
+}
+
+function getRoleLabel(role: ProjectRole): string {
+  if (role === "owner") {
+    return "Owner";
   }
 
-  return escapeHtml(project.description);
+  if (role === "contributor") {
+    return "Contributor";
+  }
+
+  return "Viewer";
 }
 
 export function renderProjectPlayerPage(project: Project | null = null): string {
   const heading = renderProjectHeading(project);
   const description = renderProjectDescription(project);
-  const editableAttribute = project ? 'contenteditable="true"' : "";
+  const role = getProjectRole(project);
+  const canManageProject = Boolean(project) && role === "owner";
+  const editableAttribute = canManageProject
+    ? 'contenteditable="true"'
+    : "";
+  const editableClass = canManageProject
+    ? " project-player-editable--enabled"
+    : "";
 
   return /*html*/ `
     <main class="app-shell project-player-page" data-page="project-player">
@@ -44,34 +65,49 @@ export function renderProjectPlayerPage(project: Project | null = null): string 
           </button>
 
           <button
-            id="delete-project-button"
-            class="button button--danger"
+            id="player-logout-button"
+            class="button button--secondary"
             type="button"
           >
-            Delete Project
+            Log Out
           </button>
+
+          ${canManageProject
+            ? /*html*/ `
+              <button
+                id="delete-project-button"
+                class="button button--danger"
+                type="button"
+              >
+                Delete Project
+              </button>
+            `
+            : ""}
         </div>
 
         <div class="project-player-header__details">
-          <p class="eyebrow">Project Player</p>
+          <div class="project-player-header__eyebrow-row">
+            <p class="eyebrow">Project Player</p>
+            ${project
+              ? `<span class="project-role-badge">${getRoleLabel(role)}</span>`
+              : ""}
+          </div>
 
-          <div class="project-player-editable project-player-editable--title${project ? " project-player-editable--enabled" : ""}">
+          <div class="project-player-editable project-player-editable--title${editableClass}">
             <h1
               class="project-player-editable__text project-player-editable__title"
               ${editableAttribute}
-              role="textbox"
-              aria-label="Edit project title"
+              ${canManageProject ? 'role="textbox" aria-label="Edit project title"' : ""}
               spellcheck="false"
               data-project-title-editor
             >${heading}</h1>
           </div>
 
-          <div class="project-player-editable project-player-editable--description${project ? " project-player-editable--enabled" : ""}">
+          <div class="project-player-editable project-player-editable--description${editableClass}">
             <p
               class="description project-player-editable__text project-player-editable__description"
               ${editableAttribute}
-              role="textbox"
-              aria-label="Edit project description"
+              ${canManageProject ? 'role="textbox" aria-label="Edit project description"' : ""}
               data-placeholder="No description provided."
               data-project-description-editor
             >${description}</p>
@@ -90,6 +126,8 @@ export function renderProjectPlayerPage(project: Project | null = null): string 
           aria-live="polite"
         ></p>
       </section>
+
+      ${canManageProject ? renderProjectMembersPanel() : ""}
     </main>
   `;
 }

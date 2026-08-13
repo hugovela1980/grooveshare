@@ -1,7 +1,18 @@
+import {
+    loadViewerMixSettings,
+    saveViewerMixSettings,
+} from "../storage/viewer-mix-storage.js";
+import {
+    canContribute,
+    canManageProject,
+    canManageTrack,
+    canPersistMix,
+} from "../permissions/project-permissions.js";
 import type {
     MixChannelSetting,
     MixSettings,
     Project,
+    ProjectRole,
     Track,
 } from "../types.js";
 
@@ -78,7 +89,7 @@ type TrackListElementLike = {
 
     querySelectorAll?: (
         selector: string,
-    ) => Iterable<ChannelSlotElementLike>;
+    ) => ArrayLike<ChannelSlotElementLike>;
 };
 
 type ButtonElementLike = {
@@ -170,7 +181,13 @@ type ProjectPlayerPageControllerOptions = {
     renderTrackList: (
         tracks: Track[],
         mixSettings?: MixSettings,
+        context?: {
+            role: ProjectRole;
+            currentUserId: string | null;
+        },
     ) => string;
+    projectRole?: ProjectRole;
+    currentUserId?: string | null;
     confirmDeleteProject?: (message: string) => boolean;
     onProjectDeleted?: () => void;
     audioPlayerController?: AudioPlayerController;
@@ -253,6 +270,8 @@ export function createProjectPlayerPageController({
     tracksApi,
     projectsApi,
     renderTrackList,
+    projectRole = project.role ?? "owner",
+    currentUserId = null,
     confirmDeleteProject = globalThis.confirm,
     onProjectDeleted,
     audioPlayerController,
@@ -262,7 +281,9 @@ export function createProjectPlayerPageController({
     selectAllText = selectAllEditableText,
 }: ProjectPlayerPageControllerOptions) {
     let currentTracks: Track[] = [];
-    let currentMixSettings: MixSettings | undefined = project.mixSettings;
+    let currentMixSettings: MixSettings | undefined = projectRole === "viewer"
+        ? loadViewerMixSettings(project.id) ?? project.mixSettings
+        : project.mixSettings;
     let lastLoadedMixSettings: MixSettings | null = null;
     let currentProjectTitle = project.title;
     let currentProjectDescription = project.description;
@@ -277,6 +298,10 @@ export function createProjectPlayerPageController({
             trackListElement.innerHTML = renderTrackList(
                 currentTracks,
                 currentMixSettings,
+                {
+                    role: projectRole,
+                    currentUserId,
+                },
             );
             setLoadMixButtonCurrent(false);
         } catch {
@@ -514,6 +539,17 @@ export function createProjectPlayerPageController({
             return;
         }
 
+        if (
+            !canManageTrack({
+                role: projectRole,
+                currentUserId,
+                track,
+            })
+        ) {
+            target.textContent = track.name;
+            return;
+        }
+
         const previousName = track.name;
         const editedName = normalizeInlineText(target.textContent ?? "");
         const nextName = editedName || previousName;
@@ -572,7 +608,7 @@ export function createProjectPlayerPageController({
     }
 
     async function commitProjectTitle(): Promise<void> {
-        if (!projectTitleElement) {
+        if (!projectTitleElement || !canManageProject(projectRole)) {
             return;
         }
 
@@ -617,7 +653,7 @@ export function createProjectPlayerPageController({
     }
 
     async function commitProjectDescription(): Promise<void> {
-        if (!projectDescriptionElement) {
+        if (!projectDescriptionElement || !canManageProject(projectRole)) {
             return;
         }
 
@@ -657,6 +693,10 @@ export function createProjectPlayerPageController({
     }
 
     function registerProjectDetailEditors(): void {
+        if (!canManageProject(projectRole)) {
+            return;
+        }
+
         projectTitleElement?.addEventListener("click", () => {
             selectAllText(projectTitleElement);
         });
@@ -733,6 +773,13 @@ export function createProjectPlayerPageController({
             }
         }
 
+        const currentSettings = getMixSettings();
+
+        if (projectRole === "viewer") {
+            saveViewerMixSettings(project.id, currentSettings);
+            currentMixSettings = currentSettings;
+        }
+
         updateLoadMixButtonCurrentState();
     }
 
@@ -748,25 +795,32 @@ export function createProjectPlayerPageController({
 
         const mixSettings = getMixSettings();
 
-        try {
-            if (projectsApi?.saveMixSettings) {
-                const updatedProject =
-                    await projectsApi.saveMixSettings(
-                        project.id,
-                        mixSettings,
-                    );
+        if (projectRole === "viewer") {
+            saveViewerMixSettings(project.id, mixSettings);
+            currentMixSettings = mixSettings;
+        }
 
-                currentMixSettings =
-                    updatedProject.mixSettings ??
-                    mixSettings;
+        if (canPersistMix(projectRole)) {
+            try {
+                if (projectsApi?.saveMixSettings) {
+                    const updatedProject =
+                        await projectsApi.saveMixSettings(
+                            project.id,
+                            mixSettings,
+                        );
+
+                    currentMixSettings =
+                        updatedProject.mixSettings ??
+                        mixSettings;
+                }
+            } catch {
+                setStatus(
+                    statusElement,
+                    "Could not save mix settings.",
+                );
+
+                return;
             }
-        } catch {
-            setStatus(
-                statusElement,
-                "Could not save mix settings.",
-            );
-
-            return;
         }
 
         const enabledMixChannels =
@@ -793,13 +847,22 @@ export function createProjectPlayerPageController({
                 ? "channel"
                 : "channels";
 
+        const mixMessage = projectRole === "viewer"
+            ? `Loaded ${enabledMixChannels.length} ${channelWord} into your local mix.`
+            : `Loaded ${enabledMixChannels.length} ${channelWord} into the mix.`;
+
         setStatus(
             statusElement,
-            `Loaded ${enabledMixChannels.length} ${channelWord} into the mix.`,
+            mixMessage,
         );
     }
 
     async function handleAddTrack(): Promise<void> {
+        if (!canContribute(projectRole)) {
+            setStatus(statusElement, "Project access denied.");
+            return;
+        }
+
         if (!tracksApi.uploadTrack) {
             setStatus(statusElement, "Track upload is not ready yet.");
             return;
@@ -858,6 +921,22 @@ export function createProjectPlayerPageController({
             return;
         }
 
+        const trackToDelete = currentTracks.find((track) => {
+            return track.id === deleteTrackId;
+        });
+
+        if (
+            !trackToDelete ||
+            !canManageTrack({
+                role: projectRole,
+                currentUserId,
+                track: trackToDelete,
+            })
+        ) {
+            setStatus(statusElement, "Track access denied.");
+            return;
+        }
+
         try {
             setStatus(statusElement, "Deleting track...");
             await tracksApi.deleteTrack(project.id, deleteTrackId);
@@ -869,7 +948,7 @@ export function createProjectPlayerPageController({
     }
 
     async function handleDeleteProjectClick(): Promise<void> {
-        if (!projectsApi) {
+        if (!projectsApi || !canManageProject(projectRole)) {
             return;
         }
 

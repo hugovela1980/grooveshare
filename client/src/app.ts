@@ -1,4 +1,5 @@
 import { projectsApi } from "./api/projects-api.js";
+import { projectMembersApi } from "./api/project-members-api.js";
 import { tracksApi } from "./api/tracks-api.js";
 import { authApi, type AuthApi } from "./api/auth-api.js";
 import {
@@ -8,6 +9,7 @@ import {
 import { createCreateProjectPageController } from "./page-controllers/create-project-page-controller.js";
 import { createProjectMenuPageController } from "./page-controllers/project-menu-page-controller.js";
 import { createProjectPlayerPageController } from "./page-controllers/project-player-page-controller.js";
+import { createProjectMembersController } from "./page-controllers/project-members-controller.js";
 import { createAudioPlayerController } from "./page-controllers/audio-player-controller.js";
 import { createProjectTrackSelectionController } from "./page-controllers/create-project-track-selection-controller.js";
 import { createCreateProjectConfirmationController } from "./page-controllers/create-project-confirmation-controller.js";
@@ -28,6 +30,7 @@ import {
 } from "./router/app-router.js";
 import { renderProjectList } from "./templates/project-list.js";
 import { renderMixChannelSlots } from "./templates/mix-channel-slots.js";
+import { renderProjectMemberList } from "./templates/project-members.js";
 import type { Project, User } from "./types.js";
 
 type AppElementLike = {
@@ -412,10 +415,14 @@ function initializeProjectPlayerPage({
   appElement,
   navigateTo,
   selectedProject,
+  currentUser,
+  onLogout,
 }: {
   appElement: AppElementLike;
   navigateTo: (screen: AppScreen) => void;
   selectedProject: Project | null;
+  currentUser: User | null;
+  onLogout: () => Promise<void>;
 }): void {
   const backButton = getElement<HTMLButtonElement>(
     appElement,
@@ -424,6 +431,15 @@ function initializeProjectPlayerPage({
 
   backButton?.addEventListener("click", () => {
     navigateTo("project-menu");
+  });
+
+  const logoutButton = getElement<HTMLButtonElement>(
+    appElement,
+    "#player-logout-button",
+  );
+
+  logoutButton?.addEventListener("click", () => {
+    void onLogout();
   });
 
   const menuButton = getElement<HTMLButtonElement>(
@@ -540,12 +556,57 @@ function initializeProjectPlayerPage({
     getTrackAudioUrl,
     chooseAudioFile,
     renderTrackList: renderMixChannelSlots,
+    projectRole: selectedProject.role ?? "viewer",
+    currentUserId: currentUser?.id ?? null,
     onProjectDeleted() {
       navigateTo("project-menu");
     },
   });
 
   void controller.init();
+
+  if (selectedProject.role === "owner") {
+    const memberForm = getElement<HTMLFormElement>(
+      appElement,
+      "#project-member-form",
+    );
+    const memberEmailInput = getElement<HTMLInputElement>(
+      appElement,
+      "#project-member-email",
+    );
+    const memberRoleSelect = getElement<HTMLSelectElement>(
+      appElement,
+      "#project-member-role",
+    );
+    const memberListElement = getElement<HTMLDivElement>(
+      appElement,
+      "#project-member-list",
+    );
+    const memberStatusElement = getElement<HTMLParagraphElement>(
+      appElement,
+      "#project-member-status",
+    );
+
+    if (
+      memberForm &&
+      memberEmailInput &&
+      memberRoleSelect &&
+      memberListElement
+    ) {
+      const membersController = createProjectMembersController({
+        projectId: selectedProject.id,
+        form: memberForm,
+        emailInput: memberEmailInput,
+        roleSelect: memberRoleSelect,
+        memberListElement,
+        statusElement: memberStatusElement,
+        projectMembersApi,
+        renderMembers: renderProjectMemberList,
+      });
+
+      void membersController.init();
+    }
+  }
 }
 
 function initializeCurrentPage({
@@ -554,6 +615,7 @@ function initializeCurrentPage({
   navigateTo,
   setSelectedProject,
   selectedProject,
+  currentUser,
   projectDraftState,
   authenticationApi,
   onAuthenticated,
@@ -564,6 +626,7 @@ function initializeCurrentPage({
   navigateTo: (screen: AppScreen) => void;
   setSelectedProject: (project: Project) => void;
   selectedProject: Project | null;
+  currentUser: User | null;
   projectDraftState: ProjectDraftState;
   authenticationApi: AuthApi;
   onAuthenticated: (user: User) => void;
@@ -607,6 +670,8 @@ function initializeCurrentPage({
       appElement,
       navigateTo,
       selectedProject,
+      currentUser,
+      onLogout,
     });
   }
 }
@@ -644,6 +709,7 @@ export function createGrooveShareApp({
       navigateTo,
       setSelectedProject,
       selectedProject,
+      currentUser,
       projectDraftState,
       authenticationApi,
       onAuthenticated: handleAuthenticated,
@@ -671,10 +737,15 @@ export function createGrooveShareApp({
     try {
       await authenticationApi.logout();
     } catch (error) {
-      const statusElement = getElement<HTMLParagraphElement>(
-        appElement,
-        "#project-menu-status",
-      );
+      const statusElement =
+        getElement<HTMLParagraphElement>(
+          appElement,
+          "#project-menu-status",
+        ) ??
+        getElement<HTMLParagraphElement>(
+          appElement,
+          "#project-player-status",
+        );
 
       if (statusElement) {
         statusElement.textContent =

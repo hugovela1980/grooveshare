@@ -101,6 +101,7 @@ tester.describe("page templates", () => {
     tester.expect(html.includes("Audio Player")).toBe(true);
     tester.expect(html.includes("player-area")).toBe(true);
     tester.expect(html.includes("player-track-list")).toBe(true);
+    tester.expect(html.includes('id="player-logout-button"')).toBe(true);
   });
 
   tester.it("renders selected project details on the Project Player page", () => {
