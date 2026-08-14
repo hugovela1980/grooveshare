@@ -18,11 +18,18 @@
   - [x] Create an explicit `A` record for `grooveshare.hugovela.com`.
   - [x] Verify that `grooveshare.hugovela.com` resolves to `216.225.203.248`.
 
-- [ ] Provision the Linux VPS and production PostgreSQL database.
+- [x] Provision the Linux VPS and production PostgreSQL database.
+  - [x] Make the first SSH connection and verify the server identity.
+  - [x] Create a normal sudo administrator account and set up SSH-key login.
+  - [x] Update the Ubuntu system and inspect the basic server environment.
+  - [x] Install PostgreSQL.
+  - [x] Create the GrooveShare production database and application role.
+  - [x] Verify PostgreSQL is local-only and the application role can connect.
+
+- [ ] Configure the production environment and persistent upload directory.
 
 ## Backlog
 
-- [ ] Configure the production environment and persistent upload directory.
 - [ ] Build the client/server, configure the reverse proxy and HTTPS, and run Node under a process/service manager.
 - [ ] Configure firewall rules, logs, and backups.
 - [ ] Run production Owner/Contributor/Viewer smoke tests.
