@@ -231,6 +231,26 @@ export function createAudioPlayerController({
         updateProgress();
     }
 
+    function setChannelVolume(
+        channelNumber: number,
+        volume: number,
+    ): boolean {
+        const loadedChannel = loadedMixChannels.find(({ channel }) => {
+            return channel.channelNumber === channelNumber;
+        });
+
+        if (!loadedChannel) {
+            return false;
+        }
+
+        const nextVolume = clampVolume(volume);
+
+        loadedChannel.channel.volume = nextVolume;
+        loadedChannel.audioElement.volume = nextVolume;
+
+        return true;
+    }
+
     function loadMix(channels: MixChannelForPlayer[]): void {
         stop();
 
@@ -311,6 +331,7 @@ export function createAudioPlayerController({
     return {
         init,
         loadMix,
+        setChannelVolume,
         stop,
     };
 }

@@ -449,6 +449,53 @@ tester.describe("audio player controller", () => {
         tester.expect(playPauseButton.textContent).toBe("❚❚");
     });
 
+    tester.it("updates one loaded channel volume without reloading or resetting playback", () => {
+        const secondAudioElement = createFakeAudioElement();
+
+        const {
+            controller,
+            audioElement,
+        } = createControllerTestSetup({
+            createAudioElement: () => secondAudioElement,
+        });
+
+        controller.init();
+
+        controller.loadMix([
+            {
+                channelNumber: 1,
+                trackId: "track-1",
+                name: "Drums",
+                audioUrl: "http://localhost:3000/audio/drums.wav",
+                volume: 0.75,
+            },
+            {
+                channelNumber: 2,
+                trackId: "track-2",
+                name: "Bass",
+                audioUrl: "http://localhost:3000/audio/bass.wav",
+                volume: 0.5,
+            },
+        ]);
+
+        audioElement.currentTime = 42;
+        secondAudioElement.currentTime = 42;
+
+        const firstLoadCallCount = audioElement.loadCallCount;
+        const secondLoadCallCount = secondAudioElement.loadCallCount;
+
+        const wasUpdated = controller.setChannelVolume(2, 0.3);
+
+        tester.expect(wasUpdated).toBe(true);
+        tester.expect(audioElement.volume).toBe(0.75);
+        tester.expect(secondAudioElement.volume).toBe(0.3);
+        tester.expect(audioElement.currentTime).toBe(42);
+        tester.expect(secondAudioElement.currentTime).toBe(42);
+        tester.expect(audioElement.loadCallCount).toBe(firstLoadCallCount);
+        tester.expect(secondAudioElement.loadCallCount).toBe(secondLoadCallCount);
+        tester.expect(controller.setChannelVolume(3, 0.9)).toBe(false);
+    });
+
     tester.it("stops all tracks in a loaded mix", async () => {
         const secondAudioElement = createFakeAudioElement();
 

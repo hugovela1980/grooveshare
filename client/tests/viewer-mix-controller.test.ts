@@ -74,7 +74,13 @@ function installLocalStorage(initialValues: Record<string, string> = {}) {
 }
 
 function createTrackListElement() {
-  let clickHandler: ((event: { target: EventTarget | null }) => void | Promise<void>) | null = null;
+  type MixEvent = { target: EventTarget | null };
+
+  let clickHandler: ((event: MixEvent) => void | Promise<void>) | null = null;
+  let inputHandler: ((event: MixEvent) => void | Promise<void>) | null = null;
+  let changeHandler: ((event: MixEvent) => void | Promise<void>) | null = null;
+  let enabled = true;
+  let volume = 1;
   const classes = new Set<string>();
 
   const slot = {
@@ -84,11 +90,11 @@ function createTrackListElement() {
     },
     querySelector(selector: string) {
       if (selector === "[data-channel-enabled]") {
-        return { checked: true };
+        return { checked: enabled };
       }
 
       if (selector === "[data-channel-volume]") {
-        return { value: "1" };
+        return { value: String(volume) };
       }
 
       return null;
@@ -98,11 +104,19 @@ function createTrackListElement() {
   return {
     innerHTML: "",
     addEventListener(
-      eventName: "click" | "input" | "keydown" | "focusout",
-      handler: (event: { target: EventTarget | null }) => void | Promise<void>,
+      eventName: "click" | "input" | "change" | "keydown" | "focusout",
+      handler: (event: MixEvent) => void | Promise<void>,
     ) {
       if (eventName === "click") {
         clickHandler = handler;
+      }
+
+      if (eventName === "input") {
+        inputHandler = handler;
+      }
+
+      if (eventName === "change") {
+        changeHandler = handler;
       }
     },
     querySelector(selector: string) {
@@ -124,6 +138,59 @@ function createTrackListElement() {
     querySelectorAll() {
       return [slot];
     },
+    async inputVolume(nextVolume: number) {
+      if (!inputHandler) {
+        throw new Error("Input handler was not registered.");
+      }
+
+      volume = nextVolume;
+
+      await inputHandler({
+        target: {
+          value: String(nextVolume),
+          dataset: {
+            channelVolume: "",
+            mixChannel: "1",
+          },
+        } as unknown as EventTarget,
+      });
+    },
+
+    async changeVolume(nextVolume: number) {
+      if (!changeHandler) {
+        throw new Error("Change handler was not registered.");
+      }
+
+      volume = nextVolume;
+
+      await changeHandler({
+        target: {
+          value: String(nextVolume),
+          dataset: {
+            channelVolume: "",
+            mixChannel: "1",
+          },
+        } as unknown as EventTarget,
+      });
+    },
+
+    async changeEnabled(nextEnabled: boolean) {
+      if (!changeHandler) {
+        throw new Error("Change handler was not registered.");
+      }
+
+      enabled = nextEnabled;
+
+      await changeHandler({
+        target: {
+          dataset: {
+            channelEnabled: "",
+            mixChannel: "1",
+          },
+        } as unknown as EventTarget,
+      });
+    },
+
     async clickLoadMix() {
       if (!clickHandler) {
         throw new Error("Click handler was not registered.");
@@ -178,7 +245,7 @@ tester.describe("permission-aware mix loading", () => {
     tester.expect(loadCount).toBe(1);
   });
 
-  tester.it("still persists Contributor mix settings before loading", async () => {
+  tester.it("persists Contributor mix settings when a control change is committed, not when loading", async () => {
     const trackListElement = createTrackListElement();
     let saveCount = 0;
     let loadCount = 0;
@@ -214,12 +281,19 @@ tester.describe("permission-aware mix loading", () => {
     await controller.init();
     await trackListElement.clickLoadMix();
 
-    tester.expect(saveCount).toBe(1);
+    tester.expect(saveCount).toBe(0);
     tester.expect(loadCount).toBe(1);
+
+    await trackListElement.inputVolume(0.65);
+
+    tester.expect(saveCount).toBe(0);
+
+    await trackListElement.changeVolume(0.65);
+
+    tester.expect(saveCount).toBe(1);
   });
 
-
-  tester.it("persists Viewer mix settings in localStorage", async () => {
+  tester.it("persists Viewer mix settings in localStorage when a control change is committed", async () => {
     const localStorageTest = installLocalStorage();
 
     try {
@@ -244,6 +318,18 @@ tester.describe("permission-aware mix loading", () => {
       await controller.init();
       await trackListElement.clickLoadMix();
 
+      tester.expect(
+        localStorageTest.values.has("grooveshare:viewer-mix:project-1"),
+      ).toBe(false);
+
+      await trackListElement.inputVolume(0.7);
+
+      tester.expect(
+        localStorageTest.values.has("grooveshare:viewer-mix:project-1"),
+      ).toBe(false);
+
+      await trackListElement.changeVolume(0.7);
+
       const savedValue = localStorageTest.values.get(
         "grooveshare:viewer-mix:project-1",
       );
@@ -255,7 +341,7 @@ tester.describe("permission-aware mix loading", () => {
             channelNumber: 1,
             trackId: "track-1",
             enabled: true,
-            volume: 1,
+            volume: 0.7,
           },
         ],
       });

@@ -49,6 +49,10 @@ function createFakeTrackListElement() {
     | ((event: FakeTrackListEvent) => void | Promise<void>)
     | null = null;
 
+  let changeHandler:
+    | ((event: FakeTrackListEvent) => void | Promise<void>)
+    | null = null;
+
   let keydownHandler:
     | ((event: FakeTrackListEvent) => void | Promise<void>)
     | null = null;
@@ -119,7 +123,7 @@ function createFakeTrackListElement() {
     innerHTML: "",
 
     addEventListener(
-      eventName: "click" | "input" | "keydown" | "focusout",
+      eventName: "click" | "input" | "change" | "keydown" | "focusout",
       handler: (
         event: FakeTrackListEvent,
       ) => void | Promise<void>,
@@ -130,6 +134,10 @@ function createFakeTrackListElement() {
 
       if (eventName === "input") {
         inputHandler = handler;
+      }
+
+      if (eventName === "change") {
+        changeHandler = handler;
       }
 
       if (eventName === "keydown") {
@@ -251,6 +259,36 @@ function createFakeTrackListElement() {
       });
     },
 
+    async changeVolume(
+      channelNumber: number,
+      volume: number,
+    ): Promise<void> {
+      if (!changeHandler) {
+        throw new Error("Change handler was not registered.");
+      }
+
+      const channel = channelSettings.find((setting) => {
+        return setting.channelNumber === channelNumber;
+      });
+
+      if (!channel) {
+        throw new Error(`Channel ${channelNumber} was not found.`);
+      }
+
+      channel.volume = volume;
+      rebuildChannelSlots();
+
+      await changeHandler({
+        target: {
+          value: String(volume),
+          dataset: {
+            channelVolume: "",
+            mixChannel: String(channelNumber),
+          },
+        } as unknown as EventTarget,
+      });
+    },
+
     async inputEnabled(
       channelNumber: number,
       enabled: boolean,
@@ -271,6 +309,35 @@ function createFakeTrackListElement() {
       rebuildChannelSlots();
 
       await inputHandler({
+        target: {
+          dataset: {
+            channelEnabled: "",
+            mixChannel: String(channelNumber),
+          },
+        } as unknown as EventTarget,
+      });
+    },
+
+    async changeEnabled(
+      channelNumber: number,
+      enabled: boolean,
+    ): Promise<void> {
+      if (!changeHandler) {
+        throw new Error("Change handler was not registered.");
+      }
+
+      const channel = channelSettings.find((setting) => {
+        return setting.channelNumber === channelNumber;
+      });
+
+      if (!channel) {
+        throw new Error(`Channel ${channelNumber} was not found.`);
+      }
+
+      channel.enabled = enabled;
+      rebuildChannelSlots();
+
+      await changeHandler({
         target: {
           dataset: {
             channelEnabled: "",
@@ -938,7 +1005,7 @@ tester.describe("project player page controller", () => {
     );
   });
 
-  tester.it("saves all occupied channel settings when loading the mix", async () => {
+  tester.it("persists occupied channel settings when a mixer change is committed", async () => {
     const project = createProject();
 
     const tracks = [
@@ -968,6 +1035,7 @@ tester.describe("project player page controller", () => {
       },
     ]);
 
+    let saveCallCount = 0;
     let savedProjectId = "";
     let savedMixSettings: MixSettings | undefined;
 
@@ -989,6 +1057,7 @@ tester.describe("project player page controller", () => {
         },
 
         async saveMixSettings(projectId, mixSettings) {
+          saveCallCount += 1;
           savedProjectId = projectId;
           savedMixSettings = mixSettings;
 
@@ -1001,17 +1070,17 @@ tester.describe("project player page controller", () => {
       renderTrackList() {
         return "tracks";
       },
-      audioPlayerController: {
-        loadMix() { },
-      },
-      getTrackAudioUrl(projectId, trackId) {
-        return `http://localhost:3000/api/projects/${projectId}/tracks/${trackId}/audio`;
-      },
     });
 
     await controller.init();
-    await trackListElement.clickLoadMixButton();
 
+    await trackListElement.inputVolume(1, 0.6);
+
+    tester.expect(saveCallCount).toBe(0);
+
+    await trackListElement.changeVolume(1, 0.6);
+
+    tester.expect(saveCallCount).toBe(1);
     tester.expect(savedProjectId).toBe("project-1");
     tester.expect(savedMixSettings).toEqual({
       channels: [
@@ -1019,7 +1088,7 @@ tester.describe("project player page controller", () => {
           channelNumber: 1,
           trackId: "track-1",
           enabled: true,
-          volume: 0.75,
+          volume: 0.6,
         },
         {
           channelNumber: 2,
@@ -1031,7 +1100,7 @@ tester.describe("project player page controller", () => {
     });
   });
 
-  tester.it("does not load the mix when saving mix settings fails", async () => {
+  tester.it("reports persistence failures without making mix loading depend on the save", async () => {
     const project = createProject();
     const trackListElement = createFakeTrackListElement();
     const statusElement = createFakeStatusElement();
@@ -1083,12 +1152,17 @@ tester.describe("project player page controller", () => {
     });
 
     await controller.init();
-    await trackListElement.clickLoadMixButton();
 
-    tester.expect(loadMixCallCount).toBe(0);
+    await trackListElement.changeVolume(1, 0.8);
+
     tester.expect(statusElement.textContent).toBe(
       "Could not save mix settings.",
     );
+    tester.expect(loadMixCallCount).toBe(0);
+
+    await trackListElement.clickLoadMixButton();
+
+    tester.expect(loadMixCallCount).toBe(1);
   });
 
   tester.it("shows a message when no channels are enabled for the mix", async () => {
@@ -1138,7 +1212,8 @@ tester.describe("project player page controller", () => {
     );
   });
 
-  tester.it("updates the volume percentage while the slider changes", async () => {
+  tester.it("updates loaded channel volume live while slider input stays separate from persistence", async () => {
+    const project = createProject();
     const trackListElement = createFakeTrackListElement();
 
     trackListElement.setChannelSlots([
@@ -1150,8 +1225,14 @@ tester.describe("project player page controller", () => {
       },
     ]);
 
+    let saveCallCount = 0;
+    const liveVolumeUpdates: Array<{
+      channelNumber: number;
+      volume: number;
+    }> = [];
+
     const controller = createProjectPlayerPageController({
-      project: createProject(),
+      project,
       trackListElement,
       tracksApi: {
         async getTracksByProjectId() {
@@ -1162,21 +1243,57 @@ tester.describe("project player page controller", () => {
           return createTrack();
         },
       },
+      projectsApi: {
+        async deleteProject() {
+          return project;
+        },
+
+        async saveMixSettings(_projectId, mixSettings) {
+          saveCallCount += 1;
+
+          return {
+            ...project,
+            mixSettings,
+          };
+        },
+      },
       renderTrackList() {
         return "tracks";
+      },
+      audioPlayerController: {
+        loadMix() {},
+        setChannelVolume(channelNumber, volume) {
+          liveVolumeUpdates.push({ channelNumber, volume });
+          return true;
+        },
+      },
+      getTrackAudioUrl() {
+        return "audio-url";
       },
     });
 
     await controller.init();
+    await trackListElement.clickLoadMixButton();
 
     tester.expect(trackListElement.getVolumeValueText(1)).toBe("100%");
 
     await trackListElement.inputVolume(1, 0.73);
 
     tester.expect(trackListElement.getVolumeValueText(1)).toBe("73%");
+    tester.expect(liveVolumeUpdates).toEqual([
+      {
+        channelNumber: 1,
+        volume: 0.73,
+      },
+    ]);
+    tester.expect(saveCallCount).toBe(0);
+
+    await trackListElement.changeVolume(1, 0.73);
+
+    tester.expect(saveCallCount).toBe(1);
   });
 
-  tester.it("marks the loaded mix current until its settings change", async () => {
+  tester.it("keeps the loaded mix current when a live volume change reaches the audio player", async () => {
     const project = createProject();
     const trackListElement = createFakeTrackListElement();
 
@@ -1217,7 +1334,10 @@ tester.describe("project player page controller", () => {
         return "tracks";
       },
       audioPlayerController: {
-        loadMix() { },
+        loadMix() {},
+        setChannelVolume() {
+          return true;
+        },
       },
       getTrackAudioUrl() {
         return "audio-url";
@@ -1233,10 +1353,6 @@ tester.describe("project player page controller", () => {
     tester.expect(trackListElement.isLoadMixCurrent()).toBe(true);
 
     await trackListElement.inputVolume(1, 0.5);
-
-    tester.expect(trackListElement.isLoadMixCurrent()).toBe(false);
-
-    await trackListElement.inputVolume(1, 0.75);
 
     tester.expect(trackListElement.isLoadMixCurrent()).toBe(true);
   });
@@ -1450,6 +1566,75 @@ tester.describe("project player page controller", () => {
     tester.expect(selectedElements[0]).toBe(projectTitleElement);
     tester.expect(selectedElements[1]).toBe(projectDescriptionElement);
     tester.expect(selectedElements[2]).toBe(trackNameTarget);
+  });
+
+  tester.it("persists a channel enabled state when the checkbox change is committed", async () => {
+    const project = createProject();
+    const trackListElement = createFakeTrackListElement();
+
+    trackListElement.setChannelSlots([
+      {
+        channelNumber: 1,
+        trackId: "track-1",
+        enabled: true,
+        volume: 1,
+      },
+    ]);
+
+    let saveCallCount = 0;
+    let savedMixSettings: MixSettings | undefined;
+
+    const controller = createProjectPlayerPageController({
+      project,
+      trackListElement,
+      tracksApi: {
+        async getTracksByProjectId() {
+          return [createTrack()];
+        },
+
+        async deleteTrack() {
+          return createTrack();
+        },
+      },
+      projectsApi: {
+        async deleteProject() {
+          return project;
+        },
+
+        async saveMixSettings(_projectId, mixSettings) {
+          saveCallCount += 1;
+          savedMixSettings = mixSettings;
+
+          return {
+            ...project,
+            mixSettings,
+          };
+        },
+      },
+      renderTrackList() {
+        return "tracks";
+      },
+    });
+
+    await controller.init();
+
+    await trackListElement.inputEnabled(1, false);
+
+    tester.expect(saveCallCount).toBe(0);
+
+    await trackListElement.changeEnabled(1, false);
+
+    tester.expect(saveCallCount).toBe(1);
+    tester.expect(savedMixSettings).toEqual({
+      channels: [
+        {
+          channelNumber: 1,
+          trackId: "track-1",
+          enabled: false,
+          volume: 1,
+        },
+      ],
+    });
   });
 
   tester.it("marks the loaded mix dirty when a channel enabled state changes", async () => {

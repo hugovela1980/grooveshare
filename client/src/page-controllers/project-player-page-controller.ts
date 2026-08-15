@@ -64,6 +64,7 @@ type MixChannelForPlayer = {
 
 type AudioPlayerController = {
     loadMix?: (channels: MixChannelForPlayer[]) => void;
+    setChannelVolume?: (channelNumber: number, volume: number) => boolean;
     stop?: () => void;
 };
 
@@ -77,7 +78,7 @@ type TrackListElementLike = {
     innerHTML: string;
 
     addEventListener: (
-        eventName: "click" | "input" | "keydown" | "focusout",
+        eventName: "click" | "input" | "change" | "keydown" | "focusout",
         handler: (
             event: TrackListEventLike,
         ) => void | Promise<void>,
@@ -732,6 +733,32 @@ export function createProjectPlayerPageController({
         });
     }
 
+    function updateLoadedChannelVolume(
+        channelNumber: number,
+        volume: number,
+    ): void {
+        const didUpdateLoadedChannel =
+            audioPlayerController?.setChannelVolume?.(channelNumber, volume) ??
+            false;
+
+        if (!didUpdateLoadedChannel || !lastLoadedMixSettings) {
+            return;
+        }
+
+        lastLoadedMixSettings = {
+            channels: lastLoadedMixSettings.channels.map((channel) => {
+                if (channel.channelNumber !== channelNumber) {
+                    return channel;
+                }
+
+                return {
+                    ...channel,
+                    volume,
+                };
+            }),
+        };
+    }
+
     function handleTrackListInput(
         event: TrackListEventLike,
     ): void {
@@ -754,33 +781,77 @@ export function createProjectPlayerPageController({
 
         if (isVolumeInput) {
             const volume = Number(target.value ?? "0");
-            const channelNumber =
-                target.dataset.mixChannel;
+            const channelNumberText = target.dataset.mixChannel;
+            const channelNumber = Number(channelNumberText);
 
             if (
                 Number.isFinite(volume) &&
-                channelNumber
+                Number.isFinite(channelNumber) &&
+                channelNumberText
             ) {
                 const volumeValueElement =
                     trackListElement.querySelector?.(
-                        `[data-channel-volume-value][data-mix-channel="${channelNumber}"]`,
+                        `[data-channel-volume-value][data-mix-channel="${channelNumberText}"]`,
                     ) as TextElementLike | null;
 
                 if (volumeValueElement) {
                     volumeValueElement.textContent =
                         `${Math.round(volume * 100)}%`;
                 }
+
+                updateLoadedChannelVolume(channelNumber, volume);
             }
         }
 
-        const currentSettings = getMixSettings();
+        updateLoadMixButtonCurrentState();
+    }
+
+    async function persistCurrentMixSettings(): Promise<void> {
+        const mixSettings = getMixSettings();
 
         if (projectRole === "viewer") {
-            saveViewerMixSettings(project.id, currentSettings);
-            currentMixSettings = currentSettings;
+            saveViewerMixSettings(project.id, mixSettings);
+            currentMixSettings = mixSettings;
+            return;
         }
 
-        updateLoadMixButtonCurrentState();
+        if (!canPersistMix(projectRole) || !projectsApi?.saveMixSettings) {
+            return;
+        }
+
+        try {
+            const updatedProject = await projectsApi.saveMixSettings(
+                project.id,
+                mixSettings,
+            );
+
+            currentMixSettings = updatedProject.mixSettings ?? mixSettings;
+            project.mixSettings = currentMixSettings;
+        } catch {
+            setStatus(statusElement, "Could not save mix settings.");
+        }
+    }
+
+    async function handleTrackListChange(
+        event: TrackListEventLike,
+    ): Promise<void> {
+        const target = event.target as TrackListTargetLike | null;
+
+        if (!target?.dataset) {
+            return;
+        }
+
+        const isVolumeInput =
+            target.dataset.channelVolume !== undefined;
+
+        const isEnabledInput =
+            target.dataset.channelEnabled !== undefined;
+
+        if (!isVolumeInput && !isEnabledInput) {
+            return;
+        }
+
+        await persistCurrentMixSettings();
     }
 
     async function handleLoadMix(): Promise<void> {
@@ -794,34 +865,6 @@ export function createProjectPlayerPageController({
         }
 
         const mixSettings = getMixSettings();
-
-        if (projectRole === "viewer") {
-            saveViewerMixSettings(project.id, mixSettings);
-            currentMixSettings = mixSettings;
-        }
-
-        if (canPersistMix(projectRole)) {
-            try {
-                if (projectsApi?.saveMixSettings) {
-                    const updatedProject =
-                        await projectsApi.saveMixSettings(
-                            project.id,
-                            mixSettings,
-                        );
-
-                    currentMixSettings =
-                        updatedProject.mixSettings ??
-                        mixSettings;
-                }
-            } catch {
-                setStatus(
-                    statusElement,
-                    "Could not save mix settings.",
-                );
-
-                return;
-            }
-        }
 
         const enabledMixChannels =
             getEnabledMixChannels(mixSettings);
@@ -980,6 +1023,10 @@ export function createProjectPlayerPageController({
 
         trackListElement.addEventListener("input", (event) => {
             handleTrackListInput(event);
+        });
+
+        trackListElement.addEventListener("change", (event) => {
+            return handleTrackListChange(event);
         });
 
         trackListElement.addEventListener("keydown", (event) => {
