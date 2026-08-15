@@ -14,6 +14,7 @@ export type GrooveShareDatabaseConfig = Pick<
 
 export type ServerConfig = {
   nodeEnv: NodeEnvironment;
+  host: string;
   port: number;
   clientOrigin: string;
   uploadRoot: string;
@@ -23,6 +24,7 @@ export type ServerConfig = {
 };
 
 const DEFAULT_SERVER_PORT = 3000;
+const DEFAULT_SERVER_HOST = "127.0.0.1";
 const DEFAULT_POSTGRES_PORT = 5432;
 const DEFAULT_CLIENT_ORIGIN = "http://localhost:5173";
 const DEFAULT_DATABASE_HOST = "localhost";
@@ -157,6 +159,7 @@ export function createServerConfig(
   env: NodeJS.ProcessEnv = process.env,
 ): ServerConfig {
   const nodeEnv = parseNodeEnvironment(env.NODE_ENV);
+  const host = readTrimmed(env, "HOST") ?? DEFAULT_SERVER_HOST;
   const isProduction = nodeEnv === "production";
 
   const portText = isProduction
@@ -194,6 +197,7 @@ export function createServerConfig(
 
   return {
     nodeEnv,
+    host,
     port: parsePositiveInteger(portText, "PORT"),
     clientOrigin,
     uploadRoot,

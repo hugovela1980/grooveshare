@@ -33,8 +33,10 @@ tester.describe("server configuration", () => {
     const config = createServerConfig(
       createDevelopmentEnv(),
     );
+    
 
     tester.expect(config.nodeEnv).toBe("development");
+    tester.expect(config.host).toBe("127.0.0.1");
     tester.expect(config.port).toBe(3000);
     tester.expect(config.clientOrigin).toBe(
       "http://localhost:5173",
@@ -59,6 +61,7 @@ tester.describe("server configuration", () => {
 
     const config = createServerConfig({
       NODE_ENV: "production",
+      HOST: "127.0.0.1",
       PORT: "8080",
       CLIENT_ORIGIN: "https://music.example.com",
       UPLOAD_ROOT: uploadRoot,
@@ -70,6 +73,7 @@ tester.describe("server configuration", () => {
     });
 
     tester.expect(config.nodeEnv).toBe("production");
+    tester.expect(config.host).toBe("127.0.0.1");
     tester.expect(config.port).toBe(8080);
     tester.expect(config.clientOrigin).toBe(
       "https://music.example.com",

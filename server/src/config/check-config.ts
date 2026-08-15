@@ -9,6 +9,7 @@ try {
   console.log("GrooveShare server configuration is valid.");
   console.log({
     nodeEnv: config.nodeEnv,
+    host: config.host,
     port: config.port,
     clientOrigin: config.clientOrigin,
     uploadRoot: config.uploadRoot,

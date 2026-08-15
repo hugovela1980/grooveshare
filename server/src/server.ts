@@ -48,9 +48,9 @@ const server = createAppServer({
 try {
   await pool.query("SELECT 1");
 
-  server.listen(config.port, () => {
+  server.listen(config.port, config.host, () => {
     console.log(
-      `GrooveShare API listening on port ${config.port} (${config.nodeEnv}).`,
+      `GrooveShare API listening on ${config.host}:${config.port} (${config.nodeEnv}).`,
     );
   });
 } catch (error) {
