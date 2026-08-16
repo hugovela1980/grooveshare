@@ -364,6 +364,15 @@ function sanitizeFilename(filename: string): string {
   return filename.replace(/[^a-zA-Z0-9._-]/g, "-");
 }
 
+function logApiRequest(
+  req: IncomingMessage,
+  description: string,
+): void {
+  console.log(
+    `[API] ${req.method ?? "UNKNOWN"} - ${description}`,
+  );
+}
+
 export function createAppServer({
   projectsStore,
   tracksStore,
@@ -1127,6 +1136,7 @@ export function createAppServer({
   ): Promise<void> {
     try {
       if (req.method === "OPTIONS") {
+        logApiRequest(req, "CORS preflight request");
         res.writeHead(204, {
           "Access-Control-Allow-Origin": clientOrigin,
           "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
@@ -1139,6 +1149,7 @@ export function createAppServer({
       }
 
       if (req.method === "GET" && req.url === "/api/health") {
+        logApiRequest(req, "Check API health");
         sendJson(
           res,
           200,
@@ -1157,6 +1168,7 @@ export function createAppServer({
         req.method === "POST" &&
         req.url === "/api/auth/register"
       ) {
+        logApiRequest(req, "Register user account");
         await handleRegisterRoute({
           req,
           res,
@@ -1172,6 +1184,7 @@ export function createAppServer({
         req.method === "POST" &&
         req.url === "/api/auth/login"
       ) {
+        logApiRequest(req, "Log in user");
         await handleLoginRoute({
           req,
           res,
@@ -1189,6 +1202,7 @@ export function createAppServer({
         req.method === "POST" &&
         req.url === "/api/auth/logout"
       ) {
+        logApiRequest(req, "Log out user");
         await handleLogoutRoute({
           req,
           res,
@@ -1206,6 +1220,7 @@ export function createAppServer({
         req.method === "GET" &&
         req.url === "/api/auth/me"
       ) {
+        logApiRequest(req, "Load current user session");
         await handleCurrentUserRoute({
           req,
           res,
@@ -1230,6 +1245,7 @@ export function createAppServer({
         req.method === "GET" &&
         req.url === "/api/dev/seed-files"
       ) {
+        logApiRequest(req, "List development seed audio files");
         await handleDevSeedFilesRoute({
           res,
           sendJson,
@@ -1245,6 +1261,7 @@ export function createAppServer({
         req.method === "POST" &&
         req.url === "/api/dev/seed-project"
       ) {
+        logApiRequest(req, "Create development seed project");
         await handleDevSeedProjectRoute({
           req,
           res,
@@ -1264,6 +1281,7 @@ export function createAppServer({
         req.method === "POST" &&
         req.url === "/api/dev/seed-authorization"
       ) {
+        logApiRequest(req, "Seed development authorization data");
         await handleDevAuthorizationSeedRoute({
           req,
           res,
@@ -1288,11 +1306,13 @@ export function createAppServer({
       // ============================================= //
 
       if (req.method === "GET" && req.url === "/api/projects") {
+        logApiRequest(req, "List accessible projects");
         await handleGetProjects(req, res);
         return;
       }
 
       if (req.method === "POST" && req.url === "/api/projects") {
+        logApiRequest(req, "Create project");
         await handleCreateProject(req, res);
         return;
       }
@@ -1301,6 +1321,7 @@ export function createAppServer({
         getProjectMemberRouteParams(req.url);
 
       if (req.method === "PUT" && projectMemberRouteParams) {
+        logApiRequest(req, "Update project member role");
         if (
           !await requireProjectPermission(
             req,
@@ -1327,6 +1348,7 @@ export function createAppServer({
       }
 
       if (req.method === "DELETE" && projectMemberRouteParams) {
+        logApiRequest(req, "Remove project member");
         if (
           !await requireProjectPermission(
             req,
@@ -1355,6 +1377,7 @@ export function createAppServer({
         getProjectMembersRouteProjectId(req.url);
 
       if (req.method === "GET" && projectMembersRouteProjectId) {
+        logApiRequest(req, "List project members");
         if (
           !await requireProjectPermission(
             req,
@@ -1379,6 +1402,7 @@ export function createAppServer({
       }
 
       if (req.method === "POST" && projectMembersRouteProjectId) {
+        logApiRequest(req, "Add project member");
         if (
           !await requireProjectPermission(
             req,
@@ -1407,6 +1431,7 @@ export function createAppServer({
         getMixSettingsRouteProjectId(req.url);
 
       if (req.method === "PUT" && mixSettingsRouteProjectId) {
+        logApiRequest(req, "Update project mix settings");
         if (
           !await requireProjectPermission(
             req,
@@ -1430,6 +1455,7 @@ export function createAppServer({
       const projectRouteId = getProjectRouteId(req.url);
 
       if (req.method === "GET" && projectRouteId) {
+        logApiRequest(req, "Load project details");
         const authorization =
           await authorizeProjectRequest({
             req,
@@ -1472,6 +1498,7 @@ export function createAppServer({
       }
 
       if (req.method === "PUT" && projectRouteId) {
+        logApiRequest(req, "Update project details");
         if (
           !await requireProjectPermission(
             req,
@@ -1488,6 +1515,7 @@ export function createAppServer({
       }
 
       if (req.method === "DELETE" && projectRouteId) {
+        logApiRequest(req, "Delete project");
         if (
           !await requireProjectPermission(
             req,
@@ -1506,6 +1534,7 @@ export function createAppServer({
       const trackAudioRouteParams = getTrackAudioRouteParams(req.url);
 
       if (req.method === "GET" && trackAudioRouteParams) {
+        logApiRequest(req, "Stream track audio");
         if (
           !await requireProjectPermission(
             req,
@@ -1530,6 +1559,7 @@ export function createAppServer({
       const tracksRouteProjectId = getTracksRouteProjectId(req.url);
 
       if (req.method === "POST" && tracksRouteProjectId) {
+        logApiRequest(req, "Upload project track");
         const authorization =
           await authorizeProjectRequest({
             req,
@@ -1565,6 +1595,7 @@ export function createAppServer({
       }
 
       if (req.method === "GET" && tracksRouteProjectId) {
+        logApiRequest(req, "List project tracks");
         if (
           !await requireProjectPermission(
             req,
@@ -1583,6 +1614,7 @@ export function createAppServer({
       const trackRouteParams = getTrackRouteParams(req.url);
 
       if (req.method === "PUT" && trackRouteParams) {
+        logApiRequest(req, "Update track details");
         const authorization =
           await authorizeTrackManagementRequest({
             req,
@@ -1620,6 +1652,7 @@ export function createAppServer({
       }
 
       if (req.method === "DELETE" && trackRouteParams) {
+        logApiRequest(req, "Delete track");
         const authorization =
           await authorizeTrackManagementRequest({
             req,
@@ -1660,6 +1693,7 @@ export function createAppServer({
         req.method === "DELETE" &&
         req.url === "/api/dev/reset"
       ) {
+        logApiRequest(req, "Reset development data");
         await handleDevResetRoute({
           res,
           sendJson,
@@ -1670,6 +1704,10 @@ export function createAppServer({
         });
 
         return;
+      }
+
+      if (req.url?.startsWith("/api/")) {
+        logApiRequest(req, "Unmatched API request");
       }
 
       sendJson(

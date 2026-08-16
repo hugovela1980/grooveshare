@@ -430,10 +430,6 @@ function initializeProjectPlayerPage({
     "#player-logout-button",
   );
 
-  logoutButton?.addEventListener("click", () => {
-    void onLogout();
-  });
-
   const menuButton = getElement<HTMLButtonElement>(
     appElement,
     "#player-menu-button",
@@ -531,16 +527,6 @@ function initializeProjectPlayerPage({
 
   audioPlayerController.init();
 
-  backButton?.addEventListener("click", () => {
-    audioPlayerController.stop();
-    navigateTo("project-menu");
-  });
-
-  menuButton?.addEventListener("click", () => {
-    audioPlayerController.stop();
-    navigateTo("project-menu");
-  });
-
   const controller = createProjectPlayerPageController({
     project: selectedProject,
     trackListElement,
@@ -562,6 +548,24 @@ function initializeProjectPlayerPage({
   });
 
   void controller.init();
+
+  backButton?.addEventListener("click", async () => {
+    await controller.flushPendingMixSettings();
+    audioPlayerController.stop();
+    navigateTo("project-menu");
+  });
+
+  menuButton?.addEventListener("click", async () => {
+    await controller.flushPendingMixSettings();
+    audioPlayerController.stop();
+    navigateTo("project-menu");
+  });
+
+  logoutButton?.addEventListener("click", async () => {
+    await controller.flushPendingMixSettings();
+    audioPlayerController.stop();
+    await onLogout();
+  });
 
   if (selectedProject.role === "owner") {
     const memberForm = getElement<HTMLFormElement>(

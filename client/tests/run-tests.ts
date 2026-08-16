@@ -20,6 +20,7 @@ import "./project-permissions.test.js";
 import "./permission-aware-templates.test.js";
 import "./viewer-mix-controller.test.js";
 import "./viewer-mix-storage.test.js";
+import "./pending-mix-storage.test.js";
 import "./project-members-api.test.js";
 import "./project-members-controller.test.js";
 import "./client-config.test.js";

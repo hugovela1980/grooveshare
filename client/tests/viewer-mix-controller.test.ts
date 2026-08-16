@@ -245,7 +245,7 @@ tester.describe("permission-aware mix loading", () => {
     tester.expect(loadCount).toBe(1);
   });
 
-  tester.it("persists Contributor mix settings when a control change is committed, not when loading", async () => {
+  tester.it("defers Contributor server persistence until the pending mix is flushed", async () => {
     const trackListElement = createTrackListElement();
     let saveCount = 0;
     let loadCount = 0;
@@ -289,6 +289,10 @@ tester.describe("permission-aware mix loading", () => {
     tester.expect(saveCount).toBe(0);
 
     await trackListElement.changeVolume(0.65);
+
+    tester.expect(saveCount).toBe(0);
+
+    await controller.flushPendingMixSettings();
 
     tester.expect(saveCount).toBe(1);
   });
