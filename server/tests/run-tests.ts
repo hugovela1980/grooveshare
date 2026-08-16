@@ -20,6 +20,8 @@ import "./server-config.test.js";
 import { tester } from "./test-runner/tester.js";
 import { closePostgresTestDatabase } from "./db/postgres-test-db.js";
 
+process.env.NODE_ENV = "test";
+
 try {
     await tester.run();
 } finally {

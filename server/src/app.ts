@@ -73,6 +73,7 @@ type AppOptions = {
   resetDevelopmentData?: () => Promise<void>;
   secureCookies?: boolean;
   developmentRoutesEnabled?: boolean;
+  requestLoggingEnabled?: boolean;
 };
 
 function sendJson(
@@ -364,15 +365,6 @@ function sanitizeFilename(filename: string): string {
   return filename.replace(/[^a-zA-Z0-9._-]/g, "-");
 }
 
-function logApiRequest(
-  req: IncomingMessage,
-  description: string,
-): void {
-  console.log(
-    `[API] ${req.method ?? "UNKNOWN"} - ${description}`,
-  );
-}
-
 export function createAppServer({
   projectsStore,
   tracksStore,
@@ -386,7 +378,21 @@ export function createAppServer({
   resetDevelopmentData,
   secureCookies = false,
   developmentRoutesEnabled = true,
+  requestLoggingEnabled = process.env.NODE_ENV !== "test",
 }: AppOptions): http.Server {
+  function logApiRequest(
+    req: IncomingMessage,
+    description: string,
+  ): void {
+    if (!requestLoggingEnabled) {
+      return;
+    }
+
+    console.log(
+      `[API] ${req.method ?? "UNKNOWN"} - ${description}`,
+    );
+  }
+
   async function requireProjectPermission(
     req: IncomingMessage,
     res: ServerResponse,
