@@ -65,11 +65,13 @@ type MixChannelForPlayer = {
     name: string;
     audioUrl: string;
     volume: number;
+    enabled: boolean;
 };
 
 type AudioPlayerController = {
     loadMix?: (channels: MixChannelForPlayer[]) => void;
     setChannelVolume?: (channelNumber: number, volume: number) => boolean;
+    setChannelEnabled?: (channelNumber: number, enabled: boolean) => boolean;
     stop?: () => void;
 };
 
@@ -167,6 +169,7 @@ type LoadMixButtonLike = {
 
 type TrackListTargetLike = {
     value?: string;
+    checked?: boolean;
     textContent?: string | null;
     blur?: () => void | Promise<void>;
 
@@ -472,7 +475,7 @@ export function createProjectPlayerPageController({
         );
     }
 
-    function getEnabledMixChannels(
+    function getMixChannelsForPlayer(
         mixSettings: MixSettings,
     ): MixChannelForPlayer[] {
         if (!getTrackAudioUrl) {
@@ -480,7 +483,6 @@ export function createProjectPlayerPageController({
         }
 
         return mixSettings.channels
-            .filter((channel) => channel.enabled)
             .map((channel) => {
                 const track = currentTracks.find((currentTrack) => {
                     return currentTrack.id === channel.trackId;
@@ -499,6 +501,7 @@ export function createProjectPlayerPageController({
                         track.id,
                     ),
                     volume: channel.volume,
+                    enabled: channel.enabled,
                 };
             })
             .filter(
@@ -782,6 +785,32 @@ export function createProjectPlayerPageController({
         };
     }
 
+    function updateLoadedChannelEnabled(
+        channelNumber: number,
+        enabled: boolean,
+    ): void {
+        const didUpdateLoadedChannel =
+            audioPlayerController?.setChannelEnabled?.(channelNumber, enabled) ??
+            false;
+
+        if (!didUpdateLoadedChannel || !lastLoadedMixSettings) {
+            return;
+        }
+
+        lastLoadedMixSettings = {
+            channels: lastLoadedMixSettings.channels.map((channel) => {
+                if (channel.channelNumber !== channelNumber) {
+                    return channel;
+                }
+
+                return {
+                    ...channel,
+                    enabled,
+                };
+            }),
+        };
+    }
+
     function handleTrackListInput(
         event: TrackListEventLike,
     ): void {
@@ -823,6 +852,18 @@ export function createProjectPlayerPageController({
                 }
 
                 updateLoadedChannelVolume(channelNumber, volume);
+            }
+        }
+
+        if (isEnabledInput) {
+            const channelNumberText = target.dataset.mixChannel;
+            const channelNumber = Number(channelNumberText);
+
+            if (Number.isFinite(channelNumber) && channelNumberText) {
+                updateLoadedChannelEnabled(
+                    channelNumber,
+                    target.checked ?? false,
+                );
             }
         }
 
@@ -1017,8 +1058,12 @@ export function createProjectPlayerPageController({
 
         const mixSettings = getMixSettings();
 
-        const enabledMixChannels =
-            getEnabledMixChannels(mixSettings);
+        const mixChannels =
+            getMixChannelsForPlayer(mixSettings);
+
+        const enabledMixChannels = mixChannels.filter((channel) => {
+            return channel.enabled;
+        });
 
         if (enabledMixChannels.length === 0) {
             setStatus(
@@ -1030,7 +1075,7 @@ export function createProjectPlayerPageController({
         }
 
         audioPlayerController.loadMix(
-            enabledMixChannels,
+            mixChannels,
         );
 
         lastLoadedMixSettings = mixSettings;

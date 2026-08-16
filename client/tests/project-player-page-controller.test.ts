@@ -310,6 +310,7 @@ function createFakeTrackListElement() {
 
       await inputHandler({
         target: {
+          checked: enabled,
           dataset: {
             channelEnabled: "",
             mixChannel: String(channelNumber),
@@ -339,6 +340,7 @@ function createFakeTrackListElement() {
 
       await changeHandler({
         target: {
+          checked: enabled,
           dataset: {
             channelEnabled: "",
             mixChannel: String(channelNumber),
@@ -1013,7 +1015,7 @@ tester.describe("project player page controller", () => {
     tester.expect(renderedMixSettings).toEqual(mixSettings);
   });
 
-  tester.it("loads enabled channel slots into the audio player mix", async () => {
+  tester.it("prepares all occupied channels while preserving enabled state", async () => {
     const project = createProject();
 
     const tracks = [
@@ -1050,6 +1052,7 @@ tester.describe("project player page controller", () => {
       name: string;
       audioUrl: string;
       volume: number;
+      enabled: boolean;
     }> = [];
 
     const controller = createProjectPlayerPageController({
@@ -1084,6 +1087,16 @@ tester.describe("project player page controller", () => {
         audioUrl:
           "http://localhost:3000/api/projects/project-1/tracks/track-1/audio",
         volume: 0.75,
+        enabled: true,
+      },
+      {
+        channelNumber: 2,
+        trackId: "track-2",
+        name: "Bass",
+        audioUrl:
+          "http://localhost:3000/api/projects/project-1/tracks/track-2/audio",
+        volume: 0.25,
+        enabled: false,
       },
     ]);
 
@@ -1737,9 +1750,13 @@ tester.describe("project player page controller", () => {
     });
   });
 
-  tester.it("marks the loaded mix dirty when a channel enabled state changes", async () => {
+  tester.it("updates loaded channel enabled state live without making the loaded mix stale", async () => {
     const project = createProject();
     const trackListElement = createFakeTrackListElement();
+    const liveEnabledUpdates: Array<{
+      channelNumber: number;
+      enabled: boolean;
+    }> = [];
 
     trackListElement.setChannelSlots([
       {
@@ -1778,7 +1795,11 @@ tester.describe("project player page controller", () => {
         return "tracks";
       },
       audioPlayerController: {
-        loadMix() { },
+        loadMix() {},
+        setChannelEnabled(channelNumber, enabled) {
+          liveEnabledUpdates.push({ channelNumber, enabled });
+          return true;
+        },
       },
       getTrackAudioUrl() {
         return "audio-url";
@@ -1793,10 +1814,26 @@ tester.describe("project player page controller", () => {
 
     await trackListElement.inputEnabled(1, false);
 
-    tester.expect(trackListElement.isLoadMixCurrent()).toBe(false);
+    tester.expect(liveEnabledUpdates).toEqual([
+      {
+        channelNumber: 1,
+        enabled: false,
+      },
+    ]);
+    tester.expect(trackListElement.isLoadMixCurrent()).toBe(true);
 
     await trackListElement.inputEnabled(1, true);
 
+    tester.expect(liveEnabledUpdates).toEqual([
+      {
+        channelNumber: 1,
+        enabled: false,
+      },
+      {
+        channelNumber: 1,
+        enabled: true,
+      },
+    ]);
     tester.expect(trackListElement.isLoadMixCurrent()).toBe(true);
   });
 

@@ -496,6 +496,90 @@ tester.describe("audio player controller", () => {
         tester.expect(controller.setChannelVolume(3, 0.9)).toBe(false);
     });
 
+    tester.it("keeps a disabled prepared channel advancing while muting and restoring it live", async () => {
+        const secondAudioElement = createFakeAudioElement();
+
+        const {
+            controller,
+            audioElement,
+            playPauseButton,
+        } = createControllerTestSetup({
+            createAudioElement: () => secondAudioElement,
+        });
+
+        controller.init();
+
+        controller.loadMix([
+            {
+                channelNumber: 1,
+                trackId: "track-1",
+                name: "Drums",
+                audioUrl: "http://localhost:3000/audio/drums.wav",
+                volume: 0.75,
+                enabled: true,
+            },
+            {
+                channelNumber: 2,
+                trackId: "track-2",
+                name: "Bass",
+                audioUrl: "http://localhost:3000/audio/bass.wav",
+                volume: 0.5,
+                enabled: false,
+            },
+        ]);
+
+        tester.expect(audioElement.volume).toBe(0.75);
+        tester.expect(secondAudioElement.volume).toBe(0);
+
+        await playPauseButton.click();
+
+        tester.expect(audioElement.playCallCount).toBe(1);
+        tester.expect(secondAudioElement.playCallCount).toBe(1);
+
+        audioElement.currentTime = 57;
+        secondAudioElement.currentTime = 57;
+
+        const firstLoadCallCount = audioElement.loadCallCount;
+        const secondLoadCallCount = secondAudioElement.loadCallCount;
+
+        tester.expect(controller.setChannelEnabled(2, true)).toBe(true);
+        tester.expect(secondAudioElement.volume).toBe(0.5);
+        tester.expect(secondAudioElement.currentTime).toBe(57);
+
+        tester.expect(controller.setChannelEnabled(1, false)).toBe(true);
+        tester.expect(audioElement.volume).toBe(0);
+        tester.expect(audioElement.currentTime).toBe(57);
+
+        tester.expect(audioElement.loadCallCount).toBe(firstLoadCallCount);
+        tester.expect(secondAudioElement.loadCallCount).toBe(secondLoadCallCount);
+        tester.expect(controller.setChannelEnabled(3, true)).toBe(false);
+    });
+
+    tester.it("remembers volume changes while a channel is disabled", () => {
+        const { controller, audioElement } = createControllerTestSetup();
+
+        controller.init();
+
+        controller.loadMix([
+            {
+                channelNumber: 1,
+                trackId: "track-1",
+                name: "Guitar",
+                audioUrl: "http://localhost:3000/audio/guitar.wav",
+                volume: 0.8,
+                enabled: false,
+            },
+        ]);
+
+        tester.expect(audioElement.volume).toBe(0);
+
+        tester.expect(controller.setChannelVolume(1, 0.35)).toBe(true);
+        tester.expect(audioElement.volume).toBe(0);
+
+        tester.expect(controller.setChannelEnabled(1, true)).toBe(true);
+        tester.expect(audioElement.volume).toBe(0.35);
+    });
+
     tester.it("stops all tracks in a loaded mix", async () => {
         const secondAudioElement = createFakeAudioElement();
 
