@@ -1,6 +1,6 @@
 .mix-channel-panel {
     --mix-channel-grid-columns:
-        5.5rem minmax(10rem, 12rem) minmax(8rem, 9.5rem) minmax(13rem, 1fr) 6rem;
+        5.5rem minmax(10rem, 1fr) minmax(8rem, 12rem) 6rem;
 
     display: grid;
     gap: 1rem;
@@ -47,8 +47,7 @@
     grid-template-columns: 4.5rem minmax(0, 1fr) auto;
     grid-template-areas:
         "channel name actions"
-        "channel volume actions"
-        "timeline timeline timeline";
+        "channel volume actions";
     gap: 0;
     background: var(--color-surface-strong);
 }
@@ -63,7 +62,6 @@
 .mix-channel-slot__channel-cell,
 .mix-channel-slot__name-cell,
 .mix-channel-slot__volume-cell,
-.mix-channel-slot__timeline-cell,
 .mix-channel-slot__actions {
     min-width: 0;
     padding: 0.7rem;
@@ -79,10 +77,6 @@
 
 .mix-channel-slot__volume-cell {
     grid-area: volume;
-}
-
-.mix-channel-slot__timeline-cell {
-    grid-area: timeline;
 }
 
 .mix-channel-slot__actions {
@@ -228,42 +222,6 @@
 }
 
 
-/* Timeline */
-
-.mix-channel-slot__timeline-cell {
-    display: flex;
-    align-items: center;
-}
-
-.mix-channel-slot__waveform-placeholder {
-    display: flex;
-    width: 100%;
-    min-height: 3.75rem;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-    border: 1px dashed var(--border-input);
-    border-radius: var(--radius-lg);
-    color: var(--color-text-subtle-cool);
-    background:
-        linear-gradient(90deg,
-            transparent 0%,
-            transparent 8%,
-            rgba(255, 255, 255, 0.08) 8%,
-            rgba(255, 255, 255, 0.08) 10%,
-            transparent 10%,
-            transparent 18%,
-            rgba(255, 255, 255, 0.12) 18%,
-            rgba(255, 255, 255, 0.12) 22%,
-            transparent 22%,
-            transparent 32%,
-            rgba(255, 255, 255, 0.1) 32%,
-            rgba(255, 255, 255, 0.1) 35%,
-            transparent 35%),
-        var(--color-surface-deep);
-}
-
-
 /* Actions */
 
 .mix-channel-slot__actions {
@@ -293,7 +251,6 @@
 
 .mix-channel-slot--empty .mix-channel-slot__name-cell,
 .mix-channel-slot--empty .mix-channel-slot__volume-cell,
-.mix-channel-slot--empty .mix-channel-slot__timeline-cell,
 .mix-channel-slot--empty .mix-channel-slot__actions {
     display: none;
 }
@@ -324,36 +281,29 @@
     }
 
     .mix-channel-slot {
-        grid-template-areas: "channel name volume timeline actions";
+        grid-template-areas: "channel name volume actions";
     }
 
     .mix-channel-slot__channel-cell,
     .mix-channel-slot__name-cell,
-    .mix-channel-slot__volume-cell,
-    .mix-channel-slot__timeline-cell {
+    .mix-channel-slot__volume-cell {
         border-right: 1px solid var(--border-dark);
     }
 
     .mix-channel-slot__channel-cell,
     .mix-channel-slot__name-cell,
     .mix-channel-slot__volume-cell,
-    .mix-channel-slot__timeline-cell,
     .mix-channel-slot__actions {
         padding: 0.65rem;
     }
 
-    .mix-channel-slot__waveform-placeholder {
-        min-height: 4.5rem;
-    }
-
     .mix-channel-slot--empty {
         grid-template-columns: var(--mix-channel-grid-columns);
-        grid-template-areas: "channel name volume timeline actions";
+        grid-template-areas: "channel name volume actions";
     }
 
     .mix-channel-slot--empty .mix-channel-slot__name-cell,
     .mix-channel-slot--empty .mix-channel-slot__volume-cell,
-    .mix-channel-slot--empty .mix-channel-slot__timeline-cell,
     .mix-channel-slot--empty .mix-channel-slot__actions {
         display: block;
     }
@@ -369,7 +319,6 @@
         grid-template-areas:
             "channel name"
             "volume volume"
-            "timeline timeline"
             "actions actions";
     }
 

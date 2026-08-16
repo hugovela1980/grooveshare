@@ -115,12 +115,13 @@ tester.describe("mix channel slots template", () => {
         tester.expect(html.includes("✎")).toBe(false);
     });
 
-    tester.it("renders enabled, volume, waveform, and delete controls for assigned tracks", () => {
+    tester.it("renders enabled, volume, and delete controls without waveform placeholders", () => {
         const html = renderMixChannelSlots([createTrack()]);
 
         tester.expect(html.includes("data-channel-enabled")).toBe(true);
         tester.expect(html.includes("data-channel-volume")).toBe(true);
-        tester.expect(html.includes("Waveform placeholder")).toBe(true);
+        tester.expect(html.includes("Waveform placeholder")).toBe(false);
+        tester.expect(html.includes("mix-channel-slot__timeline-cell")).toBe(false);
         tester.expect(html.includes("data-track-delete-button")).toBe(true);
         tester.expect(html.includes("Delete")).toBe(true);
         tester.expect(html.includes("data-mix-channel-slot")).toBe(true);
@@ -133,6 +134,7 @@ tester.describe("mix channel slots template", () => {
         tester.expect(html.includes("Load Mix")).toBe(false);
         tester.expect(html.includes('id="load-mix-button"')).toBe(false);
         tester.expect(html.includes("data-load-mix-button")).toBe(false);
+        tester.expect(html.includes(">Timeline<")).toBe(false);
         tester.expect(html.includes("Enable up to four tracks and adjust their volume during playback.")).toBe(true);
     });
 

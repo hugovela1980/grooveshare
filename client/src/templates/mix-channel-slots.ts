@@ -141,12 +141,6 @@ function renderAssignedChannelSlot(
         </label>
       </div>
 
-      <div class="mix-channel-slot__timeline-cell">
-        <div class="mix-channel-slot__waveform-placeholder">
-          Waveform placeholder
-        </div>
-      </div>
-
       <div class="mix-channel-slot__actions">
         ${mayManageTrack
           ? /*html*/ `
@@ -194,7 +188,6 @@ function renderEmptyChannelSlot(
 
       <div class="mix-channel-slot__name-cell" aria-hidden="true"></div>
       <div class="mix-channel-slot__volume-cell" aria-hidden="true"></div>
-      <div class="mix-channel-slot__timeline-cell" aria-hidden="true"></div>
       <div class="mix-channel-slot__actions" aria-hidden="true"></div>
     </article>
   `;
@@ -223,7 +216,6 @@ export function renderMixChannelSlots(
         <span>Channel</span>
         <span>Name</span>
         <span>Volume</span>
-        <span>Timeline</span>
         <span></span>
       </div>
 
