@@ -580,6 +580,97 @@ tester.describe("audio player controller", () => {
         tester.expect(audioElement.volume).toBe(0.35);
     });
 
+    tester.it("keeps transport available for a prepared mix when all channels are disabled", () => {
+        const {
+            controller,
+            audioElement,
+            playPauseButton,
+            stopButton,
+            progressInput,
+            trackNameElement,
+        } = createControllerTestSetup();
+
+        controller.init();
+
+        controller.loadMix([
+            {
+                channelNumber: 1,
+                trackId: "track-1",
+                name: "Guitar",
+                audioUrl: "http://localhost:3000/audio/guitar.wav",
+                volume: 0.8,
+                enabled: false,
+            },
+        ]);
+
+        tester.expect(audioElement.volume).toBe(0);
+        tester.expect(playPauseButton.disabled).toBe(false);
+        tester.expect(stopButton.disabled).toBe(false);
+        tester.expect(progressInput.disabled).toBe(false);
+        tester.expect(trackNameElement.textContent).toBe("All channels disabled.");
+
+        tester.expect(controller.setChannelEnabled(1, true)).toBe(true);
+        tester.expect(trackNameElement.textContent).toBe("Guitar");
+    });
+
+    tester.it("clears the prepared player when the current project has no assigned tracks", () => {
+        const {
+            controller,
+            playPauseButton,
+            stopButton,
+            progressInput,
+            trackNameElement,
+        } = createControllerTestSetup();
+
+        controller.init();
+
+        controller.loadMix([
+            {
+                channelNumber: 1,
+                trackId: "track-1",
+                name: "Guitar",
+                audioUrl: "http://localhost:3000/audio/guitar.wav",
+                volume: 1,
+                enabled: true,
+            },
+        ]);
+
+        controller.loadMix([]);
+
+        tester.expect(playPauseButton.disabled).toBe(true);
+        tester.expect(stopButton.disabled).toBe(true);
+        tester.expect(progressInput.disabled).toBe(true);
+        tester.expect(trackNameElement.textContent).toBe("No track loaded.");
+    });
+
+    tester.it("updates a prepared track name without reloading playback", () => {
+        const {
+            controller,
+            audioElement,
+            trackNameElement,
+        } = createControllerTestSetup();
+
+        controller.init();
+
+        controller.loadMix([
+            {
+                channelNumber: 1,
+                trackId: "track-1",
+                name: "Guitar",
+                audioUrl: "http://localhost:3000/audio/guitar.wav",
+                volume: 1,
+                enabled: true,
+            },
+        ]);
+
+        const loadCallCount = audioElement.loadCallCount;
+
+        tester.expect(controller.setTrackName("track-1", "Lead Guitar")).toBe(true);
+        tester.expect(trackNameElement.textContent).toBe("Lead Guitar");
+        tester.expect(audioElement.loadCallCount).toBe(loadCallCount);
+        tester.expect(controller.setTrackName("missing-track", "Other")).toBe(false);
+    });
+
     tester.it("stops all tracks in a loaded mix", async () => {
         const secondAudioElement = createFakeAudioElement();
 

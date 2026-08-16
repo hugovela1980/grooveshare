@@ -81,8 +81,6 @@ function createTrackListElement() {
   let changeHandler: ((event: MixEvent) => void | Promise<void>) | null = null;
   let enabled = true;
   let volume = 1;
-  const classes = new Set<string>();
-
   const slot = {
     dataset: {
       mixChannel: "1",
@@ -119,20 +117,7 @@ function createTrackListElement() {
         changeHandler = handler;
       }
     },
-    querySelector(selector: string) {
-      if (selector === "[data-load-mix-button]") {
-        return {
-          classList: {
-            add(className: string) {
-              classes.add(className);
-            },
-            remove(className: string) {
-              classes.delete(className);
-            },
-          },
-        };
-      }
-
+    querySelector() {
       return null;
     },
     querySelectorAll() {
@@ -191,24 +176,11 @@ function createTrackListElement() {
       });
     },
 
-    async clickLoadMix() {
-      if (!clickHandler) {
-        throw new Error("Click handler was not registered.");
-      }
-
-      await clickHandler({
-        target: {
-          closest(selector: string) {
-            return selector === "[data-load-mix-button]" ? {} : null;
-          },
-        } as unknown as EventTarget,
-      });
-    },
   };
 }
 
 tester.describe("permission-aware mix loading", () => {
-  tester.it("lets a Viewer load/play a local mix without saving shared mix settings", async () => {
+  tester.it("automatically prepares a Viewer local mix without saving shared mix settings", async () => {
     const trackListElement = createTrackListElement();
     let saveCount = 0;
     let loadCount = 0;
@@ -239,7 +211,6 @@ tester.describe("permission-aware mix loading", () => {
     });
 
     await controller.init();
-    await trackListElement.clickLoadMix();
 
     tester.expect(saveCount).toBe(0);
     tester.expect(loadCount).toBe(1);
@@ -279,7 +250,6 @@ tester.describe("permission-aware mix loading", () => {
     });
 
     await controller.init();
-    await trackListElement.clickLoadMix();
 
     tester.expect(saveCount).toBe(0);
     tester.expect(loadCount).toBe(1);
@@ -320,7 +290,6 @@ tester.describe("permission-aware mix loading", () => {
       });
 
       await controller.init();
-      await trackListElement.clickLoadMix();
 
       tester.expect(
         localStorageTest.values.has("grooveshare:viewer-mix:project-1"),

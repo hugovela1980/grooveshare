@@ -24,31 +24,6 @@
 }
 
 
-/* Load Mix button */
-
-.mix-channel-panel__load-button {
-    transition:
-        opacity 150ms ease,
-        filter 150ms ease,
-        transform 120ms ease;
-}
-
-.mix-channel-panel__load-button:hover {
-    transform: translateY(-1px);
-}
-
-.mix-channel-panel__load-button--current {
-    opacity: 0.45;
-    filter: saturate(0.45);
-    transform: none;
-}
-
-.mix-channel-panel__load-button--current:hover {
-    opacity: 0.6;
-    transform: none;
-}
-
-
 /* Column headings */
 
 .mix-channel-grid-header {

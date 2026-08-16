@@ -127,13 +127,13 @@ tester.describe("mix channel slots template", () => {
         tester.expect(html.includes('data-mix-channel="1"')).toBe(true);
     });
 
-    tester.it("renders a Load Mix button for preparing the current channel setup", () => {
+    tester.it("describes the reactive mixer without rendering a Load Mix control", () => {
         const html = renderMixChannelSlots([]);
 
-        tester.expect(html.includes("Load Mix")).toBe(true);
-        tester.expect(html.includes('id="load-mix-button"')).toBe(true);
-        tester.expect(html.includes("data-load-mix-button")).toBe(true);
-        tester.expect(html.includes("Enable up to four tracks, set volume, then load the mix into the player.")).toBe(true);
+        tester.expect(html.includes("Load Mix")).toBe(false);
+        tester.expect(html.includes('id="load-mix-button"')).toBe(false);
+        tester.expect(html.includes("data-load-mix-button")).toBe(false);
+        tester.expect(html.includes("Enable up to four tracks and adjust their volume during playback.")).toBe(true);
     });
 
     tester.it("renders the first four uploaded tracks as Channels 1 through 4", () => {
@@ -265,6 +265,6 @@ tester.describe("mix channel slots template", () => {
 
         tester.expect(
             html.includes("mix-channel-panel__load-button"),
-        ).toBe(true);
+        ).toBe(false);
     });
 });

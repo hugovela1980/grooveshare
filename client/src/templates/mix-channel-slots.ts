@@ -214,18 +214,9 @@ export function renderMixChannelSlots(
           <h3 class="mix-channel-panel__title">Mix Channels</h3>
 
           <p class="mix-channel-panel__description">
-            Enable up to four tracks, set volume, then load the mix into the player.
+            Enable up to four tracks and adjust their volume during playback.
           </p>
         </div>
-
-        <button
-          id="load-mix-button"
-          class="button mix-channel-panel__load-button"
-          type="button"
-          data-load-mix-button
-        >
-          Load Mix
-        </button>
       </div>
 
       <div class="mix-channel-grid-header" aria-hidden="true">

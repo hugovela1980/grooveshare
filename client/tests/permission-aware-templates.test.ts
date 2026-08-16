@@ -75,7 +75,7 @@ tester.describe("permission-aware templates", () => {
       },
     );
 
-    tester.expect(html.includes("Load Mix")).toBe(true);
+    tester.expect(html.includes("Load Mix")).toBe(false);
     tester.expect(html.includes("data-channel-enabled")).toBe(true);
     tester.expect(html.includes("data-channel-volume")).toBe(true);
     tester.expect(html.includes("data-track-delete-button")).toBe(false);

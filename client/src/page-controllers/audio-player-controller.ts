@@ -232,6 +232,33 @@ export function createAudioPlayerController({
         updateProgress();
     }
 
+    function updateLoadedMixPresentation(): void {
+        const enabledChannels = loadedMixChannels.filter(({ channel }) => {
+            return channel.enabled !== false;
+        });
+
+        if (loadedMixChannels.length === 0) {
+            trackNameElement.textContent = "No track loaded.";
+            setControlsEnabled(false);
+            return;
+        }
+
+        if (enabledChannels.length === 0) {
+            trackNameElement.textContent = "All channels disabled.";
+        } else {
+            const trackNames = enabledChannels
+                .map(({ channel }) => channel.name)
+                .join(", ");
+
+            trackNameElement.textContent =
+                enabledChannels.length === 1
+                    ? trackNames
+                    : `Mix loaded: ${trackNames}`;
+        }
+
+        setControlsEnabled(true);
+    }
+
     function setChannelVolume(
         channelNumber: number,
         volume: number,
@@ -270,6 +297,21 @@ export function createAudioPlayerController({
             ? clampVolume(loadedChannel.channel.volume)
             : 0;
 
+        updateLoadedMixPresentation();
+        return true;
+    }
+
+    function setTrackName(trackId: string, name: string): boolean {
+        const loadedChannel = loadedMixChannels.find(({ channel }) => {
+            return channel.trackId === trackId;
+        });
+
+        if (!loadedChannel) {
+            return false;
+        }
+
+        loadedChannel.channel.name = name;
+        updateLoadedMixPresentation();
         return true;
     }
 
@@ -294,24 +336,10 @@ export function createAudioPlayerController({
             };
         });
 
-        const enabledChannels = channels.filter((channel) => {
-            return channel.enabled !== false;
-        });
-
-        const trackNames = enabledChannels
-            .map((channel) => channel.name)
-            .join(", ");
-
-        trackNameElement.textContent =
-            enabledChannels.length === 1
-                ? trackNames
-                : `Mix loaded: ${trackNames}`;
-
         progressInput.value = "0";
         timestampElement.textContent = "00:00";
         setPlayPauseButtonIcon();
-
-        setControlsEnabled(enabledChannels.length > 0);
+        updateLoadedMixPresentation();
     }
 
     function init(): void {
@@ -365,6 +393,7 @@ export function createAudioPlayerController({
         loadMix,
         setChannelVolume,
         setChannelEnabled,
+        setTrackName,
         stop,
     };
 }
