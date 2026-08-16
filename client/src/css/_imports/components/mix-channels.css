@@ -236,6 +236,12 @@
     font-size: 0.8rem;
 }
 
+.mix-channel-slot__delete-icon,
+.mix-channel-slot__add-track-symbol,
+.mix-channel-slot__empty-name {
+    display: none;
+}
+
 
 /* Empty channel */
 

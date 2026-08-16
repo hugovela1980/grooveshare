@@ -56,10 +56,12 @@ type TextElementLike = {
 
 type AudioPlayerControllerOptions = {
     audioElement: AudioElementLike;
+    seekBackwardButton: ButtonElementLike;
     playPauseButton: ButtonElementLike;
     stopButton: ButtonElementLike;
     progressInput: RangeInputElementLike;
     timestampElement: TextElementLike;
+    durationElement: TextElementLike;
     trackNameElement: TextElementLike;
     createAudioElement?: () => AudioElementLike;
     loopCheckbox: CheckboxElementLike;
@@ -71,6 +73,7 @@ function isUsableDuration(duration: number): boolean {
 
 const PLAY_ICON = "▶";
 const PAUSE_ICON = "❚❚";
+const SEEK_BACKWARD_SECONDS = 5;
 
 export function formatTimestamp(totalSeconds: number): string {
     if (!Number.isFinite(totalSeconds) || totalSeconds < 0) {
@@ -85,10 +88,12 @@ export function formatTimestamp(totalSeconds: number): string {
 
 export function createAudioPlayerController({
     audioElement,
+    seekBackwardButton,
     playPauseButton,
     stopButton,
     progressInput,
     timestampElement,
+    durationElement,
     trackNameElement,
     loopCheckbox,
     createAudioElement = () => document.createElement("audio"),
@@ -97,6 +102,7 @@ export function createAudioPlayerController({
     let loadedMixChannels: LoadedMixChannel[] = [];
 
     function setControlsEnabled(isEnabled: boolean): void {
+        seekBackwardButton.disabled = !isEnabled;
         playPauseButton.disabled = !isEnabled;
         stopButton.disabled = !isEnabled;
         progressInput.disabled = !isEnabled;
@@ -113,15 +119,12 @@ export function createAudioPlayerController({
     function updateTimestamp(): void {
         const primaryAudioElement = getPrimaryAudioElement();
 
-        if (isUsableDuration(primaryAudioElement.duration)) {
-            timestampElement.textContent = `${formatTimestamp(
-                primaryAudioElement.currentTime,
-            )} / ${formatTimestamp(primaryAudioElement.duration)}`;
-
-            return;
-        }
-
-        timestampElement.textContent = formatTimestamp(primaryAudioElement.currentTime);
+        timestampElement.textContent = formatTimestamp(
+            primaryAudioElement.currentTime,
+        );
+        durationElement.textContent = isUsableDuration(primaryAudioElement.duration)
+            ? formatTimestamp(primaryAudioElement.duration)
+            : "00:00";
     }
 
     function updateProgress(): void {
@@ -167,7 +170,7 @@ export function createAudioPlayerController({
             loadedAudioElement.pause();
         }
 
-        setPlayPauseButtonIcon();;
+        setPlayPauseButtonIcon();
     }
 
     function stop(): void {
@@ -179,7 +182,7 @@ export function createAudioPlayerController({
             loadedAudioElement.currentTime = 0;
         }
 
-        setPlayPauseButtonIcon();;
+        setPlayPauseButtonIcon();
         updateProgress();
     }
 
@@ -197,7 +200,7 @@ export function createAudioPlayerController({
             }),
         );
 
-        setPlayPauseButtonIcon();;
+        setPlayPauseButtonIcon();
         updateProgress();
     }
 
@@ -217,6 +220,22 @@ export function createAudioPlayerController({
         const nextCurrentTime =
             (Math.max(0, Math.min(100, progressPercentage)) / 100) *
             primaryAudioElement.duration;
+
+        setAllAudioElementsToCurrentTime(nextCurrentTime);
+        updateProgress();
+    }
+
+    function seekBySeconds(seconds: number): void {
+        const primaryAudioElement = getPrimaryAudioElement();
+
+        if (!primaryAudioElement.src || !Number.isFinite(seconds)) {
+            return;
+        }
+
+        const unclampedTime = primaryAudioElement.currentTime + seconds;
+        const nextCurrentTime = isUsableDuration(primaryAudioElement.duration)
+            ? Math.max(0, Math.min(primaryAudioElement.duration, unclampedTime))
+            : Math.max(0, unclampedTime);
 
         setAllAudioElementsToCurrentTime(nextCurrentTime);
         updateProgress();
@@ -338,15 +357,19 @@ export function createAudioPlayerController({
 
         progressInput.value = "0";
         timestampElement.textContent = "00:00";
+        durationElement.textContent = "00:00";
         setPlayPauseButtonIcon();
         updateLoadedMixPresentation();
     }
 
     function init(): void {
         setControlsEnabled(false);
-        setPlayPauseButtonIcon();;
+        setPlayPauseButtonIcon();
         updateTimestamp();
 
+        seekBackwardButton.addEventListener("click", () => {
+            seekBySeconds(-SEEK_BACKWARD_SECONDS);
+        });
         playPauseButton.addEventListener("click", () => handlePlayPauseClick());
         stopButton.addEventListener("click", stop);
 

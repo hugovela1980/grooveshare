@@ -9,10 +9,14 @@ tester.describe("audio player template", () => {
         tester.expect(html.includes("No track loaded.")).toBe(true);
         tester.expect(html.includes("project-audio-player")).toBe(true);
         tester.expect(html.includes('crossorigin="use-credentials"')).toBe(true);
+        tester.expect(html.includes("audio-seek-back-button")).toBe(true);
+        tester.expect(html.includes('aria-label="Seek backward 5 seconds"')).toBe(true);
+        tester.expect(html.includes("-5s")).toBe(true);
         tester.expect(html.includes("audio-play-pause-button")).toBe(true);
         tester.expect(html.includes("audio-stop-button")).toBe(true);
         tester.expect(html.includes("audio-progress")).toBe(true);
         tester.expect(html.includes("audio-timestamp")).toBe(true);
+        tester.expect(html.includes("audio-duration")).toBe(true);
         tester.expect(html.includes("Loop")).toBe(true);
         tester.expect(html.includes('id="audio-loop-checkbox"')).toBe(true);
         tester.expect(html.includes("data-audio-loop-checkbox")).toBe(true);

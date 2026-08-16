@@ -18,6 +18,22 @@ export function renderAudioPlayer(): string {
       <audio id="project-audio-player" crossorigin="use-credentials"></audio>
 
       <div class="audio-player__controls">
+        <div class="audio-player__seek-back-control">
+          <button
+            id="audio-seek-back-button"
+            class="button audio-player__transport-button audio-player__seek-back-button"
+            type="button"
+            aria-label="Seek backward 5 seconds"
+            disabled
+          >
+            <span aria-hidden="true">↶5</span>
+          </button>
+
+          <span class="audio-player__control-caption" aria-hidden="true">
+            -5s
+          </span>
+        </div>
+
         <button
           id="audio-play-pause-button"
           class="button audio-player__transport-button audio-player__play-pause-button"
@@ -38,14 +54,20 @@ export function renderAudioPlayer(): string {
           ■
         </button>
 
-        <label class="audio-player__loop-label">
-          <span>Loop</span>
-
+        <label class="audio-player__loop-control">
           <input
             id="audio-loop-checkbox"
             type="checkbox"
             data-audio-loop-checkbox
           />
+
+          <span class="audio-player__loop-button" aria-hidden="true">
+            ↻
+          </span>
+
+          <span class="audio-player__control-caption">
+            Loop
+          </span>
         </label>
 
         <div class="audio-player__timeline">
@@ -67,6 +89,10 @@ export function renderAudioPlayer(): string {
             value="0"
             disabled
           />
+
+          <span id="audio-duration" class="audio-player__duration">
+            00:00
+          </span>
         </div>
       </div>
     </section>

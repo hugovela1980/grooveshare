@@ -149,8 +149,10 @@ function renderAssignedChannelSlot(
               type="button"
               data-track-delete-button
               data-track-id="${escapeHtml(track.id)}"
+              aria-label="Delete track ${escapeHtml(track.name)}"
             >
-              Delete
+              <span class="mix-channel-slot__delete-icon" aria-hidden="true">×</span>
+              <span class="mix-channel-slot__delete-label">Delete</span>
             </button>
           `
           : ""}
@@ -170,8 +172,10 @@ function renderEmptyChannelSlot(
         type="button"
         data-track-add-button
         data-mix-channel="${channelNumber}"
+        aria-label="Add track to channel ${channelNumber}"
       >
-        Add Track
+        <span class="mix-channel-slot__add-track-symbol" aria-hidden="true">+</span>
+        <span class="mix-channel-slot__add-track-label">Add Track</span>
       </button>
     `
     : '<span class="mix-channel-slot__empty-label">Empty</span>';
@@ -186,7 +190,11 @@ function renderEmptyChannelSlot(
         ${addTrackMarkup}
       </div>
 
-      <div class="mix-channel-slot__name-cell" aria-hidden="true"></div>
+      <div class="mix-channel-slot__name-cell" aria-hidden="true">
+        <span class="mix-channel-slot__empty-name">
+          ${canContribute(context.role) ? "Add Track" : "Empty"}
+        </span>
+      </div>
       <div class="mix-channel-slot__volume-cell" aria-hidden="true"></div>
       <div class="mix-channel-slot__actions" aria-hidden="true"></div>
     </article>

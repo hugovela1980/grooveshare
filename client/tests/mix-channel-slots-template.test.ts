@@ -254,6 +254,17 @@ tester.describe("mix channel slots template", () => {
         tester.expect(html.includes("100%")).toBe(true);
     });
 
+    tester.it("renders compact mobile affordance hooks for track actions", () => {
+        const assignedHtml = renderMixChannelSlots([createTrack()]);
+        const emptyHtml = renderMixChannelSlots([]);
+
+        tester.expect(assignedHtml.includes("mix-channel-slot__delete-icon")).toBe(true);
+        tester.expect(assignedHtml.includes("mix-channel-slot__delete-label")).toBe(true);
+        tester.expect(emptyHtml.includes("mix-channel-slot__add-track-symbol")).toBe(true);
+        tester.expect(emptyHtml.includes("mix-channel-slot__empty-name")).toBe(true);
+        tester.expect(emptyHtml.includes('aria-label="Add track to channel 1"')).toBe(true);
+    });
+
     tester.it("renders a volume value target for each assigned channel", () => {
         const html = renderMixChannelSlots([createTrack()]);
 

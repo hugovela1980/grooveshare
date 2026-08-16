@@ -125,19 +125,23 @@ function createControllerTestSetup(options: {
     createAudioElement?: () => ReturnType<typeof createFakeAudioElement>;
 } = {}) {
     const audioElement = createFakeAudioElement();
+    const seekBackwardButton = createFakeButton();
     const playPauseButton = createFakeButton();
     const stopButton = createFakeButton();
     const loopCheckbox = createFakeCheckbox();
     const progressInput = createFakeRangeInput();
     const timestampElement = createFakeTextElement();
+    const durationElement = createFakeTextElement();
     const trackNameElement = createFakeTextElement();
 
     const controller = createAudioPlayerController({
         audioElement,
+        seekBackwardButton,
         playPauseButton,
         stopButton,
         progressInput,
         timestampElement,
+        durationElement,
         trackNameElement,
         loopCheckbox,
         createAudioElement: options.createAudioElement,
@@ -145,10 +149,12 @@ function createControllerTestSetup(options: {
 
     return {
         audioElement,
+        seekBackwardButton,
         playPauseButton,
         stopButton,
         progressInput,
         timestampElement,
+        durationElement,
         trackNameElement,
         loopCheckbox,
         controller,
@@ -164,11 +170,17 @@ tester.describe("audio player controller", () => {
     });
 
     tester.it("disables controls before a track is loaded", () => {
-        const { controller, playPauseButton, stopButton, progressInput } =
-            createControllerTestSetup();
+        const {
+            controller,
+            seekBackwardButton,
+            playPauseButton,
+            stopButton,
+            progressInput,
+        } = createControllerTestSetup();
 
         controller.init();
 
+        tester.expect(seekBackwardButton.disabled).toBe(true);
         tester.expect(playPauseButton.disabled).toBe(true);
         tester.expect(stopButton.disabled).toBe(true);
         tester.expect(progressInput.disabled).toBe(true);
@@ -179,10 +191,12 @@ tester.describe("audio player controller", () => {
         const {
             controller,
             audioElement,
+            seekBackwardButton,
             playPauseButton,
             stopButton,
             progressInput,
             timestampElement,
+            durationElement,
             trackNameElement,
         } = createControllerTestSetup();
 
@@ -201,11 +215,13 @@ tester.describe("audio player controller", () => {
         tester.expect(audioElement.src).toBe("http://localhost:3000/audio/guitar.wav");
         tester.expect(audioElement.currentTime).toBe(0);
         tester.expect(audioElement.loadCallCount).toBe(1);
+        tester.expect(seekBackwardButton.disabled).toBe(false);
         tester.expect(playPauseButton.disabled).toBe(false);
         tester.expect(stopButton.disabled).toBe(false);
         tester.expect(progressInput.disabled).toBe(false);
         tester.expect(progressInput.value).toBe("0");
         tester.expect(timestampElement.textContent).toBe("00:00");
+        tester.expect(durationElement.textContent).toBe("00:00");
         tester.expect(trackNameElement.textContent).toBe("Guitar Take");
         tester.expect(playPauseButton.textContent).toBe("▶");
     });
@@ -303,8 +319,13 @@ tester.describe("audio player controller", () => {
     });
 
     tester.it("updates progress and timestamp as audio plays", async () => {
-        const { controller, audioElement, progressInput, timestampElement } =
-            createControllerTestSetup();
+        const {
+            controller,
+            audioElement,
+            progressInput,
+            timestampElement,
+            durationElement,
+        } = createControllerTestSetup();
 
         controller.init();
 
@@ -323,12 +344,18 @@ tester.describe("audio player controller", () => {
         await audioElement.trigger("timeupdate");
 
         tester.expect(progressInput.value).toBe("25");
-        tester.expect(timestampElement.textContent).toBe("00:30 / 02:00");
+        tester.expect(timestampElement.textContent).toBe("00:30");
+        tester.expect(durationElement.textContent).toBe("02:00");
     });
 
     tester.it("seeks when the progress input changes", () => {
-        const { controller, audioElement, progressInput, timestampElement } =
-            createControllerTestSetup();
+        const {
+            controller,
+            audioElement,
+            progressInput,
+            timestampElement,
+            durationElement,
+        } = createControllerTestSetup();
 
         controller.init();
 
@@ -348,7 +375,70 @@ tester.describe("audio player controller", () => {
         progressInput.change();
 
         tester.expect(audioElement.currentTime).toBe(100);
-        tester.expect(timestampElement.textContent).toBe("01:40 / 03:20");
+        tester.expect(timestampElement.textContent).toBe("01:40");
+        tester.expect(durationElement.textContent).toBe("03:20");
+    });
+
+    tester.it("seeks backward five seconds without interrupting playback", async () => {
+        const secondAudioElement = createFakeAudioElement();
+        const {
+            controller,
+            audioElement,
+            seekBackwardButton,
+            playPauseButton,
+        } = createControllerTestSetup({
+            createAudioElement: () => secondAudioElement,
+        });
+
+        controller.init();
+        controller.loadMix([
+            {
+                channelNumber: 1,
+                trackId: "track-1",
+                name: "Drums",
+                audioUrl: "http://localhost:3000/audio/drums.wav",
+                volume: 1,
+            },
+            {
+                channelNumber: 2,
+                trackId: "track-2",
+                name: "Bass",
+                audioUrl: "http://localhost:3000/audio/bass.wav",
+                volume: 1,
+            },
+        ]);
+
+        await playPauseButton.click();
+        audioElement.currentTime = 42;
+        secondAudioElement.currentTime = 42;
+
+        await seekBackwardButton.click();
+
+        tester.expect(audioElement.currentTime).toBe(37);
+        tester.expect(secondAudioElement.currentTime).toBe(37);
+        tester.expect(audioElement.paused).toBe(false);
+        tester.expect(secondAudioElement.paused).toBe(false);
+    });
+
+    tester.it("clamps five-second back seek at the beginning", async () => {
+        const { controller, audioElement, seekBackwardButton } =
+            createControllerTestSetup();
+
+        controller.init();
+        controller.loadMix([
+            {
+                channelNumber: 1,
+                trackId: "track-1",
+                name: "Guitar",
+                audioUrl: "http://localhost:3000/audio/guitar.wav",
+                volume: 1,
+            },
+        ]);
+
+        audioElement.currentTime = 3;
+        await seekBackwardButton.click();
+
+        tester.expect(audioElement.currentTime).toBe(0);
     });
 
     tester.it("seeks all loaded tracks to the same position", () => {

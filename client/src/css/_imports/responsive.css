@@ -1,6 +1,471 @@
 /*
   Global responsive overrides only.
 
-  Prefer keeping component-specific media queries inside the component file
-  unless a rule affects the overall app layout across multiple pages.
+  Component-level responsive behavior still lives beside each component.
+  This file owns the coordinated phone presentation where multiple GrooveShare
+  components need to change together to create a deliberate mobile layout.
 */
+
+@media (max-width: 32rem) {
+    .app-shell {
+        width: 100%;
+        padding: 1rem 0.7rem 1.5rem;
+    }
+
+    /* Project Player phone shell */
+
+    .project-player-page {
+        width: 100%;
+    }
+
+    .project-player-header {
+        margin-bottom: 0.65rem;
+    }
+
+    .project-player-header__actions {
+        gap: 0.45rem;
+        margin-bottom: 0.65rem;
+    }
+
+    .project-player-header__actions .button {
+        min-height: 2.75rem;
+        padding: 0.55rem 0.7rem;
+        font-size: 0.82rem;
+    }
+
+    .project-player-header__details {
+        gap: 0.35rem;
+        justify-items: center;
+        text-align: center;
+    }
+
+    .project-player-header__eyebrow-row {
+        justify-content: center;
+    }
+
+    .project-player-header .eyebrow {
+        display: none;
+    }
+
+    .project-player-editable {
+        justify-content: center;
+        padding-inline: 0.2rem;
+    }
+
+    .project-player-editable__title {
+        max-width: 100%;
+        font-size: clamp(1.45rem, 7vw, 1.9rem);
+        line-height: 1.08;
+        text-align: center;
+    }
+
+    .project-player-editable--description {
+        max-width: 100%;
+        margin-top: 0;
+    }
+
+    .project-player-editable__description {
+        display: -webkit-box;
+        overflow: hidden;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        color: var(--color-text-subtle-cool);
+        font-size: 0.82rem;
+        line-height: 1.35;
+        text-align: center;
+    }
+
+    .project-role-badge {
+        min-height: 1.5rem;
+        padding: 0.2rem 0.5rem;
+        font-size: 0.65rem;
+    }
+
+    /* Compact phone transport */
+
+    .audio-player {
+        margin-top: 0.55rem;
+    }
+
+    .audio-player__header {
+        display: none;
+    }
+
+    .audio-player__controls {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-areas:
+            "back play stop loop"
+            "timeline timeline timeline timeline";
+        gap: 0.55rem 0.35rem;
+        padding: 0.7rem 0.55rem 0.8rem;
+        border-width: 1px;
+        border-radius: var(--radius-lg);
+    }
+
+    .audio-player__seek-back-control {
+        grid-area: back;
+    }
+
+    .audio-player__play-pause-button {
+        grid-area: play;
+    }
+
+    .audio-player__stop-button {
+        grid-area: stop;
+    }
+
+    .audio-player__loop-control {
+        grid-area: loop;
+    }
+
+    .audio-player__timeline {
+        grid-area: timeline;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        gap: 0.5rem;
+        margin-top: 0.1rem;
+    }
+
+    .audio-player__seek-back-control,
+    .audio-player__loop-control {
+        gap: 0.3rem;
+    }
+
+    .audio-player__transport-button,
+    .audio-player__loop-button {
+        width: 3rem;
+        height: 3rem;
+        border-radius: var(--radius-pill);
+    }
+
+    .audio-player__play-pause-button {
+        width: 3.75rem;
+        height: 3.75rem;
+        justify-self: center;
+        font-size: 1.65rem;
+    }
+
+    .audio-player__stop-button {
+        width: 3.25rem;
+        height: 3.25rem;
+        justify-self: center;
+        font-size: 1.35rem;
+    }
+
+    .audio-player__seek-back-button {
+        font-size: 1.1rem;
+    }
+
+    .audio-player__loop-button {
+        font-size: 1.45rem;
+    }
+
+    .audio-player__control-caption,
+    .audio-player__timestamp,
+    .audio-player__duration {
+        font-size: 0.72rem;
+    }
+
+    .audio-player__progress {
+        min-width: 0;
+        min-height: 2.75rem;
+    }
+
+    /* Four-column phone mixer */
+
+    .project-player-tracks-panel {
+        margin-top: 0.6rem;
+        padding: 0.45rem;
+        overflow: hidden;
+    }
+
+    .project-player-tracks-panel > h2,
+    .mix-channel-panel__header,
+    .mix-channel-grid-header {
+        display: none;
+    }
+
+    .mix-channel-panel {
+        gap: 0;
+    }
+
+    .mix-channel-slots {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 0.28rem;
+        overflow: visible;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+    }
+
+    .mix-channel-slot,
+    .mix-channel-slot--empty {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows:
+            minmax(9.25rem, auto)
+            auto
+            minmax(2.4rem, auto)
+            2.9rem;
+        grid-template-areas:
+            "volume"
+            "channel"
+            "name"
+            "actions";
+        min-width: 0;
+        min-height: 0;
+        overflow: hidden;
+        border: 1px solid var(--border-dark);
+        border-radius: var(--radius-md);
+        background: var(--color-surface-strong);
+    }
+
+    .mix-channel-slot:not(:last-child) {
+        border-bottom: 1px solid var(--border-dark);
+    }
+
+    .mix-channel-slot__channel-cell,
+    .mix-channel-slot__name-cell,
+    .mix-channel-slot__volume-cell,
+    .mix-channel-slot__actions {
+        min-width: 0;
+        padding: 0.25rem;
+        border: 0;
+    }
+
+    .mix-channel-slot__volume-cell {
+        display: flex;
+        grid-area: volume;
+        align-items: stretch;
+        justify-content: center;
+        padding-top: 0.35rem;
+    }
+
+    .mix-channel-slot__volume-label {
+        display: flex;
+        width: 100%;
+        min-width: 0;
+        flex-direction: column;
+        gap: 0.2rem;
+        align-items: center;
+        justify-content: flex-start;
+    }
+
+    .mix-channel-slot__volume-value {
+        min-height: 1.1rem;
+        font-size: 0.68rem;
+        line-height: 1.1;
+    }
+
+    .mix-channel-slot__volume-label input {
+        width: 2.75rem;
+        height: clamp(7.5rem, 25vh, 11rem);
+        margin: 0;
+        direction: rtl;
+        writing-mode: vertical-lr;
+    }
+
+    .mix-channel-slot__channel-cell {
+        grid-area: channel;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .mix-channel-slot__channel-number {
+        width: 3rem;
+        height: 3rem;
+        font-size: 1rem;
+    }
+
+    .mix-channel-slot__channel-toggle:hover .mix-channel-slot__channel-number {
+        transform: none;
+    }
+
+    .mix-channel-slot__name-cell {
+        display: flex;
+        grid-area: name;
+        align-items: flex-start;
+        justify-content: center;
+    }
+
+    .mix-channel-slot__editable-name {
+        min-height: 2.25rem;
+        justify-content: center;
+        padding: 0.2rem 0.1rem;
+        text-align: center;
+    }
+
+    .mix-channel-slot__track-name {
+        display: -webkit-box;
+        overflow: hidden;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        overflow-wrap: anywhere;
+        font-size: 0.72rem;
+        line-height: 1.2;
+        text-align: center;
+        text-overflow: clip;
+        white-space: normal;
+    }
+
+    .mix-channel-slot__editable-name--enabled:focus-within .mix-channel-slot__track-name {
+        display: block;
+        overflow: visible;
+    }
+
+    .mix-channel-slot__actions {
+        display: flex;
+        grid-area: actions;
+        align-items: center;
+        justify-content: center;
+        padding: 0.1rem;
+    }
+
+    .mix-channel-slot__delete-button {
+        display: grid;
+        width: 2.75rem;
+        height: 2.75rem;
+        place-items: center;
+        padding: 0;
+        font-size: 1.55rem;
+        line-height: 1;
+    }
+
+    .mix-channel-slot__delete-icon {
+        display: inline;
+    }
+
+    .mix-channel-slot__delete-label {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+        border: 0;
+    }
+
+    .mix-channel-slot--empty .mix-channel-slot__volume-cell {
+        display: flex;
+    }
+
+    .mix-channel-slot--empty .mix-channel-slot__volume-cell::before {
+        content: "";
+        width: 1px;
+        height: clamp(7.5rem, 25vh, 11rem);
+        margin-top: 1.3rem;
+        background: var(--border-input);
+        opacity: 0.45;
+    }
+
+    .mix-channel-slot--empty .mix-channel-slot__channel-cell {
+        justify-content: center;
+    }
+
+    .mix-channel-slot--empty .mix-channel-slot__name-cell {
+        display: flex;
+    }
+
+    .mix-channel-slot--empty .mix-channel-slot__actions {
+        display: flex;
+        visibility: hidden;
+    }
+
+    .mix-channel-slot__add-track-button {
+        display: grid;
+        width: 3rem;
+        height: 3rem;
+        place-items: center;
+        padding: 0;
+        border-radius: var(--radius-sm);
+    }
+
+    .mix-channel-slot__add-track-symbol {
+        display: inline;
+        font-size: 1.8rem;
+        line-height: 1;
+    }
+
+    .mix-channel-slot__add-track-label {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+        border: 0;
+    }
+
+    .mix-channel-slot__empty-label {
+        display: grid;
+        width: 3rem;
+        height: 3rem;
+        place-items: center;
+        border: 1px solid var(--border-input);
+        border-radius: var(--radius-sm);
+        font-size: 0.68rem;
+    }
+
+    .mix-channel-slot__empty-name {
+        display: block;
+        overflow-wrap: anywhere;
+        color: var(--color-text-subtle-cool);
+        font-size: 0.68rem;
+        line-height: 1.15;
+        text-align: center;
+    }
+
+    #project-player-status {
+        margin-top: 0.35rem;
+    }
+}
+
+/* Extra pressure relief for very narrow phones. */
+@media (max-width: 22rem) {
+    .app-shell {
+        padding-inline: 0.4rem;
+    }
+
+    .project-player-tracks-panel {
+        padding-inline: 0.3rem;
+    }
+
+    .mix-channel-slots {
+        gap: 0.18rem;
+    }
+
+    .mix-channel-slot__channel-number,
+    .mix-channel-slot__add-track-button,
+    .mix-channel-slot__empty-label {
+        width: 2.75rem;
+        height: 2.75rem;
+    }
+
+    .mix-channel-slot__track-name,
+    .mix-channel-slot__empty-name {
+        font-size: 0.66rem;
+    }
+}
+
+/* Short portrait viewports keep the same layout but shorten the fader field. */
+@media (max-width: 32rem) and (max-height: 44rem) {
+    .project-player-editable__description {
+        -webkit-line-clamp: 1;
+    }
+
+    .mix-channel-slot,
+    .mix-channel-slot--empty {
+        grid-template-rows:
+            minmax(7rem, auto)
+            auto
+            minmax(2.2rem, auto)
+            2.8rem;
+    }
+
+    .mix-channel-slot__volume-label input,
+    .mix-channel-slot--empty .mix-channel-slot__volume-cell::before {
+        height: clamp(5.5rem, 19vh, 7.5rem);
+    }
+}

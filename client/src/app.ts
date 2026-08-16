@@ -473,6 +473,11 @@ function initializeProjectPlayerPage({
     "#project-audio-player",
   );
 
+  const seekBackwardButton = getElement<HTMLButtonElement>(
+    appElement,
+    "#audio-seek-back-button",
+  );
+
   const playPauseButton = getElement<HTMLButtonElement>(
     appElement,
     "#audio-play-pause-button",
@@ -498,6 +503,11 @@ function initializeProjectPlayerPage({
     "#audio-timestamp",
   );
 
+  const durationElement = getElement<HTMLElement>(
+    appElement,
+    "#audio-duration",
+  );
+
   const trackNameElement = getElement<HTMLElement>(
     appElement,
     "#audio-track-name",
@@ -505,10 +515,12 @@ function initializeProjectPlayerPage({
 
   if (
     !audioElement ||
+    !seekBackwardButton ||
     !playPauseButton ||
     !stopButton ||
     !progressInput ||
     !timestampElement ||
+    !durationElement ||
     !trackNameElement ||
     !loopCheckbox
   ) {
@@ -517,10 +529,12 @@ function initializeProjectPlayerPage({
 
   const audioPlayerController = createAudioPlayerController({
     audioElement,
+    seekBackwardButton,
     playPauseButton,
     stopButton,
     progressInput,
     timestampElement,
+    durationElement,
     trackNameElement,
     loopCheckbox,
   });
