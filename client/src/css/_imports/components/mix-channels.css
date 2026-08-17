@@ -139,35 +139,19 @@
 }
 
 
-/* Editable track name */
+/* Track name and explicit edit affordance */
 
 .mix-channel-slot__name-cell {
     display: flex;
     align-items: center;
 }
 
-.mix-channel-slot__editable-name {
+.mix-channel-slot__track-name-group {
     display: flex;
     width: 100%;
     min-width: 0;
+    gap: 0.45rem;
     align-items: center;
-    gap: 0;
-    padding: 0.45rem 0.55rem;
-    border: 1px solid transparent;
-    border-radius: var(--radius-sm);
-    background: transparent;
-    transition:
-        background 120ms ease,
-        border-color 120ms ease;
-}
-
-.mix-channel-slot__editable-name--enabled:hover {
-    border-color: var(--border-input);
-}
-
-.mix-channel-slot__editable-name--enabled:focus-within {
-    border-color: var(--color-light-button);
-    background: var(--color-light-button);
 }
 
 .mix-channel-slot__track-name {
@@ -175,24 +159,29 @@
     min-width: 0;
     overflow: hidden;
     color: var(--color-text);
-    outline: none;
-    cursor: default;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.mix-channel-slot__track-name[data-track-name-editor] {
-    cursor: text;
+.mix-channel-slot__edit-button {
+    display: grid;
+    width: 2.75rem;
+    height: 2.75rem;
+    flex: 0 0 2.75rem;
+    place-items: center;
+    padding: 0;
+    border: 1px solid var(--border-input);
+    border-radius: var(--radius-sm);
+    color: var(--color-text);
+    background: transparent;
+    font-size: 1.05rem;
+    cursor: pointer;
 }
 
-.mix-channel-slot__editable-name--enabled:focus-within .mix-channel-slot__track-name {
-    overflow: visible;
-    color: var(--color-light-text);
-    caret-color: var(--color-light-text);
-    text-overflow: clip;
+.mix-channel-slot__edit-button:hover,
+.mix-channel-slot__edit-button:focus-visible {
+    background: var(--color-surface);
 }
-
-
 
 
 /* Volume */

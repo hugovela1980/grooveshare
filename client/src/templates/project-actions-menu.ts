@@ -24,9 +24,6 @@ export function renderProjectActionsMenu(): string {
           class="project-actions__item"
           type="button"
           role="menuitem"
-          disabled
-          aria-disabled="true"
-          title="Project editing controls will be added in Checkpoint 5"
         >
           Edit Project
         </button>

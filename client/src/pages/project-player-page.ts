@@ -3,6 +3,10 @@ import { renderMobileNavigation } from "../templates/mobile-navigation.js";
 import { renderProjectActionsMenu } from "../templates/project-actions-menu.js";
 import { renderProjectMembersPanel } from "../templates/project-members.js";
 import { renderLoadingState } from "../templates/loading-state.js";
+import {
+  renderProjectEditDialog,
+  renderTrackEditDialog,
+} from "../templates/project-player-edit-dialogs.js";
 import type { Project, ProjectRole } from "../types.js";
 
 function escapeHtml(value: string): string {
@@ -48,12 +52,6 @@ export function renderProjectPlayerPage(project: Project | null = null): string 
   const description = renderProjectDescription(project);
   const role = getProjectRole(project);
   const canManageProject = Boolean(project) && role === "owner";
-  const editableAttribute = canManageProject
-    ? 'contenteditable="true"'
-    : "";
-  const editableClass = canManageProject
-    ? " project-player-editable--enabled"
-    : "";
   const loadingHiddenAttribute = project ? "" : "hidden";
   const contentHiddenAttribute = project ? "hidden" : "";
 
@@ -71,7 +69,7 @@ export function renderProjectPlayerPage(project: Project | null = null): string 
             <span class="project-player-header__back-mobile" aria-hidden="true">‹</span>
           </button>
 
-          <p class="project-player-header__mobile-title">${heading}</p>
+          <p class="project-player-header__mobile-title" data-project-mobile-title-display>${heading}</p>
 
           <button
             id="player-logout-button"
@@ -92,23 +90,17 @@ export function renderProjectPlayerPage(project: Project | null = null): string 
               : ""}
           </div>
 
-          <div class="project-player-editable project-player-editable--title${editableClass}">
+          <div class="project-player-details__title-wrap">
             <h1
-              class="project-player-editable__text project-player-editable__title"
-              ${editableAttribute}
-              ${canManageProject ? 'role="textbox" aria-label="Edit project title"' : ""}
-              spellcheck="false"
-              data-project-title-editor
+              class="project-player-details__title"
+              data-project-title-display
             >${heading}</h1>
           </div>
 
-          <div class="project-player-editable project-player-editable--description${editableClass}">
+          <div class="project-player-details__description-wrap">
             <p
-              class="description project-player-editable__text project-player-editable__description"
-              ${editableAttribute}
-              ${canManageProject ? 'role="textbox" aria-label="Edit project description"' : ""}
-              data-placeholder="No description provided."
-              data-project-description-editor
+              class="description project-player-details__description"
+              data-project-description-display
             >${description}</p>
           </div>
         </div>
@@ -144,6 +136,8 @@ export function renderProjectPlayerPage(project: Project | null = null): string 
         ${canManageProject ? renderProjectMembersPanel({ hidden: true }) : ""}
       </div>
 
+      ${canManageProject ? renderProjectEditDialog() : ""}
+      ${renderTrackEditDialog()}
       ${renderMobileNavigation()}
     </main>
   `;

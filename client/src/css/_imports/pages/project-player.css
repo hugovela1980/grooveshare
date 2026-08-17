@@ -25,68 +25,27 @@
     margin: 0;
 }
 
-.project-player-editable {
-    display: flex;
-    width: fit-content;
+.project-player-details__title-wrap,
+.project-player-details__description-wrap {
     max-width: 100%;
-    align-items: center;
-    gap: 0;
-    padding: 0.2rem 0.35rem;
-    border: 1px solid transparent;
-    border-radius: var(--radius-sm);
-    background: transparent;
-    transition:
-        background 120ms ease,
-        border-color 120ms ease;
 }
 
-.project-player-editable--enabled:hover {
-    border-color: var(--border-input);
-}
-
-.project-player-editable--enabled:focus-within {
-    border-color: var(--color-light-button);
-    background: var(--color-light-button);
-}
-
-.project-player-editable__text {
-    min-width: 0;
-    margin: 0;
-    outline: none;
-}
-
-.project-player-editable__text[contenteditable="true"] {
-    cursor: text;
-}
-
-.project-player-editable--enabled:focus-within .project-player-editable__text {
-    color: var(--color-light-text);
-    caret-color: var(--color-light-text);
-}
-
-.project-player-editable__title {
+.project-player-details__title {
     max-width: 720px;
+    margin: 0;
     overflow-wrap: anywhere;
 }
 
-.project-player-editable--description {
+.project-player-details__description-wrap {
     max-width: min(100%, 48rem);
     margin-top: 0.15rem;
 }
 
-.project-player-editable__description {
+.project-player-details__description {
+    margin: 0;
     color: var(--color-text-muted-cool);
     line-height: 1.55;
     overflow-wrap: anywhere;
-}
-
-.project-player-editable__description:empty::before {
-    content: attr(data-placeholder);
-    color: var(--color-text-subtle-cool);
-}
-
-.project-player-editable__description:focus:empty::before {
-    content: "";
 }
 
 
@@ -111,10 +70,6 @@
     .project-player-header__actions .button {
         flex: 1 1 auto;
         justify-content: center;
-    }
-
-    .project-player-editable {
-        width: 100%;
     }
 
     .project-player-tracks-panel {
@@ -259,4 +214,39 @@
 .project-member-list select[aria-busy="true"] {
     cursor: progress;
     opacity: 0.65;
+}
+
+
+.project-player-edit-dialog {
+    width: min(34rem, 100%);
+}
+
+.project-player-edit-dialog--track {
+    width: min(28rem, 100%);
+}
+
+.project-player-edit-form {
+    display: grid;
+    gap: 1rem;
+}
+
+.project-player-edit-form__field {
+    display: grid;
+    gap: 0.45rem;
+}
+
+.project-player-edit-form input,
+.project-player-edit-form textarea {
+    width: 100%;
+    padding: 0.75rem 0.85rem;
+    border: 1px solid var(--border-light-strong);
+    border-radius: var(--radius-md);
+    color: var(--color-light-text);
+    background: var(--color-light-surface);
+    font: inherit;
+}
+
+.project-player-edit-form textarea {
+    min-height: 7rem;
+    resize: vertical;
 }

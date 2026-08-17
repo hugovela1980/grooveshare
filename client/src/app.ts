@@ -561,12 +561,79 @@ function initializeProjectPlayerPage({
 
   const projectTitleElement = getElement<HTMLElement>(
     appElement,
-    "[data-project-title-editor]",
+    "[data-project-title-display]",
+  );
+
+  const projectMobileTitleElement = getElement<HTMLElement>(
+    appElement,
+    "[data-project-mobile-title-display]",
   );
 
   const projectDescriptionElement = getElement<HTMLElement>(
     appElement,
-    "[data-project-description-editor]",
+    "[data-project-description-display]",
+  );
+
+  const projectEditModal = getElement<HTMLElement>(
+    appElement,
+    "#project-edit-modal",
+  );
+  const projectEditForm = getElement<HTMLFormElement>(
+    appElement,
+    "#project-edit-form",
+  );
+  const projectEditTitleInput = getElement<HTMLInputElement>(
+    appElement,
+    "#project-edit-title-input",
+  );
+  const projectEditDescriptionInput = getElement<HTMLTextAreaElement>(
+    appElement,
+    "#project-edit-description-input",
+  );
+  const projectEditSaveButton = getElement<HTMLButtonElement>(
+    appElement,
+    "#save-project-edit-button",
+  );
+  const projectEditCancelButton = getElement<HTMLButtonElement>(
+    appElement,
+    "#cancel-project-edit-button",
+  );
+  const projectEditCloseButton = getElement<HTMLButtonElement>(
+    appElement,
+    "#close-project-edit-button",
+  );
+  const projectEditStatusElement = getElement<HTMLParagraphElement>(
+    appElement,
+    "#project-edit-status",
+  );
+
+  const trackEditModal = getElement<HTMLElement>(
+    appElement,
+    "#track-edit-modal",
+  );
+  const trackEditForm = getElement<HTMLFormElement>(
+    appElement,
+    "#track-edit-form",
+  );
+  const trackEditNameInput = getElement<HTMLInputElement>(
+    appElement,
+    "#track-edit-name-input",
+  );
+  const trackEditSaveButton = getElement<HTMLButtonElement>(
+    appElement,
+    "#save-track-edit-button",
+  );
+  const trackEditCancelButton = getElement<HTMLButtonElement>(
+    appElement,
+    "#cancel-track-edit-button",
+  );
+  const trackEditCloseButton = getElement<HTMLButtonElement>(
+    appElement,
+    "#close-track-edit-button",
+  );
+  const trackEditStatusElement = getElement<HTMLParagraphElement>(
+    appElement,
+    "#track-edit-status",
   );
 
   if (!trackListElement) {
@@ -654,7 +721,23 @@ function initializeProjectPlayerPage({
     statusElement,
     deleteProjectButton,
     projectTitleElement,
+    projectMobileTitleElement,
     projectDescriptionElement,
+    projectEditModal,
+    projectEditForm,
+    projectEditTitleInput,
+    projectEditDescriptionInput,
+    projectEditSaveButton,
+    projectEditCancelButton,
+    projectEditCloseButton,
+    projectEditStatusElement,
+    trackEditModal,
+    trackEditForm,
+    trackEditNameInput,
+    trackEditSaveButton,
+    trackEditCancelButton,
+    trackEditCloseButton,
+    trackEditStatusElement,
     tracksApi,
     projectsApi,
     audioPlayerController,
@@ -713,6 +796,10 @@ function initializeProjectPlayerPage({
       appElement,
       "#project-actions-menu",
     );
+    const editProjectButton = getElement<HTMLButtonElement>(
+      appElement,
+      "#edit-project-menu-item",
+    );
     const ownerControlsButton = getElement<HTMLButtonElement>(
       appElement,
       "#owner-controls-menu-item",
@@ -727,7 +814,9 @@ function initializeProjectPlayerPage({
         createProjectActionsMenuController({
           triggerButton: projectActionsButton,
           menuElement: projectActionsMenu,
+          editProjectButton,
           ownerControlsButton,
+          onEditProject: controller.openProjectEditor,
           ownerControlsPanel,
         });
 

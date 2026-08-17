@@ -77,6 +77,10 @@ function createFakeTrackListElement() {
     number,
     { textContent: string }
   >();
+  const trackNameDisplayElements = new Map<
+    string,
+    { textContent: string }
+  >();
   const attributes = new Map<string, string>();
 
   function rebuildChannelSlots(): void {
@@ -153,13 +157,20 @@ function createFakeTrackListElement() {
         /\[data-channel-volume-value\]\[data-mix-channel="(\d+)"\]/,
       );
 
-      if (!volumeValueMatch) {
-        return null;
+      if (volumeValueMatch) {
+        const channelNumber = Number(volumeValueMatch[1]);
+        return volumeValueElements.get(channelNumber) ?? null;
       }
 
-      const channelNumber = Number(volumeValueMatch[1]);
+      const trackNameMatch = selector.match(
+        /\[data-track-name-display\]\[data-track-id="([^"]+)"\]/,
+      );
 
-      return volumeValueElements.get(channelNumber) ?? null;
+      if (trackNameMatch) {
+        return trackNameDisplayElements.get(trackNameMatch[1]) ?? null;
+      }
+
+      return null;
     },
 
     querySelectorAll(selector: string) {
@@ -190,6 +201,36 @@ function createFakeTrackListElement() {
           },
         } as unknown as EventTarget,
       });
+    },
+
+    async clickEditButton(trackId: string): Promise<void> {
+      if (!clickHandler) {
+        throw new Error("Click handler was not registered.");
+      }
+
+      await clickHandler({
+        target: {
+          closest(selector: string) {
+            if (selector !== "[data-track-edit-button]") {
+              return null;
+            }
+
+            return {
+              dataset: {
+                trackId,
+              },
+            };
+          },
+        } as unknown as EventTarget,
+      });
+    },
+
+    setTrackNameDisplay(trackId: string, textContent: string): void {
+      trackNameDisplayElements.set(trackId, { textContent });
+    },
+
+    getTrackNameDisplay(trackId: string): string {
+      return trackNameDisplayElements.get(trackId)?.textContent ?? "";
     },
 
     setChannelSlots(slots: FakeChannelSetting[]): void {
@@ -519,6 +560,8 @@ function createFakeDeleteProjectButton() {
   let clickHandler: (() => void | Promise<void>) | null = null;
 
   return {
+    disabled: false,
+
     addEventListener(
       eventName: "click",
       handler: () => void | Promise<void>,
@@ -536,6 +579,63 @@ function createFakeDeleteProjectButton() {
       await clickHandler();
     },
   };
+}
+
+function createFakeFormElement() {
+  let submitHandler:
+    | ((event: { preventDefault?: () => void }) => void | Promise<void>)
+    | null = null;
+
+  return {
+    addEventListener(
+      eventName: "submit",
+      handler: (event: { preventDefault?: () => void }) => void | Promise<void>,
+    ) {
+      if (eventName === "submit") {
+        submitHandler = handler;
+      }
+    },
+
+    async submit(): Promise<number> {
+      if (!submitHandler) {
+        throw new Error("Submit handler was not registered.");
+      }
+
+      let preventDefaultCallCount = 0;
+      await submitHandler({
+        preventDefault() {
+          preventDefaultCallCount += 1;
+        },
+      });
+
+      return preventDefaultCallCount;
+    },
+  };
+}
+
+function createFakeValueInput(initialValue = "") {
+  let focusCallCount = 0;
+  let selectCallCount = 0;
+
+  return {
+    value: initialValue,
+    focus() {
+      focusCallCount += 1;
+    },
+    select() {
+      selectCallCount += 1;
+    },
+    getFocusCallCount() {
+      return focusCallCount;
+    },
+    getSelectCallCount() {
+      return selectCallCount;
+    },
+  };
+}
+
+function createFakeDialogElement(hidden = true) {
+  return { hidden };
 }
 
 function createFakeEditableTextElement(initialText: string) {
@@ -764,6 +864,9 @@ tester.describe("project player page controller", () => {
           return createTrack();
         },
       },
+      confirmDeleteTrack() {
+        return true;
+      },
       renderTrackList(tracks) {
         if (tracks.length === 0) {
           return '<p class="empty-state">No tracks yet.</p>';
@@ -788,6 +891,38 @@ tester.describe("project player page controller", () => {
     tester.expect(statusElement.textContent).toBe("Track deleted.");
   });
 
+  tester.it("does not delete a track when deletion is cancelled", async () => {
+    const trackListElement = createFakeTrackListElement();
+    let deleteTrackCallCount = 0;
+
+    const controller = createProjectPlayerPageController({
+      project: createProject(),
+      trackListElement,
+      tracksApi: {
+        async getTracksByProjectId() {
+          return [createTrack()];
+        },
+        async deleteTrack() {
+          deleteTrackCallCount += 1;
+          return createTrack();
+        },
+      },
+      confirmDeleteTrack(message) {
+        tester.expect(message).toBe('Delete "Guitar" from this project?');
+        return false;
+      },
+      renderTrackList(tracks) {
+        return tracks.map((track) => track.name).join(", ");
+      },
+    });
+
+    await controller.init();
+    await trackListElement.clickDeleteButton("track-1");
+
+    tester.expect(deleteTrackCallCount).toBe(0);
+    tester.expect(trackListElement.innerHTML).toBe("Guitar");
+  });
+
   tester.it("shows an error message when a track cannot be deleted", async () => {
     const trackListElement = createFakeTrackListElement();
     const statusElement = createFakeStatusElement();
@@ -808,6 +943,9 @@ tester.describe("project player page controller", () => {
         async deleteTrack() {
           throw new Error("Delete failed.");
         },
+      },
+      confirmDeleteTrack() {
+        return true;
       },
       renderTrackList(tracks) {
         return tracks.map((track) => track.name).join(", ");
@@ -1486,10 +1624,17 @@ tester.describe("project player page controller", () => {
     tester.expect(loadMixCallCount).toBe(1);
   });
 
-  tester.it("persists an edited track name and updates the prepared mix label live", async () => {
+  tester.it("opens an explicit track editor and persists the edited name", async () => {
     const project = createProject();
     const trackListElement = createFakeTrackListElement();
     const track = createTrack();
+    const trackEditModal = createFakeDialogElement();
+    const trackEditForm = createFakeFormElement();
+    const trackEditNameInput = createFakeValueInput();
+    const trackEditSaveButton = createFakeDeleteProjectButton();
+    const trackEditCancelButton = createFakeDeleteProjectButton();
+    const trackEditCloseButton = createFakeDeleteProjectButton();
+    const trackEditStatusElement = createFakeStatusElement();
 
     trackListElement.setChannelSlots([
       {
@@ -1501,12 +1646,18 @@ tester.describe("project player page controller", () => {
     ]);
 
     let savedTrackName = "";
-    let initiallyLoadedTrackName = "";
     let liveTrackName = "";
 
     const controller = createProjectPlayerPageController({
       project,
       trackListElement,
+      trackEditModal,
+      trackEditForm,
+      trackEditNameInput,
+      trackEditSaveButton,
+      trackEditCancelButton,
+      trackEditCloseButton,
+      trackEditStatusElement,
       tracksApi: {
         async getTracksByProjectId() {
           return [track];
@@ -1531,71 +1682,50 @@ tester.describe("project player page controller", () => {
         return tracks.map((currentTrack) => currentTrack.name).join(", ");
       },
       audioPlayerController: {
-        loadMix(channels) {
-          initiallyLoadedTrackName = channels[0]?.name ?? "";
-        },
         setTrackName(trackId, name) {
           tester.expect(trackId).toBe("track-1");
           liveTrackName = name;
           return true;
         },
       },
-      getTrackAudioUrl() {
-        return "audio-url";
-      },
     });
 
     await controller.init();
+    trackListElement.setTrackNameDisplay("track-1", "Guitar");
+    await trackListElement.clickEditButton("track-1");
 
-    tester.expect(initiallyLoadedTrackName).toBe("Guitar");
+    tester.expect(trackEditModal.hidden).toBe(false);
+    tester.expect(trackEditNameInput.value).toBe("Guitar");
+    tester.expect(trackEditNameInput.getFocusCallCount()).toBe(1);
+    tester.expect(trackEditNameInput.getSelectCallCount()).toBe(1);
 
-    const editedText = await trackListElement.editTrackNameOnBlur(
-      "track-1",
-      "  Lead Guitar  ",
-    );
+    trackEditNameInput.value = "  Lead Guitar  ";
+    const preventDefaultCallCount = await trackEditForm.submit();
 
-    tester.expect(editedText).toBe("Lead Guitar");
+    tester.expect(preventDefaultCallCount).toBe(1);
     tester.expect(savedTrackName).toBe("Lead Guitar");
     tester.expect(liveTrackName).toBe("Lead Guitar");
-  });
-
-  tester.it("ends inline track name editing on Enter", async () => {
-    const trackListElement = createFakeTrackListElement();
-
-    const controller = createProjectPlayerPageController({
-      project: createProject(),
-      trackListElement,
-      tracksApi: {
-        async getTracksByProjectId() {
-          return [createTrack()];
-        },
-
-        async deleteTrack() {
-          return createTrack();
-        },
-      },
-      renderTrackList(tracks) {
-        return tracks.map((track) => track.name).join(", ");
-      },
-    });
-
-    await controller.init();
-
-    const result = await trackListElement.editTrackNameOnEnter(
-      "track-1",
-      "  Rhythm Guitar  ",
+    tester.expect(trackListElement.getTrackNameDisplay("track-1")).toBe(
+      "Lead Guitar",
     );
-
-    tester.expect(result.textContent).toBe("Rhythm Guitar");
-    tester.expect(result.preventDefaultCallCount).toBe(1);
-    tester.expect(result.blurCallCount).toBe(1);
+    tester.expect(trackEditModal.hidden).toBe(true);
   });
 
-  tester.it("persists edited project title and description", async () => {
+  tester.it("edits project title and description through the project dialog", async () => {
     const project = createProject();
     const trackListElement = createFakeTrackListElement();
-    const projectTitleElement = createFakeEditableTextElement("Bass Groove");
-    const projectDescriptionElement = createFakeEditableTextElement("Practice loop");
+    const projectTitleElement = { textContent: "Bass Groove" };
+    const projectMobileTitleElement = { textContent: "Bass Groove" };
+    const projectDescriptionElement = { textContent: "Practice loop" };
+    const projectEditModal = createFakeDialogElement();
+    const projectEditForm = createFakeFormElement();
+    const projectEditTitleInput = createFakeValueInput();
+    const projectEditDescriptionInput = createFakeValueInput();
+    const projectEditSaveButton = createFakeDeleteProjectButton();
+    const projectEditCancelButton = createFakeDeleteProjectButton();
+    const projectEditCloseButton = createFakeDeleteProjectButton();
+    const projectEditStatusElement = createFakeStatusElement();
+    const statusElement = createFakeStatusElement();
     const projectDetailUpdates: Array<{
       title?: string;
       description?: string;
@@ -1604,8 +1734,18 @@ tester.describe("project player page controller", () => {
     const controller = createProjectPlayerPageController({
       project,
       trackListElement,
+      statusElement,
       projectTitleElement,
+      projectMobileTitleElement,
       projectDescriptionElement,
+      projectEditModal,
+      projectEditForm,
+      projectEditTitleInput,
+      projectEditDescriptionInput,
+      projectEditSaveButton,
+      projectEditCancelButton,
+      projectEditCloseButton,
+      projectEditStatusElement,
       tracksApi: {
         async getTracksByProjectId() {
           return [];
@@ -1635,71 +1775,86 @@ tester.describe("project player page controller", () => {
     });
 
     await controller.init();
+    controller.openProjectEditor();
 
-    const titleResult = await projectTitleElement.pressEnter(
-      "  New Project Title  ",
-    );
+    tester.expect(projectEditModal.hidden).toBe(false);
+    tester.expect(projectEditTitleInput.value).toBe("Bass Groove");
+    tester.expect(projectEditDescriptionInput.value).toBe("Practice loop");
+    tester.expect(projectEditTitleInput.getFocusCallCount()).toBe(1);
+    tester.expect(projectEditTitleInput.getSelectCallCount()).toBe(1);
 
-    tester.expect(projectTitleElement.textContent).toBe("New Project Title");
-    tester.expect(titleResult.preventDefaultCallCount).toBe(1);
-    tester.expect(titleResult.blurCallCount).toBe(1);
+    projectEditTitleInput.value = "  New Project Title  ";
+    projectEditDescriptionInput.value = "New project description";
+    const preventDefaultCallCount = await projectEditForm.submit();
 
-    await projectDescriptionElement.loseFocus(
-      "  New project description  ",
-    );
-
-    tester.expect(projectDescriptionElement.textContent).toBe(
-      "New project description",
-    );
-
+    tester.expect(preventDefaultCallCount).toBe(1);
     tester.expect(projectDetailUpdates).toEqual([
       {
         title: "New Project Title",
-      },
-      {
         description: "New project description",
       },
     ]);
+    tester.expect(projectTitleElement.textContent).toBe("New Project Title");
+    tester.expect(projectMobileTitleElement.textContent).toBe("New Project Title");
+    tester.expect(projectDescriptionElement.textContent).toBe(
+      "New project description",
+    );
+    tester.expect(projectEditModal.hidden).toBe(true);
+    tester.expect(statusElement.textContent).toBe("Project details updated.");
   });
 
-  tester.it("selects all inline editable text when it is clicked", async () => {
+  tester.it("does not submit an empty project title from the edit dialog", async () => {
+    const project = createProject();
     const trackListElement = createFakeTrackListElement();
-    const projectTitleElement = createFakeEditableTextElement("Bass Groove");
-    const projectDescriptionElement = createFakeEditableTextElement("Practice loop");
-    const selectedElements: unknown[] = [];
+    const projectEditModal = createFakeDialogElement();
+    const projectEditForm = createFakeFormElement();
+    const projectEditTitleInput = createFakeValueInput();
+    const projectEditDescriptionInput = createFakeValueInput();
+    const projectEditSaveButton = createFakeDeleteProjectButton();
+    const projectEditStatusElement = createFakeStatusElement();
+    let updateCallCount = 0;
 
     const controller = createProjectPlayerPageController({
-      project: createProject(),
+      project,
       trackListElement,
-      projectTitleElement,
-      projectDescriptionElement,
+      projectEditModal,
+      projectEditForm,
+      projectEditTitleInput,
+      projectEditDescriptionInput,
+      projectEditSaveButton,
+      projectEditStatusElement,
       tracksApi: {
         async getTracksByProjectId() {
-          return [createTrack()];
+          return [];
         },
-
         async deleteTrack() {
           return createTrack();
+        },
+      },
+      projectsApi: {
+        async deleteProject() {
+          return project;
+        },
+        async updateProjectDetails() {
+          updateCallCount += 1;
+          return project;
         },
       },
       renderTrackList() {
         return "tracks";
       },
-      selectAllText(element) {
-        selectedElements.push(element);
-      },
     });
 
     await controller.init();
+    controller.openProjectEditor();
+    projectEditTitleInput.value = "   ";
+    await projectEditForm.submit();
 
-    await projectTitleElement.click();
-    await projectDescriptionElement.click();
-    const trackNameTarget = await trackListElement.clickTrackName("track-1");
-
-    tester.expect(selectedElements.length).toBe(3);
-    tester.expect(selectedElements[0]).toBe(projectTitleElement);
-    tester.expect(selectedElements[1]).toBe(projectDescriptionElement);
-    tester.expect(selectedElements[2]).toBe(trackNameTarget);
+    tester.expect(updateCallCount).toBe(0);
+    tester.expect(projectEditModal.hidden).toBe(false);
+    tester.expect(projectEditStatusElement.textContent).toBe(
+      "Project title is required.",
+    );
   });
 
   tester.it("queues a channel enabled state until pending mix settings are flushed", async () => {

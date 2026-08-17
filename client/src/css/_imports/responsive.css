@@ -390,9 +390,11 @@
         justify-content: center;
     }
 
-    .mix-channel-slot__editable-name {
+    .mix-channel-slot__track-name-group {
         min-height: 2.25rem;
-        justify-content: center;
+        flex-direction: column;
+        gap: 0.2rem;
+        justify-content: flex-start;
         padding: 0.2rem 0.1rem;
         text-align: center;
     }
@@ -410,9 +412,11 @@
         white-space: normal;
     }
 
-    .mix-channel-slot__editable-name--enabled:focus-within .mix-channel-slot__track-name {
-        display: block;
-        overflow: visible;
+    .mix-channel-slot__edit-button {
+        width: 2.75rem;
+        height: 2.75rem;
+        flex-basis: 2.75rem;
+        border-radius: var(--radius-pill);
     }
 
     .mix-channel-slot__actions {
@@ -553,10 +557,6 @@
 
 /* Short portrait viewports keep the same layout but shorten the fader field. */
 @media (max-width: 32rem) and (max-height: 44rem) {
-    .project-player-editable__description {
-        -webkit-line-clamp: 1;
-    }
-
     .mix-channel-slot,
     .mix-channel-slot--empty {
         grid-template-rows:

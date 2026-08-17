@@ -192,3 +192,35 @@ tester.describe("project actions menu controller", () => {
         tester.expect(ownerControlsButton.getAttribute("aria-expanded")).toBe("false");
     });
 });
+
+tester.describe("project actions edit behavior", () => {
+    tester.it("closes the menu and opens project editing from Edit Project", () => {
+        const triggerButton = createButton();
+        const editProjectButton = createButton();
+        const menuElement = {
+            hidden: true,
+            contains() {
+                return false;
+            },
+        };
+        let editCallCount = 0;
+
+        const controller = createProjectActionsMenuController({
+            triggerButton,
+            menuElement,
+            editProjectButton,
+            onEditProject() {
+                editCallCount += 1;
+            },
+            documentTarget: null,
+        });
+
+        controller.init();
+        triggerButton.click();
+        editProjectButton.click();
+
+        tester.expect(editCallCount).toBe(1);
+        tester.expect(menuElement.hidden).toBe(true);
+        tester.expect(triggerButton.getAttribute("aria-expanded")).toBe("false");
+    });
+});

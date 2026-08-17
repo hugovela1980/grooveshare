@@ -67,23 +67,13 @@ function renderAssignedChannelSlot(
     track,
   });
 
-  const trackNameMarkup = mayManageTrack
-    ? /*html*/ `
-      <span
-        class="mix-channel-slot__track-name"
-        contenteditable="true"
-        role="textbox"
-        aria-label="Edit track name for channel ${slot.channelNumber}"
-        spellcheck="false"
-        data-track-name-editor
-        data-track-id="${escapeHtml(track.id)}"
-      >${escapeHtml(track.name)}</span>
-    `
-    : /*html*/ `
-      <span class="mix-channel-slot__track-name">
-        ${escapeHtml(track.name)}
-      </span>
-    `;
+  const trackNameMarkup = /*html*/ `
+    <span
+      class="mix-channel-slot__track-name"
+      data-track-name-display
+      data-track-id="${escapeHtml(track.id)}"
+    >${escapeHtml(track.name)}</span>
+  `;
 
   return /*html*/ `
     <article
@@ -112,8 +102,22 @@ function renderAssignedChannelSlot(
       </div>
 
       <div class="mix-channel-slot__name-cell">
-        <div class="mix-channel-slot__editable-name${mayManageTrack ? " mix-channel-slot__editable-name--enabled" : ""}">
+        <div class="mix-channel-slot__track-name-group">
           ${trackNameMarkup}
+          ${mayManageTrack
+            ? /*html*/ `
+              <button
+                class="mix-channel-slot__edit-button"
+                type="button"
+                data-track-edit-button
+                data-track-id="${escapeHtml(track.id)}"
+                aria-label="Edit track name for ${escapeHtml(track.name)}"
+                title="Edit track name"
+              >
+                <span aria-hidden="true">✎</span>
+              </button>
+            `
+            : ""}
         </div>
       </div>
 

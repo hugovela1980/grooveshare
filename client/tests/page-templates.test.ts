@@ -131,11 +131,11 @@ tester.describe("page templates", () => {
     tester.expect(html.includes("Project Player")).toBe(true);
     tester.expect(html.includes("Reggae groove")).toBe(true);
     tester.expect(html.includes("guitar and bass")).toBe(true);
-    tester.expect(html.includes("data-project-title-editor")).toBe(true);
-    tester.expect(html.includes("data-project-description-editor")).toBe(true);
-    tester.expect(html.includes('contenteditable="true"')).toBe(true);
-    tester.expect(html.includes("project-player-editable__icon")).toBe(false);
-    tester.expect(html.includes("✎")).toBe(false);
+    tester.expect(html.includes("data-project-title-display")).toBe(true);
+    tester.expect(html.includes("data-project-description-display")).toBe(true);
+    tester.expect(html.includes('contenteditable="true"')).toBe(false);
+    tester.expect(html.includes('id="project-edit-modal"')).toBe(true);
+    tester.expect(html.includes('id="track-edit-modal"')).toBe(true);
     tester.expect(html.includes("Audio Player")).toBe(true);
     tester.expect(html.includes("player-area")).toBe(true);
     tester.expect(html.includes("player-track-list")).toBe(true);

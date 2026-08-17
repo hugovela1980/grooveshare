@@ -40,20 +40,24 @@ type PanelLike = {
 type ProjectActionsMenuControllerOptions = {
   triggerButton: ButtonLike;
   menuElement: MenuLike;
+  editProjectButton?: ButtonLike | null;
   ownerControlsButton?: ButtonLike | null;
   ownerControlsPanel?: PanelLike | null;
+  onEditProject?: () => void;
   documentTarget?: EventTargetLike | null;
 };
 
 export function createProjectActionsMenuController({
   triggerButton,
   menuElement,
+  editProjectButton = null,
   ownerControlsButton = null,
   ownerControlsPanel = null,
+  onEditProject,
   documentTarget =
-  typeof document === "undefined"
-    ? null
-    : (document as unknown as EventTargetLike),
+    typeof document === "undefined"
+      ? null
+      : (document as unknown as EventTargetLike),
 }: ProjectActionsMenuControllerOptions) {
   let globalListenersAttached = false;
 
@@ -124,26 +128,32 @@ export function createProjectActionsMenuController({
     setMenuOpen(Boolean(menuElement.hidden));
   }
 
+  function handleEditProject(): void {
+    closeMenu();
+    onEditProject?.();
+  }
+
   function toggleOwnerControls(): void {
     if (!ownerControlsButton || !ownerControlsPanel) {
       return;
     }
 
     const ownerControlsAreHidden = Boolean(ownerControlsPanel.hidden);
-
     ownerControlsPanel.hidden = !ownerControlsAreHidden;
-
     ownerControlsButton.setAttribute(
       "aria-expanded",
       String(ownerControlsAreHidden),
     );
-
     closeMenu();
   }
 
   function init(): void {
     triggerButton.addEventListener("click", () => {
       toggleMenu();
+    });
+
+    editProjectButton?.addEventListener("click", () => {
+      handleEditProject();
     });
 
     ownerControlsButton?.addEventListener("click", () => {
