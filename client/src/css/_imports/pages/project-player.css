@@ -12,7 +12,7 @@
     flex-wrap: wrap;
     gap: 0.75rem;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-start;
     margin-bottom: 1.5rem;
 }
 
@@ -222,4 +222,18 @@
     .project-member-row__role-control {
         width: 100%;
     }
+}
+
+.project-player-header__mobile-title,
+.project-player-header__back-mobile,
+.project-player-header__actions-spacer {
+    display: none;
+}
+
+.project-player-header__desktop-logout {
+    margin-left: 0;
+}
+
+.project-members-panel[hidden] {
+    display: none;
 }

@@ -1,3 +1,4 @@
+import { renderMobileNavigation } from "../templates/mobile-navigation.js";
 import type { User } from "../types.js";
 
 function escapeHtml(value: string): string {
@@ -64,6 +65,8 @@ export function renderProjectMenuPage(
           Create a New Project
         </button>
       </div>
+
+      ${currentUser ? renderMobileNavigation({ activeItem: "home" }) : ""}
     </main>
   `;
 }

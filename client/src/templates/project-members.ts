@@ -72,12 +72,16 @@ export function renderProjectMemberList(
   `;
 }
 
-export function renderProjectMembersPanel(): string {
+export function renderProjectMembersPanel({
+  hidden = false,
+}: { hidden?: boolean } = {}): string {
   return /*html*/ `
     <section
+      id="project-members-panel"
       class="panel project-members-panel"
       aria-labelledby="project-members-heading"
       data-project-members-panel
+      ${hidden ? "hidden" : ""}
     >
       <div class="project-members-panel__header">
         <div>

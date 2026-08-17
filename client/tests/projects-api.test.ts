@@ -1,5 +1,6 @@
 import {
     deleteProject,
+    getProject,
     saveMixSettings,
     updateProjectDetails,
 } from "../src/api/projects-api.js";
@@ -35,6 +36,38 @@ function createJsonResponse(body: unknown, status = 200): Response {
 }
 
 tester.describe("projects API", () => {
+    tester.it("loads one project by project ID", async () => {
+        const originalFetch = globalThis.fetch;
+        const fetchCalls: FetchCall[] = [];
+        const project = createProject();
+
+        globalThis.fetch = (async (...args: Parameters<typeof fetch>) => {
+            const [input, init] = args;
+
+            fetchCalls.push({ input, init });
+
+            return createJsonResponse({
+                ok: true,
+                data: project,
+            });
+        }) as typeof fetch;
+
+        try {
+            const result = await getProject("project-1");
+
+            tester.expect(result).toEqual(project);
+            tester.expect(fetchCalls.length).toBe(1);
+            tester.expect(String(fetchCalls[0]?.input)).toBe(
+                "http://localhost:3000/api/projects/project-1",
+            );
+            tester.expect(fetchCalls[0]?.init).toEqual({
+                credentials: "include",
+            });
+        } finally {
+            globalThis.fetch = originalFetch;
+        }
+    });
+
     tester.it("deletes a project by project ID", async () => {
         const originalFetch = globalThis.fetch;
         const fetchCalls: FetchCall[] = [];

@@ -10,6 +10,7 @@ import { createCreateProjectPageController } from "./page-controllers/create-pro
 import { createProjectMenuPageController } from "./page-controllers/project-menu-page-controller.js";
 import { createProjectPlayerPageController } from "./page-controllers/project-player-page-controller.js";
 import { createProjectMembersController } from "./page-controllers/project-members-controller.js";
+import { createProjectActionsMenuController } from "./page-controllers/project-actions-menu-controller.js";
 import { createAudioPlayerController } from "./page-controllers/audio-player-controller.js";
 import { createProjectTrackSelectionController } from "./page-controllers/create-project-track-selection-controller.js";
 import { createCreateProjectConfirmationController } from "./page-controllers/create-project-confirmation-controller.js";
@@ -26,7 +27,9 @@ import {
 } from "./project-draft/project-draft-state.js";
 import {
   createAppRouter,
+  type AppRoute,
   type AppScreen,
+  type HistoryAdapter,
 } from "./router/app-router.js";
 import { renderProjectList } from "./templates/project-list.js";
 import { renderMixChannelSlots } from "./templates/mix-channel-slots.js";
@@ -42,7 +45,19 @@ type GrooveShareAppOptions = {
   appElement: AppElementLike;
   initialScreen?: Exclude<AppScreen, "auth">;
   authenticationApi?: AuthApi;
+  historyAdapter?: HistoryAdapter | null;
 };
+
+type NavigateOptions = {
+  replace?: boolean;
+};
+
+type NavigateTo = (
+  screen: AppScreen,
+  options?: NavigateOptions,
+) => void;
+
+type GoBack = (fallbackScreen: AppScreen) => void;
 
 type ProjectDraftState = ReturnType<typeof createProjectDraftState>;
 
@@ -96,6 +111,33 @@ function chooseAudioFile(): Promise<File | null> {
     });
 
     input.click();
+  });
+}
+
+function initializeMobileNavigation({
+  appElement,
+  onHome,
+  onLogout,
+}: {
+  appElement: AppElementLike;
+  onHome?: () => void | Promise<void>;
+  onLogout: () => void | Promise<void>;
+}): void {
+  const homeButton = getElement<HTMLButtonElement>(
+    appElement,
+    "#mobile-nav-home-button",
+  );
+  const logoutButton = getElement<HTMLButtonElement>(
+    appElement,
+    "#mobile-nav-logout-button",
+  );
+
+  homeButton?.addEventListener("click", () => {
+    void onHome?.();
+  });
+
+  logoutButton?.addEventListener("click", () => {
+    void onLogout();
   });
 }
 
@@ -175,7 +217,7 @@ function initializeProjectMenuPage({
   onLogout,
 }: {
   appElement: AppElementLike;
-  navigateTo: (screen: AppScreen) => void;
+  navigateTo: NavigateTo;
   setSelectedProject: (project: Project) => void;
   projectDraftState: ProjectDraftState;
   onLogout: () => Promise<void>;
@@ -197,6 +239,11 @@ function initializeProjectMenuPage({
 
   logoutButton?.addEventListener("click", () => {
     void onLogout();
+  });
+
+  initializeMobileNavigation({
+    appElement,
+    onLogout,
   });
 
   const projectListElement = getElement<HTMLDivElement>(
@@ -224,18 +271,34 @@ function initializeProjectMenuPage({
 function initializeCreateProjectPage({
   appElement,
   navigateTo,
+  goBack,
   setSelectedProject,
   projectDraftState,
+  onLogout,
 }: {
   appElement: AppElementLike;
-  navigateTo: (screen: AppScreen) => void;
+  navigateTo: NavigateTo;
+  goBack: GoBack;
   setSelectedProject: (project: Project) => void;
   projectDraftState: ProjectDraftState;
+  onLogout: () => Promise<void>;
 }): void {
-  // const backButton = getElement<HTMLButtonElement>(
-  //   appElement,
-  //   "#back-to-menu-button",
-  // );
+  const backButton = getElement<HTMLButtonElement>(
+    appElement,
+    "#back-to-menu-button",
+  );
+
+  backButton?.addEventListener("click", () => {
+    goBack("project-menu");
+  });
+
+  initializeMobileNavigation({
+    appElement,
+    onHome() {
+      navigateTo("project-menu");
+    },
+    onLogout,
+  });
 
   const form = getElement<HTMLFormElement>(appElement, "#project-form");
   const titleInput = getElement<HTMLInputElement>(appElement, "#project-title");
@@ -358,7 +421,7 @@ function initializeCreateProjectPage({
         tracksApi,
         onProjectSubmitted(project) {
           setSelectedProject(project);
-          navigateTo("project-player");
+          navigateTo("project-player", { replace: true });
         },
       });
 
@@ -410,16 +473,18 @@ function initializeCreateProjectPage({
 function initializeProjectPlayerPage({
   appElement,
   navigateTo,
+  goBack,
   selectedProject,
   currentUser,
   onLogout,
 }: {
   appElement: AppElementLike;
-  navigateTo: (screen: AppScreen) => void;
+  navigateTo: NavigateTo;
+  goBack: GoBack;
   selectedProject: Project | null;
   currentUser: User | null;
   onLogout: () => Promise<void>;
-}): void {
+}): (() => void) | null {
   const backButton = getElement<HTMLButtonElement>(
     appElement,
     "#player-back-button",
@@ -430,13 +495,9 @@ function initializeProjectPlayerPage({
     "#player-logout-button",
   );
 
-  const menuButton = getElement<HTMLButtonElement>(
-    appElement,
-    "#player-menu-button",
-  );
 
   if (!selectedProject) {
-    return;
+    return null;
   }
 
   const trackListElement = getElement<HTMLDivElement>(
@@ -465,7 +526,7 @@ function initializeProjectPlayerPage({
   );
 
   if (!trackListElement) {
-    return;
+    return null;
   }
 
   const audioElement = getElement<HTMLAudioElement>(
@@ -557,31 +618,81 @@ function initializeProjectPlayerPage({
     projectRole: selectedProject.role ?? "viewer",
     currentUserId: currentUser?.id ?? null,
     onProjectDeleted() {
-      navigateTo("project-menu");
+      navigateTo("project-menu", { replace: true });
     },
   });
 
   void controller.init();
 
-  backButton?.addEventListener("click", async () => {
+  async function leavePlayerForHome(): Promise<void> {
     await controller.flushPendingMixSettings();
     audioPlayerController.stop();
     navigateTo("project-menu");
-  });
+  }
 
-  menuButton?.addEventListener("click", async () => {
+  async function leavePlayerWithBack(): Promise<void> {
     await controller.flushPendingMixSettings();
     audioPlayerController.stop();
-    navigateTo("project-menu");
-  });
+    goBack("project-menu");
+  }
 
-  logoutButton?.addEventListener("click", async () => {
+  async function logoutFromPlayer(): Promise<void> {
     await controller.flushPendingMixSettings();
     audioPlayerController.stop();
     await onLogout();
+  }
+
+  backButton?.addEventListener("click", () => {
+    void leavePlayerWithBack();
   });
 
+  logoutButton?.addEventListener("click", () => {
+    void logoutFromPlayer();
+  });
+
+  initializeMobileNavigation({
+    appElement,
+    onHome: leavePlayerForHome,
+    onLogout: logoutFromPlayer,
+  });
+
+  let destroyProjectActionsMenu: (() => void) | null = null;
+
   if (selectedProject.role === "owner") {
+    const projectActionsButton = getElement<HTMLButtonElement>(
+      appElement,
+      "#project-actions-button",
+    );
+    const projectActionsMenu = getElement<HTMLDivElement>(
+      appElement,
+      "#project-actions-menu",
+    );
+    const ownerControlsButton = getElement<HTMLButtonElement>(
+      appElement,
+      "#owner-controls-menu-item",
+    );
+    const ownerControlsPanel = getElement<HTMLElement>(
+      appElement,
+      "#project-members-panel",
+    );
+
+    if (projectActionsButton && projectActionsMenu) {
+      const projectActionsController =
+        createProjectActionsMenuController({
+          triggerButton: projectActionsButton,
+          menuElement: projectActionsMenu,
+          ownerControlsButton,
+          ownerControlsPanel,
+        });
+
+      projectActionsController.init();
+      destroyProjectActionsMenu = projectActionsController.destroy;
+
+      deleteProjectButton?.addEventListener("click", () => {
+        projectActionsController.closeMenu();
+      });
+    }
+
     const memberForm = getElement<HTMLFormElement>(
       appElement,
       "#project-member-form",
@@ -623,12 +734,19 @@ function initializeProjectPlayerPage({
       void membersController.init();
     }
   }
+
+  return () => {
+    destroyProjectActionsMenu?.();
+    audioPlayerController.stop();
+    void controller.flushPendingMixSettings();
+  };
 }
 
 function initializeCurrentPage({
   appElement,
   currentScreen,
   navigateTo,
+  goBack,
   setSelectedProject,
   selectedProject,
   currentUser,
@@ -639,7 +757,8 @@ function initializeCurrentPage({
 }: {
   appElement: AppElementLike;
   currentScreen: AppScreen;
-  navigateTo: (screen: AppScreen) => void;
+  navigateTo: NavigateTo;
+  goBack: GoBack;
   setSelectedProject: (project: Project) => void;
   selectedProject: Project | null;
   currentUser: User | null;
@@ -647,7 +766,7 @@ function initializeCurrentPage({
   authenticationApi: AuthApi;
   onAuthenticated: (user: User) => void;
   onLogout: () => Promise<void>;
-}): void {
+}): (() => void) | null {
   if (currentScreen === "auth") {
     initializeAuthPage({
       appElement,
@@ -655,7 +774,7 @@ function initializeCurrentPage({
       onAuthenticated,
     });
 
-    return;
+    return null;
   }
 
   if (currentScreen === "project-menu") {
@@ -667,48 +786,123 @@ function initializeCurrentPage({
       onLogout,
     });
 
-    return;
+    return null;
   }
 
   if (currentScreen === "create-project") {
     initializeCreateProjectPage({
       appElement,
       navigateTo,
+      goBack,
       setSelectedProject,
       projectDraftState,
+      onLogout,
     });
 
-    return;
+    return null;
   }
 
   if (currentScreen === "project-player") {
-    initializeProjectPlayerPage({
+    return initializeProjectPlayerPage({
       appElement,
       navigateTo,
+      goBack,
       selectedProject,
       currentUser,
       onLogout,
     });
   }
+
+  return null;
 }
 
 export function createGrooveShareApp({
   appElement,
   initialScreen = "project-menu",
   authenticationApi = authApi,
+  historyAdapter,
 }: GrooveShareAppOptions) {
   let selectedProject: Project | null = null;
   let currentUser: User | null = null;
   let authMessage = "";
+  let activePageCleanup: (() => void) | null = null;
+  let historyNavigationRevision = 0;
   const projectDraftState = createProjectDraftState();
 
   function setSelectedProject(project: Project): void {
     selectedProject = project;
   }
 
+  function getRouteForScreen(screen: AppScreen): AppRoute {
+    if (screen === "project-player" && selectedProject) {
+      return {
+        screen,
+        projectId: selectedProject.id,
+      };
+    }
+
+    return { screen };
+  }
+
+  function routesMatch(first: AppRoute, second: AppRoute): boolean {
+    return (
+      first.screen === second.screen &&
+      first.projectId === second.projectId
+    );
+  }
+
+  async function resolveAuthenticatedRoute(
+    requestedRoute: AppRoute,
+  ): Promise<AppRoute> {
+    if (!currentUser) {
+      return { screen: "auth" };
+    }
+
+    if (requestedRoute.screen === "auth") {
+      return { screen: "project-menu" };
+    }
+
+    if (requestedRoute.screen !== "project-player") {
+      return requestedRoute;
+    }
+
+    const projectId =
+      requestedRoute.projectId ?? selectedProject?.id ?? null;
+
+    if (!projectId) {
+      selectedProject = null;
+      return { screen: "project-menu" };
+    }
+
+    if (selectedProject?.id === projectId) {
+      return {
+        screen: "project-player",
+        projectId,
+      };
+    }
+
+    try {
+      selectedProject = await projectsApi.getProject(projectId);
+
+      return {
+        screen: "project-player",
+        projectId,
+      };
+    } catch {
+      selectedProject = null;
+      return { screen: "project-menu" };
+    }
+  }
+
+  function disposeCurrentPage(): void {
+    activePageCleanup?.();
+    activePageCleanup = null;
+  }
+
   const router = createAppRouter({
     appElement,
     initialScreen,
+    historyAdapter,
     pageRenderers: {
       auth: () => renderAuthPage({ message: authMessage }),
       "project-menu": () => renderProjectMenuPage(currentUser),
@@ -716,13 +910,17 @@ export function createGrooveShareApp({
         renderCreateProjectPage(projectDraftState.getProjectDraft()),
       "project-player": () => renderProjectPlayerPage(selectedProject),
     },
+    onHistoryNavigation(route) {
+      void handleHistoryNavigation(route);
+    },
   });
 
   function initializeRenderedPage(): void {
-    initializeCurrentPage({
+    activePageCleanup = initializeCurrentPage({
       appElement,
       currentScreen: router.getCurrentScreen(),
       navigateTo,
+      goBack,
       setSelectedProject,
       selectedProject,
       currentUser,
@@ -733,20 +931,72 @@ export function createGrooveShareApp({
     });
   }
 
-  function navigateTo(screen: AppScreen): void {
+  function renderAndInitializeCurrentRoute(): void {
+    router.renderCurrentScreen();
+    initializeRenderedPage();
+  }
+
+  function navigateTo(
+    screen: AppScreen,
+    { replace = false }: NavigateOptions = {},
+  ): void {
+    disposeCurrentPage();
+
     const nextScreen =
       currentUser || screen === "auth"
         ? screen
         : "auth";
+    const nextRoute = getRouteForScreen(nextScreen);
 
-    router.navigateTo(nextScreen);
+    if (replace) {
+      router.replaceWith(nextRoute);
+    } else {
+      router.navigateTo(nextRoute);
+    }
+
     initializeRenderedPage();
+  }
+
+  function goBack(fallbackScreen: AppScreen): void {
+    disposeCurrentPage();
+
+    const fallbackRoute = getRouteForScreen(
+      currentUser || fallbackScreen === "auth"
+        ? fallbackScreen
+        : "auth",
+    );
+
+    const waitingForBrowserHistory = router.goBack(fallbackRoute);
+
+    if (!waitingForBrowserHistory) {
+      initializeRenderedPage();
+    }
+  }
+
+  async function handleHistoryNavigation(route: AppRoute): Promise<void> {
+    const navigationRevision = ++historyNavigationRevision;
+
+    disposeCurrentPage();
+
+    const resolvedRoute = await resolveAuthenticatedRoute(route);
+
+    if (navigationRevision !== historyNavigationRevision) {
+      return;
+    }
+
+    if (!routesMatch(resolvedRoute, route)) {
+      router.replaceWith(resolvedRoute);
+      initializeRenderedPage();
+      return;
+    }
+
+    renderAndInitializeCurrentRoute();
   }
 
   function handleAuthenticated(user: User): void {
     currentUser = user;
     authMessage = "";
-    navigateTo("project-menu");
+    navigateTo("project-menu", { replace: true });
   }
 
   async function handleLogout(): Promise<void> {
@@ -777,7 +1027,7 @@ export function createGrooveShareApp({
     selectedProject = null;
     projectDraftState.clear();
     authMessage = "You have been signed out.";
-    navigateTo("auth");
+    navigateTo("auth", { replace: true });
   }
 
   function handleAuthenticationRequired(): void {
@@ -789,7 +1039,7 @@ export function createGrooveShareApp({
     selectedProject = null;
     projectDraftState.clear();
     authMessage = "Your session has expired. Sign in again.";
-    navigateTo("auth");
+    navigateTo("auth", { replace: true });
   }
 
   setAuthenticationRequiredHandler(
@@ -797,11 +1047,17 @@ export function createGrooveShareApp({
   );
 
   async function start(): Promise<void> {
+    const requestedRoute = router.getRequestedRoute();
+
     try {
       currentUser =
         await authenticationApi.getCurrentUser();
       authMessage = "";
-      router.navigateTo(initialScreen);
+
+      const initialRoute =
+        await resolveAuthenticatedRoute(requestedRoute);
+
+      router.start(initialRoute);
     } catch (error) {
       currentUser = null;
 
@@ -815,7 +1071,7 @@ export function createGrooveShareApp({
           "Could not restore your session. Sign in to continue.";
       }
 
-      router.navigateTo("auth");
+      router.start({ screen: "auth" });
     }
 
     initializeRenderedPage();

@@ -15,6 +15,12 @@ export async function getProjects(): Promise<Project[]> {
   return parseApiResponse<Project[]>(response);
 }
 
+
+export async function getProject(projectId: string): Promise<Project> {
+  const response = await apiFetch(`${API_BASE_URL}/api/projects/${projectId}`);
+  return parseApiResponse<Project>(response);
+}
+
 export async function createProject(
   projectInput: CreateProjectInput,
 ): Promise<Project> {
@@ -72,6 +78,7 @@ export async function saveMixSettings(
 
 export const projectsApi = {
   getProjects,
+  getProject,
   createProject,
   updateProjectDetails,
   deleteProject,

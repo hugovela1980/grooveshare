@@ -1,3 +1,4 @@
+import { renderMobileNavigation } from "../templates/mobile-navigation.js";
 import type { CreateProjectInput } from "../types.js";
 
 function escapeHtml(value: string): string {
@@ -104,6 +105,8 @@ export function renderCreateProjectPage(
           <p id="project-status" class="status-message" aria-live="polite"></p>
         </form>
       </section>
+
+      ${renderMobileNavigation()}
 
       <div id="create-project-confirmation-modal" class="modal" hidden>
         <section

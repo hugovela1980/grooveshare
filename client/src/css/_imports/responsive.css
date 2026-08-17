@@ -9,7 +9,90 @@
 @media (max-width: 32rem) {
     .app-shell {
         width: 100%;
-        padding: 1rem 0.7rem 1.5rem;
+        padding: 1rem 0.7rem 6.25rem;
+    }
+
+    .project-menu-page {
+        padding-bottom: 6.25rem;
+    }
+
+    /* Fixed phone navigation shared by authenticated pages. */
+
+    .mobile-navigation {
+        position: fixed;
+        z-index: 40;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        min-height: 4.6rem;
+        padding: 0.35rem 0.35rem calc(0.35rem + env(safe-area-inset-bottom));
+        border-top: 1px solid var(--border-dark);
+        background: rgba(23, 23, 23, 0.98);
+        box-shadow: 0 -0.5rem 1.5rem rgba(0, 0, 0, 0.22);
+    }
+
+    .mobile-navigation__item {
+        display: grid;
+        width: 100%;
+        min-width: 0;
+        min-height: 3.8rem;
+        place-items: center;
+        align-content: center;
+        gap: 0.18rem;
+        padding: 0.25rem 0.15rem;
+        border: 0;
+        border-radius: var(--radius-md);
+        color: var(--color-text-muted);
+        background: transparent;
+        font-weight: 600;
+    }
+
+    .mobile-navigation__item:hover:not(:disabled),
+    .mobile-navigation__item:focus-visible {
+        background: var(--color-surface);
+    }
+
+    .mobile-navigation__item[aria-current="page"] {
+        color: var(--color-accent);
+        background: var(--color-surface);
+    }
+
+    .mobile-navigation__item:disabled:not([aria-current="page"]) {
+        color: var(--color-text-subtle);
+        background: transparent;
+        cursor: default;
+        opacity: 0.5;
+    }
+
+    .mobile-navigation__icon {
+        display: grid;
+        width: 1.55rem;
+        height: 1.55rem;
+        place-items: center;
+    }
+
+    .mobile-navigation__icon svg {
+        width: 100%;
+        height: 100%;
+        fill: none;
+        stroke: currentColor;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-width: 1.8;
+    }
+
+    .mobile-navigation__label {
+        overflow: hidden;
+        font-size: 0.68rem;
+        line-height: 1;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .project-menu-session #logout-button {
+        display: none;
     }
 
     /* Project Player phone shell */
@@ -23,62 +106,81 @@
     }
 
     .project-player-header__actions {
+        display: grid;
+        grid-template-columns: 2.75rem minmax(0, 1fr) 2.75rem;
         gap: 0.45rem;
-        margin-bottom: 0.65rem;
+        align-items: center;
+        margin-bottom: 0;
     }
 
-    .project-player-header__actions .button {
+    .project-player-header__back {
+        display: grid;
+        width: 2.75rem;
+        height: 2.75rem;
         min-height: 2.75rem;
-        padding: 0.55rem 0.7rem;
-        font-size: 0.82rem;
+        place-items: center;
+        padding: 0;
+        border-radius: var(--radius-pill);
     }
 
-    .project-player-header__details {
-        gap: 0.35rem;
-        justify-items: center;
-        text-align: center;
-    }
-
-    .project-player-header__eyebrow-row {
-        justify-content: center;
-    }
-
-    .project-player-header .eyebrow {
+    .project-player-header__back-desktop,
+    .project-player-header__desktop-logout {
         display: none;
     }
 
-    .project-player-editable {
-        justify-content: center;
-        padding-inline: 0.2rem;
+    .project-player-header__back-mobile {
+        display: inline;
+        font-size: 2rem;
+        font-weight: 400;
+        line-height: 1;
+        transform: translateY(-0.08rem);
     }
 
-    .project-player-editable__title {
-        max-width: 100%;
-        font-size: clamp(1.45rem, 7vw, 1.9rem);
-        line-height: 1.08;
-        text-align: center;
-    }
-
-    .project-player-editable--description {
-        max-width: 100%;
-        margin-top: 0;
-    }
-
-    .project-player-editable__description {
+    .project-player-header__mobile-title {
         display: -webkit-box;
+        max-width: 100%;
+        margin: 0;
         overflow: hidden;
         -webkit-box-orient: vertical;
         -webkit-line-clamp: 2;
-        color: var(--color-text-subtle-cool);
-        font-size: 0.82rem;
-        line-height: 1.35;
+        overflow-wrap: anywhere;
+        font-size: clamp(1.05rem, 5vw, 1.3rem);
+        font-weight: 750;
+        line-height: 1.12;
         text-align: center;
     }
 
-    .project-role-badge {
-        min-height: 1.5rem;
-        padding: 0.2rem 0.5rem;
-        font-size: 0.65rem;
+    .project-player-header__actions-spacer {
+        display: block;
+        width: 2.75rem;
+        height: 2.75rem;
+    }
+
+    .project-player-header__details {
+        display: none;
+    }
+
+    .project-actions {
+        width: 2.75rem;
+        margin-left: 0;
+    }
+
+    .project-actions__trigger {
+        width: 2.75rem;
+        height: 2.75rem;
+        min-height: 2.75rem;
+    }
+
+    .project-actions__menu {
+        position: fixed;
+        top: 4rem;
+        right: 0.7rem;
+        width: min(15rem, calc(100vw - 1.4rem));
+    }
+
+    .project-actions__item {
+        min-height: 3.1rem;
+        padding-inline: 1rem;
     }
 
     /* Compact phone transport */

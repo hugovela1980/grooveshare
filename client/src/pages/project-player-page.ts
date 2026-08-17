@@ -1,4 +1,6 @@
 import { renderAudioPlayer } from "../templates/audio-player.js";
+import { renderMobileNavigation } from "../templates/mobile-navigation.js";
+import { renderProjectActionsMenu } from "../templates/project-actions-menu.js";
 import { renderProjectMembersPanel } from "../templates/project-members.js";
 import type { Project, ProjectRole } from "../types.js";
 
@@ -58,31 +60,25 @@ export function renderProjectPlayerPage(project: Project | null = null): string 
         <div class="project-player-header__actions">
           <button
             id="player-back-button"
-            class="button button--secondary"
+            class="button button--secondary project-player-header__back"
             type="button"
+            aria-label="Go back"
           >
-            Back
+            <span class="project-player-header__back-desktop">Back</span>
+            <span class="project-player-header__back-mobile" aria-hidden="true">‹</span>
           </button>
+
+          <p class="project-player-header__mobile-title">${heading}</p>
 
           <button
             id="player-logout-button"
-            class="button button--secondary"
+            class="button button--secondary project-player-header__desktop-logout"
             type="button"
           >
             Log Out
           </button>
 
-          ${canManageProject
-            ? /*html*/ `
-              <button
-                id="delete-project-button"
-                class="button button--danger"
-                type="button"
-              >
-                Delete Project
-              </button>
-            `
-            : ""}
+          ${canManageProject ? renderProjectActionsMenu() : '<span class="project-player-header__actions-spacer" aria-hidden="true"></span>'}
         </div>
 
         <div class="project-player-header__details">
@@ -127,7 +123,9 @@ export function renderProjectPlayerPage(project: Project | null = null): string 
         ></p>
       </section>
 
-      ${canManageProject ? renderProjectMembersPanel() : ""}
+      ${canManageProject ? renderProjectMembersPanel({ hidden: true }) : ""}
+
+      ${renderMobileNavigation()}
     </main>
   `;
 }

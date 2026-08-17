@@ -41,6 +41,7 @@ tester.describe("permission-aware templates", () => {
 
     tester.expect(html.includes("Viewer")).toBe(true);
     tester.expect(html.includes("Delete Project")).toBe(false);
+    tester.expect(html.includes('id="project-actions-button"')).toBe(false);
     tester.expect(html.includes('contenteditable="true"')).toBe(false);
     tester.expect(html.includes("Project Members")).toBe(false);
     tester.expect(html.includes("Audio Player")).toBe(true);
@@ -51,6 +52,7 @@ tester.describe("permission-aware templates", () => {
 
     tester.expect(html.includes("Contributor")).toBe(true);
     tester.expect(html.includes("Delete Project")).toBe(false);
+    tester.expect(html.includes('id="project-actions-button"')).toBe(false);
     tester.expect(html.includes('contenteditable="true"')).toBe(false);
     tester.expect(html.includes("Project Members")).toBe(false);
   });
@@ -60,9 +62,23 @@ tester.describe("permission-aware templates", () => {
 
     tester.expect(html.includes("Owner")).toBe(true);
     tester.expect(html.includes("Delete Project")).toBe(true);
+    tester.expect(html.includes("Edit Project")).toBe(true);
+    tester.expect(html.includes("Owner Controls")).toBe(true);
+    tester.expect(html.includes('id="project-actions-button"')).toBe(true);
+    tester.expect(html.includes('id="edit-project-menu-item"')).toBe(true);
+    tester.expect(html.includes('id="owner-controls-menu-item"')).toBe(true);
     tester.expect(html.includes('contenteditable="true"')).toBe(true);
     tester.expect(html.includes("Project Members")).toBe(true);
     tester.expect(html.includes('id="project-member-form"')).toBe(true);
+    tester.expect(html.includes('id="project-members-panel"')).toBe(true);
+
+    const membersPanelStart = html.indexOf('id="project-members-panel"');
+    const membersPanelOpeningTag = html.slice(
+      membersPanelStart,
+      membersPanelStart + 240,
+    );
+
+    tester.expect(membersPanelOpeningTag.includes("hidden")).toBe(true);
   });
 
   tester.it("keeps Viewer mixer controls but removes track mutation controls", () => {
