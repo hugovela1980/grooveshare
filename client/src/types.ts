@@ -1,3 +1,11 @@
+import type { User } from "@hugovela/frontend-core";
+
+export type {
+  LoginInput,
+  RegisterUserInput,
+  User,
+} from "@hugovela/frontend-core";
+
 export type MixChannelSetting = {
   channelNumber: number;
   trackId: string;
@@ -47,25 +55,6 @@ export type UploadTrackInput = {
   projectId: string;
   trackName: string;
   audioFile: File;
-};
-
-export type User = {
-  id: string;
-  email: string;
-  displayName: string;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type RegisterUserInput = {
-  email: string;
-  displayName: string;
-  password: string;
-};
-
-export type LoginInput = {
-  email: string;
-  password: string;
 };
 
 export type ProjectMember = {

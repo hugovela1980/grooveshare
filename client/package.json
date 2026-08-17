@@ -16,5 +16,8 @@
     "tsx": "^4.22.4",
     "typescript": "~6.0.2",
     "vite": "^8.0.12"
+  },
+  "dependencies": {
+    "@hugovela/frontend-core": "^0.1.0"
   }
 }

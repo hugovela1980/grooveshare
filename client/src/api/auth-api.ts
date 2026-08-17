@@ -1,3 +1,4 @@
+import type { SessionProvider } from "@hugovela/frontend-core";
 import type {
   LoginInput,
   RegisterUserInput,
@@ -10,12 +11,7 @@ import {
   parseApiSuccess,
 } from "./api-client.js";
 
-export type AuthApi = {
-  registerUser: (input: RegisterUserInput) => Promise<User>;
-  login: (input: LoginInput) => Promise<User>;
-  logout: () => Promise<void>;
-  getCurrentUser: () => Promise<User>;
-};
+export type AuthApi = SessionProvider;
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
