@@ -1,4 +1,5 @@
 import { renderMobileNavigation } from "../templates/mobile-navigation.js";
+import { MOBILE_AUDIO_FILE_ACCEPT } from "../uploads/mobile-audio-files.js";
 import type { CreateProjectInput } from "../types.js";
 
 function escapeHtml(value: string): string {
@@ -18,23 +19,31 @@ export function renderCreateProjectPage(
 
   return /*html*/ `
     <main class="app-shell create-project-page" data-page="create-project">
-      <header class="page-header create-project-header">
-        <button id="back-to-menu-button" type="button">Back</button>
+      <header class="create-project-header">
+        <button
+          id="back-to-menu-button"
+          class="button button--secondary create-project-header__back"
+          type="button"
+          aria-label="Back to projects"
+        >
+          <span aria-hidden="true">‹</span>
+        </button>
 
-        <div>
+        <div class="create-project-header__heading">
           <p class="eyebrow">New Project</p>
           <h1>Create Project</h1>
-          <p class="description">
-            Start a new GrooveShare project and choose any tracks you want
-            to include.
-          </p>
         </div>
+
+        <span class="create-project-header__spacer" aria-hidden="true"></span>
       </header>
 
       <section class="panel create-project-panel">
         <form id="project-form" class="project-form create-project-form">
           <section class="create-project-form__section">
-            <h2>Project details</h2>
+            <div class="create-project-section-heading">
+              <h2>Project details</h2>
+              <p>Give this idea a name. You can edit these details later.</p>
+            </div>
 
             <label>
               <span>Project title</span>
@@ -42,6 +51,8 @@ export function renderCreateProjectPage(
                 id="project-title"
                 name="title"
                 type="text"
+                autocomplete="off"
+                enterkeyhint="next"
                 placeholder="Chorus Riff Idea"
                 value="${title}"
                 required
@@ -49,60 +60,65 @@ export function renderCreateProjectPage(
             </label>
 
             <label>
-              <span>Description</span>
+              <span>Description <span class="form-optional">(optional)</span></span>
               <textarea
                 id="project-description"
                 name="description"
                 rows="4"
+                enterkeyhint="done"
                 placeholder="Guitar riff with scratch drums"
               >${description}</textarea>
             </label>
           </section>
 
-          <section class="create-project-form__section">
-            <div class="add-audio-tracks-header">
-              <div>
-                <h2>Add Audio Tracks</h2>
-                <p class="description">
-                  Add up to four audio tracks before creating the project.
-                </p>
-              </div>
-
-              <button
-                id="add-audio-tracks-button"
-                class="icon-button"
-                type="button"
-                aria-label="Add audio tracks"
-              >
-                +
-              </button>
-
-              <input
-                id="pending-audio-files"
-                name="audioFiles"
-                type="file"
-                accept="audio/*"
-                multiple
-                hidden
-              />
+          <section class="create-project-form__section create-project-audio-section">
+            <div class="create-project-section-heading">
+              <h2>Audio tracks</h2>
+              <p>
+                Add up to four tracks now, or create the project first and add tracks later.
+              </p>
             </div>
+
+            <button
+              id="add-audio-tracks-button"
+              class="button button--secondary create-project-add-tracks-button"
+              type="button"
+            >
+              <span aria-hidden="true">＋</span>
+              Choose Audio Files
+            </button>
+
+            <p class="create-project-audio-help">
+              WAV, MP3, M4A, AAC, OGG, WebM, or FLAC. Maximum 50 MB per file.
+            </p>
+
+            <input
+              id="pending-audio-files"
+              name="audioFiles"
+              type="file"
+              accept="${MOBILE_AUDIO_FILE_ACCEPT}"
+              multiple
+              hidden
+            />
 
             <section
               id="tracks-to-include-section"
               class="tracks-to-include-section"
+              aria-labelledby="tracks-to-include-heading"
               hidden
             >
-              <h3>Tracks to Include</h3>
-
+              <h3 id="tracks-to-include-heading">Tracks to Include</h3>
               <div id="pending-track-list"></div>
             </section>
           </section>
 
-          <div class="create-project-actions">
-            <button type="submit">Create a New Project</button>
-          </div>
-
           <p id="project-status" class="status-message" aria-live="polite"></p>
+
+          <div class="create-project-actions">
+            <button id="review-create-project-button" type="submit">
+              Review Project
+            </button>
+          </div>
         </form>
       </section>
 
@@ -114,11 +130,15 @@ export function renderCreateProjectPage(
           role="dialog"
           aria-modal="true"
           aria-labelledby="create-project-confirmation-title"
+          aria-describedby="create-project-confirmation-description"
         >
           <header class="modal__header">
             <div>
               <p class="eyebrow">Review Project</p>
-              <h2 id="create-project-confirmation-title">Confirm Project</h2>
+              <h2 id="create-project-confirmation-title">Ready to create?</h2>
+              <p id="create-project-confirmation-description" class="help-text">
+                Check the project details and selected tracks before submitting.
+              </p>
             </div>
 
             <button
@@ -154,13 +174,19 @@ export function renderCreateProjectPage(
             </section>
           </div>
 
+          <p
+            id="create-project-confirmation-status"
+            class="status-message create-project-confirmation-status"
+            aria-live="polite"
+          ></p>
+
           <div class="modal__actions">
             <button
               id="edit-create-project-button"
               class="button button--secondary-light"
               type="button"
             >
-              Edit
+              Keep Editing
             </button>
 
             <button
@@ -168,15 +194,9 @@ export function renderCreateProjectPage(
               class="button"
               type="button"
             >
-              Submit
+              Create Project
             </button>
           </div>
-
-          <p
-            id="create-project-confirmation-status"
-            class="status-message"
-            aria-live="polite"
-          ></p>
         </section>
       </div>
     </main>

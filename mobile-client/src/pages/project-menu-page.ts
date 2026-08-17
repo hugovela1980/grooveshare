@@ -17,12 +17,14 @@ export function renderProjectMenuPage(
   const sessionMarkup = currentUser
     ? /*html*/ `
       <div class="project-menu-session">
+        <div class="project-menu-session__avatar" aria-hidden="true">
+          ${escapeHtml(currentUser.displayName.trim().slice(0, 1).toUpperCase() || "G")}
+        </div>
         <p class="project-menu-session__identity">
-          Signed in as
+          <span>Signed in as</span>
           <strong>${escapeHtml(currentUser.displayName)}</strong>
-          <span>${escapeHtml(currentUser.email)}</span>
+          <small>${escapeHtml(currentUser.email)}</small>
         </p>
-
       </div>
     `
     : "";
@@ -30,16 +32,31 @@ export function renderProjectMenuPage(
   return /*html*/ `
     <main class="project-menu-page" data-page="project-menu">
       <header class="project-menu-hero">
-        <h1 class="project-menu-hero__title">Grooveshare</h1>
-        <p class="project-menu-hero__tagline">Share tracks. Build songs together.</p>
+        <p class="eyebrow">Your workspace</p>
+        <h1 class="project-menu-hero__title">GrooveShare</h1>
+        <p class="project-menu-hero__tagline">Pick up where the music left off.</p>
       </header>
 
       ${sessionMarkup}
 
       <section class="panel project-menu-panel" aria-labelledby="current-projects-heading">
-        <h2 id="current-projects-heading" class="project-menu-panel__title">
-          Current Projects
-        </h2>
+        <div class="project-menu-panel__header">
+          <div>
+            <p class="eyebrow">Projects</p>
+            <h2 id="current-projects-heading" class="project-menu-panel__title">
+              Current Projects
+            </h2>
+          </div>
+
+          <button
+            id="add-project-button"
+            class="project-menu-actions__button"
+            type="button"
+          >
+            <span aria-hidden="true">＋</span>
+            New Project
+          </button>
+        </div>
 
         <div id="project-list" class="project-menu-panel__list">
           ${renderLoadingState("Loading projects...", { compact: true })}
@@ -51,16 +68,6 @@ export function renderProjectMenuPage(
           aria-live="polite"
         ></p>
       </section>
-
-      <div class="project-menu-actions">
-        <button
-          id="add-project-button"
-          class="project-menu-actions__button"
-          type="button"
-        >
-          Create a New Project
-        </button>
-      </div>
 
       ${currentUser ? renderMobileNavigation({ activeItem: "home" }) : ""}
     </main>

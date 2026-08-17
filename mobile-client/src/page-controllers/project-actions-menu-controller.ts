@@ -18,13 +18,16 @@ type EventTargetLike = {
   ) => void;
 };
 
-type ButtonLike = {
+type FocusableLike = {
+  focus?: () => void;
+};
+
+type ButtonLike = FocusableLike & {
   addEventListener: (
     eventName: "click",
     handler: (event: ClickEventLike) => void,
   ) => void;
   setAttribute: (name: string, value: string) => void;
-  focus?: () => void;
   contains?: (target: Node | null) => boolean;
 };
 
@@ -43,6 +46,7 @@ type ProjectActionsMenuControllerOptions = {
   editProjectButton?: ButtonLike | null;
   ownerControlsButton?: ButtonLike | null;
   ownerControlsPanel?: PanelLike | null;
+  ownerControlsCloseButton?: ButtonLike | null;
   onEditProject?: () => void;
   documentTarget?: EventTargetLike | null;
 };
@@ -53,6 +57,7 @@ export function createProjectActionsMenuController({
   editProjectButton = null,
   ownerControlsButton = null,
   ownerControlsPanel = null,
+  ownerControlsCloseButton = null,
   onEditProject,
   documentTarget =
     typeof document === "undefined"
@@ -61,16 +66,39 @@ export function createProjectActionsMenuController({
 }: ProjectActionsMenuControllerOptions) {
   let globalListenersAttached = false;
 
-  function setMenuOpen(isOpen: boolean): void {
-    menuElement.hidden = !isOpen;
-    triggerButton.setAttribute("aria-expanded", String(isOpen));
+  function menuIsOpen(): boolean {
+    return !Boolean(menuElement.hidden);
+  }
 
-    if (isOpen) {
-      attachGlobalListeners();
+  function ownerControlsAreOpen(): boolean {
+    return Boolean(ownerControlsPanel) && !Boolean(ownerControlsPanel?.hidden);
+  }
+
+  function syncGlobalListeners(): void {
+    const shouldAttach = menuIsOpen() || ownerControlsAreOpen();
+
+    if (!documentTarget) {
       return;
     }
 
-    removeGlobalListeners();
+    if (shouldAttach && !globalListenersAttached) {
+      documentTarget.addEventListener("click", handleDocumentClick);
+      documentTarget.addEventListener("keydown", handleDocumentKeydown);
+      globalListenersAttached = true;
+      return;
+    }
+
+    if (!shouldAttach && globalListenersAttached) {
+      documentTarget.removeEventListener("click", handleDocumentClick);
+      documentTarget.removeEventListener("keydown", handleDocumentKeydown);
+      globalListenersAttached = false;
+    }
+  }
+
+  function setMenuOpen(isOpen: boolean): void {
+    menuElement.hidden = !isOpen;
+    triggerButton.setAttribute("aria-expanded", String(isOpen));
+    syncGlobalListeners();
   }
 
   function closeMenu({ restoreFocus = false } = {}): void {
@@ -81,8 +109,33 @@ export function createProjectActionsMenuController({
     }
   }
 
+  function openOwnerControls(): void {
+    if (!ownerControlsButton || !ownerControlsPanel) {
+      return;
+    }
+
+    closeMenu();
+    ownerControlsPanel.hidden = false;
+    ownerControlsButton.setAttribute("aria-expanded", "true");
+    syncGlobalListeners();
+  }
+
+  function closeOwnerControls({ restoreFocus = true } = {}): void {
+    if (!ownerControlsButton || !ownerControlsPanel) {
+      return;
+    }
+
+    ownerControlsPanel.hidden = true;
+    ownerControlsButton.setAttribute("aria-expanded", "false");
+    syncGlobalListeners();
+
+    if (restoreFocus) {
+      triggerButton.focus?.();
+    }
+  }
+
   function handleDocumentClick(event: ClickEventLike | KeyboardEventLike): void {
-    if (!("target" in event)) {
+    if (!menuIsOpen() || !("target" in event)) {
       return;
     }
 
@@ -100,28 +153,16 @@ export function createProjectActionsMenuController({
       return;
     }
 
-    event.preventDefault?.();
-    closeMenu({ restoreFocus: true });
-  }
-
-  function attachGlobalListeners(): void {
-    if (!documentTarget || globalListenersAttached) {
+    if (ownerControlsAreOpen()) {
+      event.preventDefault?.();
+      closeOwnerControls();
       return;
     }
 
-    documentTarget.addEventListener("click", handleDocumentClick);
-    documentTarget.addEventListener("keydown", handleDocumentKeydown);
-    globalListenersAttached = true;
-  }
-
-  function removeGlobalListeners(): void {
-    if (!documentTarget || !globalListenersAttached) {
-      return;
+    if (menuIsOpen()) {
+      event.preventDefault?.();
+      closeMenu({ restoreFocus: true });
     }
-
-    documentTarget.removeEventListener("click", handleDocumentClick);
-    documentTarget.removeEventListener("keydown", handleDocumentKeydown);
-    globalListenersAttached = false;
   }
 
   function toggleMenu(): void {
@@ -131,20 +172,6 @@ export function createProjectActionsMenuController({
   function handleEditProject(): void {
     closeMenu();
     onEditProject?.();
-  }
-
-  function toggleOwnerControls(): void {
-    if (!ownerControlsButton || !ownerControlsPanel) {
-      return;
-    }
-
-    const ownerControlsAreHidden = Boolean(ownerControlsPanel.hidden);
-    ownerControlsPanel.hidden = !ownerControlsAreHidden;
-    ownerControlsButton.setAttribute(
-      "aria-expanded",
-      String(ownerControlsAreHidden),
-    );
-    closeMenu();
   }
 
   function init(): void {
@@ -157,17 +184,23 @@ export function createProjectActionsMenuController({
     });
 
     ownerControlsButton?.addEventListener("click", () => {
-      toggleOwnerControls();
+      openOwnerControls();
+    });
+
+    ownerControlsCloseButton?.addEventListener("click", () => {
+      closeOwnerControls();
     });
   }
 
   function destroy(): void {
     closeMenu();
+    closeOwnerControls({ restoreFocus: false });
   }
 
   return {
     init,
     closeMenu,
+    closeOwnerControls,
     destroy,
   };
 }

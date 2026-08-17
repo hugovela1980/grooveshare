@@ -31,6 +31,7 @@ export function renderProjectEditDialog(): string {
               type="text"
               required
               autocomplete="off"
+              enterkeyhint="next"
             />
           </label>
 
@@ -39,6 +40,7 @@ export function renderProjectEditDialog(): string {
             <textarea
               id="project-edit-description-input"
               rows="5"
+              enterkeyhint="enter"
             ></textarea>
           </label>
 
@@ -51,7 +53,7 @@ export function renderProjectEditDialog(): string {
           <div class="modal__actions">
             <button
               id="cancel-project-edit-button"
-              class="button button--secondary"
+              class="button button--secondary-light"
               type="button"
             >
               Cancel
@@ -104,6 +106,7 @@ export function renderTrackEditDialog(): string {
               type="text"
               required
               autocomplete="off"
+              enterkeyhint="done"
             />
           </label>
 
@@ -116,7 +119,7 @@ export function renderTrackEditDialog(): string {
           <div class="modal__actions">
             <button
               id="cancel-track-edit-button"
-              class="button button--secondary"
+              class="button button--secondary-light"
               type="button"
             >
               Cancel

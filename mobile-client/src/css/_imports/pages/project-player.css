@@ -250,3 +250,115 @@
     min-height: 7rem;
     resize: vertical;
 }
+
+/* Version 2 Milestone 7: Owner Controls use a phone-friendly modal rather than
+   expanding a long management panel below the mixer. */
+.owner-controls-modal[hidden] {
+    display: none;
+}
+
+.owner-controls-modal__content {
+    display: grid;
+    gap: 0.75rem;
+}
+
+.owner-controls-modal__header {
+    margin-bottom: 0;
+}
+
+.project-member-form {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+    margin-bottom: 0;
+    padding: 0.85rem;
+    border: 1px solid var(--border-light-medium);
+    border-radius: 0.85rem;
+    background: var(--color-light-surface-soft);
+}
+
+.project-member-form__field {
+    gap: 0.35rem;
+}
+
+.project-member-form input,
+.project-member-form select,
+.project-member-row select {
+    min-height: 3rem;
+    color: var(--color-light-text);
+    background: var(--color-light-surface);
+    border-color: var(--border-light-strong);
+}
+
+.owner-controls-modal__add-button {
+    width: 100%;
+    min-height: 3rem;
+}
+
+.owner-controls-modal__status {
+    min-height: 1.4rem;
+    color: #166534;
+    font-size: 0.88rem;
+    font-weight: 650;
+}
+
+.owner-controls-modal__member-list {
+    min-height: 5rem;
+}
+
+.project-member-list {
+    gap: 0.7rem;
+}
+
+.project-member-row {
+    grid-template-columns: 1fr;
+    gap: 0.65rem;
+    padding: 0.85rem;
+    border: 1px solid var(--border-light-medium);
+    border-radius: 0.85rem;
+    background: var(--color-light-surface-soft);
+}
+
+.project-member-row__identity strong,
+.project-member-row__identity span,
+.project-member-row__role-control > span {
+    color: var(--color-light-text);
+}
+
+.project-member-row__identity span {
+    color: var(--color-light-muted);
+    font-size: 0.82rem;
+}
+
+.project-member-row__role-control {
+    gap: 0.3rem;
+}
+
+.project-member-row__role-control > span {
+    font-size: 0.78rem;
+}
+
+.project-member-row__role-badge {
+    color: var(--color-light-text);
+    border-color: var(--border-light-strong);
+}
+
+.project-member-row__remove-button {
+    width: 100%;
+    min-height: 2.85rem;
+}
+
+.project-player-edit-dialog input,
+.project-player-edit-dialog textarea {
+    font-size: 1rem;
+}
+
+@media (min-width: 44rem) {
+    .project-member-row {
+        grid-template-columns: minmax(0, 1fr) minmax(10rem, 0.45fr) auto;
+        align-items: end;
+    }
+
+    .project-member-row__remove-button {
+        width: auto;
+    }
+}

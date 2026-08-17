@@ -4,126 +4,231 @@
 }
 
 .create-project-header {
-    margin-bottom: 1.5rem;
+    display: grid;
+    grid-template-columns: 2.75rem minmax(0, 1fr) 2.75rem;
+    gap: 0.5rem;
+    align-items: center;
+    margin-bottom: 0.9rem;
 }
 
-.create-project-header h1 {
-    margin-top: 0.5rem;
+.create-project-header__back {
+    width: 2.75rem;
+    height: 2.75rem;
+    min-height: 2.75rem;
+    padding: 0;
+    border-radius: 50%;
+    font-size: 2rem;
+    line-height: 1;
+}
+
+.create-project-header__heading {
+    min-width: 0;
+    text-align: center;
+}
+
+.create-project-header__heading .eyebrow {
+    margin-bottom: 0.15rem;
+    font-size: 0.68rem;
+}
+
+.create-project-header__heading h1 {
+    max-width: none;
+    font-size: 1.4rem;
+    line-height: 1.1;
+}
+
+.create-project-header__spacer {
+    width: 2.75rem;
 }
 
 .create-project-panel {
-    padding: 2rem;
+    margin-top: 0;
+    padding: 1rem;
 }
 
 .create-project-form {
     display: grid;
-    gap: 1.25rem;
+    gap: 1.15rem;
 }
 
 .create-project-form__section {
     display: grid;
-    gap: 0.875rem;
+    gap: 0.85rem;
 }
 
-.create-project-form__section h2 {
+.create-project-form__section + .create-project-form__section {
+    padding-top: 1.15rem;
+    border-top: 1px solid var(--border-dark);
+}
+
+.create-project-section-heading {
+    display: grid;
+    gap: 0.25rem;
+}
+
+.create-project-section-heading h2 {
     margin: 0;
+    font-size: 1.15rem;
 }
 
-.create-project-actions {
-    display: flex;
-    justify-content: center;
-    margin-top: 1rem;
+.create-project-section-heading p,
+.create-project-audio-help {
+    margin: 0;
+    color: var(--color-text-subtle);
+    font-size: 0.84rem;
+    line-height: 1.4;
 }
 
-.create-project-actions button {
-    min-width: 14rem;
+.form-optional {
+    color: var(--color-text-subtle);
+    font-size: 0.78rem;
+    font-weight: 500;
 }
 
-.add-audio-tracks-header {
-    display: flex;
-    gap: 1rem;
-    align-items: flex-start;
-    justify-content: space-between;
+.create-project-form input,
+.create-project-form textarea {
+    min-height: 3rem;
+}
+
+.create-project-form textarea {
+    min-height: 6.5rem;
+    resize: vertical;
+}
+
+.create-project-add-tracks-button {
+    width: 100%;
+    min-height: 3rem;
 }
 
 .tracks-to-include-section {
-    margin-top: 1rem;
-    padding: 1rem;
+    margin-top: 0.2rem;
+    padding: 0.8rem;
     border: 1px solid var(--border-light);
     border-radius: 0.9rem;
     background: var(--color-light-surface-soft);
     color: var(--color-light-text);
 }
 
-.tracks-to-include-section h3,
-.tracks-to-include-section li,
-.tracks-to-include-section p,
-.tracks-to-include-section strong,
-.tracks-to-include-section span {
+.tracks-to-include-section h3 {
+    margin: 0 0 0.7rem;
     color: var(--color-light-text);
-}
-
-.tracks-to-include-section ul {
-    display: grid;
-    gap: 0.85rem;
-    padding-left: 1.25rem;
-    margin: 0.75rem 0 0;
-}
-
-.tracks-to-include-section li {
-    padding: 0.75rem;
-    border: 1px solid var(--border-light-medium);
-    border-radius: 0.75rem;
-    background: var(--color-light-surface);
-}
-
-.tracks-to-include-section button {
-    margin-top: 0.65rem;
+    font-size: 1rem;
 }
 
 .tracks-to-include-section .empty-state {
     color: var(--color-light-muted);
 }
 
+.create-project-actions {
+    display: flex;
+    justify-content: center;
+    margin-top: 0.1rem;
+}
+
+.create-project-actions button {
+    width: 100%;
+    min-height: 3.1rem;
+}
+
+.selected-audio-track-rows {
+    display: grid;
+    gap: 0.7rem;
+}
+
+.selected-audio-track-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.7rem;
+    padding: 0.8rem;
+    border: 1px solid var(--border-light-medium);
+    border-radius: 0.75rem;
+    background: var(--color-light-surface);
+    color: var(--color-light-text);
+}
+
+.selected-audio-track-row label,
+.selected-audio-track-row span,
+.selected-audio-track-row p {
+    color: var(--color-light-text);
+}
+
+.selected-audio-track-row input {
+    min-height: 2.8rem;
+    color: var(--color-light-text);
+    background: var(--color-light-surface);
+    border-color: var(--border-light-strong);
+}
+
+.selected-audio-track-row__file {
+    display: grid;
+    gap: 0.15rem;
+}
+
+.selected-audio-track-row__file > span {
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.selected-audio-track-row__file p {
+    margin: 0;
+    overflow-wrap: anywhere;
+    font-size: 0.88rem;
+}
+
+.selected-audio-track-row__file small {
+    color: var(--color-light-muted);
+}
+
+.selected-audio-track-row__remove {
+    width: 100%;
+    min-height: 2.75rem;
+}
+
 .create-project-confirmation-modal {
     display: grid;
-    gap: 1.25rem;
+    gap: 0.8rem;
 }
 
 .create-project-confirmation-modal__body {
     display: grid;
-    gap: 1.5rem;
+    gap: 1rem;
 }
 
 .create-project-confirmation-modal__section {
     display: grid;
-    gap: 0.75rem;
+    gap: 0.6rem;
+}
+
+.create-project-confirmation-modal__section h3 {
+    margin: 0;
 }
 
 .create-project-confirmation-summary {
     display: grid;
-    gap: 1rem;
+    gap: 0.75rem;
     margin: 0;
 }
 
 .create-project-confirmation-summary div {
     display: grid;
-    gap: 0.25rem;
+    gap: 0.2rem;
 }
 
 .create-project-confirmation-summary dt {
     color: var(--color-light-muted);
+    font-size: 0.8rem;
     font-weight: 700;
 }
 
 .create-project-confirmation-summary dd {
     margin: 0;
     color: var(--color-light-text);
+    overflow-wrap: anywhere;
 }
 
 .create-project-confirmation-track-list {
     display: grid;
-    gap: 0.75rem;
+    gap: 0.55rem;
     margin: 0;
     padding-left: 1.25rem;
 }
@@ -135,15 +240,11 @@
 .create-project-confirmation-track-list__item span {
     display: block;
     color: var(--color-light-muted);
-    font-size: 0.9rem;
+    font-size: 0.82rem;
+    overflow-wrap: anywhere;
 }
 
-@media (min-width: 0rem) {
-    .create-project-panel {
-        padding: 1.25rem;
-    }
-
-    .create-project-actions button {
-        width: 100%;
-    }
+.create-project-confirmation-status {
+    color: #166534;
+    font-weight: 650;
 }

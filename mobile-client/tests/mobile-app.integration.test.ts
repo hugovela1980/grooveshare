@@ -260,7 +260,7 @@ tester.describe("mobile client application flows", () => {
 
     tester.expect(app.getCurrentScreen()).toBe("auth");
     tester.expect(app.getCurrentUser()).toBe(null);
-    tester.expect(appElement.innerHTML.includes("Log in")).toBe(true);
+    tester.expect(appElement.innerHTML.includes('id="login-form"')).toBe(true);
   });
 
   tester.it("restores an authenticated session to the mobile Home/Projects screen", async () => {
@@ -477,6 +477,6 @@ tester.describe("mobile client application flows", () => {
     app.navigateTo("project-menu");
 
     tester.expect(app.getCurrentScreen()).toBe("auth");
-    tester.expect(appElement.innerHTML.includes("Log in")).toBe(true);
+    tester.expect(appElement.innerHTML.includes('id="login-form"')).toBe(true);
   });
 });

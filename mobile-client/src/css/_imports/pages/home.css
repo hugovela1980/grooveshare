@@ -1,48 +1,115 @@
 .project-menu-page {
-    min-height: 100vh;
-    width: min(900px, calc(100% - 2rem));
+    min-height: 100dvh;
+    width: min(100%, 42rem);
     margin: 0 auto;
-    padding: 4rem 0;
+    padding: max(1.4rem, env(safe-area-inset-top)) 0.7rem 6.5rem;
 }
 
 .project-menu-hero {
-    text-align: center;
-    margin-bottom: 4rem;
+    margin-bottom: 1.35rem;
+    text-align: left;
+}
+
+.project-menu-hero .eyebrow {
+    margin-bottom: 0.4rem;
 }
 
 .project-menu-hero__title {
     max-width: none;
     margin: 0;
-    font-size: clamp(3.5rem, 8vw, 6rem);
-    font-weight: 500;
+    font-size: clamp(2.3rem, 11vw, 3.4rem);
+    font-weight: 550;
     line-height: 1;
 }
 
 .project-menu-hero__tagline {
-    margin: 1.25rem 0 0;
+    margin: 0.65rem 0 0;
     color: var(--color-text-muted);
-    font-size: clamp(1.25rem, 3vw, 1.75rem);
+    font-size: 1rem;
+}
+
+.project-menu-session {
+    display: grid;
+    grid-template-columns: 2.75rem minmax(0, 1fr);
+    gap: 0.75rem;
+    align-items: center;
+    margin: 0 0 0.9rem;
+    padding: 0.75rem;
+    border: 1px solid var(--border-dark);
+    border-radius: var(--radius-xl);
+    background: var(--color-surface-strong);
+}
+
+.project-menu-session__avatar {
+    display: grid;
+    width: 2.75rem;
+    height: 2.75rem;
+    place-items: center;
+    border-radius: 50%;
+    color: var(--color-page-bg);
+    background: var(--color-accent);
+    font-size: 1.1rem;
+    font-weight: 800;
+}
+
+.project-menu-session__identity {
+    display: grid;
+    min-width: 0;
+    gap: 0.05rem;
+    margin: 0;
+}
+
+.project-menu-session__identity > span,
+.project-menu-session__identity small {
+    color: var(--color-text-subtle);
+    font-size: 0.78rem;
+}
+
+.project-menu-session__identity strong,
+.project-menu-session__identity small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .project-menu-panel {
-    min-height: 19rem;
-    padding: 2rem;
+    min-height: 12rem;
+    margin-top: 0;
+    padding: 1rem;
+}
+
+.project-menu-panel__header {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+}
+
+.project-menu-panel__header .eyebrow {
+    margin-bottom: 0.25rem;
 }
 
 .project-menu-panel__title {
-    margin: 0 0 1.5rem;
+    margin: 0;
+    font-size: 1.35rem;
+}
+
+.project-menu-actions__button {
+    min-height: 2.8rem;
+    flex: 0 0 auto;
+    padding-inline: 0.85rem;
 }
 
 .project-menu-panel__list {
-    display: flex;
-    justify-content: flex-start;
+    display: block;
 }
 
 .project-list--menu {
     display: grid;
-    gap: 1rem;
-    width: min(100%, 14rem);
-    margin: 0 0 0 2.5rem;
+    gap: 0.7rem;
+    width: 100%;
+    margin: 0;
     padding: 0;
     list-style: none;
 }
@@ -52,82 +119,98 @@
 }
 
 .project-list__button--menu {
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    display: grid;
     width: 100%;
+    min-height: 6rem;
+    gap: 0.45rem;
+    justify-items: stretch;
+    padding: 0.9rem 1rem;
+    border: 1px solid var(--border-dark);
+    border-radius: var(--radius-lg);
+    color: var(--color-text);
+    background: var(--color-surface-strong);
+    text-align: left;
+}
+
+.project-list__button--menu:hover:not(:disabled),
+.project-list__button--menu:focus-visible {
+    background: var(--color-surface);
+}
+
+.project-list__card-heading {
+    display: flex;
+    min-width: 0;
+    gap: 0.65rem;
+    align-items: center;
+    justify-content: space-between;
 }
 
 .project-list__title {
-    display: block;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--color-text);
+    font-size: 1.02rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-.project-menu-actions {
-    display: flex;
-    justify-content: center;
-    margin-top: 2rem;
-}
-
-.project-menu-actions__button {
-    min-width: 14rem;
-}
-
-
-.project-menu-session {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 1rem;
-    margin: 0 0 1.5rem;
-    padding: 1rem 1.25rem;
-    border: 1px solid var(--border-dark);
-    border-radius: var(--radius-xl);
-    background: var(--color-surface-strong);
-}
-
-.project-menu-session__identity {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.35rem 0.5rem;
-    margin: 0;
+.project-list__role {
+    flex: 0 0 auto;
+    padding: 0.2rem 0.45rem;
+    border: 1px solid var(--border-input);
+    border-radius: var(--radius-pill);
     color: var(--color-text-muted);
+    font-size: 0.68rem;
+    font-weight: 750;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
 }
 
-.project-menu-session__identity span {
+.project-list__description {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    color: var(--color-text-subtle);
+    font-size: 0.86rem;
+    font-weight: 500;
+    line-height: 1.35;
+}
+
+.project-list__open {
+    justify-self: end;
+    color: var(--color-accent);
+    font-size: 0.8rem;
+}
+
+.project-list__open span {
+    font-size: 1.1rem;
+}
+
+.project-list-empty {
+    display: grid;
+    gap: 0.35rem;
+    min-height: 8rem;
+    place-content: center;
+    text-align: center;
+}
+
+.project-list-empty p {
+    margin: 0;
     color: var(--color-text-subtle);
 }
 
-@media (min-width: 0rem) {
-    .project-menu-page {
-        padding: 3rem 0;
-    }
+.project-menu-panel__list > .loading-state {
+    width: 100%;
+}
 
-    .project-menu-hero {
-        margin-bottom: 3rem;
-    }
-
-    .project-menu-panel {
-        min-height: auto;
-    }
-
-    .project-menu-panel__list {
-        justify-content: stretch;
-    }
-
-    .project-list--menu {
-        width: 100%;
-        margin-left: 0;
-    }
-
-    .project-menu-session {
-        align-items: flex-start;
+@media (max-width: 24rem) {
+    .project-menu-panel__header {
+        align-items: stretch;
         flex-direction: column;
     }
 
     .project-menu-actions__button {
-        width: min(100%, 18rem);
+        width: 100%;
     }
-}
-.project-menu-panel__list > .loading-state {
-    width: 100%;
 }

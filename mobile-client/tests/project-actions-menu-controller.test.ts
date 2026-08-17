@@ -156,9 +156,10 @@ tester.describe("project actions menu controller", () => {
         tester.expect(triggerButton.wasFocused()).toBe(true);
     });
 
-    tester.it("toggles the Owner Controls panel and closes the menu", () => {
+    tester.it("opens Owner Controls without forcing field focus and restores trigger focus when it closes", () => {
         const triggerButton = createButton();
         const ownerControlsButton = createButton();
+        const ownerControlsCloseButton = createButton();
         const ownerControlsPanel = {
             hidden: true,
         };
@@ -168,13 +169,15 @@ tester.describe("project actions menu controller", () => {
                 return false;
             },
         };
+        const documentTarget = createDocumentTarget();
 
         const controller = createProjectActionsMenuController({
             triggerButton,
             menuElement,
             ownerControlsButton,
             ownerControlsPanel,
-            documentTarget: null,
+            ownerControlsCloseButton,
+            documentTarget,
         });
 
         controller.init();
@@ -185,11 +188,41 @@ tester.describe("project actions menu controller", () => {
         tester.expect(ownerControlsButton.getAttribute("aria-expanded")).toBe("true");
         tester.expect(menuElement.hidden).toBe(true);
 
-        triggerButton.click();
-        ownerControlsButton.click();
+        ownerControlsCloseButton.click();
 
         tester.expect(ownerControlsPanel.hidden).toBe(true);
         tester.expect(ownerControlsButton.getAttribute("aria-expanded")).toBe("false");
+        tester.expect(triggerButton.wasFocused()).toBe(true);
+    });
+
+    tester.it("closes Owner Controls with Escape", () => {
+        const triggerButton = createButton();
+        const ownerControlsButton = createButton();
+        const ownerControlsPanel = { hidden: true };
+        const menuElement = {
+            hidden: true,
+            contains() {
+                return false;
+            },
+        };
+        const documentTarget = createDocumentTarget();
+
+        const controller = createProjectActionsMenuController({
+            triggerButton,
+            menuElement,
+            ownerControlsButton,
+            ownerControlsPanel,
+            documentTarget,
+        });
+
+        controller.init();
+        triggerButton.click();
+        ownerControlsButton.click();
+        const prevented = documentTarget.dispatchEscape();
+
+        tester.expect(prevented).toBe(true);
+        tester.expect(ownerControlsPanel.hidden).toBe(true);
+        tester.expect(triggerButton.wasFocused()).toBe(true);
     });
 });
 

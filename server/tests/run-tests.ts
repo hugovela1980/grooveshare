@@ -2,6 +2,7 @@ import "./projects-json-store.test.js";
 import "./tracks-json-store.test.js";
 import "./upload-paths.test.js";
 import "./multipart-form-data.test.js";
+import "./upload-validation.test.js";
 import "./project-api-routes.test.js";
 import "./project-membership-api-routes.test.js";
 import "./project-role-api-routes.test.js";

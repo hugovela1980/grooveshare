@@ -1,4 +1,4 @@
-import type { Project } from "../types.js";
+import type { Project, ProjectRole } from "../types.js";
 
 function escapeHtml(value: string): string {
   return value
@@ -9,9 +9,30 @@ function escapeHtml(value: string): string {
     .replaceAll("'", "&#039;");
 }
 
+function getRoleLabel(role: ProjectRole | undefined): string {
+  if (role === "owner") {
+    return "Owner";
+  }
+
+  if (role === "contributor") {
+    return "Contributor";
+  }
+
+  if (role === "viewer") {
+    return "Viewer";
+  }
+
+  return "Project";
+}
+
 export function renderProjectList(projects: Project[]): string {
   if (projects.length === 0) {
-    return '<p class="empty-state">No projects yet.</p>';
+    return /*html*/ `
+      <div class="project-list-empty">
+        <p class="empty-state">No projects yet.</p>
+        <p>Create your first project to start sharing tracks.</p>
+      </div>
+    `;
   }
 
   return /*html*/ `
@@ -28,9 +49,14 @@ export function renderProjectList(projects: Project[]): string {
                 class="project-list__button project-list__button--menu"
                 type="button"
                 data-project-id="${escapeHtml(project.id)}"
+                aria-label="Open ${escapeHtml(project.title)}"
               >
-                <span class="project-list__title">${escapeHtml(project.title)}</span>
-                <span class="visually-hidden">${description}</span>
+                <span class="project-list__card-heading">
+                  <span class="project-list__title">${escapeHtml(project.title)}</span>
+                  <span class="project-list__role">${getRoleLabel(project.role)}</span>
+                </span>
+                <span class="project-list__description">${description}</span>
+                <span class="project-list__open" aria-hidden="true">Open <span>›</span></span>
               </button>
             </li>
           `;

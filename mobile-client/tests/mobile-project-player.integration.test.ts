@@ -111,6 +111,42 @@ function createTrackListElement({
         } as unknown as EventTarget,
       });
     },
+    async clickEditTrack(trackId = "track-1") {
+      const editButton = {
+        disabled: false,
+        dataset: { trackId },
+        setAttribute() {},
+        removeAttribute() {},
+      };
+
+      await handlers.get("click")?.({
+        target: {
+          closest(selector: string) {
+            return selector === "[data-track-edit-button]" ? editButton : null;
+          },
+        } as unknown as EventTarget,
+      });
+
+      return editButton;
+    },
+    async clickAddTrack() {
+      const addButton = {
+        disabled: false,
+        dataset: {},
+        setAttribute() {},
+        removeAttribute() {},
+      };
+
+      await handlers.get("click")?.({
+        target: {
+          closest(selector: string) {
+            return selector === "[data-track-add-button]" ? addButton : null;
+          },
+        } as unknown as EventTarget,
+      });
+
+      return addButton;
+    },
   };
 }
 
@@ -184,10 +220,37 @@ function createMenuButton() {
 }
 
 function createTextInput(initialValue = "") {
+  let focusHandler: (() => void) | null = null;
+  let focusCallCount = 0;
+  let selectCallCount = 0;
+  let blurCallCount = 0;
+
   return {
     value: initialValue,
-    focus() {},
-    select() {},
+    addEventListener(eventName: "focus", handler: () => void) {
+      if (eventName === "focus") {
+        focusHandler = handler;
+      }
+    },
+    focus() {
+      focusCallCount += 1;
+      focusHandler?.();
+    },
+    select() {
+      selectCallCount += 1;
+    },
+    blur() {
+      blurCallCount += 1;
+    },
+    getFocusCallCount() {
+      return focusCallCount;
+    },
+    getSelectCallCount() {
+      return selectCallCount;
+    },
+    getBlurCallCount() {
+      return blurCallCount;
+    },
   };
 }
 
@@ -253,6 +316,60 @@ tester.describe("mobile Project Player integration", () => {
     ]);
   });
 
+  tester.it("uploads a phone-originated m4a track through the mobile Add Track flow", async () => {
+    const project: Project = {
+      ...structuredClone(ownerProject),
+      role: "contributor",
+      mixSettings: { channels: [] },
+    };
+    const trackListElement = createTrackListElement();
+    const statusElement = { textContent: "" as string | null };
+    const audioFile = new File(["phone audio"], "voice-memo.m4a", {
+      type: "audio/x-m4a",
+    });
+    let uploadCallCount = 0;
+    let currentTracks: Track[] = [];
+
+    const controller = createProjectPlayerPageController({
+      project,
+      trackListElement,
+      statusElement,
+      tracksApi: {
+        async getTracksByProjectId() {
+          return currentTracks;
+        },
+        async deleteTrack() {
+          return track;
+        },
+        async uploadTrack(input) {
+          uploadCallCount += 1;
+          const uploadedTrack: Track = {
+            ...track,
+            id: "track-m4a",
+            name: input.trackName,
+            originalFilename: input.audioFile.name,
+            mimeType: input.audioFile.type,
+          };
+          currentTracks = [uploadedTrack];
+          return uploadedTrack;
+        },
+      },
+      renderTrackList(tracks) {
+        return tracks.map((currentTrack) => currentTrack.name).join(",");
+      },
+      projectRole: "contributor",
+      currentUserId: "user-1",
+      chooseAudioFile: async () => audioFile,
+    });
+
+    await controller.init();
+    await trackListElement.clickAddTrack();
+
+    tester.expect(uploadCallCount).toBe(1);
+    tester.expect(trackListElement.innerHTML.includes("voice-memo")).toBe(true);
+    tester.expect(statusElement.textContent).toBe("Track added.");
+  });
+
   tester.it("edits a project through the mobile three-dot menu and modal", async () => {
     const project = structuredClone(ownerProject);
     const trackListElement = createTrackListElement();
@@ -316,6 +433,11 @@ tester.describe("mobile Project Player integration", () => {
     tester.expect(menuElement.hidden).toBe(true);
     tester.expect(modal.hidden).toBe(false);
     tester.expect(titleInput.value).toBe("Mobile Song");
+    tester.expect(titleInput.getFocusCallCount()).toBe(0);
+    tester.expect(titleInput.getSelectCallCount()).toBe(0);
+
+    titleInput.focus();
+    tester.expect(titleInput.getSelectCallCount()).toBe(1);
 
     titleInput.value = "Mobile Song Revised";
     descriptionInput.value = "Updated from the phone modal";
@@ -325,6 +447,53 @@ tester.describe("mobile Project Player integration", () => {
     tester.expect(modal.hidden).toBe(true);
     tester.expect(mobileTitleElement.textContent).toBe("Mobile Song Revised");
     tester.expect(project.title).toBe("Mobile Song Revised");
+    tester.expect(titleInput.getBlurCallCount()).toBe(1);
+    tester.expect(descriptionInput.getBlurCallCount()).toBe(1);
+  });
+
+  tester.it("opens track editing without forcing the keyboard and selects the name after deliberate focus", async () => {
+    const project = structuredClone(ownerProject);
+    const trackListElement = createTrackListElement();
+    const modal = { hidden: true };
+    const form = createForm();
+    const nameInput = createTextInput();
+    const saveButton = createControllerButton();
+
+    const controller = createProjectPlayerPageController({
+      project,
+      trackListElement,
+      trackEditModal: modal,
+      trackEditForm: form,
+      trackEditNameInput: nameInput,
+      trackEditSaveButton: saveButton,
+      tracksApi: {
+        async getTracksByProjectId() {
+          return [track];
+        },
+        async deleteTrack() {
+          return track;
+        },
+        async updateTrackName(_projectId, _trackId, name) {
+          return { ...track, name };
+        },
+      },
+      renderTrackList() {
+        return "Guitar";
+      },
+      projectRole: "owner",
+      currentUserId: "user-1",
+    });
+
+    await controller.init();
+    await trackListElement.clickEditTrack();
+
+    tester.expect(modal.hidden).toBe(false);
+    tester.expect(nameInput.value).toBe("Guitar");
+    tester.expect(nameInput.getFocusCallCount()).toBe(0);
+    tester.expect(nameInput.getSelectCallCount()).toBe(0);
+
+    nameInput.focus();
+    tester.expect(nameInput.getSelectCallCount()).toBe(1);
   });
 
   tester.it("applies mixer input to playback immediately and schedules shared persistence on change", async () => {

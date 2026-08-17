@@ -76,3 +76,10 @@ button[data-busy="true"]::after {
 .button--danger:hover:not(:disabled) {
     background: var(--color-danger-hover);
 }
+
+/* Dedicated mobile-client touch target baseline. */
+.button,
+button {
+    min-height: 2.75rem;
+    touch-action: manipulation;
+}

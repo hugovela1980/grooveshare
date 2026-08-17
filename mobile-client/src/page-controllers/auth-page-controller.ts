@@ -18,10 +18,23 @@ type FormElementLike = {
 
 type InputElementLike = {
   value: string;
+  focus?: () => void;
 };
 
 type TextElementLike = {
   textContent: string | null;
+};
+
+type VisibilityElementLike = {
+  hidden: boolean | string;
+};
+
+type ModeButtonLike = BusyControlLike & {
+  addEventListener: (
+    eventName: "click",
+    handler: () => void,
+  ) => void;
+  setAttribute?: (name: string, value: string) => void;
 };
 
 type AuthPageControllerOptions = {
@@ -37,7 +50,13 @@ type AuthPageControllerOptions = {
   statusElement: TextElementLike;
   sessionProvider: Pick<SessionProvider, "login" | "registerUser">;
   onAuthenticated: (user: User) => void;
+  loginModeButton?: ModeButtonLike | null;
+  registerModeButton?: ModeButtonLike | null;
+  loginCard?: VisibilityElementLike | null;
+  registerCard?: VisibilityElementLike | null;
 };
+
+type AuthMode = "login" | "register";
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error
@@ -58,8 +77,13 @@ export function createAuthPageController({
   statusElement,
   sessionProvider,
   onAuthenticated,
+  loginModeButton = null,
+  registerModeButton = null,
+  loginCard = null,
+  registerCard = null,
 }: AuthPageControllerOptions) {
   let requestInFlight = false;
+  let currentMode: AuthMode = "login";
 
   function setAuthenticationBusy(
     activeButton: BusyControlLike,
@@ -68,6 +92,40 @@ export function createAuthPageController({
   ): void {
     setControlBusy(activeButton, isBusy);
     otherButton.disabled = isBusy;
+    loginModeButton && (loginModeButton.disabled = isBusy);
+    registerModeButton && (registerModeButton.disabled = isBusy);
+  }
+
+  function setMode(mode: AuthMode, { focus = true } = {}): void {
+    if (requestInFlight) {
+      return;
+    }
+
+    currentMode = mode;
+    const showingLogin = mode === "login";
+
+    if (loginCard) {
+      loginCard.hidden = !showingLogin;
+    }
+
+    if (registerCard) {
+      registerCard.hidden = showingLogin;
+    }
+
+    loginModeButton?.setAttribute?.("aria-selected", String(showingLogin));
+    registerModeButton?.setAttribute?.("aria-selected", String(!showingLogin));
+    statusElement.textContent = "";
+
+    if (!focus) {
+      return;
+    }
+
+    if (showingLogin) {
+      loginEmailInput.focus?.();
+      return;
+    }
+
+    registerDisplayNameInput.focus?.();
   }
 
   async function handleLoginSubmit(
@@ -158,9 +216,13 @@ export function createAuthPageController({
   function init(): void {
     loginForm.addEventListener("submit", handleLoginSubmit);
     registerForm.addEventListener("submit", handleRegisterSubmit);
+    loginModeButton?.addEventListener("click", () => setMode("login"));
+    registerModeButton?.addEventListener("click", () => setMode("register"));
+    setMode(currentMode, { focus: false });
   }
 
   return {
     init,
+    setMode,
   };
 }

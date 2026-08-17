@@ -31,8 +31,14 @@ type HtmlAudioPlaybackEngineOptions = {
   createAudioElement: () => HtmlAudioElementLike;
 };
 
+const END_EPSILON_SECONDS = 0.01;
+
 function isUsableDuration(duration: number): boolean {
   return Number.isFinite(duration) && duration > 0;
+}
+
+function isUsableCurrentTime(currentTime: number): boolean {
+  return Number.isFinite(currentTime) && currentTime >= 0;
 }
 
 function clampVolume(volume: number): number {
@@ -50,32 +56,72 @@ export function createHtmlAudioPlaybackEngine({
   let loadedChannels: LoadedPlaybackChannel[] = [];
   let loopEnabled = false;
   const listeners = new Set<PlaybackStateListener>();
-
-  function getPrimaryAudioElement(): HtmlAudioElementLike {
-    return loadedChannels[0]?.audioElement ?? primaryAudioElement;
-  }
+  const wiredAudioElements = new WeakSet<object>();
 
   function getLoadedAudioElements(): HtmlAudioElementLike[] {
     return loadedChannels.map(({ audioElement }) => audioElement);
   }
 
+  function getMixDuration(): number {
+    return getLoadedAudioElements().reduce((longestDuration, audioElement) => {
+      return isUsableDuration(audioElement.duration)
+        ? Math.max(longestDuration, audioElement.duration)
+        : longestDuration;
+    }, 0);
+  }
+
+  function getTransportCurrentTime(): number {
+    const longestDuration = getMixDuration();
+    const furthestCurrentTime = getLoadedAudioElements().reduce(
+      (furthestTime, audioElement) => {
+        return isUsableCurrentTime(audioElement.currentTime)
+          ? Math.max(furthestTime, audioElement.currentTime)
+          : furthestTime;
+      },
+      0,
+    );
+
+    return longestDuration > 0
+      ? Math.min(longestDuration, furthestCurrentTime)
+      : furthestCurrentTime;
+  }
+
+  function setAudioElementCurrentTime(
+    audioElement: HtmlAudioElementLike,
+    currentTime: number,
+  ): void {
+    audioElement.currentTime = isUsableDuration(audioElement.duration)
+      ? Math.min(audioElement.duration, currentTime)
+      : currentTime;
+  }
+
   function setAllCurrentTimes(currentTime: number): void {
     for (const audioElement of getLoadedAudioElements()) {
-      audioElement.currentTime = currentTime;
+      setAudioElementCurrentTime(audioElement, currentTime);
     }
   }
 
+  function hasUnfinishedChannel(): boolean {
+    return getLoadedAudioElements().some((audioElement) => {
+      if (!isUsableDuration(audioElement.duration)) {
+        return !audioElement.paused;
+      }
+
+      return audioElement.currentTime <
+        audioElement.duration - END_EPSILON_SECONDS;
+    });
+  }
+
   function getSnapshot(): PlaybackSnapshot {
-    const primary = getPrimaryAudioElement();
     const hasLoadedChannels = loadedChannels.length > 0;
+    const duration = hasLoadedChannels ? getMixDuration() : 0;
 
     return {
-      currentTime: hasLoadedChannels ? primary.currentTime : 0,
-      duration:
-        hasLoadedChannels && isUsableDuration(primary.duration)
-          ? primary.duration
-          : 0,
-      isPlaying: hasLoadedChannels && !primary.paused,
+      currentTime: hasLoadedChannels ? getTransportCurrentTime() : 0,
+      duration,
+      isPlaying:
+        hasLoadedChannels &&
+        getLoadedAudioElements().some((audioElement) => !audioElement.paused),
       hasLoadedChannels,
     };
   }
@@ -93,8 +139,16 @@ export function createHtmlAudioPlaybackEngine({
       return;
     }
 
+    const playableAudioElements = getLoadedAudioElements().filter(
+      (audioElement) => {
+        return !isUsableDuration(audioElement.duration) ||
+          audioElement.currentTime <
+            audioElement.duration - END_EPSILON_SECONDS;
+      },
+    );
+
     await Promise.all(
-      getLoadedAudioElements().map((audioElement) => audioElement.play()),
+      playableAudioElements.map((audioElement) => audioElement.play()),
     );
     notify();
   }
@@ -121,9 +175,9 @@ export function createHtmlAudioPlaybackEngine({
       return;
     }
 
-    const primary = getPrimaryAudioElement();
-    const nextTime = isUsableDuration(primary.duration)
-      ? Math.max(0, Math.min(primary.duration, seconds))
+    const mixDuration = getMixDuration();
+    const nextTime = mixDuration > 0
+      ? Math.max(0, Math.min(mixDuration, seconds))
       : Math.max(0, seconds);
 
     setAllCurrentTimes(nextTime);
@@ -135,7 +189,7 @@ export function createHtmlAudioPlaybackEngine({
       return;
     }
 
-    seek(getPrimaryAudioElement().currentTime + seconds);
+    seek(getTransportCurrentTime() + seconds);
   }
 
   function setChannelVolume(channelNumber: number, volume: number): boolean {
@@ -173,6 +227,32 @@ export function createHtmlAudioPlaybackEngine({
     return true;
   }
 
+  async function handleEnded(): Promise<void> {
+    if (hasUnfinishedChannel()) {
+      notify();
+      return;
+    }
+
+    if (!loopEnabled) {
+      stop();
+      return;
+    }
+
+    seek(0);
+    await play();
+  }
+
+  function wireAudioElement(audioElement: HtmlAudioElementLike): void {
+    if (wiredAudioElements.has(audioElement as object)) {
+      return;
+    }
+
+    wiredAudioElements.add(audioElement as object);
+    audioElement.addEventListener("timeupdate", notify);
+    audioElement.addEventListener("loadedmetadata", notify);
+    audioElement.addEventListener("ended", handleEnded);
+  }
+
   function loadMix(channels: PlaybackChannel[]): void {
     stop();
 
@@ -180,6 +260,7 @@ export function createHtmlAudioPlaybackEngine({
       const audioElement =
         index === 0 ? primaryAudioElement : createAudioElement();
 
+      wireAudioElement(audioElement);
       audioElement.crossOrigin = "use-credentials";
       audioElement.src = channel.audioUrl;
       audioElement.currentTime = 0;
@@ -197,19 +278,7 @@ export function createHtmlAudioPlaybackEngine({
     notify();
   }
 
-  async function handleEnded(): Promise<void> {
-    if (!loopEnabled) {
-      stop();
-      return;
-    }
-
-    seek(0);
-    await play();
-  }
-
-  primaryAudioElement.addEventListener("timeupdate", notify);
-  primaryAudioElement.addEventListener("loadedmetadata", notify);
-  primaryAudioElement.addEventListener("ended", handleEnded);
+  wireAudioElement(primaryAudioElement);
 
   return {
     loadMix,

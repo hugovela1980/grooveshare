@@ -793,7 +793,7 @@ export function createAppServer({
       name: trackName,
       originalFilename: audioFile.filename,
       filePath: absoluteFilePath,
-      mimeType: audioFile.mimeType,
+      mimeType: audioFileValidation.mimeType,
       fileSize: audioFile.size,
       uploadedByUserId,
     });

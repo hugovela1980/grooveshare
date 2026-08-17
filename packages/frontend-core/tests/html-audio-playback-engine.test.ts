@@ -103,6 +103,63 @@ tester.describe("HtmlAudioPlaybackEngine", () => {
     tester.expect(second.currentTime).toBe(0);
   });
 
+  tester.it("uses the longest loaded track as the transport duration", async () => {
+    const first = createFakeAudioElement();
+    const second = createFakeAudioElement();
+    first.duration = 10;
+    second.duration = 60;
+    const engine = createHtmlAudioPlaybackEngine({
+      primaryAudioElement: first,
+      createAudioElement: () => second,
+    });
+
+    engine.loadMix([
+      { channelNumber: 1, trackId: "track-1", audioUrl: "/loop.wav", volume: 1, enabled: true },
+      { channelNumber: 2, trackId: "track-2", audioUrl: "/long-take.m4a", volume: 1, enabled: true },
+    ]);
+
+    await second.trigger("loadedmetadata");
+
+    tester.expect(engine.getSnapshot().duration).toBe(60);
+
+    engine.seek(50);
+    tester.expect(first.currentTime).toBe(10);
+    tester.expect(second.currentTime).toBe(50);
+    tester.expect(engine.getSnapshot().currentTime).toBe(50);
+  });
+
+  tester.it("lets a longer non-primary track continue after a shorter track ends", async () => {
+    const first = createFakeAudioElement();
+    const second = createFakeAudioElement();
+    first.duration = 10;
+    second.duration = 60;
+    const engine = createHtmlAudioPlaybackEngine({
+      primaryAudioElement: first,
+      createAudioElement: () => second,
+    });
+
+    engine.loadMix([
+      { channelNumber: 1, trackId: "track-1", audioUrl: "/loop.wav", volume: 1, enabled: true },
+      { channelNumber: 2, trackId: "track-2", audioUrl: "/long-take.m4a", volume: 1, enabled: true },
+    ]);
+    await engine.play();
+
+    first.currentTime = 10;
+    first.paused = true;
+    second.currentTime = 10;
+    second.paused = false;
+    await first.trigger("ended");
+
+    tester.expect(second.pauseCallCount).toBe(0);
+    tester.expect(engine.getSnapshot().duration).toBe(60);
+    tester.expect(engine.getSnapshot().currentTime).toBe(10);
+    tester.expect(engine.getSnapshot().isPlaying).toBe(true);
+
+    second.currentTime = 25;
+    await second.trigger("timeupdate");
+    tester.expect(engine.getSnapshot().currentTime).toBe(25);
+  });
+
   tester.it("updates channel volume and enable state without rebuilding the mix", () => {
     const first = createFakeAudioElement();
     const engine = createHtmlAudioPlaybackEngine({

@@ -42,6 +42,7 @@ import { renderMixChannelSlots } from "./templates/mix-channel-slots.js";
 import { renderProjectMemberList } from "./templates/project-members.js";
 import { renderAppLoadingState } from "./templates/loading-state.js";
 import { setControlBusy } from "./ui/async-state.js";
+import { MOBILE_AUDIO_FILE_ACCEPT } from "./uploads/mobile-audio-files.js";
 import type { Project, User } from "./types.js";
 
 type AppElementLike = {
@@ -113,7 +114,7 @@ function chooseAudioFile(): Promise<File | null> {
     const input = document.createElement("input");
 
     input.type = "file";
-    input.accept = "audio/*";
+    input.accept = MOBILE_AUDIO_FILE_ACCEPT;
 
     input.addEventListener("change", () => {
       resolve(input.files?.[0] ?? null);
@@ -217,6 +218,16 @@ function initializeAuthPage({
     appElement,
     "#auth-status",
   );
+  const loginModeButton = getElement<HTMLButtonElement>(
+    appElement,
+    "#show-login-button",
+  );
+  const registerModeButton = getElement<HTMLButtonElement>(
+    appElement,
+    "#show-register-button",
+  );
+  const loginCard = getElement<HTMLElement>(appElement, "#login-card");
+  const registerCard = getElement<HTMLElement>(appElement, "#register-card");
 
   if (
     !loginForm ||
@@ -246,6 +257,10 @@ function initializeAuthPage({
     statusElement,
     sessionProvider,
     onAuthenticated,
+    loginModeButton,
+    registerModeButton,
+    loginCard,
+    registerCard,
   });
 
   controller.init();
@@ -393,12 +408,18 @@ function initializeCreateProjectPage({
     "#submit-create-project-button",
   );
 
+  const reviewCreateProjectButton = getElement<HTMLButtonElement>(
+    appElement,
+    "#review-create-project-button",
+  );
+
   function closeConfirmationModal(): void {
     if (!confirmationModal) {
       return;
     }
 
     confirmationModal.hidden = true;
+    reviewCreateProjectButton?.focus();
   }
 
   function openConfirmationModal(): void {
@@ -428,7 +449,17 @@ function initializeCreateProjectPage({
     }
 
     confirmationModal.hidden = false;
+    submitCreateProjectButton?.focus();
   }
+
+  confirmationModal?.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") {
+      return;
+    }
+
+    event.preventDefault();
+    closeConfirmationModal();
+  });
 
   if (form && titleInput && descriptionInput && statusElement) {
     const controller = createCreateProjectPageController({
@@ -823,7 +854,10 @@ function initializeProjectPlayerPage({
       appElement,
       "#project-members-panel",
     );
-
+    const ownerControlsCloseButton = getElement<HTMLButtonElement>(
+      appElement,
+      "#close-owner-controls-button",
+    );
     if (projectActionsButton && projectActionsMenu) {
       const projectActionsController =
         createProjectActionsMenuController({
@@ -833,6 +867,7 @@ function initializeProjectPlayerPage({
           ownerControlsButton,
           onEditProject: controller.openProjectEditor,
           ownerControlsPanel,
+          ownerControlsCloseButton,
         });
 
       projectActionsController.init();

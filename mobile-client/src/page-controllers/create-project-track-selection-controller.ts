@@ -1,199 +1,218 @@
 import type {
-    AddPendingTrackInput,
-    PendingTrackDraft,
+  AddPendingTrackInput,
+  PendingTrackDraft,
 } from "../project-draft/project-draft-state.js";
+import {
+  getDefaultTrackNameFromAudioFile,
+  validateMobileAudioFile,
+  type MobileAudioFileValidationResult,
+} from "../uploads/mobile-audio-files.js";
 
 type ClickTargetLike = {
-    closest?: (
-        selector: string,
-    ) => { getAttribute: (name: string) => string | null } | null;
-    getAttribute?: (name: string) => string | null;
-    value?: string;
+  closest?: (
+    selector: string,
+  ) => { getAttribute: (name: string) => string | null } | null;
+  getAttribute?: (name: string) => string | null;
+  value?: string;
 };
 
 type ClickEventLike = {
-    preventDefault?: () => void;
-    target?: ClickTargetLike | null;
+  preventDefault?: () => void;
+  target?: ClickTargetLike | null;
 };
 
 type ChangeEventLike = {
-    target?: ClickTargetLike | null;
+  target?: ClickTargetLike | null;
 };
 
 type ButtonLike = {
-    addEventListener: (
-        eventName: string,
-        handler: (event: ClickEventLike) => void | Promise<void>,
-    ) => void;
+  addEventListener: (
+    eventName: string,
+    handler: (event: ClickEventLike) => void | Promise<void>,
+  ) => void;
 };
 
 type FileInputLike = {
-    files: ArrayLike<File> | Iterable<File> | null;
-    value?: string;
-    click?: () => void;
-    addEventListener?: (
-        eventName: string,
-        handler: (event: ChangeEventLike) => void,
-    ) => void;
+  files: ArrayLike<File> | Iterable<File> | null;
+  value?: string;
+  click?: () => void;
+  addEventListener?: (
+    eventName: string,
+    handler: (event: ChangeEventLike) => void,
+  ) => void;
 };
 
 type TextElementLike = {
-    textContent: string | null;
+  textContent: string | null;
 };
 
 type HiddenElementLike = {
-    hidden: boolean | "until-found";
+  hidden: boolean | "until-found";
 };
 
 type ListElementLike = {
-    innerHTML: string;
-    addEventListener?: (
-        eventName: "click" | "input",
-        handler: (event: ClickEventLike) => void,
-    ) => void;
+  innerHTML: string;
+  addEventListener?: (
+    eventName: "click" | "input",
+    handler: (event: ClickEventLike) => void,
+  ) => void;
 };
 
 type ProjectDraftStateLike = {
-    addPendingTracks: (inputs: AddPendingTrackInput[]) => PendingTrackDraft[];
-    updatePendingTrackName: (trackDraftId: string, trackName: string) => void;
-    removePendingTrack: (trackDraftId: string) => void;
-    getPendingTracks: () => PendingTrackDraft[];
-    getPendingTrackSlotsRemaining: () => number;
+  addPendingTracks: (inputs: AddPendingTrackInput[]) => PendingTrackDraft[];
+  updatePendingTrackName: (trackDraftId: string, trackName: string) => void;
+  removePendingTrack: (trackDraftId: string) => void;
+  getPendingTracks: () => PendingTrackDraft[];
+  getPendingTrackSlotsRemaining: () => number;
 };
 
 type CreateProjectTrackSelectionControllerOptions = {
-    addTracksButton: ButtonLike;
-    audioFileInput: FileInputLike;
-    statusElement: TextElementLike;
-    tracksToIncludeSection: HiddenElementLike;
-    pendingTrackListElement: ListElementLike;
-    projectDraftState: ProjectDraftStateLike;
-    renderPendingTrackList: (pendingTracks: PendingTrackDraft[]) => string;
+  addTracksButton: ButtonLike;
+  audioFileInput: FileInputLike;
+  statusElement: TextElementLike;
+  tracksToIncludeSection: HiddenElementLike;
+  pendingTrackListElement: ListElementLike;
+  projectDraftState: ProjectDraftStateLike;
+  renderPendingTrackList: (pendingTracks: PendingTrackDraft[]) => string;
+  validateAudioFile?: (file: File) => MobileAudioFileValidationResult;
 };
 
-function getDefaultTrackName(filename: string): string {
-    const extensionStartIndex = filename.lastIndexOf(".");
-
-    if (extensionStartIndex <= 0) {
-        return filename;
-    }
-
-    return filename.slice(0, extensionStartIndex);
-}
-
 function getFilesFromInput(audioFileInput: FileInputLike): File[] {
-    return Array.from(audioFileInput.files ?? []);
+  return Array.from(audioFileInput.files ?? []);
 }
 
 export function createProjectTrackSelectionController({
-    addTracksButton,
-    audioFileInput,
-    statusElement,
-    tracksToIncludeSection,
-    pendingTrackListElement,
-    projectDraftState,
-    renderPendingTrackList,
+  addTracksButton,
+  audioFileInput,
+  statusElement,
+  tracksToIncludeSection,
+  pendingTrackListElement,
+  projectDraftState,
+  renderPendingTrackList,
+  validateAudioFile = validateMobileAudioFile,
 }: CreateProjectTrackSelectionControllerOptions) {
-    function renderPendingTracks(): void {
-        const pendingTracks = projectDraftState.getPendingTracks();
+  function renderPendingTracks(): void {
+    const pendingTracks = projectDraftState.getPendingTracks();
 
-        pendingTrackListElement.innerHTML = renderPendingTrackList(pendingTracks);
-        tracksToIncludeSection.hidden = pendingTracks.length === 0;
+    pendingTrackListElement.innerHTML = renderPendingTrackList(pendingTracks);
+    tracksToIncludeSection.hidden = pendingTracks.length === 0;
+  }
+
+  function resetNativeFileInput(): void {
+    audioFileInput.value = "";
+  }
+
+  function handleAddTracksClick(event: ClickEventLike): void {
+    event.preventDefault?.();
+    statusElement.textContent = "";
+    audioFileInput.click?.();
+  }
+
+  function handleAudioFileChange(): void {
+    const newlySelectedFiles = getFilesFromInput(audioFileInput);
+    const slotsRemaining = projectDraftState.getPendingTrackSlotsRemaining();
+
+    if (newlySelectedFiles.length === 0) {
+      return;
     }
 
-    function resetNativeFileInput(): void {
-        audioFileInput.value = "";
+    if (slotsRemaining === 0) {
+      statusElement.textContent =
+        "This project already has the maximum number of audio tracks.";
+      resetNativeFileInput();
+      return;
     }
 
-    function handleAddTracksClick(event: ClickEventLike): void {
-        event.preventDefault?.();
-        statusElement.textContent = "";
-        audioFileInput.click?.();
+    const validFiles: File[] = [];
+    const validationErrors: string[] = [];
+
+    for (const audioFile of newlySelectedFiles) {
+      const validation = validateAudioFile(audioFile);
+
+      if (!validation.ok) {
+        validationErrors.push(validation.error);
+        continue;
+      }
+
+      validFiles.push(audioFile);
     }
 
-    function handleAudioFileChange(): void {
-        const newlySelectedFiles = getFilesFromInput(audioFileInput);
-        const slotsRemaining = projectDraftState.getPendingTrackSlotsRemaining();
+    const filesToAdd = validFiles.slice(0, slotsRemaining);
+    const pendingTrackInputs = filesToAdd.map((audioFile) => {
+      return {
+        trackName: getDefaultTrackNameFromAudioFile(audioFile),
+        audioFile,
+      };
+    });
 
-        if (newlySelectedFiles.length === 0) {
-            return;
-        }
-
-        if (slotsRemaining === 0) {
-            statusElement.textContent =
-                "This project already has the maximum number of audio tracks.";
-            resetNativeFileInput();
-            return;
-        }
-
-        const filesToAdd = newlySelectedFiles.slice(0, slotsRemaining);
-
-        const pendingTrackInputs = filesToAdd.map((audioFile) => {
-            return {
-                trackName: getDefaultTrackName(audioFile.name),
-                audioFile,
-            };
-        });
-
-        projectDraftState.addPendingTracks(pendingTrackInputs);
-
-        if (newlySelectedFiles.length > slotsRemaining) {
-            statusElement.textContent = `Only ${slotsRemaining} more audio track${slotsRemaining === 1 ? "" : "s"
-                } could be added.`;
-        } else {
-            statusElement.textContent =
-                pendingTrackInputs.length === 1
-                    ? "Track added to project draft."
-                    : "Tracks added to project draft.";
-        }
-
-        resetNativeFileInput();
-        renderPendingTracks();
+    if (pendingTrackInputs.length > 0) {
+      projectDraftState.addPendingTracks(pendingTrackInputs);
     }
 
-    function handlePendingTrackNameInput(event: ClickEventLike): void {
-        const input = event.target;
-        const pendingTrackId = input?.getAttribute?.("data-pending-track-name");
+    const messages: string[] = [];
 
-        if (!pendingTrackId) {
-            return;
-        }
-
-        projectDraftState.updatePendingTrackName(
-            pendingTrackId,
-            input?.value ?? "",
-        );
-
-        statusElement.textContent = "";
+    if (validationErrors.length > 0) {
+      messages.push(validationErrors.join(" "));
     }
 
-    function handleRemoveClick(event: ClickEventLike): void {
-        const removeButton = event.target?.closest?.("[data-pending-track-id]");
-        const pendingTrackId = removeButton?.getAttribute("data-pending-track-id");
-
-        if (!pendingTrackId) {
-            return;
-        }
-
-        projectDraftState.removePendingTrack(pendingTrackId);
-        statusElement.textContent = "Track removed.";
-        renderPendingTracks();
+    if (validFiles.length > slotsRemaining) {
+      messages.push(
+        `Only ${slotsRemaining} more audio track${slotsRemaining === 1 ? "" : "s"} could be added.`,
+      );
+    } else if (pendingTrackInputs.length === 1) {
+      messages.push("Track added to project draft.");
+    } else if (pendingTrackInputs.length > 1) {
+      messages.push("Tracks added to project draft.");
     }
 
-    function init(): void {
-        addTracksButton.addEventListener("click", handleAddTracksClick);
+    statusElement.textContent = messages.join(" ");
+    resetNativeFileInput();
+    renderPendingTracks();
+  }
 
-        audioFileInput.addEventListener?.("change", () => {
-            handleAudioFileChange();
-        });
+  function handlePendingTrackNameInput(event: ClickEventLike): void {
+    const input = event.target;
+    const pendingTrackId = input?.getAttribute?.("data-pending-track-name");
 
-        pendingTrackListElement.addEventListener?.("input", handlePendingTrackNameInput);
-        pendingTrackListElement.addEventListener?.("click", handleRemoveClick);
-
-        renderPendingTracks();
+    if (!pendingTrackId) {
+      return;
     }
 
-    return {
-        init,
-    };
+    projectDraftState.updatePendingTrackName(
+      pendingTrackId,
+      input?.value ?? "",
+    );
+
+    statusElement.textContent = "";
+  }
+
+  function handleRemoveClick(event: ClickEventLike): void {
+    const removeButton = event.target?.closest?.("[data-pending-track-id]");
+    const pendingTrackId = removeButton?.getAttribute("data-pending-track-id");
+
+    if (!pendingTrackId) {
+      return;
+    }
+
+    projectDraftState.removePendingTrack(pendingTrackId);
+    statusElement.textContent = "Track removed.";
+    renderPendingTracks();
+  }
+
+  function init(): void {
+    addTracksButton.addEventListener("click", handleAddTracksClick);
+
+    audioFileInput.addEventListener?.("change", () => {
+      handleAudioFileChange();
+    });
+
+    pendingTrackListElement.addEventListener?.("input", handlePendingTrackNameInput);
+    pendingTrackListElement.addEventListener?.("click", handleRemoveClick);
+
+    renderPendingTracks();
+  }
+
+  return {
+    init,
+  };
 }

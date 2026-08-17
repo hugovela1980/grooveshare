@@ -18,6 +18,11 @@ import type {
     ProjectRole,
     Track,
 } from "../types.js";
+import {
+    formatFileSize,
+    getDefaultTrackNameFromAudioFile,
+    validateMobileAudioFile,
+} from "../uploads/mobile-audio-files.js";
 
 type TracksApi = {
     getTracksByProjectId: (projectId: string) => Promise<Track[]>;
@@ -124,7 +129,12 @@ type FormElementLike = {
 type ValueInputLike = {
     value: string;
     focus?: () => void;
+    blur?: () => void;
     select?: () => void;
+    addEventListener?: (
+        eventName: "focus",
+        handler: () => void,
+    ) => void;
 };
 
 type DialogElementLike = VisibilityElementLike;
@@ -246,17 +256,6 @@ function getAddTrackButtonFromTarget(
     return element?.closest?.("[data-track-add-button]") ?? null;
 }
 
-function getDefaultTrackNameFromFile(audioFile: File): string {
-    const filename = audioFile.name;
-    const extensionStartIndex = filename.lastIndexOf(".");
-
-    if (extensionStartIndex <= 0) {
-        return filename;
-    }
-
-    return filename.slice(0, extensionStartIndex);
-}
-
 function setStatus(
     statusElement: TextElementLike | null | undefined,
     message: string,
@@ -305,7 +304,7 @@ export function createProjectPlayerPageController({
     audioPlayerController,
     getTrackAudioUrl,
     chooseAudioFile = async () => null,
-    getTrackNameFromFile = getDefaultTrackNameFromFile,
+    getTrackNameFromFile = getDefaultTrackNameFromAudioFile,
     mixPersistenceDelayMs = 2000,
     scheduleTimeout = globalThis.setTimeout.bind(globalThis),
     clearScheduledTimeout = globalThis.clearTimeout.bind(globalThis),
@@ -549,8 +548,6 @@ export function createProjectPlayerPageController({
         projectEditDescriptionInput.value = currentProjectDescription;
         setStatus(projectEditStatusElement, "");
         setDialogOpen(projectEditModal, true);
-        projectEditTitleInput.focus?.();
-        projectEditTitleInput.select?.();
     }
 
     function closeProjectEditor(): void {
@@ -558,6 +555,8 @@ export function createProjectPlayerPageController({
             return;
         }
 
+        projectEditTitleInput?.blur?.();
+        projectEditDescriptionInput?.blur?.();
         setDialogOpen(projectEditModal, false);
         setStatus(projectEditStatusElement, "");
     }
@@ -625,6 +624,8 @@ export function createProjectPlayerPageController({
             }
 
             setStatus(statusElement, "Project details updated.");
+            projectEditTitleInput.blur?.();
+            projectEditDescriptionInput.blur?.();
             setDialogOpen(projectEditModal, false);
             setStatus(projectEditStatusElement, "");
         } catch {
@@ -652,8 +653,6 @@ export function createProjectPlayerPageController({
         trackEditNameInput.value = track.name;
         setStatus(trackEditStatusElement, "");
         setDialogOpen(trackEditModal, true);
-        trackEditNameInput.focus?.();
-        trackEditNameInput.select?.();
     }
 
     function closeTrackEditor(): void {
@@ -662,6 +661,7 @@ export function createProjectPlayerPageController({
         }
 
         activeTrackEditId = null;
+        trackEditNameInput?.blur?.();
         setDialogOpen(trackEditModal, false);
         setStatus(trackEditStatusElement, "");
     }
@@ -729,6 +729,7 @@ export function createProjectPlayerPageController({
 
             setStatus(statusElement, "Track name updated.");
             activeTrackEditId = null;
+            trackEditNameInput.blur?.();
             setDialogOpen(trackEditModal, false);
             setStatus(trackEditStatusElement, "");
         } catch {
@@ -869,7 +870,17 @@ export function createProjectPlayerPageController({
                 return;
             }
 
-            setStatus(statusElement, "Uploading track...");
+            const audioFileValidation = validateMobileAudioFile(audioFile);
+
+            if (!audioFileValidation.ok) {
+                setStatus(statusElement, audioFileValidation.error);
+                return;
+            }
+
+            setStatus(
+                statusElement,
+                `Uploading ${audioFile.name} (${formatFileSize(audioFile.size)})...`,
+            );
             setRegionBusy(trackListElement, true);
 
             await tracksApi.uploadTrack({
@@ -880,8 +891,13 @@ export function createProjectPlayerPageController({
 
             await loadTracks();
             setStatus(statusElement, "Track added.");
-        } catch {
-            setStatus(statusElement, "Could not add track.");
+        } catch (error) {
+            setStatus(
+                statusElement,
+                error instanceof Error && error.message.trim()
+                    ? error.message
+                    : "Could not add track.",
+            );
         } finally {
             setRegionBusy(trackListElement, false);
             setControlBusy(addTrackButton, false);
@@ -1008,6 +1024,18 @@ export function createProjectPlayerPageController({
     }
 
     async function init(): Promise<void> {
+        projectEditTitleInput?.addEventListener?.("focus", () => {
+            projectEditTitleInput.select?.();
+        });
+
+        projectEditDescriptionInput?.addEventListener?.("focus", () => {
+            projectEditDescriptionInput.select?.();
+        });
+
+        trackEditNameInput?.addEventListener?.("focus", () => {
+            trackEditNameInput.select?.();
+        });
+
         trackListElement.addEventListener("click", (event) => {
             return handleTrackListClick(event);
         });

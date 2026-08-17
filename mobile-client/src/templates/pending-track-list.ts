@@ -1,4 +1,5 @@
 import type { PendingTrackDraft } from "../project-draft/project-draft-state.js";
+import { formatFileSize } from "../uploads/mobile-audio-files.js";
 
 function escapeHtml(value: string): string {
   return value
@@ -32,12 +33,14 @@ export function renderPendingTrackList(
                 />
               </label>
 
-              <div>
+              <div class="selected-audio-track-row__file">
                 <span>File</span>
                 <p>${escapeHtml(track.originalFilename)}</p>
+                <small>${formatFileSize(track.audioFile.size)}</small>
               </div>
 
               <button
+                class="button button--danger selected-audio-track-row__remove"
                 type="button"
                 data-pending-track-id="${escapeHtml(track.id)}"
               >
