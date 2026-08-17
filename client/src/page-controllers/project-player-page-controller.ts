@@ -53,6 +53,8 @@ type ProjectsApi = {
 
 type TrackListEventLike = {
     target: EventTarget | null;
+    key?: string;
+    preventDefault?: () => void;
 };
 
 type FormEventLike = {
@@ -80,6 +82,8 @@ type ChooseAudioFile = () => Promise<File | null>;
 
 type GetTrackNameFromFile = (audioFile: File) => string;
 
+type SelectAllText = (element: unknown) => void;
+
 type TimeoutId = ReturnType<typeof globalThis.setTimeout>;
 type ScheduleTimeout = (handler: () => void, delayMs: number) => TimeoutId;
 type ClearScheduledTimeout = (timeoutId: TimeoutId) => void;
@@ -88,7 +92,7 @@ type TrackListElementLike = BusyRegionLike & {
     innerHTML: string;
 
     addEventListener: (
-        eventName: "click" | "input" | "change",
+        eventName: "click" | "input" | "change" | "keydown" | "focusout",
         handler: (
             event: TrackListEventLike,
         ) => void | Promise<void>,
@@ -112,6 +116,19 @@ type ButtonElementLike = BusyControlLike & {
 
 type TextElementLike = {
     textContent: string | null;
+};
+
+type EditableTextEventLike = {
+    key?: string;
+    preventDefault?: () => void;
+};
+
+type EditableTextElementLike = TextElementLike & {
+    addEventListener?: (
+        eventName: "click" | "keydown" | "blur",
+        handler: (event: EditableTextEventLike) => void | Promise<void>,
+    ) => void;
+    blur?: () => void | Promise<void>;
 };
 
 type FormElementLike = {
@@ -171,6 +188,7 @@ type TrackListTargetLike = {
         channelVolume?: string;
         channelEnabled?: string;
         mixChannel?: string;
+        trackNameEditor?: string;
         trackId?: string;
     };
 };
@@ -182,9 +200,9 @@ type ProjectPlayerPageControllerOptions = {
     contentElement?: VisibilityElementLike | null;
     statusElement?: TextElementLike | null;
     deleteProjectButton?: ButtonElementLike | null;
-    projectTitleElement?: TextElementLike | null;
+    projectTitleElement?: EditableTextElementLike | null;
     projectMobileTitleElement?: TextElementLike | null;
-    projectDescriptionElement?: TextElementLike | null;
+    projectDescriptionElement?: EditableTextElementLike | null;
     projectEditModal?: DialogElementLike | null;
     projectEditForm?: FormElementLike | null;
     projectEditTitleInput?: ValueInputLike | null;
@@ -220,6 +238,7 @@ type ProjectPlayerPageControllerOptions = {
     getTrackAudioUrl?: (projectId: string, trackId: string) => string;
     chooseAudioFile?: ChooseAudioFile;
     getTrackNameFromFile?: GetTrackNameFromFile;
+    selectAllText?: SelectAllText;
     mixPersistenceDelayMs?: number;
     scheduleTimeout?: ScheduleTimeout;
     clearScheduledTimeout?: ClearScheduledTimeout;
@@ -255,6 +274,26 @@ function getDefaultTrackNameFromFile(audioFile: File): string {
     }
 
     return filename.slice(0, extensionStartIndex);
+}
+
+function selectAllEditableText(element: unknown): void {
+    if (
+        typeof document === "undefined" ||
+        typeof window === "undefined"
+    ) {
+        return;
+    }
+
+    const selection = window.getSelection();
+
+    if (!selection) {
+        return;
+    }
+
+    const range = document.createRange();
+    range.selectNodeContents(element as Node);
+    selection.removeAllRanges();
+    selection.addRange(range);
 }
 
 function setStatus(
@@ -306,6 +345,7 @@ export function createProjectPlayerPageController({
     getTrackAudioUrl,
     chooseAudioFile = async () => null,
     getTrackNameFromFile = getDefaultTrackNameFromFile,
+    selectAllText = selectAllEditableText,
     mixPersistenceDelayMs = 2000,
     scheduleTimeout = globalThis.setTimeout.bind(globalThis),
     clearScheduledTimeout = globalThis.clearTimeout.bind(globalThis),
@@ -498,6 +538,22 @@ export function createProjectPlayerPageController({
 
     function normalizeSingleLineText(value: string): string {
         return value.trim().replace(/\s+/g, " ");
+    }
+
+    function getTrackNameEditorTarget(
+        event: TrackListEventLike,
+    ): TrackListTargetLike | null {
+        const target = event.target as TrackListTargetLike | null;
+
+        if (
+            !target?.dataset ||
+            target.dataset.trackNameEditor === undefined ||
+            !target.dataset.trackId
+        ) {
+            return null;
+        }
+
+        return target;
     }
 
     function replaceCurrentTrackName(
@@ -739,6 +795,224 @@ export function createProjectPlayerPageController({
         }
     }
 
+    async function commitTrackName(
+        target: TrackListTargetLike,
+    ): Promise<void> {
+        const trackId = target.dataset?.trackId;
+
+        if (!trackId) {
+            return;
+        }
+
+        const track = currentTracks.find((currentTrack) => {
+            return currentTrack.id === trackId;
+        });
+
+        if (!track) {
+            return;
+        }
+
+        if (
+            !canManageTrack({
+                role: projectRole,
+                currentUserId,
+                track,
+            })
+        ) {
+            target.textContent = track.name;
+            return;
+        }
+
+        const previousName = track.name;
+        const editedName = normalizeSingleLineText(target.textContent ?? "");
+        const nextName = editedName || previousName;
+
+        target.textContent = nextName;
+
+        if (nextName === previousName) {
+            return;
+        }
+
+        replaceCurrentTrackName(trackId, nextName);
+
+        if (!tracksApi.updateTrackName) {
+            return;
+        }
+
+        try {
+            const updatedTrack = await tracksApi.updateTrackName(
+                project.id,
+                trackId,
+                nextName,
+            );
+
+            replaceCurrentTrackName(trackId, updatedTrack.name);
+            target.textContent = updatedTrack.name;
+            updateRenderedTrackName(trackId, updatedTrack.name);
+            audioPlayerController?.setTrackName?.(trackId, updatedTrack.name);
+            setStatus(statusElement, "Track name updated.");
+        } catch {
+            replaceCurrentTrackName(trackId, previousName);
+            target.textContent = previousName;
+            setStatus(statusElement, "Could not save track name.");
+        }
+    }
+
+    async function handleTrackListKeydown(
+        event: TrackListEventLike,
+    ): Promise<void> {
+        const trackNameEditor = getTrackNameEditorTarget(event);
+
+        if (!trackNameEditor || event.key !== "Enter") {
+            return;
+        }
+
+        event.preventDefault?.();
+        await trackNameEditor.blur?.();
+    }
+
+    async function handleTrackListFocusOut(
+        event: TrackListEventLike,
+    ): Promise<void> {
+        const trackNameEditor = getTrackNameEditorTarget(event);
+
+        if (!trackNameEditor) {
+            return;
+        }
+
+        await commitTrackName(trackNameEditor);
+    }
+
+    async function commitProjectTitle(): Promise<void> {
+        if (!projectTitleElement || !canManageProject(projectRole)) {
+            return;
+        }
+
+        const previousTitle = currentProjectTitle;
+        const editedTitle = normalizeSingleLineText(
+            projectTitleElement.textContent ?? "",
+        );
+
+        if (!editedTitle) {
+            projectTitleElement.textContent = previousTitle;
+            return;
+        }
+
+        projectTitleElement.textContent = editedTitle;
+
+        if (editedTitle === previousTitle) {
+            return;
+        }
+
+        currentProjectTitle = editedTitle;
+
+        if (!projectsApi?.updateProjectDetails) {
+            return;
+        }
+
+        try {
+            const updatedProject = await projectsApi.updateProjectDetails(
+                project.id,
+                { title: editedTitle },
+            );
+
+            currentProjectTitle = updatedProject.title;
+            project.title = updatedProject.title;
+            projectTitleElement.textContent = updatedProject.title;
+
+            if (projectMobileTitleElement) {
+                projectMobileTitleElement.textContent = updatedProject.title;
+            }
+
+            setStatus(statusElement, "Project title updated.");
+        } catch {
+            currentProjectTitle = previousTitle;
+            project.title = previousTitle;
+            projectTitleElement.textContent = previousTitle;
+            setStatus(statusElement, "Could not save project title.");
+        }
+    }
+
+    async function commitProjectDescription(): Promise<void> {
+        if (!projectDescriptionElement || !canManageProject(projectRole)) {
+            return;
+        }
+
+        const previousDescription = currentProjectDescription;
+        const editedDescription = normalizeSingleLineText(
+            projectDescriptionElement.textContent ?? "",
+        );
+
+        projectDescriptionElement.textContent = editedDescription;
+
+        if (editedDescription === previousDescription) {
+            return;
+        }
+
+        currentProjectDescription = editedDescription;
+
+        if (!projectsApi?.updateProjectDetails) {
+            return;
+        }
+
+        try {
+            const updatedProject = await projectsApi.updateProjectDetails(
+                project.id,
+                { description: editedDescription },
+            );
+
+            currentProjectDescription = updatedProject.description;
+            project.description = updatedProject.description;
+            projectDescriptionElement.textContent = updatedProject.description;
+            setStatus(statusElement, "Project description updated.");
+        } catch {
+            currentProjectDescription = previousDescription;
+            project.description = previousDescription;
+            projectDescriptionElement.textContent = previousDescription;
+            setStatus(statusElement, "Could not save project description.");
+        }
+    }
+
+    function registerProjectDetailEditors(): void {
+        if (!canManageProject(projectRole)) {
+            return;
+        }
+
+        projectTitleElement?.addEventListener?.("click", () => {
+            selectAllText(projectTitleElement);
+        });
+
+        projectTitleElement?.addEventListener?.("keydown", async (event) => {
+            if (event.key !== "Enter") {
+                return;
+            }
+
+            event.preventDefault?.();
+            await projectTitleElement.blur?.();
+        });
+
+        projectTitleElement?.addEventListener?.("blur", () => {
+            return commitProjectTitle();
+        });
+
+        projectDescriptionElement?.addEventListener?.("click", () => {
+            selectAllText(projectDescriptionElement);
+        });
+
+        projectDescriptionElement?.addEventListener?.("keydown", async (event) => {
+            if (event.key !== "Enter") {
+                return;
+            }
+
+            event.preventDefault?.();
+            await projectDescriptionElement.blur?.();
+        });
+
+        projectDescriptionElement?.addEventListener?.("blur", () => {
+            return commitProjectDescription();
+        });
+    }
+
     function updateLoadedChannelVolume(
         channelNumber: number,
         volume: number,
@@ -892,6 +1166,13 @@ export function createProjectPlayerPageController({
     async function handleTrackListClick(
         event: TrackListEventLike,
     ): Promise<void> {
+        const trackNameEditor = getTrackNameEditorTarget(event);
+
+        if (trackNameEditor) {
+            selectAllText(trackNameEditor);
+            return;
+        }
+
         const editTrackButton = getEditTrackButtonFromTarget(event.target);
         const editTrackId = editTrackButton?.dataset?.trackId;
 
@@ -1019,6 +1300,16 @@ export function createProjectPlayerPageController({
         trackListElement.addEventListener("change", (event) => {
             return handleTrackListChange(event);
         });
+
+        trackListElement.addEventListener("keydown", (event) => {
+            return handleTrackListKeydown(event);
+        });
+
+        trackListElement.addEventListener("focusout", (event) => {
+            return handleTrackListFocusOut(event);
+        });
+
+        registerProjectDetailEditors();
 
         projectEditForm?.addEventListener("submit", (event) => {
             return handleProjectEditSubmit(event);

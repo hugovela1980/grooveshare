@@ -3,9 +3,7 @@
     margin: 0 auto;
 }
 
-.project-player-header {
-    margin-bottom: 2rem;
-}
+.project-player-header { margin-bottom: 2rem; }
 
 .project-player-header__actions {
     display: flex;
@@ -16,237 +14,54 @@
     margin-bottom: 1.5rem;
 }
 
-.project-player-header__details {
-    display: grid;
-    gap: 0.65rem;
-}
+.project-player-header__details { display: grid; gap: 0.65rem; }
+.project-player-header .eyebrow { margin: 0; }
 
-.project-player-header .eyebrow {
-    margin: 0;
-}
-
-.project-player-details__title-wrap,
-.project-player-details__description-wrap {
-    max-width: 100%;
-}
-
-.project-player-details__title {
-    max-width: 720px;
-    margin: 0;
-    overflow-wrap: anywhere;
-}
-
-.project-player-details__description-wrap {
-    max-width: min(100%, 48rem);
-    margin-top: 0.15rem;
-}
-
-.project-player-details__description {
-    margin: 0;
-    color: var(--color-text-muted-cool);
-    line-height: 1.55;
-    overflow-wrap: anywhere;
-}
-
-
-
-.project-player-tracks-panel {
-    padding: 1.5rem;
-}
-
-.project-player-tracks-panel h2 {
-    margin: 0 0 1.25rem;
-}
-
-@media (max-width: 40rem) {
-    .project-player-header {
-        margin-bottom: 1.5rem;
-    }
-
-    .project-player-header__actions {
-        align-items: stretch;
-    }
-
-    .project-player-header__actions .button {
-        flex: 1 1 auto;
-        justify-content: center;
-    }
-
-    .project-player-tracks-panel {
-        padding: 1.1rem;
-    }
-}
-.project-player-header__eyebrow-row {
+.project-player-editable {
     display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem;
+    width: fit-content;
+    max-width: 100%;
     align-items: center;
-}
-
-.project-role-badge,
-.project-member-row__role-badge {
-    display: inline-flex;
-    align-items: center;
-    min-height: 1.8rem;
-    padding: 0.25rem 0.65rem;
-    border: 1px solid var(--border-input);
-    border-radius: 999px;
-    font-size: 0.78rem;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-}
-
-.mix-channel-slot__empty-label {
-    font-size: 0.85rem;
-    opacity: 0.65;
-}
-
-.project-members-panel {
-    margin-top: 1.5rem;
-}
-
-.project-members-panel__header {
-    margin-bottom: 1rem;
-}
-
-.project-member-form {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(9rem, 0.35fr) auto;
-    gap: 0.75rem;
-    align-items: end;
-    margin-bottom: 1rem;
-}
-
-.project-member-form__field {
-    display: grid;
-    gap: 0.4rem;
-}
-
-.project-member-form input,
-.project-member-form select,
-.project-member-row select {
-    width: 100%;
-    min-height: 2.75rem;
-    padding: 0.65rem 0.75rem;
-    border: 1px solid var(--border-input);
+    padding: 0.2rem 0.35rem;
+    border: 1px solid transparent;
     border-radius: var(--radius-sm);
     background: transparent;
-    color: inherit;
+    transition: background 120ms ease, border-color 120ms ease;
 }
 
-.project-member-list {
-    display: grid;
-    gap: 0.75rem;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-}
+.project-player-editable--enabled:hover { border-color: var(--border-input); }
+.project-player-editable--enabled:focus-within { border-color: var(--color-light-button); background: var(--color-light-button); }
+.project-player-editable__text { min-width: 0; margin: 0; outline: none; }
+.project-player-editable__text[contenteditable="true"] { cursor: text; }
+.project-player-editable--enabled:focus-within .project-player-editable__text { color: var(--color-light-text); caret-color: var(--color-light-text); }
+.project-player-editable__title { max-width: 720px; overflow-wrap: anywhere; }
+.project-player-editable--description { max-width: min(100%, 48rem); margin-top: 0.15rem; }
+.project-player-editable__description { color: var(--color-text-muted-cool); line-height: 1.55; overflow-wrap: anywhere; }
+.project-player-editable__description:empty::before { content: attr(data-placeholder); color: var(--color-text-subtle-cool); }
+.project-player-editable__description:focus:empty::before { content: ""; }
 
-.project-member-row {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(9rem, 0.35fr) auto;
-    gap: 0.75rem;
-    align-items: center;
-    padding: 0.85rem 0;
-    border-top: 1px solid var(--border-input);
-}
-
-.project-member-row__identity {
-    display: grid;
-    gap: 0.15rem;
-    min-width: 0;
-}
-
-.project-member-row__identity span {
-    overflow-wrap: anywhere;
-    opacity: 0.75;
-}
-
-.project-member-row__role-badge {
-    justify-self: start;
-}
+.project-player-tracks-panel { padding: 1.5rem; }
+.project-player-tracks-panel h2 { margin: 0 0 1.25rem; }
+.project-player-header__eyebrow-row { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; }
+.project-role-badge, .project-member-row__role-badge { display: inline-flex; align-items: center; min-height: 1.8rem; padding: 0.25rem 0.65rem; border: 1px solid var(--border-input); border-radius: 999px; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+.mix-channel-slot__empty-label { font-size: 0.85rem; opacity: 0.65; }
+.project-members-panel { margin-top: 1.5rem; }
+.project-members-panel__header { margin-bottom: 1rem; }
+.project-member-form { display: grid; grid-template-columns: minmax(0, 1fr) minmax(9rem, 0.35fr) auto; gap: 0.75rem; align-items: end; margin-bottom: 1rem; }
+.project-member-form__field { display: grid; gap: 0.4rem; }
+.project-member-form input, .project-member-form select, .project-member-row select { width: 100%; min-height: 2.75rem; padding: 0.65rem 0.75rem; border: 1px solid var(--border-input); border-radius: var(--radius-sm); background: transparent; color: inherit; }
+.project-member-list { display: grid; gap: 0.75rem; margin: 0; padding: 0; list-style: none; }
+.project-member-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(9rem, 0.35fr) auto; gap: 0.75rem; align-items: center; padding: 0.85rem 0; border-top: 1px solid var(--border-input); }
+.project-member-row__identity { display: grid; gap: 0.15rem; min-width: 0; }
+.project-member-row__identity span { overflow-wrap: anywhere; opacity: 0.75; }
+.project-member-row__role-badge { justify-self: start; }
+.project-player-loading { min-height: 18rem; }
+.project-player-loading[hidden], .project-player-content[hidden] { display: none; }
+.project-player-loading__state { min-height: 18rem; }
+#player-track-list[aria-busy="true"], #project-member-list[aria-busy="true"] { cursor: progress; }
+.project-member-list select[aria-busy="true"] { cursor: progress; opacity: 0.65; }
 
 @media (max-width: 42rem) {
-    .project-member-form,
-    .project-member-row {
-        grid-template-columns: 1fr;
-    }
-
-    .project-member-row__remove-button,
-    .project-member-row__role-control {
-        width: 100%;
-    }
-}
-
-.project-player-header__mobile-title,
-.project-player-header__back-mobile,
-.project-player-header__actions-spacer {
-    display: none;
-}
-
-.project-player-header__desktop-logout {
-    margin-left: 0;
-}
-
-.project-members-panel[hidden] {
-    display: none;
-}
-
-.project-player-loading {
-    min-height: 18rem;
-}
-
-.project-player-loading[hidden],
-.project-player-content[hidden] {
-    display: none;
-}
-
-.project-player-loading__state {
-    min-height: 18rem;
-}
-
-#player-track-list[aria-busy="true"],
-#project-member-list[aria-busy="true"] {
-    cursor: progress;
-}
-
-.project-member-list select[aria-busy="true"] {
-    cursor: progress;
-    opacity: 0.65;
-}
-
-
-.project-player-edit-dialog {
-    width: min(34rem, 100%);
-}
-
-.project-player-edit-dialog--track {
-    width: min(28rem, 100%);
-}
-
-.project-player-edit-form {
-    display: grid;
-    gap: 1rem;
-}
-
-.project-player-edit-form__field {
-    display: grid;
-    gap: 0.45rem;
-}
-
-.project-player-edit-form input,
-.project-player-edit-form textarea {
-    width: 100%;
-    padding: 0.75rem 0.85rem;
-    border: 1px solid var(--border-light-strong);
-    border-radius: var(--radius-md);
-    color: var(--color-light-text);
-    background: var(--color-light-surface);
-    font: inherit;
-}
-
-.project-player-edit-form textarea {
-    min-height: 7rem;
-    resize: vertical;
+    .project-member-form, .project-member-row { grid-template-columns: 1fr; }
+    .project-member-row__remove-button, .project-member-row__role-control { width: 100%; }
 }

@@ -139,49 +139,15 @@
 }
 
 
-/* Track name and explicit edit affordance */
+/* Track name and desktop inline editing */
 
-.mix-channel-slot__name-cell {
-    display: flex;
-    align-items: center;
-}
-
-.mix-channel-slot__track-name-group {
-    display: flex;
-    width: 100%;
-    min-width: 0;
-    gap: 0.45rem;
-    align-items: center;
-}
-
-.mix-channel-slot__track-name {
-    flex: 1 1 auto;
-    min-width: 0;
-    overflow: hidden;
-    color: var(--color-text);
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.mix-channel-slot__edit-button {
-    display: grid;
-    width: 2.75rem;
-    height: 2.75rem;
-    flex: 0 0 2.75rem;
-    place-items: center;
-    padding: 0;
-    border: 1px solid var(--border-input);
-    border-radius: var(--radius-sm);
-    color: var(--color-text);
-    background: transparent;
-    font-size: 1.05rem;
-    cursor: pointer;
-}
-
-.mix-channel-slot__edit-button:hover,
-.mix-channel-slot__edit-button:focus-visible {
-    background: var(--color-surface);
-}
+.mix-channel-slot__name-cell { display: flex; align-items: center; }
+.mix-channel-slot__editable-name { display: flex; width: 100%; min-width: 0; padding: 0.2rem 0.3rem; border: 1px solid transparent; border-radius: var(--radius-sm); transition: background 120ms ease, border-color 120ms ease; }
+.mix-channel-slot__editable-name--enabled:hover { border-color: var(--border-input); }
+.mix-channel-slot__editable-name--enabled:focus-within { border-color: var(--color-light-button); background: var(--color-light-button); }
+.mix-channel-slot__track-name { flex: 1 1 auto; min-width: 0; overflow: hidden; color: var(--color-text); text-overflow: ellipsis; white-space: nowrap; }
+.mix-channel-slot__track-name[contenteditable="true"] { cursor: text; outline: none; }
+.mix-channel-slot__editable-name--enabled:focus-within .mix-channel-slot__track-name { color: var(--color-light-text); caret-color: var(--color-light-text); }
 
 
 /* Volume */
@@ -225,8 +191,6 @@
     font-size: 0.8rem;
 }
 
-.mix-channel-slot__delete-icon,
-.mix-channel-slot__add-track-symbol,
 .mix-channel-slot__empty-name {
     display: none;
 }

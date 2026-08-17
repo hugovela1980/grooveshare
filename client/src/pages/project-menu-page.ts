@@ -1,4 +1,3 @@
-import { renderMobileNavigation } from "../templates/mobile-navigation.js";
 import { renderLoadingState } from "../templates/loading-state.js";
 import type { User } from "../types.js";
 
@@ -69,7 +68,6 @@ export function renderProjectMenuPage(
         </button>
       </div>
 
-      ${currentUser ? renderMobileNavigation({ activeItem: "home" }) : ""}
     </main>
   `;
 }

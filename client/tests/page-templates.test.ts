@@ -30,8 +30,8 @@ tester.describe("page templates", () => {
     tester.expect(html.includes("Musician")).toBe(true);
     tester.expect(html.includes("musician@example.com")).toBe(true);
     tester.expect(html.includes('id="logout-button"')).toBe(true);
-    tester.expect(html.includes('id="mobile-nav-home-button"')).toBe(true);
-    tester.expect(html.includes('id="mobile-nav-logout-button"')).toBe(true);
+    tester.expect(html.includes('id="mobile-nav-home-button"')).toBe(false);
+    tester.expect(html.includes('id="mobile-nav-logout-button"')).toBe(false);
   });
 
   tester.it("renders the Project Menu page", () => {
@@ -76,10 +76,10 @@ tester.describe("page templates", () => {
     tester.expect(html.includes("create-project-confirmation-track-list")).toBe(true);
     tester.expect(html.includes("edit-create-project-button")).toBe(true);
     tester.expect(html.includes("submit-create-project-button")).toBe(true);
-    tester.expect(html.includes('id="mobile-nav-home-button"')).toBe(true);
-    tester.expect(html.includes('id="mobile-nav-library-button"')).toBe(true);
-    tester.expect(html.includes('id="mobile-nav-settings-button"')).toBe(true);
-    tester.expect(html.includes('id="mobile-nav-logout-button"')).toBe(true);
+    tester.expect(html.includes('id="mobile-nav-home-button"')).toBe(false);
+    tester.expect(html.includes('id="mobile-nav-library-button"')).toBe(false);
+    tester.expect(html.includes('id="mobile-nav-settings-button"')).toBe(false);
+    tester.expect(html.includes('id="mobile-nav-logout-button"')).toBe(false);
   });
 
   tester.it("renders saved project draft values on the Create Project page", () => {
@@ -115,8 +115,8 @@ tester.describe("page templates", () => {
     tester.expect(html.includes("Loading your project...")).toBe(true);
     tester.expect(html.includes('id="project-player-content"')).toBe(true);
     tester.expect(html.includes('id="player-logout-button"')).toBe(true);
-    tester.expect(html.includes('id="mobile-nav-home-button"')).toBe(true);
-    tester.expect(html.includes('id="mobile-nav-logout-button"')).toBe(true);
+    tester.expect(html.includes('id="mobile-nav-home-button"')).toBe(false);
+    tester.expect(html.includes('id="mobile-nav-logout-button"')).toBe(false);
   });
 
   tester.it("renders selected project details on the Project Player page", () => {
@@ -133,15 +133,15 @@ tester.describe("page templates", () => {
     tester.expect(html.includes("guitar and bass")).toBe(true);
     tester.expect(html.includes("data-project-title-display")).toBe(true);
     tester.expect(html.includes("data-project-description-display")).toBe(true);
-    tester.expect(html.includes('contenteditable="true"')).toBe(false);
-    tester.expect(html.includes('id="project-edit-modal"')).toBe(true);
-    tester.expect(html.includes('id="track-edit-modal"')).toBe(true);
+    tester.expect(html.includes('contenteditable="true"')).toBe(true);
+    tester.expect(html.includes('id="project-edit-modal"')).toBe(false);
+    tester.expect(html.includes('id="track-edit-modal"')).toBe(false);
     tester.expect(html.includes("Audio Player")).toBe(true);
     tester.expect(html.includes("player-area")).toBe(true);
     tester.expect(html.includes("player-track-list")).toBe(true);
     tester.expect(html.includes("player-track-upload-form")).toBe(false);
-    tester.expect(html.includes('id="project-actions-button"')).toBe(true);
-    tester.expect(html.includes("Edit Project")).toBe(true);
+    tester.expect(html.includes('id="project-actions-button"')).toBe(false);
+    tester.expect(html.includes("Edit Project")).toBe(false);
     tester.expect(html.includes("Owner Controls")).toBe(true);
     tester.expect(html.includes("Delete Project")).toBe(true);
     tester.expect(html.includes('id="project-members-panel"')).toBe(true);

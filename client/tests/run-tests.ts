@@ -7,6 +7,7 @@ import "./loading-state-template.test.js";
 import "./app-router.test.js";
 import "./page-templates.test.js";
 import "./grooveshare-app.test.js";
+import "./desktop-project-player.integration.test.js";
 import "./create-project-confirmation-controller.test.js";
 import "./create-project-page-controller.test.js";
 import "./project-menu-page-controller.test.js";
@@ -26,7 +27,6 @@ import "./viewer-mix-storage.test.js";
 import "./pending-mix-storage.test.js";
 import "./project-members-api.test.js";
 import "./project-members-controller.test.js";
-import "./project-actions-menu-controller.test.js";
 import "./client-config.test.js";
 
 import { tester } from "./test-runner/tester.js";

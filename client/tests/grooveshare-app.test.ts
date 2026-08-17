@@ -142,7 +142,7 @@ function createProjectPlayerIntegrationElements() {
         };
     }
 
-    const homeButton = createButton();
+    const backButton = createButton();
     const seekBackwardButton = createButton();
     const playPauseButton = createButton();
     const stopButton = createButton();
@@ -244,7 +244,7 @@ function createProjectPlayerIntegrationElements() {
 
         querySelector<T>(selector: string): T | null {
             const elements = new Map<string, unknown>([
-                ["#mobile-nav-home-button", homeButton],
+                ["#player-back-button", backButton],
                 ["#player-track-list", trackListElement],
                 ["#project-audio-player", audioElement],
                 ["#audio-seek-back-button", seekBackwardButton],
@@ -263,7 +263,7 @@ function createProjectPlayerIntegrationElements() {
 
     return {
         appElement,
-        homeButton,
+        backButton,
         trackListElement,
     };
 }
@@ -383,9 +383,9 @@ tester.describe("GrooveShare app", () => {
         tester.expect(appElement.innerHTML.includes("Project Player")).toBe(true);
         tester.expect(appElement.innerHTML.includes("player-track-list")).toBe(true);
     });
-    tester.it("flushes a dirty mix through the injected storage provider before Home navigation completes", async () => {
+    tester.it("flushes a dirty mix through the injected storage provider before desktop Back navigation completes", async () => {
         const originalFetch = globalThis.fetch;
-        const { appElement, homeButton, trackListElement } =
+        const { appElement, backButton, trackListElement } =
             createProjectPlayerIntegrationElements();
         const history = createHistoryAdapter("#projects/project-1");
         const storageValues = new Map<string, string>();
@@ -507,7 +507,7 @@ tester.describe("GrooveShare app", () => {
             tester.expect(storageValues.has(storageKey)).toBe(true);
             tester.expect(mixSaveCallCount).toBe(0);
 
-            homeButton.click();
+            backButton.click();
             await flushMicrotasks();
 
             tester.expect(mixSaveCallCount).toBe(1);

@@ -237,7 +237,7 @@ packages/frontend-core/src/
 └── playback/
 ```
 
-`client/` remains the existing presentation and is still intentionally unchanged at this checkpoint. `mobile-client/` is now a real second Vite presentation workspace built from the completed Milestone 5 phone UI. The next checkpoint can return `client/` to desktop/tablet-specific interaction choices without requiring the phone presentation to follow those choices.
+`client/` is now the desktop/tablet presentation. It keeps a fluid browser layout, direct desktop navigation controls, horizontal mixer rows, visible Owner controls, and inline project/track editing. `mobile-client/` remains the dedicated phone presentation built from the completed Milestone 5 phone UI, including the compact Project Player header, three-dot project actions, modal editing, vertical faders, and bottom navigation.
 
 ### `frontend-core` Responsibilities
 
@@ -284,7 +284,7 @@ The active Phase 1 boundary is:
              ↓                       ↓
        browser today             phone web today
        desktop/tablet            Capacitor later
-       cleanup next
+       Electron later
 ```
 
 Both clients consume the same domain types, permission rules, `SessionProvider`, `StorageProvider`, mix persistence coordinator, and `PlaybackEngine` contract. The mobile client supplies the browser implementations of those platform boundaries just as the current web client does.
@@ -295,16 +295,18 @@ The goal is to share product behavior rather than force presentation markup to b
 
 Shared behavior is tested in `packages/frontend-core/tests/`. Presentation behavior is now covered independently by `client/tests/` and `mobile-client/tests/`.
 
-The mobile integration suite protects these presentation-to-core flows:
+Both presentation suites protect the same core application flows while exercising their own interaction model:
 
 - unauthenticated startup to Login;
 - authenticated startup to Home/Projects;
 - Project Player track loading and playback preparation;
-- project editing through the mobile three-dot menu and modal;
+- project editing through presentation-specific controls;
 - immediate mixer-to-playback updates plus scheduled shared persistence;
-- dirty-mix flush before mobile Home navigation;
+- dirty-mix flush before navigation;
 - expired-session return to Login;
-- mobile-navigation logout with protected UI kept closed.
+- logout with protected UI kept closed.
+
+Desktop-specific tests protect inline project/track editing and the absence of phone navigation/menu assumptions. Mobile-specific tests protect three-dot/modal editing, vertical mixer presentation, and bottom navigation. The server authorization integration suite additionally proves that two independent authenticated sessions can read and modify the same project, tracks, role, and persisted mix state through one GrooveShare service.
 
 Architectural extractions should preserve or improve automated coverage so manual smoke testing can focus on real browser/device behavior that the test harness cannot realistically reproduce.
 
@@ -317,9 +319,9 @@ client/src/css/main.css
 mobile-client/src/css/main.css
 ```
 
-The mobile client starts from the completed Milestone 5 phone styles and treats the coordinated phone layout as its baseline rather than as a desktop viewport fallback. Its Project Player and Project Menu also omit desktop-only controls that are unnecessary in the dedicated phone presentation.
+The mobile client starts from the completed Milestone 5 phone styles and treats the coordinated phone layout as its baseline rather than as a desktop viewport fallback. Its Project Player and Project Menu omit desktop-only controls that are unnecessary in the dedicated phone presentation.
 
-`client/` has not yet been changed in this checkpoint. The next checkpoint will return it to a desktop/tablet-oriented presentation that remains fluid across normal browser and tablet widths.
+The desktop/tablet client no longer imports the phone navigation/action-menu styles or the coordinated phone breakpoint. Phone-only navigation, project-action-menu, and edit-dialog templates/controllers live in `mobile-client/` instead of the desktop workspace. The desktop client remains fluid for narrower desktop windows and tablets, but it does not transform into the dedicated phone Project Player. Tablet behavior therefore continues to derive from the desktop/web design.
 
 ## Authentication
 
@@ -1097,7 +1099,7 @@ Complete the hosted authenticated application and make it comfortable on mobile.
 
 Current milestone:
 
-**Mobile-Ready UI/UX**
+**Multi-Client Frontend Foundation**
 
 ### Version 2.x
 

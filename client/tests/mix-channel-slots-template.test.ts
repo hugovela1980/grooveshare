@@ -105,13 +105,14 @@ tester.describe("mix channel slots template", () => {
         tester.expect(html.includes("Add Track")).toBe(true);
     });
 
-    tester.it("renders assigned track names with an explicit edit button", () => {
+    tester.it("renders manageable track names as desktop inline editors", () => {
         const html = renderMixChannelSlots([createTrack()]);
 
         tester.expect(html.includes("data-track-name-display")).toBe(true);
-        tester.expect(html.includes("data-track-edit-button")).toBe(true);
-        tester.expect(html.includes('contenteditable="true"')).toBe(false);
-        tester.expect(html.includes("✎")).toBe(true);
+        tester.expect(html.includes("data-track-name-editor")).toBe(true);
+        tester.expect(html.includes("data-track-edit-button")).toBe(false);
+        tester.expect(html.includes('contenteditable="true"')).toBe(true);
+        tester.expect(html.includes("✎")).toBe(false);
     });
 
     tester.it("renders enabled, volume, and delete controls without waveform placeholders", () => {
@@ -253,15 +254,16 @@ tester.describe("mix channel slots template", () => {
         tester.expect(html.includes("100%")).toBe(true);
     });
 
-    tester.it("renders compact mobile affordance hooks for track actions", () => {
+    tester.it("renders desktop track action affordances without phone-only hooks", () => {
         const assignedHtml = renderMixChannelSlots([createTrack()]);
         const emptyHtml = renderMixChannelSlots([]);
 
-        tester.expect(assignedHtml.includes("mix-channel-slot__delete-icon")).toBe(true);
-        tester.expect(assignedHtml.includes("mix-channel-slot__delete-label")).toBe(true);
-        tester.expect(emptyHtml.includes("mix-channel-slot__add-track-symbol")).toBe(true);
-        tester.expect(emptyHtml.includes("mix-channel-slot__empty-name")).toBe(true);
-        tester.expect(emptyHtml.includes('aria-label="Add track to channel 1"')).toBe(true);
+        tester.expect(assignedHtml.includes("data-track-delete-button")).toBe(true);
+        tester.expect(assignedHtml.includes(">Delete</button>")).toBe(true);
+        tester.expect(assignedHtml.includes("mix-channel-slot__delete-icon")).toBe(false);
+        tester.expect(emptyHtml.includes("data-track-add-button")).toBe(true);
+        tester.expect(emptyHtml.includes(">Add Track</button>")).toBe(true);
+        tester.expect(emptyHtml.includes("mix-channel-slot__add-track-symbol")).toBe(false);
     });
 
     tester.it("renders a volume value target for each assigned channel", () => {

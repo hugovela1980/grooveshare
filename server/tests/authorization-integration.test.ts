@@ -38,6 +38,10 @@ type DevAuthorizationAccount = {
   userId: string;
 };
 
+type ProjectDetails = Project & {
+  role: DevAuthorizationAccount["role"];
+};
+
 type DevAuthorizationSeedResult = {
   project: Project;
   tracks: Track[];
@@ -219,16 +223,16 @@ function createMultipartBody({
   return Buffer.concat([
     Buffer.from(
       `--${boundary}\r\n` +
-        `Content-Disposition: form-data; name="trackName"\r\n` +
-        `\r\n` +
-        `${trackName}\r\n`,
+      `Content-Disposition: form-data; name="trackName"\r\n` +
+      `\r\n` +
+      `${trackName}\r\n`,
       "utf-8",
     ),
     Buffer.from(
       `--${boundary}\r\n` +
-        `Content-Disposition: form-data; name="audioFile"; filename="${filename}"\r\n` +
-        `Content-Type: audio/wav\r\n` +
-        `\r\n`,
+      `Content-Disposition: form-data; name="audioFile"; filename="${filename}"\r\n` +
+      `Content-Type: audio/wav\r\n` +
+      `\r\n`,
       "utf-8",
     ),
     data,
@@ -355,6 +359,64 @@ tester.describe("authorization integration", () => {
         tester.expect(projectsBody.data?.[0]?.id).toBe(
           secondBody.data.project.id,
         );
+      } finally {
+        await closeServer(server);
+      }
+    },
+  );
+
+  tester.it(
+    "shares the same project state across independent desktop and mobile sessions",
+    async () => {
+      const { baseUrl, server } = await createAuthorizationTestServer();
+      try {
+        const seedResponse = await globalThis.fetch(`${baseUrl}/api/dev/seed-authorization`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ filenames: ["Owner Guitar.wav", "Contributor Guitar.wav"] }),
+        });
+        tester.expect(seedResponse.status).toBe(201);
+        const seedBody = (await seedResponse.json()) as ApiResponse<DevAuthorizationSeedResult>;
+        if (!seedBody.data) throw new Error("Authorization seed response did not include data.");
+        const { project, tracks, accounts } = seedBody.data;
+        const owner = getAccount(accounts, "owner");
+        const desktopCookie = await login(baseUrl, owner);
+        const mobileCookie = await login(baseUrl, owner);
+        tester.expect(desktopCookie === mobileCookie).toBe(false);
+
+        const desktopInitialResponse = await requestWithCookie(baseUrl, desktopCookie, `/api/projects/${project.id}`);
+        const mobileInitialResponse = await requestWithCookie(baseUrl, mobileCookie, `/api/projects/${project.id}`);
+        const desktopInitialBody = (await desktopInitialResponse.json()) as ApiResponse<ProjectDetails>;
+        const mobileInitialBody = (await mobileInitialResponse.json()) as ApiResponse<ProjectDetails>;
+        tester.expect(desktopInitialResponse.status).toBe(200);
+        tester.expect(mobileInitialResponse.status).toBe(200);
+        tester.expect(desktopInitialBody.data?.id).toBe(project.id);
+        tester.expect(mobileInitialBody.data?.id).toBe(project.id);
+        tester.expect(desktopInitialBody.data?.role).toBe("owner");
+        tester.expect(mobileInitialBody.data?.role).toBe("owner");
+
+        const desktopUpdateResponse = await requestWithCookie(baseUrl, desktopCookie, `/api/projects/${project.id}`, {
+          method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: "Shared Across Clients" }),
+        });
+        tester.expect(desktopUpdateResponse.status).toBe(200);
+        const mobileAfterDesktopUpdateResponse = await requestWithCookie(baseUrl, mobileCookie, `/api/projects/${project.id}`);
+        const mobileAfterDesktopUpdateBody = (await mobileAfterDesktopUpdateResponse.json()) as ApiResponse<ProjectDetails>;
+        tester.expect(mobileAfterDesktopUpdateBody.data?.title).toBe("Shared Across Clients");
+
+        const mixSettings = { channels: tracks.slice(0, 2).map((track, index) => ({ channelNumber: index + 1, trackId: track.id, enabled: index === 0, volume: index === 0 ? 0.72 : 0.41 })) };
+        const mobileMixResponse = await requestWithCookie(baseUrl, mobileCookie, `/api/projects/${project.id}/mix-settings`, {
+          method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(mixSettings),
+        });
+        tester.expect(mobileMixResponse.status).toBe(200);
+        const desktopAfterMobileUpdateResponse = await requestWithCookie(baseUrl, desktopCookie, `/api/projects/${project.id}`);
+        const desktopAfterMobileUpdateBody = (await desktopAfterMobileUpdateResponse.json()) as ApiResponse<ProjectDetails>;
+        tester.expect(desktopAfterMobileUpdateBody.data?.mixSettings).toEqual(mixSettings);
+
+        const desktopTracksResponse = await requestWithCookie(baseUrl, desktopCookie, `/api/projects/${project.id}/tracks`);
+        const mobileTracksResponse = await requestWithCookie(baseUrl, mobileCookie, `/api/projects/${project.id}/tracks`);
+        const desktopTracksBody = (await desktopTracksResponse.json()) as ApiResponse<Track[]>;
+        const mobileTracksBody = (await mobileTracksResponse.json()) as ApiResponse<Track[]>;
+        tester.expect(desktopTracksBody.data).toEqual(mobileTracksBody.data);
       } finally {
         await closeServer(server);
       }

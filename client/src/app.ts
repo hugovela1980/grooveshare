@@ -16,7 +16,6 @@ import { createCreateProjectPageController } from "./page-controllers/create-pro
 import { createProjectMenuPageController } from "./page-controllers/project-menu-page-controller.js";
 import { createProjectPlayerPageController } from "./page-controllers/project-player-page-controller.js";
 import { createProjectMembersController } from "./page-controllers/project-members-controller.js";
-import { createProjectActionsMenuController } from "./page-controllers/project-actions-menu-controller.js";
 import { createAudioPlayerController } from "./page-controllers/audio-player-controller.js";
 import { createProjectTrackSelectionController } from "./page-controllers/create-project-track-selection-controller.js";
 import { createCreateProjectConfirmationController } from "./page-controllers/create-project-confirmation-controller.js";
@@ -140,37 +139,6 @@ async function runBusyButtonAction(
   }
 }
 
-function initializeMobileNavigation({
-  appElement,
-  onHome,
-  onLogout,
-}: {
-  appElement: AppElementLike;
-  onHome?: () => void | Promise<void>;
-  onLogout: () => void | Promise<void>;
-}): void {
-  const homeButton = getElement<HTMLButtonElement>(
-    appElement,
-    "#mobile-nav-home-button",
-  );
-  const logoutButton = getElement<HTMLButtonElement>(
-    appElement,
-    "#mobile-nav-logout-button",
-  );
-
-  homeButton?.addEventListener("click", () => {
-    if (!onHome) {
-      return;
-    }
-
-    void runBusyButtonAction(homeButton, onHome);
-  });
-
-  logoutButton?.addEventListener("click", () => {
-    void runBusyButtonAction(logoutButton, onLogout);
-  });
-}
-
 function initializeAuthPage({
   appElement,
   sessionProvider,
@@ -283,10 +251,6 @@ function initializeProjectMenuPage({
     void runBusyButtonAction(logoutButton, onLogout);
   });
 
-  initializeMobileNavigation({
-    appElement,
-    onLogout,
-  });
 
   const projectListElement = getElement<HTMLDivElement>(
     appElement,
@@ -316,14 +280,12 @@ function initializeCreateProjectPage({
   goBack,
   setSelectedProject,
   projectDraftState,
-  onLogout,
 }: {
   appElement: AppElementLike;
   navigateTo: NavigateTo;
   goBack: GoBack;
   setSelectedProject: (project: Project) => void;
   projectDraftState: ProjectDraftState;
-  onLogout: () => Promise<void>;
 }): void {
   const backButton = getElement<HTMLButtonElement>(
     appElement,
@@ -334,13 +296,6 @@ function initializeCreateProjectPage({
     goBack("project-menu");
   });
 
-  initializeMobileNavigation({
-    appElement,
-    onHome() {
-      navigateTo("project-menu");
-    },
-    onLogout,
-  });
 
   const form = getElement<HTMLFormElement>(appElement, "#project-form");
   const titleInput = getElement<HTMLInputElement>(appElement, "#project-title");
@@ -573,76 +528,9 @@ function initializeProjectPlayerPage({
     "[data-project-title-display]",
   );
 
-  const projectMobileTitleElement = getElement<HTMLElement>(
-    appElement,
-    "[data-project-mobile-title-display]",
-  );
-
   const projectDescriptionElement = getElement<HTMLElement>(
     appElement,
     "[data-project-description-display]",
-  );
-
-  const projectEditModal = getElement<HTMLElement>(
-    appElement,
-    "#project-edit-modal",
-  );
-  const projectEditForm = getElement<HTMLFormElement>(
-    appElement,
-    "#project-edit-form",
-  );
-  const projectEditTitleInput = getElement<HTMLInputElement>(
-    appElement,
-    "#project-edit-title-input",
-  );
-  const projectEditDescriptionInput = getElement<HTMLTextAreaElement>(
-    appElement,
-    "#project-edit-description-input",
-  );
-  const projectEditSaveButton = getElement<HTMLButtonElement>(
-    appElement,
-    "#save-project-edit-button",
-  );
-  const projectEditCancelButton = getElement<HTMLButtonElement>(
-    appElement,
-    "#cancel-project-edit-button",
-  );
-  const projectEditCloseButton = getElement<HTMLButtonElement>(
-    appElement,
-    "#close-project-edit-button",
-  );
-  const projectEditStatusElement = getElement<HTMLParagraphElement>(
-    appElement,
-    "#project-edit-status",
-  );
-
-  const trackEditModal = getElement<HTMLElement>(
-    appElement,
-    "#track-edit-modal",
-  );
-  const trackEditForm = getElement<HTMLFormElement>(
-    appElement,
-    "#track-edit-form",
-  );
-  const trackEditNameInput = getElement<HTMLInputElement>(
-    appElement,
-    "#track-edit-name-input",
-  );
-  const trackEditSaveButton = getElement<HTMLButtonElement>(
-    appElement,
-    "#save-track-edit-button",
-  );
-  const trackEditCancelButton = getElement<HTMLButtonElement>(
-    appElement,
-    "#cancel-track-edit-button",
-  );
-  const trackEditCloseButton = getElement<HTMLButtonElement>(
-    appElement,
-    "#close-track-edit-button",
-  );
-  const trackEditStatusElement = getElement<HTMLParagraphElement>(
-    appElement,
-    "#track-edit-status",
   );
 
   if (!trackListElement) {
@@ -735,23 +623,7 @@ function initializeProjectPlayerPage({
     statusElement,
     deleteProjectButton,
     projectTitleElement,
-    projectMobileTitleElement,
     projectDescriptionElement,
-    projectEditModal,
-    projectEditForm,
-    projectEditTitleInput,
-    projectEditDescriptionInput,
-    projectEditSaveButton,
-    projectEditCancelButton,
-    projectEditCloseButton,
-    projectEditStatusElement,
-    trackEditModal,
-    trackEditForm,
-    trackEditNameInput,
-    trackEditSaveButton,
-    trackEditCancelButton,
-    trackEditCloseButton,
-    trackEditStatusElement,
     tracksApi,
     projectsApi,
     audioPlayerController,
@@ -767,12 +639,6 @@ function initializeProjectPlayerPage({
   });
 
   void controller.init();
-
-  async function leavePlayerForHome(): Promise<void> {
-    await controller.flushPendingMixSettings();
-    audioPlayerController.stop();
-    navigateTo("project-menu");
-  }
 
   async function leavePlayerWithBack(): Promise<void> {
     await controller.flushPendingMixSettings();
@@ -794,55 +660,8 @@ function initializeProjectPlayerPage({
     void runBusyButtonAction(logoutButton, logoutFromPlayer);
   });
 
-  initializeMobileNavigation({
-    appElement,
-    onHome: leavePlayerForHome,
-    onLogout: logoutFromPlayer,
-  });
-
-  let destroyProjectActionsMenu: (() => void) | null = null;
 
   if (selectedProject.role === "owner") {
-    const projectActionsButton = getElement<HTMLButtonElement>(
-      appElement,
-      "#project-actions-button",
-    );
-    const projectActionsMenu = getElement<HTMLDivElement>(
-      appElement,
-      "#project-actions-menu",
-    );
-    const editProjectButton = getElement<HTMLButtonElement>(
-      appElement,
-      "#edit-project-menu-item",
-    );
-    const ownerControlsButton = getElement<HTMLButtonElement>(
-      appElement,
-      "#owner-controls-menu-item",
-    );
-    const ownerControlsPanel = getElement<HTMLElement>(
-      appElement,
-      "#project-members-panel",
-    );
-
-    if (projectActionsButton && projectActionsMenu) {
-      const projectActionsController =
-        createProjectActionsMenuController({
-          triggerButton: projectActionsButton,
-          menuElement: projectActionsMenu,
-          editProjectButton,
-          ownerControlsButton,
-          onEditProject: controller.openProjectEditor,
-          ownerControlsPanel,
-        });
-
-      projectActionsController.init();
-      destroyProjectActionsMenu = projectActionsController.destroy;
-
-      deleteProjectButton?.addEventListener("click", () => {
-        projectActionsController.closeMenu();
-      });
-    }
-
     const memberForm = getElement<HTMLFormElement>(
       appElement,
       "#project-member-form",
@@ -892,7 +711,6 @@ function initializeProjectPlayerPage({
   }
 
   return () => {
-    destroyProjectActionsMenu?.();
     audioPlayerController.stop();
     void controller.flushPendingMixSettings();
   };
@@ -954,7 +772,6 @@ function initializeCurrentPage({
       goBack,
       setSelectedProject,
       projectDraftState,
-      onLogout,
     });
 
     return null;

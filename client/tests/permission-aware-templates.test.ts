@@ -62,14 +62,14 @@ tester.describe("permission-aware templates", () => {
 
     tester.expect(html.includes("Owner")).toBe(true);
     tester.expect(html.includes("Delete Project")).toBe(true);
-    tester.expect(html.includes("Edit Project")).toBe(true);
+    tester.expect(html.includes("Edit Project")).toBe(false);
     tester.expect(html.includes("Owner Controls")).toBe(true);
-    tester.expect(html.includes('id="project-actions-button"')).toBe(true);
-    tester.expect(html.includes('id="edit-project-menu-item"')).toBe(true);
-    tester.expect(html.includes('id="owner-controls-menu-item"')).toBe(true);
-    tester.expect(html.includes('id="project-edit-modal"')).toBe(true);
-    tester.expect(html.includes('id="project-edit-form"')).toBe(true);
-    tester.expect(html.includes('contenteditable="true"')).toBe(false);
+    tester.expect(html.includes('id="project-actions-button"')).toBe(false);
+    tester.expect(html.includes('id="edit-project-menu-item"')).toBe(false);
+    tester.expect(html.includes('id="owner-controls-menu-item"')).toBe(false);
+    tester.expect(html.includes('id="project-edit-modal"')).toBe(false);
+    tester.expect(html.includes('id="project-edit-form"')).toBe(false);
+    tester.expect(html.includes('contenteditable="true"')).toBe(true);
     tester.expect(html.includes("Project Members")).toBe(true);
     tester.expect(html.includes('id="project-member-form"')).toBe(true);
     tester.expect(html.includes('id="project-members-panel"')).toBe(true);
@@ -80,7 +80,7 @@ tester.describe("permission-aware templates", () => {
       membersPanelStart + 240,
     );
 
-    tester.expect(membersPanelOpeningTag.includes("hidden")).toBe(true);
+    tester.expect(membersPanelOpeningTag.includes("hidden")).toBe(false);
   });
 
   tester.it("keeps Viewer mixer controls but removes track mutation controls", () => {
@@ -97,7 +97,7 @@ tester.describe("permission-aware templates", () => {
     tester.expect(html.includes("data-channel-enabled")).toBe(true);
     tester.expect(html.includes("data-channel-volume")).toBe(true);
     tester.expect(html.includes("data-track-delete-button")).toBe(false);
-    tester.expect(html.includes("data-track-edit-button")).toBe(false);
+    tester.expect(html.includes("data-track-name-editor")).toBe(false);
     tester.expect(html.includes("data-track-add-button")).toBe(false);
   });
 
@@ -115,7 +115,7 @@ tester.describe("permission-aware templates", () => {
     );
 
     tester.expect(count(html, "data-track-delete-button")).toBe(1);
-    tester.expect(count(html, "data-track-edit-button")).toBe(1);
+    tester.expect(count(html, "data-track-name-editor")).toBe(1);
     tester.expect(html.includes("data-track-add-button")).toBe(true);
   });
 
@@ -133,6 +133,6 @@ tester.describe("permission-aware templates", () => {
     );
 
     tester.expect(count(html, "data-track-delete-button")).toBe(2);
-    tester.expect(count(html, "data-track-edit-button")).toBe(2);
+    tester.expect(count(html, "data-track-name-editor")).toBe(2);
   });
 });

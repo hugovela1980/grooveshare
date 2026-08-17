@@ -20,8 +20,6 @@
 @import "./_imports/components/icons.css";
 @import "./_imports/components/audio-player.css";
 @import "./_imports/components/mix-channels.css";
-@import "./_imports/components/mobile-navigation.css";
-@import "./_imports/components/project-actions-menu.css";
 
 @import "./_imports/pages/auth.css";
 @import "./_imports/pages/home.css";
