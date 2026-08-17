@@ -1,21 +1,8 @@
-export type User = {
-  id: string;
-  email: string;
-  displayName: string;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type RegisterUserInput = {
-  email: string;
-  displayName: string;
-  password: string;
-};
-
-export type LoginInput = {
-  email: string;
-  password: string;
-};
+import type {
+  LoginInput,
+  RegisterUserInput,
+  User,
+} from "../domain/types.js";
 
 /**
  * Platform-facing authentication/session contract.

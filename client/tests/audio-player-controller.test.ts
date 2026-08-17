@@ -1,4 +1,8 @@
 import {
+    createHtmlAudioPlaybackEngine,
+    type PlaybackEngine,
+} from "@hugovela/frontend-core";
+import {
     createAudioPlayerController,
     formatTimestamp,
 } from "../src/page-controllers/audio-player-controller.js";
@@ -79,8 +83,18 @@ function createFakeButton() {
 }
 
 function createFakeCheckbox() {
+    let changeHandler: Listener | null = null;
+
     return {
         checked: false,
+        addEventListener(eventName: "change", handler: Listener): void {
+            if (eventName === "change") {
+                changeHandler = handler;
+            }
+        },
+        change(): void {
+            void changeHandler?.();
+        },
     };
 }
 
@@ -134,8 +148,14 @@ function createControllerTestSetup(options: {
     const durationElement = createFakeTextElement();
     const trackNameElement = createFakeTextElement();
 
+    const playbackEngine = createHtmlAudioPlaybackEngine({
+        primaryAudioElement: audioElement,
+        createAudioElement:
+            options.createAudioElement ?? (() => createFakeAudioElement()),
+    });
+
     const controller = createAudioPlayerController({
-        audioElement,
+        playbackEngine,
         seekBackwardButton,
         playPauseButton,
         stopButton,
@@ -144,7 +164,6 @@ function createControllerTestSetup(options: {
         durationElement,
         trackNameElement,
         loopCheckbox,
-        createAudioElement: options.createAudioElement,
     });
 
     return {
@@ -840,6 +859,7 @@ tester.describe("audio player controller", () => {
         audioElement.currentTime = 120;
         secondAudioElement.currentTime = 120;
         loopCheckbox.checked = true;
+        loopCheckbox.change();
 
         await audioElement.trigger("ended");
 
@@ -848,5 +868,117 @@ tester.describe("audio player controller", () => {
         tester.expect(audioElement.playCallCount).toBe(2);
         tester.expect(secondAudioElement.playCallCount).toBe(2);
         tester.expect(playPauseButton.textContent).toBe("❚❚");
+    });
+});
+
+tester.describe("audio player controller playback boundary", () => {
+    tester.it("drives an injected PlaybackEngine without knowing HTML audio details", async () => {
+        const calls: string[] = [];
+        let listener: ((snapshot: ReturnType<PlaybackEngine["getSnapshot"]>) => void) | null = null;
+        let snapshot = {
+            currentTime: 0,
+            duration: 120,
+            isPlaying: false,
+            hasLoadedChannels: false,
+        };
+
+        const playbackEngine: PlaybackEngine = {
+            loadMix(channels) {
+                calls.push(`load:${channels.length}`);
+                snapshot = { ...snapshot, hasLoadedChannels: channels.length > 0 };
+                listener?.(snapshot);
+            },
+            async play() {
+                calls.push("play");
+                snapshot = { ...snapshot, isPlaying: true };
+                listener?.(snapshot);
+            },
+            pause() {
+                calls.push("pause");
+                snapshot = { ...snapshot, isPlaying: false };
+                listener?.(snapshot);
+            },
+            stop() {
+                calls.push("stop");
+                snapshot = { ...snapshot, currentTime: 0, isPlaying: false };
+                listener?.(snapshot);
+            },
+            seek(seconds) {
+                calls.push(`seek:${seconds}`);
+                snapshot = { ...snapshot, currentTime: seconds };
+                listener?.(snapshot);
+            },
+            seekBy(seconds) {
+                calls.push(`seekBy:${seconds}`);
+            },
+            setLoopEnabled(enabled) {
+                calls.push(`loop:${enabled}`);
+            },
+            setChannelVolume(channelNumber, volume) {
+                calls.push(`volume:${channelNumber}:${volume}`);
+                return true;
+            },
+            setChannelEnabled(channelNumber, enabled) {
+                calls.push(`enabled:${channelNumber}:${enabled}`);
+                return true;
+            },
+            getSnapshot() {
+                return snapshot;
+            },
+            subscribe(nextListener) {
+                listener = nextListener;
+                nextListener(snapshot);
+                return () => {
+                    listener = null;
+                };
+            },
+        };
+
+        const seekBackwardButton = createFakeButton();
+        const playPauseButton = createFakeButton();
+        const stopButton = createFakeButton();
+        const progressInput = createFakeRangeInput();
+        const timestampElement = createFakeTextElement();
+        const durationElement = createFakeTextElement();
+        const trackNameElement = createFakeTextElement();
+        const loopCheckbox = createFakeCheckbox();
+
+        const controller = createAudioPlayerController({
+            playbackEngine,
+            seekBackwardButton,
+            playPauseButton,
+            stopButton,
+            progressInput,
+            timestampElement,
+            durationElement,
+            trackNameElement,
+            loopCheckbox,
+        });
+
+        controller.init();
+        controller.loadMix([{
+            channelNumber: 1,
+            trackId: "track-1",
+            name: "Guitar",
+            audioUrl: "/audio/guitar.wav",
+            volume: 0.8,
+            enabled: true,
+        }]);
+
+        await playPauseButton.click();
+        await seekBackwardButton.click();
+        controller.setChannelVolume(1, 0.4);
+        controller.setChannelEnabled(1, false);
+        await stopButton.click();
+
+        tester.expect(calls).toEqual([
+            "loop:false",
+            "load:1",
+            "play",
+            "seekBy:-5",
+            "volume:1:0.4",
+            "enabled:1:false",
+            "stop",
+        ]);
     });
 });

@@ -1,3 +1,9 @@
+import type {
+    PlaybackChannel,
+    PlaybackEngine,
+    PlaybackSnapshot,
+} from "@hugovela/frontend-core";
+
 type MixChannelForPlayer = {
     channelNumber: number;
     trackId: string;
@@ -5,27 +11,6 @@ type MixChannelForPlayer = {
     audioUrl: string;
     volume: number;
     enabled?: boolean;
-};
-
-type LoadedMixChannel = {
-    channel: MixChannelForPlayer;
-    audioElement: AudioElementLike;
-};
-
-type AudioElementLike = {
-    src: string;
-    crossOrigin?: string | null;
-    currentTime: number;
-    duration: number;
-    paused: boolean;
-    volume: number;
-    play: () => Promise<void>;
-    pause: () => void;
-    load?: () => void;
-    addEventListener: (
-        eventName: "timeupdate" | "loadedmetadata" | "ended",
-        handler: () => void,
-    ) => void;
 };
 
 type ButtonElementLike = {
@@ -39,6 +24,10 @@ type ButtonElementLike = {
 
 type CheckboxElementLike = {
     checked: boolean;
+    addEventListener?: (
+        eventName: "change",
+        handler: () => void,
+    ) => void;
 };
 
 type RangeInputElementLike = {
@@ -55,7 +44,7 @@ type TextElementLike = {
 };
 
 type AudioPlayerControllerOptions = {
-    audioElement: AudioElementLike;
+    playbackEngine: PlaybackEngine;
     seekBackwardButton: ButtonElementLike;
     playPauseButton: ButtonElementLike;
     stopButton: ButtonElementLike;
@@ -63,13 +52,8 @@ type AudioPlayerControllerOptions = {
     timestampElement: TextElementLike;
     durationElement: TextElementLike;
     trackNameElement: TextElementLike;
-    createAudioElement?: () => AudioElementLike;
     loopCheckbox: CheckboxElementLike;
 };
-
-function isUsableDuration(duration: number): boolean {
-    return Number.isFinite(duration) && duration > 0;
-}
 
 const PLAY_ICON = "▶";
 const PAUSE_ICON = "❚❚";
@@ -87,7 +71,7 @@ export function formatTimestamp(totalSeconds: number): string {
 }
 
 export function createAudioPlayerController({
-    audioElement,
+    playbackEngine,
     seekBackwardButton,
     playPauseButton,
     stopButton,
@@ -96,10 +80,9 @@ export function createAudioPlayerController({
     durationElement,
     trackNameElement,
     loopCheckbox,
-    createAudioElement = () => document.createElement("audio"),
 }: AudioPlayerControllerOptions) {
     let isSeeking = false;
-    let loadedMixChannels: LoadedMixChannel[] = [];
+    let loadedMixChannels: MixChannelForPlayer[] = [];
 
     function setControlsEnabled(isEnabled: boolean): void {
         seekBackwardButton.disabled = !isEnabled;
@@ -108,106 +91,78 @@ export function createAudioPlayerController({
         progressInput.disabled = !isEnabled;
     }
 
-    function setPlayPauseButtonIcon(): void {
-        const primaryAudioElement = getPrimaryAudioElement();
-
-        playPauseButton.textContent = primaryAudioElement.paused
-            ? PLAY_ICON
-            : PAUSE_ICON;
+    function setPlayPauseButtonIcon(snapshot: PlaybackSnapshot): void {
+        playPauseButton.textContent = snapshot.isPlaying
+            ? PAUSE_ICON
+            : PLAY_ICON;
     }
 
-    function updateTimestamp(): void {
-        const primaryAudioElement = getPrimaryAudioElement();
-
-        timestampElement.textContent = formatTimestamp(
-            primaryAudioElement.currentTime,
-        );
-        durationElement.textContent = isUsableDuration(primaryAudioElement.duration)
-            ? formatTimestamp(primaryAudioElement.duration)
+    function updateTimestamp(snapshot: PlaybackSnapshot): void {
+        timestampElement.textContent = formatTimestamp(snapshot.currentTime);
+        durationElement.textContent = snapshot.duration > 0
+            ? formatTimestamp(snapshot.duration)
             : "00:00";
     }
 
-    function updateProgress(): void {
-        const primaryAudioElement = getPrimaryAudioElement();
+    function updateProgress(snapshot: PlaybackSnapshot): void {
+        if (!isSeeking) {
+            progressInput.value = snapshot.duration > 0
+                ? String((snapshot.currentTime / snapshot.duration) * 100)
+                : "0";
+        }
 
-        if (isSeeking) {
-            updateTimestamp();
+        updateTimestamp(snapshot);
+        setPlayPauseButtonIcon(snapshot);
+        setControlsEnabled(snapshot.hasLoadedChannels);
+    }
+
+    function updateLoadedMixPresentation(): void {
+        const enabledChannels = loadedMixChannels.filter((channel) => {
+            return channel.enabled !== false;
+        });
+
+        if (loadedMixChannels.length === 0) {
+            trackNameElement.textContent = "No track loaded.";
             return;
         }
 
-        if (!isUsableDuration(primaryAudioElement.duration)) {
-            progressInput.value = "0";
-            updateTimestamp();
+        if (enabledChannels.length === 0) {
+            trackNameElement.textContent = "All channels disabled.";
             return;
         }
 
-        const progressPercentage =
-            (primaryAudioElement.currentTime / primaryAudioElement.duration) * 100;
+        const trackNames = enabledChannels
+            .map((channel) => channel.name)
+            .join(", ");
 
-        progressInput.value = String(progressPercentage);
-        updateTimestamp();
+        trackNameElement.textContent = enabledChannels.length === 1
+            ? trackNames
+            : `Mix loaded: ${trackNames}`;
     }
 
     async function handlePlayPauseClick(): Promise<void> {
-        const primaryAudioElement = getPrimaryAudioElement();
+        const snapshot = playbackEngine.getSnapshot();
 
-        if (!primaryAudioElement.src) {
+        if (!snapshot.hasLoadedChannels) {
             return;
         }
 
-        if (primaryAudioElement.paused) {
-            await Promise.all(
-                getLoadedAudioElements().map((loadedAudioElement) => {
-                    return loadedAudioElement.play();
-                }),
-            );
-
-            setPlayPauseButtonIcon();
+        if (snapshot.isPlaying) {
+            playbackEngine.pause();
             return;
         }
 
-        for (const loadedAudioElement of getLoadedAudioElements()) {
-            loadedAudioElement.pause();
-        }
-
-        setPlayPauseButtonIcon();
+        await playbackEngine.play();
     }
 
     function stop(): void {
-        for (const loadedAudioElement of getLoadedAudioElements()) {
-            if (loadedAudioElement.src) {
-                loadedAudioElement.pause();
-            }
-
-            loadedAudioElement.currentTime = 0;
-        }
-
-        setPlayPauseButtonIcon();
-        updateProgress();
-    }
-
-    async function handleAudioEnded(): Promise<void> {
-        if (!loopCheckbox.checked) {
-            stop();
-            return;
-        }
-
-        setAllAudioElementsToCurrentTime(0);
-
-        await Promise.all(
-            getLoadedAudioElements().map((loadedAudioElement) => {
-                return loadedAudioElement.play();
-            }),
-        );
-
-        setPlayPauseButtonIcon();
-        updateProgress();
+        playbackEngine.stop();
     }
 
     function seek(): void {
-        const primaryAudioElement = getPrimaryAudioElement();
+        const snapshot = playbackEngine.getSnapshot();
 
-        if (!isUsableDuration(primaryAudioElement.duration)) {
+        if (snapshot.duration <= 0) {
             return;
         }
 
@@ -219,26 +174,9 @@ export function createAudioPlayerController({
 
         const nextCurrentTime =
             (Math.max(0, Math.min(100, progressPercentage)) / 100) *
-            primaryAudioElement.duration;
+            snapshot.duration;
 
-        setAllAudioElementsToCurrentTime(nextCurrentTime);
-        updateProgress();
-    }
-
-    function seekBySeconds(seconds: number): void {
-        const primaryAudioElement = getPrimaryAudioElement();
-
-        if (!primaryAudioElement.src || !Number.isFinite(seconds)) {
-            return;
-        }
-
-        const unclampedTime = primaryAudioElement.currentTime + seconds;
-        const nextCurrentTime = isUsableDuration(primaryAudioElement.duration)
-            ? Math.max(0, Math.min(primaryAudioElement.duration, unclampedTime))
-            : Math.max(0, unclampedTime);
-
-        setAllAudioElementsToCurrentTime(nextCurrentTime);
-        updateProgress();
+        playbackEngine.seek(nextCurrentTime);
     }
 
     function beginSeeking(): void {
@@ -248,167 +186,118 @@ export function createAudioPlayerController({
     function finishSeeking(): void {
         seek();
         isSeeking = false;
-        updateProgress();
+        updateProgress(playbackEngine.getSnapshot());
     }
 
-    function updateLoadedMixPresentation(): void {
-        const enabledChannels = loadedMixChannels.filter(({ channel }) => {
-            return channel.enabled !== false;
-        });
+    function loadMix(channels: MixChannelForPlayer[]): void {
+        loadedMixChannels = channels.map((channel) => ({ ...channel }));
 
-        if (loadedMixChannels.length === 0) {
-            trackNameElement.textContent = "No track loaded.";
-            setControlsEnabled(false);
-            return;
-        }
+        const playbackChannels: PlaybackChannel[] = channels.map((channel) => ({
+            channelNumber: channel.channelNumber,
+            trackId: channel.trackId,
+            audioUrl: channel.audioUrl,
+            volume: channel.volume,
+            enabled: channel.enabled !== false,
+        }));
 
-        if (enabledChannels.length === 0) {
-            trackNameElement.textContent = "All channels disabled.";
-        } else {
-            const trackNames = enabledChannels
-                .map(({ channel }) => channel.name)
-                .join(", ");
+        playbackEngine.loadMix(playbackChannels);
+        updateLoadedMixPresentation();
 
-            trackNameElement.textContent =
-                enabledChannels.length === 1
-                    ? trackNames
-                    : `Mix loaded: ${trackNames}`;
-        }
-
-        setControlsEnabled(true);
+        const snapshot = playbackEngine.getSnapshot();
+        progressInput.value = "0";
+        timestampElement.textContent = "00:00";
+        durationElement.textContent = "00:00";
+        setPlayPauseButtonIcon(snapshot);
+        setControlsEnabled(snapshot.hasLoadedChannels);
     }
 
     function setChannelVolume(
         channelNumber: number,
         volume: number,
     ): boolean {
-        const loadedChannel = loadedMixChannels.find(({ channel }) => {
-            return channel.channelNumber === channelNumber;
+        const channel = loadedMixChannels.find((currentChannel) => {
+            return currentChannel.channelNumber === channelNumber;
         });
 
-        if (!loadedChannel) {
+        if (!channel) {
             return false;
         }
 
-        const nextVolume = clampVolume(volume);
+        const didUpdate = playbackEngine.setChannelVolume(
+            channelNumber,
+            volume,
+        );
 
-        loadedChannel.channel.volume = nextVolume;
-        loadedChannel.audioElement.volume =
-            loadedChannel.channel.enabled === false ? 0 : nextVolume;
+        if (didUpdate) {
+            channel.volume = volume;
+        }
 
-        return true;
+        return didUpdate;
     }
 
     function setChannelEnabled(
         channelNumber: number,
         enabled: boolean,
     ): boolean {
-        const loadedChannel = loadedMixChannels.find(({ channel }) => {
-            return channel.channelNumber === channelNumber;
+        const channel = loadedMixChannels.find((currentChannel) => {
+            return currentChannel.channelNumber === channelNumber;
         });
 
-        if (!loadedChannel) {
+        if (!channel) {
             return false;
         }
 
-        loadedChannel.channel.enabled = enabled;
-        loadedChannel.audioElement.volume = enabled
-            ? clampVolume(loadedChannel.channel.volume)
-            : 0;
+        const didUpdate = playbackEngine.setChannelEnabled(
+            channelNumber,
+            enabled,
+        );
 
+        if (!didUpdate) {
+            return false;
+        }
+
+        channel.enabled = enabled;
         updateLoadedMixPresentation();
         return true;
     }
 
     function setTrackName(trackId: string, name: string): boolean {
-        const loadedChannel = loadedMixChannels.find(({ channel }) => {
-            return channel.trackId === trackId;
+        const channel = loadedMixChannels.find((currentChannel) => {
+            return currentChannel.trackId === trackId;
         });
 
-        if (!loadedChannel) {
+        if (!channel) {
             return false;
         }
 
-        loadedChannel.channel.name = name;
+        channel.name = name;
         updateLoadedMixPresentation();
         return true;
     }
 
-    function loadMix(channels: MixChannelForPlayer[]): void {
-        stop();
-
-        loadedMixChannels = channels.map((channel, index) => {
-            const channelAudioElement =
-                index === 0 ? audioElement : createAudioElement();
-
-            channelAudioElement.crossOrigin = "use-credentials";
-            channelAudioElement.src = channel.audioUrl;
-            channelAudioElement.currentTime = 0;
-            channelAudioElement.volume = channel.enabled === false
-                ? 0
-                : clampVolume(channel.volume);
-            channelAudioElement.load?.();
-
-            return {
-                channel,
-                audioElement: channelAudioElement,
-            };
+    function init(): void {
+        playbackEngine.setLoopEnabled(loopCheckbox.checked);
+        playbackEngine.subscribe((snapshot) => {
+            updateProgress(snapshot);
         });
 
-        progressInput.value = "0";
-        timestampElement.textContent = "00:00";
-        durationElement.textContent = "00:00";
-        setPlayPauseButtonIcon();
         updateLoadedMixPresentation();
-    }
-
-    function init(): void {
-        setControlsEnabled(false);
-        setPlayPauseButtonIcon();
-        updateTimestamp();
 
         seekBackwardButton.addEventListener("click", () => {
-            seekBySeconds(-SEEK_BACKWARD_SECONDS);
+            playbackEngine.seekBy(-SEEK_BACKWARD_SECONDS);
         });
-        playPauseButton.addEventListener("click", () => handlePlayPauseClick());
-        stopButton.addEventListener("click", stop);
 
+        playPauseButton.addEventListener("click", () => {
+            return handlePlayPauseClick();
+        });
+
+        stopButton.addEventListener("click", stop);
         progressInput.addEventListener("input", beginSeeking);
         progressInput.addEventListener("change", finishSeeking);
 
-        audioElement.addEventListener("timeupdate", updateProgress);
-        audioElement.addEventListener("loadedmetadata", updateProgress);
-        audioElement.addEventListener("ended", () => {
-            void handleAudioEnded();
+        loopCheckbox.addEventListener?.("change", () => {
+            playbackEngine.setLoopEnabled(loopCheckbox.checked);
         });
-    }
-
-    function clampVolume(volume: number): number {
-        if (!Number.isFinite(volume)) {
-            return 1;
-        }
-
-        return Math.max(0, Math.min(1, volume));
-    }
-
-    function getPrimaryAudioElement(): AudioElementLike {
-        return loadedMixChannels[0]?.audioElement ?? audioElement;
-    }
-
-    function getLoadedAudioElements(): AudioElementLike[] {
-        if (loadedMixChannels.length > 0) {
-            return loadedMixChannels.map((loadedChannel) => {
-                return loadedChannel.audioElement;
-            });
-        }
-
-        return [audioElement];
-    }
-
-    function setAllAudioElementsToCurrentTime(currentTime: number): void {
-        for (const loadedAudioElement of getLoadedAudioElements()) {
-            loadedAudioElement.currentTime = currentTime;
-        }
     }
 
     return {

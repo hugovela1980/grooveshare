@@ -1,7 +1,11 @@
 import { projectsApi } from "./api/projects-api.js";
 import { projectMembersApi } from "./api/project-members-api.js";
 import { tracksApi } from "./api/tracks-api.js";
-import type { SessionProvider, StorageProvider } from "@hugovela/frontend-core";
+import {
+  createHtmlAudioPlaybackEngine,
+  type SessionProvider,
+  type StorageProvider,
+} from "@hugovela/frontend-core";
 import { browserSessionProvider } from "./platform/browser-session-provider.js";
 import { getBrowserStorageProvider } from "./platform/browser-storage-provider.js";
 import {
@@ -704,8 +708,13 @@ function initializeProjectPlayerPage({
     throw new Error("Project Player audio elements were not found.");
   }
 
+  const playbackEngine = createHtmlAudioPlaybackEngine({
+    primaryAudioElement: audioElement,
+    createAudioElement: () => document.createElement("audio"),
+  });
+
   const audioPlayerController = createAudioPlayerController({
-    audioElement,
+    playbackEngine,
     seekBackwardButton,
     playPauseButton,
     stopButton,

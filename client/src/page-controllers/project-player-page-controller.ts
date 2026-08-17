@@ -1,19 +1,10 @@
-import type { StorageProvider } from "@hugovela/frontend-core";
-import {
-    loadViewerMixSettings,
-    saveViewerMixSettings,
-} from "../storage/viewer-mix-storage.js";
-import {
-    clearPendingMixSettings,
-    loadPendingMixSettings,
-    savePendingMixSettings,
-} from "../storage/pending-mix-storage.js";
 import {
     canContribute,
     canManageProject,
     canManageTrack,
-    canPersistMix,
-} from "../permissions/project-permissions.js";
+    createMixPersistenceCoordinator,
+    type StorageProvider,
+} from "@hugovela/frontend-core";
 import {
     setControlBusy,
     setRegionBusy,
@@ -320,17 +311,33 @@ export function createProjectPlayerPageController({
     clearScheduledTimeout = globalThis.clearTimeout.bind(globalThis),
 }: ProjectPlayerPageControllerOptions) {
     let currentTracks: Track[] = [];
-    const pendingServerMixSettings =
-        projectRole !== "viewer" && currentUserId && canPersistMix(projectRole)
-            ? loadPendingMixSettings(currentUserId, project.id, storageProvider)
-            : null;
-    let currentMixSettings: MixSettings | undefined = projectRole === "viewer"
-        ? loadViewerMixSettings(project.id, storageProvider) ?? project.mixSettings
-        : pendingServerMixSettings ?? project.mixSettings;
-    let pendingMixRevision = pendingServerMixSettings ? 1 : 0;
-    let persistedMixRevision = 0;
-    let persistenceTimerId: TimeoutId | null = null;
-    let persistenceInFlight: Promise<boolean> | null = null;
+    const saveProjectMixSettings = projectsApi?.saveMixSettings;
+    const mixPersistence = createMixPersistenceCoordinator({
+        projectId: project.id,
+        projectRole,
+        currentUserId,
+        initialMixSettings: project.mixSettings,
+        storageProvider,
+        saveServerMixSettings: saveProjectMixSettings
+            ? async (mixSettings) => {
+                const updatedProject = await saveProjectMixSettings(
+                    project.id,
+                    mixSettings,
+                );
+
+                return updatedProject.mixSettings ?? mixSettings;
+            }
+            : undefined,
+        persistenceDelayMs: mixPersistenceDelayMs,
+        scheduleTimeout,
+        clearScheduledTimeout,
+        onPersistenceError: () => {
+            setStatus(statusElement, "Could not save mix settings.");
+        },
+        onPersistedMixSettings: (mixSettings) => {
+            project.mixSettings = mixSettings;
+        },
+    });
     let currentProjectTitle = project.title;
     let currentProjectDescription = project.description;
     let trackMutationInFlight = false;
@@ -349,7 +356,7 @@ export function createProjectPlayerPageController({
             currentTracks = tracks;
             trackListElement.innerHTML = renderTrackList(
                 currentTracks,
-                currentMixSettings,
+                mixPersistence.getCurrentMixSettings(),
                 {
                     role: projectRole,
                     currentUserId,
@@ -804,160 +811,12 @@ export function createProjectPlayerPageController({
 
     }
 
-    function canUsePendingMixStorage(): boolean {
-        return Boolean(
-            projectRole !== "viewer" &&
-            currentUserId &&
-            canPersistMix(projectRole),
-        );
-    }
-
-    function clearPersistenceTimer(): void {
-        if (persistenceTimerId === null) {
-            return;
-        }
-
-        clearScheduledTimeout(persistenceTimerId);
-        persistenceTimerId = null;
-    }
-
-    function rememberPendingMixSettings(mixSettings: MixSettings): void {
-        currentMixSettings = mixSettings;
-        pendingMixRevision += 1;
-
-        if (!canUsePendingMixStorage() || !currentUserId) {
-            return;
-        }
-
-        savePendingMixSettings(
-            currentUserId,
-            project.id,
-            mixSettings,
-            storageProvider,
-        );
-    }
-
-    async function savePendingMixToServer(): Promise<boolean> {
-        const saveMixSettings = projectsApi?.saveMixSettings;
-
-        if (
-            projectRole === "viewer" ||
-            !canPersistMix(projectRole) ||
-            !saveMixSettings ||
-            !currentMixSettings
-        ) {
-            return true;
-        }
-
-        if (persistenceInFlight) {
-            const didSave = await persistenceInFlight;
-
-            if (!didSave) {
-                return false;
-            }
-
-            if (pendingMixRevision > persistedMixRevision) {
-                return savePendingMixToServer();
-            }
-
-            return true;
-        }
-
-        if (pendingMixRevision <= persistedMixRevision) {
-            return true;
-        }
-
-        const revisionToSave = pendingMixRevision;
-        const mixSettingsToSave = currentMixSettings;
-
-        persistenceInFlight = (async () => {
-            try {
-                const updatedProject = await saveMixSettings(
-                    project.id,
-                    mixSettingsToSave,
-                );
-
-                persistedMixRevision = Math.max(
-                    persistedMixRevision,
-                    revisionToSave,
-                );
-
-                if (pendingMixRevision === revisionToSave) {
-                    currentMixSettings =
-                        updatedProject.mixSettings ?? mixSettingsToSave;
-                    project.mixSettings = currentMixSettings;
-
-                    if (currentUserId) {
-                        clearPendingMixSettings(
-                            currentUserId,
-                            project.id,
-                            storageProvider,
-                        );
-                    }
-                }
-
-                return true;
-            } catch {
-                setStatus(statusElement, "Could not save mix settings.");
-                return false;
-            } finally {
-                persistenceInFlight = null;
-            }
-        })();
-
-        return persistenceInFlight;
-    }
-
-    function schedulePendingMixPersistence(): void {
-        if (
-            projectRole === "viewer" ||
-            !canPersistMix(projectRole) ||
-            !projectsApi?.saveMixSettings
-        ) {
-            return;
-        }
-
-        clearPersistenceTimer();
-
-        persistenceTimerId = scheduleTimeout(() => {
-            persistenceTimerId = null;
-            void savePendingMixToServer();
-        }, mixPersistenceDelayMs);
-    }
-
     async function persistCurrentMixSettings(): Promise<void> {
-        const mixSettings = getMixSettings();
-
-        if (projectRole === "viewer") {
-            saveViewerMixSettings(project.id, mixSettings, storageProvider);
-            currentMixSettings = mixSettings;
-            return;
-        }
-
-        if (!canPersistMix(projectRole) || !projectsApi?.saveMixSettings) {
-            return;
-        }
-
-        rememberPendingMixSettings(mixSettings);
-        schedulePendingMixPersistence();
+        mixPersistence.persist(getMixSettings());
     }
 
     async function flushPendingMixSettings(): Promise<void> {
-        clearPersistenceTimer();
-
-        if (projectRole === "viewer") {
-            return;
-        }
-
-        if (persistenceInFlight) {
-            await persistenceInFlight;
-        }
-
-        if (pendingMixRevision <= persistedMixRevision) {
-            return;
-        }
-
-        await savePendingMixToServer();
+        await mixPersistence.flush();
     }
 
     async function handleTrackListChange(
@@ -1136,13 +995,7 @@ export function createProjectPlayerPageController({
             setStatus(statusElement, "Deleting project...");
             await projectsApi.deleteProject(project.id);
 
-            if (currentUserId) {
-                clearPendingMixSettings(
-                    currentUserId,
-                    project.id,
-                    storageProvider,
-                );
-            }
+            mixPersistence.clearRecovery();
 
             setStatus(statusElement, "Project deleted.");
             onProjectDeleted?.();
@@ -1197,8 +1050,8 @@ export function createProjectPlayerPageController({
 
         await loadTracks({ revealPlayer: true });
 
-        if (pendingServerMixSettings) {
-            schedulePendingMixPersistence();
+        if (mixPersistence.hasRecoveredPendingMix()) {
+            mixPersistence.schedulePendingPersistence();
         }
     }
 

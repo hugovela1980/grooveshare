@@ -20,6 +20,7 @@
         "db:check": "npm run db:check -w server",
         "seed-auth": "npm run dev:seed-auth -w server",
         "reset-dev-data": "npm run dev:reset-data -w server",
-        "verify": "npm run config:check && npm run db:check && npm run test-all && npm run build"
+        "verify": "npm run config:check && npm run db:check && npm run test-all && npm run build",
+        "test-frontend-core": "npm test -w @hugovela/frontend-core && npm run typecheck -w @hugovela/frontend-core"
     }
 }

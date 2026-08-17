@@ -29,11 +29,11 @@ Completed Version 2 foundations include:
 3. Production Configuration.
 4. VPS Deployment.
 
-The current focus is **Version 2 Milestone 5 — Mobile-Ready UI/UX**.
+The current focus is **Version 2 Milestone 6 — Multi-Client Frontend Foundation**.
 
-The immediate architectural goal is therefore not to replace the audio engine. It is to make the existing authenticated collaboration workflow genuinely usable on phone-sized touch screens while preserving the current client/server boundaries.
+Milestone 5 established the phone-oriented Project Player and mobile interaction patterns. Milestone 6 now separates presentation concerns from reusable frontend behavior just far enough to support a desktop/tablet client and a dedicated mobile client without a full frontend rewrite.
 
-Advanced Web Audio synchronization work is deferred to a post-Version-2 **2.x** release.
+The current multi-`HTMLAudioElement` playback model remains in place behind a shared `PlaybackEngine` boundary. Advanced Web Audio synchronization work remains deferred until Version 3, after Version 2 beta usage has provided more product evidence.
 
 ## Architectural Principles
 
@@ -43,7 +43,8 @@ GrooveShare currently follows these principles:
 - **One API contract should survive infrastructure changes.** Moving from a VPS to a future home server should primarily be a deployment change.
 - **Metadata and audio bytes are separate concerns.** PostgreSQL stores structured application data; the filesystem stores audio.
 - **Production and Labs data are isolated.** Development testing must not operate on production databases or upload directories.
-- **The same web client should become mobile-ready before native wrappers are introduced.**
+- **Desktop/tablet and mobile presentation clients may differ intentionally while sharing frontend application behavior and one backend.**
+- **Tablet presentation derives from the desktop/web design; the dedicated mobile presentation primarily targets phones.**
 - **Audio-engine complexity should be added when product needs justify it.**
 - **Development-only tools must be impossible to invoke accidentally in production.**
 - **Infrastructure secrets and runtime configuration stay outside Git.**
@@ -61,6 +62,7 @@ grooveshare/
 │   ├── src/
 │   └── tests/
 ├── packages/
+│   ├── frontend-core/
 │   └── test-runner/
 ├── sample-audio-files/
 ├── docs/
@@ -75,6 +77,7 @@ The repository is an npm workspace containing:
 ```txt
 client
 grooveshare-server
+@hugovela/frontend-core
 @hugovela/test-runner
 ```
 
@@ -184,20 +187,18 @@ deploy to production
 
 ## Frontend Architecture
 
-The frontend is a Vite + Vanilla TypeScript application using browser DOM APIs rather than a frontend framework.
+The frontend remains Vite + Vanilla TypeScript using browser DOM APIs rather than a frontend framework. Milestone 6 is introducing a shared core before the second presentation client is created.
 
-Current structure:
+Current Phase 1 structure:
 
 ```txt
 client/src/
 ├── api/
 ├── css/
-│   ├── main.css
-│   └── _imports/
 ├── dev/
 ├── page-controllers/
 ├── pages/
-├── permissions/
+├── platform/
 ├── project-draft/
 ├── router/
 ├── storage/
@@ -205,69 +206,69 @@ client/src/
 ├── app.ts
 ├── main.ts
 └── types.ts
+
+packages/frontend-core/src/
+├── domain/
+├── mix/
+├── permissions/
+├── platform/
+└── playback/
 ```
 
-### Frontend Responsibilities
+`client/` still owns the current DOM presentation. A separate `mobile-client/` workspace will be introduced later in Milestone 6, after the shared seams are proven by the existing client.
 
-The client is responsible for:
+### `frontend-core` Responsibilities
 
-- Rendering application screens and reusable UI.
-- Calling backend routes with `fetch`.
-- Register/login/logout/current-user interaction.
-- Sending session credentials with protected requests.
-- Displaying only the projects returned by the server.
-- Reflecting Viewer/Contributor/Owner capabilities in the visible UI.
-- Reflecting Contributor track ownership when showing track-management controls.
-- Creating and maintaining temporary project draft state.
-- Uploading selected audio files.
-- Rendering the Project Player, mixer, and Audio Player.
-- Displaying loading, success, failure, and session-expired states.
-- Eventually supporting an unauthenticated public-share route.
-- Eventually storing guest-only personal mix state in browser `localStorage`.
-- Becoming comfortable on mobile before the same UI is wrapped by Capacitor.
+The shared package owns behavior that is already clearly presentation-independent:
 
-The client must treat a server rejection as authoritative even if the UI believed an action was allowed.
+- GrooveShare domain types.
+- Project permission helpers.
+- `SessionProvider` and `StorageProvider` platform contracts.
+- `PlaybackEngine` and the current multi-`HTMLAudioElement` playback implementation behind that contract.
+- Viewer-local mix persistence.
+- Owner/Contributor pending-mix recovery.
+- Debounced server mix persistence and flush-before-navigation behavior.
 
-### Module Boundaries
+The package does **not** own page markup, CSS, navigation presentation, dialogs, touch behavior, desktop/mobile layout, or DOM query/event wiring.
 
-- `api/` — HTTP API helpers.
-- `page-controllers/` — behavior associated with a page.
-- `pages/` — page-level markup.
-- `templates/` — repeated/reusable markup.
-- `permissions/` — client-side interpretation of project permissions for UI behavior.
-- `project-draft/` — temporary state used before a new project is submitted.
-- `router/` — screen/route coordination.
-- `storage/` — browser-local persistence such as future guest personal mix settings.
-- `dev/` — development-only browser helpers.
-- `css/` — the CSS entry point and organized partials.
-- `app.ts` — application-level routing/state coordination.
-- `main.ts` — application startup.
+The existing HTTP API modules also remain in `client/` during this first pass. Track upload currently depends on browser `File`/`FormData` behavior, and the general API transport still carries browser/session assumptions. API behavior should be extracted only when the second presentation client demonstrates a useful shared boundary rather than by introducing transport abstractions prematurely.
 
-Page markup should not accumulate in `main.ts`, and permission logic should not be duplicated ad hoc across unrelated controllers.
+### Presentation Responsibilities
 
-## Mobile-Ready UI/UX Direction
+The presentation client is responsible for:
 
-Version 2 Milestone 5 focuses on making the existing web client legitimately usable from a phone.
+- Rendering screens and reusable UI.
+- Translating desktop/tablet or mobile interactions into shared application operations.
+- Browser-specific file selection and upload presentation.
+- Navigation layout and route presentation.
+- Editing interaction such as desktop inline editing versus mobile modal editing.
+- Mixer layout such as desktop horizontal controls versus mobile vertical channel strips.
+- Loading, success, failure, and session-expired presentation.
+- Supplying browser implementations for session, storage, and HTML-audio creation.
 
-The milestone should preserve the current application architecture rather than creating a separate mobile application.
+The server remains authoritative for authentication and authorization regardless of what either presentation displays.
 
-Primary concerns include:
+### Multi-Client Direction
 
-- Responsive page layout.
-- Touch-sized controls and spacing.
-- Avoiding functionality that depends on hover.
-- Authentication forms on narrow screens.
-- Project list/navigation usability.
-- Project Player layout.
-- Mixer controls on narrow screens.
-- Audio transport controls.
-- Uploading audio from a phone.
-- Member-management UI.
-- Feedback/error states that remain readable without covering important controls.
-- Portrait-oriented layouts.
-- Real-device testing in mobile Safari and Chrome.
+The intended Phase 1 boundary is:
 
-The goal is a reusable mobile web interface. Capacitor should later wrap this proven interface instead of introducing a second independently maintained UI.
+```txt
+                 GrooveShare server
+                        ↑
+               shared frontend core
+                /                 \
+     desktop/tablet client      mobile client
+          client/              mobile-client/
+             ↓                       ↓
+       web browser today        mobile web today
+       Electron later           Capacitor later
+```
+
+The goal is to share product behavior rather than force presentation markup to be shared. Intentional desktop/mobile differences should be protected by each client's integration tests rather than hidden behind increasingly complex viewport-condition branches.
+
+### Testing Boundary
+
+Shared behavior is tested in `packages/frontend-core/tests/`. Presentation behavior remains covered by client integration-style tests. Architectural extractions should preserve or improve automated coverage so manual smoke testing can focus on real browser/device behavior that the test harness cannot realistically reproduce.
 
 ## CSS Architecture
 
@@ -279,9 +280,7 @@ client/src/css/main.css
 
 The current organized CSS structure contains global/base/layout/utilities, reusable component styles, page-specific styles, and responsive rules.
 
-Responsive changes should prefer reusable layout behavior and component-level adaptation over scattered one-off device rules.
-
-Milestone 5 may reorganize responsive styles where necessary, but the design should remain maintainable as one web client across desktop and mobile.
+The existing responsive styles remain intact while the architectural split is established. After `mobile-client/` exists, `client/` will return to a desktop/tablet-oriented presentation that remains fluid across normal browser and tablet widths, while phone-specific composition can live in the mobile client without forcing both products through one CSS/DOM structure.
 
 ## Authentication
 
@@ -306,6 +305,8 @@ server resolves current user
 Passwords are hashed server-side. Password hashes are never returned as public user data.
 
 Production session cookies use secure production settings.
+
+Frontend application code reaches authentication through the shared `SessionProvider` contract. The current `client/` supplies the browser/cookie-backed implementation; future Capacitor or Electron work can provide another implementation if real platform behavior requires it without rewriting shared application logic.
 
 The current identity model is email-based. Username-based login remains a future product decision rather than an architectural requirement.
 
