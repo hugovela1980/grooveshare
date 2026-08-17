@@ -1,0 +1,194 @@
+.modal {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: grid;
+    place-items: center;
+    padding: 1.5rem;
+    background: var(--overlay-modal);
+    backdrop-filter: blur(4px);
+}
+
+.modal[hidden] {
+    display: none;
+}
+
+.modal__content {
+    width: min(760px, 100%);
+    max-height: min(680px, 90vh);
+    overflow-y: auto;
+    padding: 1.5rem;
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-2xl);
+    background: var(--color-light-surface);
+    color: var(--color-light-text);
+    box-shadow: var(--shadow-modal);
+    animation: modal-fly-in 180ms ease-out;
+}
+
+@keyframes modal-fly-in {
+    from {
+        opacity: 0;
+        transform: translateY(-2rem) scale(0.97);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.modal__header {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding-bottom: 1rem;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid var(--border-light);
+}
+
+.modal__header h2 {
+    margin: 0.15rem 0 0;
+}
+
+.modal__content .eyebrow {
+    color: var(--color-light-subtle);
+}
+
+.modal__content h2,
+.modal__content h3,
+.modal__content label,
+.modal__content span {
+    color: var(--color-light-text);
+}
+
+.modal__content .description,
+.modal__content .help-text,
+.modal__content .empty-state {
+    color: var(--color-light-muted);
+}
+
+.modal__content input[type="text"],
+.modal__content input[type="file"] {
+    color: var(--color-light-text);
+    background: var(--color-light-surface);
+    border: 1px solid var(--border-light-strong);
+}
+
+.modal__actions {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: flex-end;
+    padding-top: 1rem;
+    margin-top: 1rem;
+    border-top: 1px solid var(--border-light);
+}
+
+.add-tracks-modal__file-row {
+    display: grid;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.help-text {
+    margin: 0;
+    color: var(--color-light-subtle);
+    font-size: 0.9rem;
+}
+
+.pending-track-form input[type="file"] {
+    width: 100%;
+    padding: 0.75rem;
+    border-radius: var(--radius-lg);
+    background: var(--color-light-surface);
+    color: var(--color-light-text);
+}
+
+.pending-track-form input[type="file"]::file-selector-button {
+    margin-right: 0.75rem;
+    padding: 0.55rem 0.85rem;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: var(--color-light-button);
+    color: var(--color-light-text);
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.pending-track-form input[type="file"]::file-selector-button:hover {
+    background: var(--color-light-button-hover);
+}
+
+.selected-audio-track-rows {
+    display: grid;
+    gap: 0.75rem;
+}
+
+.selected-audio-track-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+    gap: 1rem;
+    align-items: end;
+    padding: 1rem;
+    border: 1px solid var(--border-light);
+    border-radius: 0.9rem;
+    background: var(--color-light-surface-soft);
+    color: var(--color-light-text);
+}
+
+.selected-audio-track-row label {
+    display: grid;
+    gap: 0.4rem;
+}
+
+.selected-audio-track-row label,
+.selected-audio-track-row span,
+.selected-audio-track-row p {
+    color: var(--color-light-text);
+}
+
+.selected-audio-track-row span {
+    font-size: 0.85rem;
+    font-weight: 700;
+}
+
+.selected-audio-track-row p {
+    min-height: 2.6rem;
+    display: flex;
+    align-items: center;
+    padding: 0.65rem 0.75rem;
+    margin: 0;
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    background: var(--color-light-surface);
+    overflow-wrap: anywhere;
+}
+
+@media (min-width: 0rem) {
+    .modal {
+        padding: 1rem;
+    }
+
+    .modal__content {
+        padding: 1rem;
+    }
+
+    .selected-audio-track-row {
+        grid-template-columns: 1fr;
+    }
+
+    .modal__actions {
+        flex-direction: column-reverse;
+    }
+
+    .modal__actions button {
+        width: 100%;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .modal__content {
+        animation: none;
+    }
+}

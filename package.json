@@ -3,16 +3,19 @@
     "private": true,
     "workspaces": [
         "client",
+        "mobile-client",
         "server",
         "packages/*"
     ],
     "scripts": {
         "dev-server": "npm run dev -w server",
         "dev-client": "npm run dev -w client",
-        "build": "npm run build -w server && npm run build -w client",
+        "dev-mobile": "npm run dev -w mobile-client",
+        "build": "npm run build -w server && npm run build -w client && npm run build -w mobile-client",
         "start-server": "npm start -w server",
         "test-server": "npm test -w server && npm run typecheck -w server",
         "test-client": "npm test -w client && npm run typecheck -w client",
+        "test-mobile": "npm test -w mobile-client && npm run typecheck -w mobile-client",
         "typecheck-frontend-core": "npm run typecheck -w @hugovela/frontend-core",
         "test-runner": "npm run typecheck -w packages/test-runner && npm test -w packages/test-runner",
         "test-all": "npm run typecheck --workspaces --if-present && npm test --workspaces --if-present",

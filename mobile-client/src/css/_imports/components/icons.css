@@ -1,0 +1,19 @@
+.icon-button {
+    width: 2.5rem;
+    height: 2.5rem;
+    display: inline-grid;
+    place-items: center;
+    flex: 0 0 auto;
+    border: 1px solid var(--border-light-icon);
+    border-radius: var(--radius-pill);
+    background: var(--color-light-surface);
+    color: var(--color-light-text);
+    font-size: 1.35rem;
+    font-weight: 800;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.icon-button:hover {
+    background: var(--color-light-hover);
+}

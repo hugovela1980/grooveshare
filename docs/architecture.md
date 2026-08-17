@@ -56,6 +56,9 @@ grooveshare/
 ├── client/
 │   ├── src/
 │   └── tests/
+├── mobile-client/
+│   ├── src/
+│   └── tests/
 ├── server/
 │   ├── db/
 │   │   └── migrations/
@@ -76,6 +79,7 @@ The repository is an npm workspace containing:
 
 ```txt
 client
+mobile-client
 grooveshare-server
 @hugovela/frontend-core
 @hugovela/test-runner
@@ -122,12 +126,15 @@ GrooveShare now has three meaningful environments.
 ### Local Development
 
 ```txt
-Browser/Vite: http://localhost:5173
-Node API:     http://127.0.0.1:3000
+Web Vite:      http://localhost:5173
+Mobile Vite:   http://localhost:5174
+Node API:      http://127.0.0.1:3000
 PostgreSQL:   grooveshare_dev
 Test DB:      grooveshare_test
 Uploads:      server/uploads or configured development path
 ```
+
+The mobile Vite server proxies same-origin `/api` requests to `http://127.0.0.1:3000`. This allows the web client and mobile client to run side by side in local development without expanding the server CORS allowlist just to support a second Vite port.
 
 Local development may use convenient defaults and development-only seed/reset tooling.
 
@@ -187,12 +194,27 @@ deploy to production
 
 ## Frontend Architecture
 
-The frontend remains Vite + Vanilla TypeScript using browser DOM APIs rather than a frontend framework. Milestone 6 is introducing a shared core before the second presentation client is created.
+The frontend remains Vite + Vanilla TypeScript using browser DOM APIs rather than a frontend framework. Milestone 6 now has two presentation workspaces consuming the same shared core.
 
 Current Phase 1 structure:
 
 ```txt
 client/src/
+├── api/
+├── css/
+├── dev/
+├── page-controllers/
+├── pages/
+├── platform/
+├── project-draft/
+├── router/
+├── storage/
+├── templates/
+├── app.ts
+├── main.ts
+└── types.ts
+
+mobile-client/src/
 ├── api/
 ├── css/
 ├── dev/
@@ -215,7 +237,7 @@ packages/frontend-core/src/
 └── playback/
 ```
 
-`client/` still owns the current DOM presentation. A separate `mobile-client/` workspace will be introduced later in Milestone 6, after the shared seams are proven by the existing client.
+`client/` remains the existing presentation and is still intentionally unchanged at this checkpoint. `mobile-client/` is now a real second Vite presentation workspace built from the completed Milestone 5 phone UI. The next checkpoint can return `client/` to desktop/tablet-specific interaction choices without requiring the phone presentation to follow those choices.
 
 ### `frontend-core` Responsibilities
 
@@ -231,7 +253,7 @@ The shared package owns behavior that is already clearly presentation-independen
 
 The package does **not** own page markup, CSS, navigation presentation, dialogs, touch behavior, desktop/mobile layout, or DOM query/event wiring.
 
-The existing HTTP API modules also remain in `client/` during this first pass. Track upload currently depends on browser `File`/`FormData` behavior, and the general API transport still carries browser/session assumptions. API behavior should be extracted only when the second presentation client demonstrates a useful shared boundary rather than by introducing transport abstractions prematurely.
+The existing HTTP API modules remain presentation-local during this first multi-client proof. `client/` and `mobile-client/` currently contain equivalent browser API wrappers that target the same GrooveShare server. This duplication is deliberate for Phase 1: track upload still depends on browser `File`/`FormData` behavior and the transport carries browser/session assumptions. A later extraction should happen only if real multi-client use shows a stable shared transport boundary.
 
 ### Presentation Responsibilities
 
@@ -250,37 +272,54 @@ The server remains authoritative for authentication and authorization regardless
 
 ### Multi-Client Direction
 
-The intended Phase 1 boundary is:
+The active Phase 1 boundary is:
 
 ```txt
                  GrooveShare server
                         ↑
                shared frontend core
                 /                 \
-     desktop/tablet client      mobile client
+     current web client         mobile client
           client/              mobile-client/
              ↓                       ↓
-       web browser today        mobile web today
-       Electron later           Capacitor later
+       browser today             phone web today
+       desktop/tablet            Capacitor later
+       cleanup next
 ```
+
+Both clients consume the same domain types, permission rules, `SessionProvider`, `StorageProvider`, mix persistence coordinator, and `PlaybackEngine` contract. The mobile client supplies the browser implementations of those platform boundaries just as the current web client does.
 
 The goal is to share product behavior rather than force presentation markup to be shared. Intentional desktop/mobile differences should be protected by each client's integration tests rather than hidden behind increasingly complex viewport-condition branches.
 
 ### Testing Boundary
 
-Shared behavior is tested in `packages/frontend-core/tests/`. Presentation behavior remains covered by client integration-style tests. Architectural extractions should preserve or improve automated coverage so manual smoke testing can focus on real browser/device behavior that the test harness cannot realistically reproduce.
+Shared behavior is tested in `packages/frontend-core/tests/`. Presentation behavior is now covered independently by `client/tests/` and `mobile-client/tests/`.
+
+The mobile integration suite protects these presentation-to-core flows:
+
+- unauthenticated startup to Login;
+- authenticated startup to Home/Projects;
+- Project Player track loading and playback preparation;
+- project editing through the mobile three-dot menu and modal;
+- immediate mixer-to-playback updates plus scheduled shared persistence;
+- dirty-mix flush before mobile Home navigation;
+- expired-session return to Login;
+- mobile-navigation logout with protected UI kept closed.
+
+Architectural extractions should preserve or improve automated coverage so manual smoke testing can focus on real browser/device behavior that the test harness cannot realistically reproduce.
 
 ## CSS Architecture
 
-The frontend has a single CSS entry point:
+Each presentation now owns its CSS entry point:
 
 ```txt
 client/src/css/main.css
+mobile-client/src/css/main.css
 ```
 
-The current organized CSS structure contains global/base/layout/utilities, reusable component styles, page-specific styles, and responsive rules.
+The mobile client starts from the completed Milestone 5 phone styles and treats the coordinated phone layout as its baseline rather than as a desktop viewport fallback. Its Project Player and Project Menu also omit desktop-only controls that are unnecessary in the dedicated phone presentation.
 
-The existing responsive styles remain intact while the architectural split is established. After `mobile-client/` exists, `client/` will return to a desktop/tablet-oriented presentation that remains fluid across normal browser and tablet widths, while phone-specific composition can live in the mobile client without forcing both products through one CSS/DOM structure.
+`client/` has not yet been changed in this checkpoint. The next checkpoint will return it to a desktop/tablet-oriented presentation that remains fluid across normal browser and tablet widths.
 
 ## Authentication
 
