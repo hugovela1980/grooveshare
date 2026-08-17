@@ -1,16 +1,7 @@
+import type { StorageProvider } from "@hugovela/frontend-core";
 import type { MixSettings } from "../types.js";
 
 const VIEWER_MIX_STORAGE_PREFIX = "grooveshare:viewer-mix:";
-
-type StorageLike = Pick<Storage, "getItem" | "setItem">;
-
-function getBrowserStorage(): StorageLike | null {
-  if (typeof globalThis.localStorage === "undefined") {
-    return null;
-  }
-
-  return globalThis.localStorage;
-}
 
 function isMixSettings(value: unknown): value is MixSettings {
   if (!value || typeof value !== "object") {
@@ -45,7 +36,7 @@ export function getViewerMixStorageKey(projectId: string): string {
 
 export function loadViewerMixSettings(
   projectId: string,
-  storage: StorageLike | null = getBrowserStorage(),
+  storage: StorageProvider | null,
 ): MixSettings | null {
   if (!storage) {
     return null;
@@ -69,7 +60,7 @@ export function loadViewerMixSettings(
 export function saveViewerMixSettings(
   projectId: string,
   mixSettings: MixSettings,
-  storage: StorageLike | null = getBrowserStorage(),
+  storage: StorageProvider | null,
 ): void {
   if (!storage) {
     return;
@@ -81,7 +72,7 @@ export function saveViewerMixSettings(
       JSON.stringify(mixSettings),
     );
   } catch {
-    // Browser storage can be unavailable or full. Local persistence is a
+    // Client storage can be unavailable or full. Local persistence is a
     // convenience for Viewers, so playback should continue if storage fails.
   }
 }

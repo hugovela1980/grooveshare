@@ -1,3 +1,4 @@
+import type { StorageProvider } from "@hugovela/frontend-core";
 import {
     loadViewerMixSettings,
     saveViewerMixSettings,
@@ -220,6 +221,7 @@ type ProjectPlayerPageControllerOptions = {
     ) => string;
     projectRole?: ProjectRole;
     currentUserId?: string | null;
+    storageProvider?: StorageProvider | null;
     confirmDeleteProject?: (message: string) => boolean;
     confirmDeleteTrack?: (message: string) => boolean;
     onProjectDeleted?: () => void;
@@ -305,6 +307,7 @@ export function createProjectPlayerPageController({
     renderTrackList,
     projectRole = project.role ?? "owner",
     currentUserId = null,
+    storageProvider = null,
     confirmDeleteProject = globalThis.confirm,
     confirmDeleteTrack = globalThis.confirm,
     onProjectDeleted,
@@ -319,10 +322,10 @@ export function createProjectPlayerPageController({
     let currentTracks: Track[] = [];
     const pendingServerMixSettings =
         projectRole !== "viewer" && currentUserId && canPersistMix(projectRole)
-            ? loadPendingMixSettings(currentUserId, project.id)
+            ? loadPendingMixSettings(currentUserId, project.id, storageProvider)
             : null;
     let currentMixSettings: MixSettings | undefined = projectRole === "viewer"
-        ? loadViewerMixSettings(project.id) ?? project.mixSettings
+        ? loadViewerMixSettings(project.id, storageProvider) ?? project.mixSettings
         : pendingServerMixSettings ?? project.mixSettings;
     let pendingMixRevision = pendingServerMixSettings ? 1 : 0;
     let persistedMixRevision = 0;
@@ -830,6 +833,7 @@ export function createProjectPlayerPageController({
             currentUserId,
             project.id,
             mixSettings,
+            storageProvider,
         );
     }
 
@@ -887,6 +891,7 @@ export function createProjectPlayerPageController({
                         clearPendingMixSettings(
                             currentUserId,
                             project.id,
+                            storageProvider,
                         );
                     }
                 }
@@ -924,7 +929,7 @@ export function createProjectPlayerPageController({
         const mixSettings = getMixSettings();
 
         if (projectRole === "viewer") {
-            saveViewerMixSettings(project.id, mixSettings);
+            saveViewerMixSettings(project.id, mixSettings, storageProvider);
             currentMixSettings = mixSettings;
             return;
         }
@@ -1132,7 +1137,11 @@ export function createProjectPlayerPageController({
             await projectsApi.deleteProject(project.id);
 
             if (currentUserId) {
-                clearPendingMixSettings(currentUserId, project.id);
+                clearPendingMixSettings(
+                    currentUserId,
+                    project.id,
+                    storageProvider,
+                );
             }
 
             setStatus(statusElement, "Project deleted.");

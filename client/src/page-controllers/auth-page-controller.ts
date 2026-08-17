@@ -1,4 +1,4 @@
-import type { AuthApi } from "../api/auth-api.js";
+import type { SessionProvider } from "@hugovela/frontend-core";
 import type { User } from "../types.js";
 import {
   setControlBusy,
@@ -35,7 +35,7 @@ type AuthPageControllerOptions = {
   registerPasswordInput: InputElementLike;
   registerSubmitButton: BusyControlLike;
   statusElement: TextElementLike;
-  authApi: Pick<AuthApi, "login" | "registerUser">;
+  sessionProvider: Pick<SessionProvider, "login" | "registerUser">;
   onAuthenticated: (user: User) => void;
 };
 
@@ -56,7 +56,7 @@ export function createAuthPageController({
   registerPasswordInput,
   registerSubmitButton,
   statusElement,
-  authApi,
+  sessionProvider,
   onAuthenticated,
 }: AuthPageControllerOptions) {
   let requestInFlight = false;
@@ -88,7 +88,7 @@ export function createAuthPageController({
     statusElement.textContent = "Signing in...";
 
     try {
-      const user = await authApi.login({
+      const user = await sessionProvider.login({
         email: loginEmailInput.value,
         password: loginPasswordInput.value,
       });
@@ -128,7 +128,7 @@ export function createAuthPageController({
     const password = registerPasswordInput.value;
 
     try {
-      await authApi.registerUser({
+      await sessionProvider.registerUser({
         email,
         displayName: registerDisplayNameInput.value,
         password,
@@ -136,7 +136,7 @@ export function createAuthPageController({
 
       statusElement.textContent = "Account created. Signing in...";
 
-      const user = await authApi.login({
+      const user = await sessionProvider.login({
         email,
         password,
       });

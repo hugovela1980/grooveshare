@@ -28,47 +28,21 @@ function createProject(role: "viewer" | "contributor"): Project {
 }
 
 
-function installLocalStorage(initialValues: Record<string, string> = {}) {
+function createStorageProvider(initialValues: Record<string, string> = {}) {
   const values = new Map(Object.entries(initialValues));
-  const previousLocalStorage = globalThis.localStorage;
-
-  const storage = {
-    getItem(key: string) {
-      return values.get(key) ?? null;
-    },
-    setItem(key: string, value: string) {
-      values.set(key, value);
-    },
-    removeItem(key: string) {
-      values.delete(key);
-    },
-    clear() {
-      values.clear();
-    },
-    key(index: number) {
-      return Array.from(values.keys())[index] ?? null;
-    },
-    get length() {
-      return values.size;
-    },
-  } as Storage;
-
-  Object.defineProperty(globalThis, "localStorage", {
-    value: storage,
-    configurable: true,
-  });
 
   return {
     values,
-    restore() {
-      if (previousLocalStorage === undefined) {
-        delete (globalThis as { localStorage?: Storage }).localStorage;
-      } else {
-        Object.defineProperty(globalThis, "localStorage", {
-          value: previousLocalStorage,
-          configurable: true,
-        });
-      }
+    storageProvider: {
+      getItem(key: string) {
+        return values.get(key) ?? null;
+      },
+      setItem(key: string, value: string) {
+        values.set(key, value);
+      },
+      removeItem(key: string) {
+        values.delete(key);
+      },
     },
   };
 }
@@ -267,59 +241,55 @@ tester.describe("permission-aware mix loading", () => {
     tester.expect(saveCount).toBe(1);
   });
 
-  tester.it("persists Viewer mix settings in localStorage when a control change is committed", async () => {
-    const localStorageTest = installLocalStorage();
+  tester.it("persists Viewer mix settings through the injected storage provider when a control change is committed", async () => {
+    const storageTest = createStorageProvider();
+    const trackListElement = createTrackListElement();
 
-    try {
-      const trackListElement = createTrackListElement();
+    const controller = createProjectPlayerPageController({
+      project: createProject("viewer"),
+      projectRole: "viewer",
+      currentUserId: "viewer-1",
+      storageProvider: storageTest.storageProvider,
+      trackListElement,
+      tracksApi: {
+        getTracksByProjectId: async () => [createTrack()],
+        deleteTrack: async () => createTrack(),
+      },
+      renderTrackList: () => "mix",
+      audioPlayerController: {
+        loadMix() {},
+      },
+      getTrackAudioUrl: () => "http://localhost/audio.wav",
+    });
 
-      const controller = createProjectPlayerPageController({
-        project: createProject("viewer"),
-        projectRole: "viewer",
-        currentUserId: "viewer-1",
-        trackListElement,
-        tracksApi: {
-          getTracksByProjectId: async () => [createTrack()],
-          deleteTrack: async () => createTrack(),
+    await controller.init();
+
+    tester.expect(
+      storageTest.values.has("grooveshare:viewer-mix:project-1"),
+    ).toBe(false);
+
+    await trackListElement.inputVolume(0.7);
+
+    tester.expect(
+      storageTest.values.has("grooveshare:viewer-mix:project-1"),
+    ).toBe(false);
+
+    await trackListElement.changeVolume(0.7);
+
+    const savedValue = storageTest.values.get(
+      "grooveshare:viewer-mix:project-1",
+    );
+
+    tester.expect(typeof savedValue).toBe("string");
+    tester.expect(JSON.parse(savedValue ?? "null")).toEqual({
+      channels: [
+        {
+          channelNumber: 1,
+          trackId: "track-1",
+          enabled: true,
+          volume: 0.7,
         },
-        renderTrackList: () => "mix",
-        audioPlayerController: {
-          loadMix() {},
-        },
-        getTrackAudioUrl: () => "http://localhost/audio.wav",
-      });
-
-      await controller.init();
-
-      tester.expect(
-        localStorageTest.values.has("grooveshare:viewer-mix:project-1"),
-      ).toBe(false);
-
-      await trackListElement.inputVolume(0.7);
-
-      tester.expect(
-        localStorageTest.values.has("grooveshare:viewer-mix:project-1"),
-      ).toBe(false);
-
-      await trackListElement.changeVolume(0.7);
-
-      const savedValue = localStorageTest.values.get(
-        "grooveshare:viewer-mix:project-1",
-      );
-
-      tester.expect(typeof savedValue).toBe("string");
-      tester.expect(JSON.parse(savedValue ?? "null")).toEqual({
-        channels: [
-          {
-            channelNumber: 1,
-            trackId: "track-1",
-            enabled: true,
-            volume: 0.7,
-          },
-        ],
-      });
-    } finally {
-      localStorageTest.restore();
-    }
+      ],
+    });
   });
 });

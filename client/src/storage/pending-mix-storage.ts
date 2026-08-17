@@ -1,16 +1,7 @@
+import type { StorageProvider } from "@hugovela/frontend-core";
 import type { MixSettings } from "../types.js";
 
 const PENDING_MIX_STORAGE_PREFIX = "grooveshare:pending-mix:";
-
-type StorageLike = Pick<Storage, "getItem" | "setItem" | "removeItem">;
-
-function getBrowserStorage(): StorageLike | null {
-  if (typeof globalThis.localStorage === "undefined") {
-    return null;
-  }
-
-  return globalThis.localStorage;
-}
 
 function isMixSettings(value: unknown): value is MixSettings {
   if (!value || typeof value !== "object") {
@@ -49,7 +40,7 @@ export function getPendingMixStorageKey(
 export function loadPendingMixSettings(
   userId: string,
   projectId: string,
-  storage: StorageLike | null = getBrowserStorage(),
+  storage: StorageProvider | null,
 ): MixSettings | null {
   if (!storage) {
     return null;
@@ -76,7 +67,7 @@ export function savePendingMixSettings(
   userId: string,
   projectId: string,
   mixSettings: MixSettings,
-  storage: StorageLike | null = getBrowserStorage(),
+  storage: StorageProvider | null,
 ): void {
   if (!storage) {
     return;
@@ -88,7 +79,7 @@ export function savePendingMixSettings(
       JSON.stringify(mixSettings),
     );
   } catch {
-    // This cache protects against interrupted server persistence. If browser
+    // This cache protects against interrupted server persistence. If client
     // storage is unavailable, the normal debounced server save still works.
   }
 }
@@ -96,7 +87,7 @@ export function savePendingMixSettings(
 export function clearPendingMixSettings(
   userId: string,
   projectId: string,
-  storage: StorageLike | null = getBrowserStorage(),
+  storage: StorageProvider | null,
 ): void {
   if (!storage) {
     return;

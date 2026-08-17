@@ -17,6 +17,9 @@ function createStorage() {
       setItem(key: string, value: string) {
         values.set(key, value);
       },
+      removeItem(key: string) {
+        values.delete(key);
+      },
     },
   };
 }

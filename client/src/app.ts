@@ -1,7 +1,9 @@
 import { projectsApi } from "./api/projects-api.js";
 import { projectMembersApi } from "./api/project-members-api.js";
 import { tracksApi } from "./api/tracks-api.js";
-import { authApi, type AuthApi } from "./api/auth-api.js";
+import type { SessionProvider, StorageProvider } from "@hugovela/frontend-core";
+import { browserSessionProvider } from "./platform/browser-session-provider.js";
+import { getBrowserStorageProvider } from "./platform/browser-storage-provider.js";
 import {
   ApiError,
   setAuthenticationRequiredHandler,
@@ -46,7 +48,8 @@ type AppElementLike = {
 type GrooveShareAppOptions = {
   appElement: AppElementLike;
   initialScreen?: Exclude<AppScreen, "auth">;
-  authenticationApi?: AuthApi;
+  sessionProvider?: SessionProvider;
+  storageProvider?: StorageProvider | null;
   historyAdapter?: HistoryAdapter | null;
 };
 
@@ -166,11 +169,11 @@ function initializeMobileNavigation({
 
 function initializeAuthPage({
   appElement,
-  authenticationApi,
+  sessionProvider,
   onAuthenticated,
 }: {
   appElement: AppElementLike;
-  authenticationApi: AuthApi;
+  sessionProvider: SessionProvider;
   onAuthenticated: (user: User) => void;
 }): void {
   const loginForm = getElement<HTMLFormElement>(appElement, "#login-form");
@@ -237,7 +240,7 @@ function initializeAuthPage({
     registerPasswordInput,
     registerSubmitButton,
     statusElement,
-    authApi: authenticationApi,
+    sessionProvider,
     onAuthenticated,
   });
 
@@ -511,6 +514,7 @@ function initializeProjectPlayerPage({
   goBack,
   selectedProject,
   currentUser,
+  storageProvider,
   onLogout,
 }: {
   appElement: AppElementLike;
@@ -518,6 +522,7 @@ function initializeProjectPlayerPage({
   goBack: GoBack;
   selectedProject: Project | null;
   currentUser: User | null;
+  storageProvider: StorageProvider | null;
   onLogout: () => Promise<void>;
 }): (() => void) | null {
   const backButton = getElement<HTMLButtonElement>(
@@ -746,6 +751,7 @@ function initializeProjectPlayerPage({
     renderTrackList: renderMixChannelSlots,
     projectRole: selectedProject.role ?? "viewer",
     currentUserId: currentUser?.id ?? null,
+    storageProvider,
     onProjectDeleted() {
       navigateTo("project-menu", { replace: true });
     },
@@ -892,7 +898,8 @@ function initializeCurrentPage({
   selectedProject,
   currentUser,
   projectDraftState,
-  authenticationApi,
+  sessionProvider,
+  storageProvider,
   onAuthenticated,
   onLogout,
 }: {
@@ -904,14 +911,15 @@ function initializeCurrentPage({
   selectedProject: Project | null;
   currentUser: User | null;
   projectDraftState: ProjectDraftState;
-  authenticationApi: AuthApi;
+  sessionProvider: SessionProvider;
+  storageProvider: StorageProvider | null;
   onAuthenticated: (user: User) => void;
   onLogout: () => Promise<void>;
 }): (() => void) | null {
   if (currentScreen === "auth") {
     initializeAuthPage({
       appElement,
-      authenticationApi,
+      sessionProvider,
       onAuthenticated,
     });
 
@@ -950,6 +958,7 @@ function initializeCurrentPage({
       goBack,
       selectedProject,
       currentUser,
+      storageProvider,
       onLogout,
     });
   }
@@ -960,7 +969,8 @@ function initializeCurrentPage({
 export function createGrooveShareApp({
   appElement,
   initialScreen = "project-menu",
-  authenticationApi = authApi,
+  sessionProvider = browserSessionProvider,
+  storageProvider = getBrowserStorageProvider(),
   historyAdapter,
 }: GrooveShareAppOptions) {
   let selectedProject: Project | null = null;
@@ -1066,7 +1076,8 @@ export function createGrooveShareApp({
       selectedProject,
       currentUser,
       projectDraftState,
-      authenticationApi,
+      sessionProvider,
+      storageProvider,
       onAuthenticated: handleAuthenticated,
       onLogout: handleLogout,
     });
@@ -1150,7 +1161,7 @@ export function createGrooveShareApp({
 
   async function handleLogout(): Promise<void> {
     try {
-      await authenticationApi.logout();
+      await sessionProvider.logout();
     } catch (error) {
       const statusElement =
         getElement<HTMLParagraphElement>(
@@ -1200,7 +1211,7 @@ export function createGrooveShareApp({
 
     try {
       currentUser =
-        await authenticationApi.getCurrentUser();
+        await sessionProvider.getCurrentUser();
       authMessage = "";
 
       const initialRoute =

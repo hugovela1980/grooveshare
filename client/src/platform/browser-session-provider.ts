@@ -3,8 +3,8 @@ import { authApi, type AuthApi } from "../api/auth-api.js";
 
 /**
  * Adapts the current browser/cookie-backed auth API to the shared session
- * contract. Checkpoint 2 will make the app composition root consume this
- * provider directly.
+ * contract. The app composition root uses this provider by default while
+ * tests and future presentation clients can inject another implementation.
  */
 export function createBrowserSessionProvider(
   authenticationApi: AuthApi = authApi,

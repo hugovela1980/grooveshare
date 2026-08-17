@@ -67,7 +67,7 @@ tester.describe("auth page controller", () => {
 
     const controller = createAuthPageController({
       ...setup,
-      authApi: {
+      sessionProvider: {
         async login(input) {
           loginCalls.push(input);
           return user;
@@ -101,7 +101,7 @@ tester.describe("auth page controller", () => {
 
     const controller = createAuthPageController({
       ...setup,
-      authApi: {
+      sessionProvider: {
         async registerUser() {
           calls.push("register");
           return user;
@@ -130,7 +130,7 @@ tester.describe("auth page controller", () => {
 
     const controller = createAuthPageController({
       ...setup,
-      authApi: {
+      sessionProvider: {
         async login() {
           throw new Error("Invalid email or password.");
         },
@@ -161,7 +161,7 @@ tester.describe("auth page controller", () => {
 
     const controller = createAuthPageController({
       ...setup,
-      authApi: {
+      sessionProvider: {
         async login() {
           return loginPromise;
         },

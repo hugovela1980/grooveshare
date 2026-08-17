@@ -469,47 +469,21 @@ function createFakeStatusElement() {
   };
 }
 
-function installLocalStorage(initialValues: Record<string, string> = {}) {
+function createStorageProvider(initialValues: Record<string, string> = {}) {
   const values = new Map(Object.entries(initialValues));
-  const previousLocalStorage = globalThis.localStorage;
-
-  const storage = {
-    getItem(key: string) {
-      return values.get(key) ?? null;
-    },
-    setItem(key: string, value: string) {
-      values.set(key, value);
-    },
-    removeItem(key: string) {
-      values.delete(key);
-    },
-    clear() {
-      values.clear();
-    },
-    key(index: number) {
-      return Array.from(values.keys())[index] ?? null;
-    },
-    get length() {
-      return values.size;
-    },
-  } as Storage;
-
-  Object.defineProperty(globalThis, "localStorage", {
-    value: storage,
-    configurable: true,
-  });
 
   return {
     values,
-    restore() {
-      if (previousLocalStorage === undefined) {
-        delete (globalThis as { localStorage?: Storage }).localStorage;
-      } else {
-        Object.defineProperty(globalThis, "localStorage", {
-          value: previousLocalStorage,
-          configurable: true,
-        });
-      }
+    storageProvider: {
+      getItem(key: string) {
+        return values.get(key) ?? null;
+      },
+      setItem(key: string, value: string) {
+        values.set(key, value);
+      },
+      removeItem(key: string) {
+        values.delete(key);
+      },
     },
   };
 }
@@ -2088,73 +2062,69 @@ tester.describe("project player page controller", () => {
     });
   });
 
-  tester.it("keeps a local recovery copy until a pending server mix is saved", async () => {
-    const localStorageTest = installLocalStorage();
+  tester.it("keeps a recovery copy in the injected storage provider until a pending server mix is saved", async () => {
+    const storageTest = createStorageProvider();
+    const project = createProject();
+    const trackListElement = createFakeTrackListElement();
 
-    try {
-      const project = createProject();
-      const trackListElement = createFakeTrackListElement();
+    trackListElement.setChannelSlots([
+      {
+        channelNumber: 1,
+        trackId: "track-1",
+        enabled: true,
+        volume: 1,
+      },
+    ]);
 
-      trackListElement.setChannelSlots([
+    const controller = createProjectPlayerPageController({
+      project,
+      currentUserId: "owner-1",
+      storageProvider: storageTest.storageProvider,
+      trackListElement,
+      tracksApi: {
+        async getTracksByProjectId() {
+          return [createTrack()];
+        },
+        async deleteTrack() {
+          return createTrack();
+        },
+      },
+      projectsApi: {
+        async deleteProject() {
+          return project;
+        },
+        async saveMixSettings(_projectId, mixSettings) {
+          return { ...project, mixSettings };
+        },
+      },
+      renderTrackList() {
+        return "tracks";
+      },
+    });
+
+    await controller.init();
+    await trackListElement.changeVolume(1, 0.58);
+
+    const storageKey = "grooveshare:pending-mix:owner-1:project-1";
+    const pendingValue = storageTest.values.get(storageKey);
+
+    tester.expect(typeof pendingValue).toBe("string");
+    tester.expect(JSON.parse(pendingValue ?? "null")).toEqual({
+      channels: [
         {
           channelNumber: 1,
           trackId: "track-1",
           enabled: true,
-          volume: 1,
+          volume: 0.58,
         },
-      ]);
+      ],
+    });
 
-      const controller = createProjectPlayerPageController({
-        project,
-        currentUserId: "owner-1",
-        trackListElement,
-        tracksApi: {
-          async getTracksByProjectId() {
-            return [createTrack()];
-          },
-          async deleteTrack() {
-            return createTrack();
-          },
-        },
-        projectsApi: {
-          async deleteProject() {
-            return project;
-          },
-          async saveMixSettings(_projectId, mixSettings) {
-            return { ...project, mixSettings };
-          },
-        },
-        renderTrackList() {
-          return "tracks";
-        },
-      });
-
-      await controller.init();
-      await trackListElement.changeVolume(1, 0.58);
-
-      const storageKey = "grooveshare:pending-mix:owner-1:project-1";
-      const pendingValue = localStorageTest.values.get(storageKey);
-
-      tester.expect(typeof pendingValue).toBe("string");
-      tester.expect(JSON.parse(pendingValue ?? "null")).toEqual({
-        channels: [
-          {
-            channelNumber: 1,
-            trackId: "track-1",
-            enabled: true,
-            volume: 0.58,
-          },
-        ],
-      });
-
-      await controller.flushPendingMixSettings();
-      tester.expect(localStorageTest.values.has(storageKey)).toBe(false);
-    } finally {
-      localStorageTest.restore();
-    }
+    await controller.flushPendingMixSettings();
+    tester.expect(storageTest.values.has(storageKey)).toBe(false);
   });
 
-  tester.it("restores an unsynced local mix and flushes it on the next project visit", async () => {
+  tester.it("restores an unsynced mix from the injected storage provider and flushes it on the next project visit", async () => {
     const pendingMixSettings: MixSettings = {
       channels: [
         {
@@ -2167,63 +2137,59 @@ tester.describe("project player page controller", () => {
     };
 
     const storageKey = "grooveshare:pending-mix:owner-1:project-1";
-    const localStorageTest = installLocalStorage({
+    const storageTest = createStorageProvider({
       [storageKey]: JSON.stringify(pendingMixSettings),
     });
-
-    try {
-      const project = createProject({
-        mixSettings: {
-          channels: [
-            {
-              channelNumber: 1,
-              trackId: "track-1",
-              enabled: true,
-              volume: 1,
-            },
-          ],
-        },
-      });
-      const trackListElement = createFakeTrackListElement();
-      let renderedMixSettings: MixSettings | undefined;
-      let savedMixSettings: MixSettings | undefined;
-
-      const controller = createProjectPlayerPageController({
-        project,
-        currentUserId: "owner-1",
-        trackListElement,
-        tracksApi: {
-          async getTracksByProjectId() {
-            return [createTrack()];
+    const project = createProject({
+      mixSettings: {
+        channels: [
+          {
+            channelNumber: 1,
+            trackId: "track-1",
+            enabled: true,
+            volume: 1,
           },
-          async deleteTrack() {
-            return createTrack();
-          },
-        },
-        projectsApi: {
-          async deleteProject() {
-            return project;
-          },
-          async saveMixSettings(_projectId, mixSettings) {
-            savedMixSettings = mixSettings;
-            return { ...project, mixSettings };
-          },
-        },
-        renderTrackList(_tracks, mixSettings) {
-          renderedMixSettings = mixSettings;
-          return "tracks";
-        },
-      });
+        ],
+      },
+    });
+    const trackListElement = createFakeTrackListElement();
+    let renderedMixSettings: MixSettings | undefined;
+    let savedMixSettings: MixSettings | undefined;
 
-      await controller.init();
-      tester.expect(renderedMixSettings).toEqual(pendingMixSettings);
+    const controller = createProjectPlayerPageController({
+      project,
+      currentUserId: "owner-1",
+      storageProvider: storageTest.storageProvider,
+      trackListElement,
+      tracksApi: {
+        async getTracksByProjectId() {
+          return [createTrack()];
+        },
+        async deleteTrack() {
+          return createTrack();
+        },
+      },
+      projectsApi: {
+        async deleteProject() {
+          return project;
+        },
+        async saveMixSettings(_projectId, mixSettings) {
+          savedMixSettings = mixSettings;
+          return { ...project, mixSettings };
+        },
+      },
+      renderTrackList(_tracks, mixSettings) {
+        renderedMixSettings = mixSettings;
+        return "tracks";
+      },
+    });
 
-      await controller.flushPendingMixSettings();
-      tester.expect(savedMixSettings).toEqual(pendingMixSettings);
-      tester.expect(localStorageTest.values.has(storageKey)).toBe(false);
-    } finally {
-      localStorageTest.restore();
-    }
+    await controller.init();
+    tester.expect(renderedMixSettings).toEqual(pendingMixSettings);
+
+    await controller.flushPendingMixSettings();
+    tester.expect(savedMixSettings).toEqual(pendingMixSettings);
+    tester.expect(storageTest.values.has(storageKey)).toBe(false);
   });
 
 });
