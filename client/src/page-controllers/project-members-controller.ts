@@ -3,6 +3,12 @@ import type {
   ProjectRole,
 } from "../types.js";
 import type { ProjectMembersApi } from "../api/project-members-api.js";
+import {
+  setControlBusy,
+  setRegionBusy,
+  type BusyControlLike,
+  type BusyRegionLike,
+} from "../ui/async-state.js";
 
 type FormEventLike = {
   preventDefault?: () => void;
@@ -23,7 +29,7 @@ type InputElementLike = {
   value: string;
 };
 
-type SelectElementLike = {
+type SelectElementLike = BusyControlLike & {
   value: string;
 };
 
@@ -31,7 +37,7 @@ type StatusElementLike = {
   textContent: string | null;
 };
 
-type MemberListElementLike = {
+type MemberListElementLike = BusyRegionLike & {
   innerHTML: string;
   addEventListener: (
     eventName: "click" | "change",
@@ -39,7 +45,7 @@ type MemberListElementLike = {
   ) => void;
 };
 
-type MemberActionTargetLike = {
+type MemberActionTargetLike = BusyControlLike & {
   value?: string;
   dataset?: {
     userId?: string;
@@ -55,6 +61,7 @@ type ProjectMembersControllerOptions = {
   form: FormElementLike;
   emailInput: InputElementLike;
   roleSelect: SelectElementLike;
+  submitButton: BusyControlLike;
   memberListElement: MemberListElementLike;
   statusElement?: StatusElementLike | null;
   projectMembersApi: ProjectMembersApi;
@@ -86,13 +93,18 @@ export function createProjectMembersController({
   form,
   emailInput,
   roleSelect,
+  submitButton,
   memberListElement,
   statusElement,
   projectMembersApi,
   renderMembers,
   confirmRemoveMember = globalThis.confirm,
 }: ProjectMembersControllerOptions) {
+  let mutationInFlight = false;
+
   async function loadMembers(): Promise<void> {
+    setRegionBusy(memberListElement, true);
+
     try {
       const members = await projectMembersApi.getProjectMembers(projectId);
       memberListElement.innerHTML = renderMembers(members);
@@ -103,11 +115,17 @@ export function createProjectMembersController({
         statusElement,
         getErrorMessage(error, "Could not load project members."),
       );
+    } finally {
+      setRegionBusy(memberListElement, false);
     }
   }
 
   async function handleSubmit(event: FormEventLike): Promise<void> {
     event.preventDefault?.();
+
+    if (mutationInFlight) {
+      return;
+    }
 
     const email = emailInput.value.trim();
     const role = roleSelect.value;
@@ -121,6 +139,9 @@ export function createProjectMembersController({
       setStatus(statusElement, "Choose Viewer or Contributor.");
       return;
     }
+
+    mutationInFlight = true;
+    setControlBusy(submitButton, true);
 
     try {
       setStatus(statusElement, "Adding member...");
@@ -138,10 +159,17 @@ export function createProjectMembersController({
         statusElement,
         getErrorMessage(error, "Could not add member."),
       );
+    } finally {
+      setControlBusy(submitButton, false);
+      mutationInFlight = false;
     }
   }
 
   async function handleRoleChange(event: MemberListEventLike): Promise<void> {
+    if (mutationInFlight) {
+      return;
+    }
+
     const target = event.target as MemberActionTargetLike | null;
     const userId = target?.dataset?.userId;
     const role = target?.value ?? "";
@@ -154,6 +182,9 @@ export function createProjectMembersController({
     ) {
       return;
     }
+
+    mutationInFlight = true;
+    setControlBusy(target, true);
 
     try {
       setStatus(statusElement, "Updating member role...");
@@ -170,25 +201,35 @@ export function createProjectMembersController({
         getErrorMessage(error, "Could not update member role."),
       );
       await loadMembers();
+    } finally {
+      setControlBusy(target, false);
+      mutationInFlight = false;
     }
   }
 
   async function handleMemberListClick(
     event: MemberListEventLike,
   ): Promise<void> {
+    if (mutationInFlight) {
+      return;
+    }
+
     const target = event.target as MemberActionTargetLike | null;
     const removeButton = target?.closest?.(
       "[data-member-remove-button]",
     );
     const userId = removeButton?.dataset?.userId;
 
-    if (!userId) {
+    if (!userId || !removeButton) {
       return;
     }
 
     if (!confirmRemoveMember("Remove this member from the project?")) {
       return;
     }
+
+    mutationInFlight = true;
+    setControlBusy(removeButton, true);
 
     try {
       setStatus(statusElement, "Removing member...");
@@ -200,6 +241,9 @@ export function createProjectMembersController({
         statusElement,
         getErrorMessage(error, "Could not remove member."),
       );
+    } finally {
+      setControlBusy(removeButton, false);
+      mutationInFlight = false;
     }
   }
 

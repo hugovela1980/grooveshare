@@ -13,6 +13,12 @@ import {
     canManageTrack,
     canPersistMix,
 } from "../permissions/project-permissions.js";
+import {
+    setControlBusy,
+    setRegionBusy,
+    type BusyControlLike,
+    type BusyRegionLike,
+} from "../ui/async-state.js";
 import type {
     MixChannelSetting,
     MixSettings,
@@ -86,7 +92,7 @@ type TimeoutId = ReturnType<typeof globalThis.setTimeout>;
 type ScheduleTimeout = (handler: () => void, delayMs: number) => TimeoutId;
 type ClearScheduledTimeout = (timeoutId: TimeoutId) => void;
 
-type TrackListElementLike = {
+type TrackListElementLike = BusyRegionLike & {
     innerHTML: string;
 
     addEventListener: (
@@ -105,7 +111,7 @@ type TrackListElementLike = {
     ) => ArrayLike<ChannelSlotElementLike>;
 };
 
-type ButtonElementLike = {
+type ButtonElementLike = BusyControlLike & {
     addEventListener: (
         eventName: "click",
         handler: () => void | Promise<void>,
@@ -131,14 +137,18 @@ type EditableTextElementLike = TextElementLike & {
     blur?: () => void | Promise<void>;
 };
 
-type DeleteButtonLike = {
+type TrackActionButtonLike = BusyControlLike & {
     dataset?: {
         trackId?: string;
     };
 };
 
 type ClosestElementLike = {
-    closest?: (selector: string) => DeleteButtonLike | null;
+    closest?: (selector: string) => TrackActionButtonLike | null;
+};
+
+type VisibilityElementLike = {
+    hidden: boolean | string;
 };
 
 type ChannelEnabledInputLike = {
@@ -177,6 +187,8 @@ type TrackListTargetLike = {
 type ProjectPlayerPageControllerOptions = {
     project: Project;
     trackListElement: TrackListElementLike;
+    loadingElement?: VisibilityElementLike | null;
+    contentElement?: VisibilityElementLike | null;
     statusElement?: TextElementLike | null;
     deleteProjectButton?: ButtonElementLike | null;
     projectTitleElement?: EditableTextElementLike | null;
@@ -205,18 +217,18 @@ type ProjectPlayerPageControllerOptions = {
     clearScheduledTimeout?: ClearScheduledTimeout;
 };
 
-function getDeleteTrackIdFromTarget(target: EventTarget | null): string | null {
+function getDeleteTrackButtonFromTarget(
+    target: EventTarget | null,
+): TrackActionButtonLike | null {
     const element = target as ClosestElementLike | null;
-    const deleteButton = element?.closest?.("[data-track-delete-button]");
-
-    return deleteButton?.dataset?.trackId ?? null;
+    return element?.closest?.("[data-track-delete-button]") ?? null;
 }
 
-function getIsAddTrackClickFromTarget(target: EventTarget | null): boolean {
+function getAddTrackButtonFromTarget(
+    target: EventTarget | null,
+): TrackActionButtonLike | null {
     const element = target as ClosestElementLike | null;
-    const addTrackButton = element?.closest?.("[data-track-add-button]");
-
-    return Boolean(addTrackButton);
+    return element?.closest?.("[data-track-add-button]") ?? null;
 }
 
 function getDefaultTrackNameFromFile(audioFile: File): string {
@@ -264,6 +276,8 @@ function setStatus(
 export function createProjectPlayerPageController({
     project,
     trackListElement,
+    loadingElement,
+    contentElement,
     statusElement,
     deleteProjectButton,
     projectTitleElement,
@@ -298,8 +312,14 @@ export function createProjectPlayerPageController({
     let persistenceInFlight: Promise<boolean> | null = null;
     let currentProjectTitle = project.title;
     let currentProjectDescription = project.description;
+    let trackMutationInFlight = false;
+    let projectDeletionInFlight = false;
 
-    async function loadTracks(): Promise<void> {
+    async function loadTracks({
+        revealPlayer = false,
+    }: { revealPlayer?: boolean } = {}): Promise<void> {
+        setRegionBusy(trackListElement, true);
+
         try {
             const tracks = await tracksApi.getTracksByProjectId(project.id);
             currentTracks = tracks;
@@ -315,6 +335,19 @@ export function createProjectPlayerPageController({
         } catch {
             trackListElement.innerHTML =
                 '<p class="empty-state">Could not load tracks.</p>';
+            setStatus(statusElement, "Could not load project tracks.");
+        } finally {
+            setRegionBusy(trackListElement, false);
+
+            if (revealPlayer) {
+                if (loadingElement) {
+                    loadingElement.hidden = true;
+                }
+
+                if (contentElement) {
+                    contentElement.hidden = false;
+                }
+            }
         }
     }
 
@@ -929,7 +962,9 @@ export function createProjectPlayerPageController({
         await persistCurrentMixSettings();
     }
 
-    async function handleAddTrack(): Promise<void> {
+    async function handleAddTrack(
+        addTrackButton: TrackActionButtonLike | null,
+    ): Promise<void> {
         if (!canContribute(projectRole)) {
             setStatus(statusElement, "Project access denied.");
             return;
@@ -940,6 +975,13 @@ export function createProjectPlayerPageController({
             return;
         }
 
+        if (trackMutationInFlight) {
+            return;
+        }
+
+        trackMutationInFlight = true;
+        setControlBusy(addTrackButton, true);
+
         try {
             const audioFile = await chooseAudioFile();
 
@@ -949,6 +991,7 @@ export function createProjectPlayerPageController({
             }
 
             setStatus(statusElement, "Uploading track...");
+            setRegionBusy(trackListElement, true);
 
             await tracksApi.uploadTrack({
                 projectId: project.id,
@@ -960,6 +1003,10 @@ export function createProjectPlayerPageController({
             setStatus(statusElement, "Track added.");
         } catch {
             setStatus(statusElement, "Could not add track.");
+        } finally {
+            setRegionBusy(trackListElement, false);
+            setControlBusy(addTrackButton, false);
+            trackMutationInFlight = false;
         }
     }
 
@@ -973,14 +1020,15 @@ export function createProjectPlayerPageController({
             return;
         }
 
-        const isAddTrackClick = getIsAddTrackClickFromTarget(event.target);
+        const addTrackButton = getAddTrackButtonFromTarget(event.target);
 
-        if (isAddTrackClick) {
-            await handleAddTrack();
+        if (addTrackButton) {
+            await handleAddTrack(addTrackButton);
             return;
         }
 
-        const deleteTrackId = getDeleteTrackIdFromTarget(event.target);
+        const deleteTrackButton = getDeleteTrackButtonFromTarget(event.target);
+        const deleteTrackId = deleteTrackButton?.dataset?.trackId;
 
         if (!deleteTrackId) {
             return;
@@ -1002,6 +1050,14 @@ export function createProjectPlayerPageController({
             return;
         }
 
+        if (trackMutationInFlight) {
+            return;
+        }
+
+        trackMutationInFlight = true;
+        setControlBusy(deleteTrackButton, true);
+        setRegionBusy(trackListElement, true);
+
         try {
             setStatus(statusElement, "Deleting track...");
             await tracksApi.deleteTrack(project.id, deleteTrackId);
@@ -1009,11 +1065,19 @@ export function createProjectPlayerPageController({
             setStatus(statusElement, "Track deleted.");
         } catch {
             setStatus(statusElement, "Could not delete track.");
+        } finally {
+            setRegionBusy(trackListElement, false);
+            setControlBusy(deleteTrackButton, false);
+            trackMutationInFlight = false;
         }
     }
 
     async function handleDeleteProjectClick(): Promise<void> {
         if (!projectsApi || !canManageProject(projectRole)) {
+            return;
+        }
+
+        if (projectDeletionInFlight) {
             return;
         }
 
@@ -1024,6 +1088,9 @@ export function createProjectPlayerPageController({
         if (!confirmed) {
             return;
         }
+
+        projectDeletionInFlight = true;
+        setControlBusy(deleteProjectButton, true);
 
         try {
             audioPlayerController?.stop?.();
@@ -1039,6 +1106,9 @@ export function createProjectPlayerPageController({
             onProjectDeleted?.();
         } catch {
             setStatus(statusElement, "Could not delete project.");
+        } finally {
+            setControlBusy(deleteProjectButton, false);
+            projectDeletionInFlight = false;
         }
     }
 
@@ -1069,7 +1139,7 @@ export function createProjectPlayerPageController({
             return handleDeleteProjectClick();
         });
 
-        await loadTracks();
+        await loadTracks({ revealPlayer: true });
 
         if (pendingServerMixSettings) {
             schedulePendingMixPersistence();

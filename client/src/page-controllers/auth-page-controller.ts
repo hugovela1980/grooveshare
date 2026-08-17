@@ -1,5 +1,9 @@
 import type { AuthApi } from "../api/auth-api.js";
 import type { User } from "../types.js";
+import {
+  setControlBusy,
+  type BusyControlLike,
+} from "../ui/async-state.js";
 
 type FormEventLike = {
   preventDefault: () => void;
@@ -24,10 +28,12 @@ type AuthPageControllerOptions = {
   loginForm: FormElementLike;
   loginEmailInput: InputElementLike;
   loginPasswordInput: InputElementLike;
+  loginSubmitButton: BusyControlLike;
   registerForm: FormElementLike;
   registerDisplayNameInput: InputElementLike;
   registerEmailInput: InputElementLike;
   registerPasswordInput: InputElementLike;
+  registerSubmitButton: BusyControlLike;
   statusElement: TextElementLike;
   authApi: Pick<AuthApi, "login" | "registerUser">;
   onAuthenticated: (user: User) => void;
@@ -43,18 +49,42 @@ export function createAuthPageController({
   loginForm,
   loginEmailInput,
   loginPasswordInput,
+  loginSubmitButton,
   registerForm,
   registerDisplayNameInput,
   registerEmailInput,
   registerPasswordInput,
+  registerSubmitButton,
   statusElement,
   authApi,
   onAuthenticated,
 }: AuthPageControllerOptions) {
+  let requestInFlight = false;
+
+  function setAuthenticationBusy(
+    activeButton: BusyControlLike,
+    otherButton: BusyControlLike,
+    isBusy: boolean,
+  ): void {
+    setControlBusy(activeButton, isBusy);
+    otherButton.disabled = isBusy;
+  }
+
   async function handleLoginSubmit(
     event: FormEventLike,
   ): Promise<void> {
     event.preventDefault();
+
+    if (requestInFlight) {
+      return;
+    }
+
+    requestInFlight = true;
+    setAuthenticationBusy(
+      loginSubmitButton,
+      registerSubmitButton,
+      true,
+    );
     statusElement.textContent = "Signing in...";
 
     try {
@@ -67,6 +97,13 @@ export function createAuthPageController({
       onAuthenticated(user);
     } catch (error) {
       statusElement.textContent = getErrorMessage(error);
+    } finally {
+      requestInFlight = false;
+      setAuthenticationBusy(
+        loginSubmitButton,
+        registerSubmitButton,
+        false,
+      );
     }
   }
 
@@ -74,6 +111,17 @@ export function createAuthPageController({
     event: FormEventLike,
   ): Promise<void> {
     event.preventDefault();
+
+    if (requestInFlight) {
+      return;
+    }
+
+    requestInFlight = true;
+    setAuthenticationBusy(
+      registerSubmitButton,
+      loginSubmitButton,
+      true,
+    );
     statusElement.textContent = "Creating account...";
 
     const email = registerEmailInput.value;
@@ -97,6 +145,13 @@ export function createAuthPageController({
       onAuthenticated(user);
     } catch (error) {
       statusElement.textContent = getErrorMessage(error);
+    } finally {
+      requestInFlight = false;
+      setAuthenticationBusy(
+        registerSubmitButton,
+        loginSubmitButton,
+        false,
+      );
     }
   }
 

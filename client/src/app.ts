@@ -34,6 +34,8 @@ import {
 import { renderProjectList } from "./templates/project-list.js";
 import { renderMixChannelSlots } from "./templates/mix-channel-slots.js";
 import { renderProjectMemberList } from "./templates/project-members.js";
+import { renderAppLoadingState } from "./templates/loading-state.js";
+import { setControlBusy } from "./ui/async-state.js";
 import type { Project, User } from "./types.js";
 
 type AppElementLike = {
@@ -114,6 +116,23 @@ function chooseAudioFile(): Promise<File | null> {
   });
 }
 
+async function runBusyButtonAction(
+  button: HTMLButtonElement | null,
+  action: () => void | Promise<void>,
+): Promise<void> {
+  if (button?.disabled) {
+    return;
+  }
+
+  setControlBusy(button, true);
+
+  try {
+    await action();
+  } finally {
+    setControlBusy(button, false);
+  }
+}
+
 function initializeMobileNavigation({
   appElement,
   onHome,
@@ -133,11 +152,15 @@ function initializeMobileNavigation({
   );
 
   homeButton?.addEventListener("click", () => {
-    void onHome?.();
+    if (!onHome) {
+      return;
+    }
+
+    void runBusyButtonAction(homeButton, onHome);
   });
 
   logoutButton?.addEventListener("click", () => {
-    void onLogout();
+    void runBusyButtonAction(logoutButton, onLogout);
   });
 }
 
@@ -159,6 +182,10 @@ function initializeAuthPage({
     appElement,
     "#login-password",
   );
+  const loginSubmitButton = getElement<HTMLButtonElement>(
+    appElement,
+    "#login-submit-button",
+  );
   const registerForm = getElement<HTMLFormElement>(
     appElement,
     "#register-form",
@@ -175,6 +202,10 @@ function initializeAuthPage({
     appElement,
     "#register-password",
   );
+  const registerSubmitButton = getElement<HTMLButtonElement>(
+    appElement,
+    "#register-submit-button",
+  );
   const statusElement = getElement<HTMLParagraphElement>(
     appElement,
     "#auth-status",
@@ -184,10 +215,12 @@ function initializeAuthPage({
     !loginForm ||
     !loginEmailInput ||
     !loginPasswordInput ||
+    !loginSubmitButton ||
     !registerForm ||
     !registerDisplayNameInput ||
     !registerEmailInput ||
     !registerPasswordInput ||
+    !registerSubmitButton ||
     !statusElement
   ) {
     return;
@@ -197,10 +230,12 @@ function initializeAuthPage({
     loginForm,
     loginEmailInput,
     loginPasswordInput,
+    loginSubmitButton,
     registerForm,
     registerDisplayNameInput,
     registerEmailInput,
     registerPasswordInput,
+    registerSubmitButton,
     statusElement,
     authApi: authenticationApi,
     onAuthenticated,
@@ -238,7 +273,7 @@ function initializeProjectMenuPage({
   );
 
   logoutButton?.addEventListener("click", () => {
-    void onLogout();
+    void runBusyButtonAction(logoutButton, onLogout);
   });
 
   initializeMobileNavigation({
@@ -500,6 +535,15 @@ function initializeProjectPlayerPage({
     return null;
   }
 
+  const loadingElement = getElement<HTMLElement>(
+    appElement,
+    "#project-player-loading",
+  );
+  const contentElement = getElement<HTMLElement>(
+    appElement,
+    "#project-player-content",
+  );
+
   const trackListElement = getElement<HTMLDivElement>(
     appElement,
     "#player-track-list",
@@ -605,6 +649,8 @@ function initializeProjectPlayerPage({
   const controller = createProjectPlayerPageController({
     project: selectedProject,
     trackListElement,
+    loadingElement,
+    contentElement,
     statusElement,
     deleteProjectButton,
     projectTitleElement,
@@ -643,11 +689,11 @@ function initializeProjectPlayerPage({
   }
 
   backButton?.addEventListener("click", () => {
-    void leavePlayerWithBack();
+    void runBusyButtonAction(backButton, leavePlayerWithBack);
   });
 
   logoutButton?.addEventListener("click", () => {
-    void logoutFromPlayer();
+    void runBusyButtonAction(logoutButton, logoutFromPlayer);
   });
 
   initializeMobileNavigation({
@@ -705,6 +751,10 @@ function initializeProjectPlayerPage({
       appElement,
       "#project-member-role",
     );
+    const memberSubmitButton = getElement<HTMLButtonElement>(
+      appElement,
+      "#add-project-member-button",
+    );
     const memberListElement = getElement<HTMLDivElement>(
       appElement,
       "#project-member-list",
@@ -718,6 +768,7 @@ function initializeProjectPlayerPage({
       memberForm &&
       memberEmailInput &&
       memberRoleSelect &&
+      memberSubmitButton &&
       memberListElement
     ) {
       const membersController = createProjectMembersController({
@@ -725,6 +776,7 @@ function initializeProjectPlayerPage({
         form: memberForm,
         emailInput: memberEmailInput,
         roleSelect: memberRoleSelect,
+        submitButton: memberSubmitButton,
         memberListElement,
         statusElement: memberStatusElement,
         projectMembersApi,
@@ -977,6 +1029,14 @@ export function createGrooveShareApp({
     const navigationRevision = ++historyNavigationRevision;
 
     disposeCurrentPage();
+
+    if (
+      route.screen === "project-player" &&
+      route.projectId &&
+      selectedProject?.id !== route.projectId
+    ) {
+      appElement.innerHTML = renderAppLoadingState("Loading your project...");
+    }
 
     const resolvedRoute = await resolveAuthenticatedRoute(route);
 

@@ -50,7 +50,7 @@ export function renderAuthPage({
               />
             </label>
 
-            <button type="submit">Log In</button>
+            <button id="login-submit-button" type="submit">Log In</button>
           </form>
         </section>
 
@@ -97,7 +97,7 @@ export function renderAuthPage({
               Passwords must be at least 15 characters.
             </p>
 
-            <button type="submit">Create Account</button>
+            <button id="register-submit-button" type="submit">Create Account</button>
           </form>
         </section>
       </div>

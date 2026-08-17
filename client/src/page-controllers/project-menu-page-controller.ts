@@ -1,4 +1,5 @@
 import type { Project } from "../types.js";
+import { setRegionBusy, type BusyRegionLike } from "../ui/async-state.js";
 
 type ProjectsApi = {
     getProjects: () => Promise<Project[]>;
@@ -8,7 +9,7 @@ type ClickEventLike = {
     target: EventTarget | null;
 };
 
-type ProjectListElementLike = {
+type ProjectListElementLike = BusyRegionLike & {
     innerHTML: string;
     addEventListener: (
         eventName: "click",
@@ -49,6 +50,8 @@ export function createProjectMenuPageController({
     let currentProjects: Project[] = [];
 
     async function loadProjects(): Promise<void> {
+        setRegionBusy(projectListElement, true);
+
         try {
             const projects = await projectsApi.getProjects();
 
@@ -63,6 +66,8 @@ export function createProjectMenuPageController({
         } catch {
             projectListElement.innerHTML =
                 '<p class="empty-state">Could not load projects.</p>';
+        } finally {
+            setRegionBusy(projectListElement, false);
         }
     }
 

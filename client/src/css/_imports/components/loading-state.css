@@ -1,0 +1,52 @@
+.loading-state {
+    display: grid;
+    min-height: 12rem;
+    place-items: center;
+    align-content: center;
+    gap: 0.8rem;
+    padding: 1.5rem;
+    color: var(--color-text-muted);
+    text-align: center;
+}
+
+.loading-state--compact {
+    min-height: 6rem;
+    padding: 1rem;
+}
+
+.loading-state__spinner {
+    width: 2rem;
+    height: 2rem;
+    border: 0.2rem solid var(--border-input);
+    border-top-color: var(--color-accent);
+    border-radius: 50%;
+    animation: grooveshare-spin 0.8s linear infinite;
+}
+
+.loading-state__message {
+    max-width: 28rem;
+    line-height: 1.5;
+}
+
+.app-loading-page {
+    display: grid;
+    min-height: 100vh;
+    place-items: center;
+}
+
+.app-loading-page__state {
+    width: min(100%, 30rem);
+}
+
+@keyframes grooveshare-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .loading-state__spinner,
+    button[data-busy="true"]::after {
+        animation: none;
+    }
+}

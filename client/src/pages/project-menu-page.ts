@@ -1,4 +1,5 @@
 import { renderMobileNavigation } from "../templates/mobile-navigation.js";
+import { renderLoadingState } from "../templates/loading-state.js";
 import type { User } from "../types.js";
 
 function escapeHtml(value: string): string {
@@ -47,7 +48,9 @@ export function renderProjectMenuPage(
           Current Projects
         </h2>
 
-        <div id="project-list" class="project-menu-panel__list"></div>
+        <div id="project-list" class="project-menu-panel__list">
+          ${renderLoadingState("Loading projects...", { compact: true })}
+        </div>
 
         <p
           id="project-menu-status"

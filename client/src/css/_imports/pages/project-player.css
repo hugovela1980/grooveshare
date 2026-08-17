@@ -237,3 +237,26 @@
 .project-members-panel[hidden] {
     display: none;
 }
+
+.project-player-loading {
+    min-height: 18rem;
+}
+
+.project-player-loading[hidden],
+.project-player-content[hidden] {
+    display: none;
+}
+
+.project-player-loading__state {
+    min-height: 18rem;
+}
+
+#player-track-list[aria-busy="true"],
+#project-member-list[aria-busy="true"] {
+    cursor: progress;
+}
+
+.project-member-list select[aria-busy="true"] {
+    cursor: progress;
+    opacity: 0.65;
+}

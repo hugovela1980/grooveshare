@@ -11,6 +11,8 @@ tester.describe("page templates", () => {
     tester.expect(html.includes("Log in")).toBe(true);
     tester.expect(html.includes('id="login-form"')).toBe(true);
     tester.expect(html.includes('id="register-form"')).toBe(true);
+    tester.expect(html.includes('id="login-submit-button"')).toBe(true);
+    tester.expect(html.includes('id="register-submit-button"')).toBe(true);
     tester.expect(html.includes('id="auth-status"')).toBe(true);
     tester.expect(html.includes('minlength="15"')).toBe(true);
   });
@@ -40,6 +42,8 @@ tester.describe("page templates", () => {
     tester.expect(html.includes("Current Projects")).toBe(true);
     tester.expect(html.includes("Create a New Project")).toBe(true);
     tester.expect(html.includes("project-list")).toBe(true);
+    tester.expect(html.includes("Loading projects...")).toBe(true);
+    tester.expect(html.includes("loading-state__spinner")).toBe(true);
     tester.expect(html.includes("add-project-button")).toBe(true);
   });
 
@@ -107,6 +111,9 @@ tester.describe("page templates", () => {
     tester.expect(html.includes("Audio Player")).toBe(true);
     tester.expect(html.includes("player-area")).toBe(true);
     tester.expect(html.includes("player-track-list")).toBe(true);
+    tester.expect(html.includes('id="project-player-loading"')).toBe(true);
+    tester.expect(html.includes("Loading your project...")).toBe(true);
+    tester.expect(html.includes('id="project-player-content"')).toBe(true);
     tester.expect(html.includes('id="player-logout-button"')).toBe(true);
     tester.expect(html.includes('id="mobile-nav-home-button"')).toBe(true);
     tester.expect(html.includes('id="mobile-nav-logout-button"')).toBe(true);
@@ -138,5 +145,9 @@ tester.describe("page templates", () => {
     tester.expect(html.includes("Owner Controls")).toBe(true);
     tester.expect(html.includes("Delete Project")).toBe(true);
     tester.expect(html.includes('id="project-members-panel"')).toBe(true);
+    tester.expect(html.includes("Loading your project...")).toBe(true);
+    tester.expect(html.includes('id="project-player-content"')).toBe(true);
+    tester.expect(html.includes('id="add-project-member-button"')).toBe(true);
+    tester.expect(html.includes("Loading project members...")).toBe(true);
   });
 });

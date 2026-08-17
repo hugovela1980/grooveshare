@@ -77,6 +77,7 @@ function createFakeTrackListElement() {
     number,
     { textContent: string }
   >();
+  const attributes = new Map<string, string>();
 
   function rebuildChannelSlots(): void {
     channelSlots = channelSettings.map((slot) => {
@@ -107,6 +108,18 @@ function createFakeTrackListElement() {
 
   return {
     innerHTML: "",
+
+    setAttribute(name: string, value: string) {
+      attributes.set(name, value);
+    },
+
+    removeAttribute(name: string) {
+      attributes.delete(name);
+    },
+
+    getAttribute(name: string) {
+      return attributes.get(name) ?? null;
+    },
 
     addEventListener(
       eventName: "click" | "input" | "change" | "keydown" | "focusout",
@@ -620,6 +633,48 @@ function createFakeEditableTextElement(initialText: string) {
 }
 
 tester.describe("project player page controller", () => {
+  tester.it("keeps the player shell loading until initial tracks finish loading", async () => {
+    const trackListElement = createFakeTrackListElement();
+    const loadingElement = { hidden: false as boolean | string };
+    const contentElement = { hidden: true as boolean | string };
+    let resolveTracks!: (tracks: Track[]) => void;
+
+    const tracksPromise = new Promise<Track[]>((resolve) => {
+      resolveTracks = resolve;
+    });
+
+    const controller = createProjectPlayerPageController({
+      project: createProject(),
+      trackListElement,
+      loadingElement,
+      contentElement,
+      tracksApi: {
+        async getTracksByProjectId() {
+          return tracksPromise;
+        },
+        async deleteTrack() {
+          return createTrack();
+        },
+      },
+      renderTrackList(tracks) {
+        return tracks.map((track) => track.name).join(", ");
+      },
+    });
+
+    const pendingInit = controller.init();
+
+    tester.expect(loadingElement.hidden).toBe(false);
+    tester.expect(contentElement.hidden).toBe(true);
+    tester.expect(trackListElement.getAttribute("aria-busy")).toBe("true");
+
+    resolveTracks([createTrack()]);
+    await pendingInit;
+
+    tester.expect(loadingElement.hidden).toBe(true);
+    tester.expect(contentElement.hidden).toBe(false);
+    tester.expect(trackListElement.getAttribute("aria-busy")).toBe(null);
+  });
+
   tester.it("loads tracks for the selected project on init", async () => {
     const trackListElement = createFakeTrackListElement();
 

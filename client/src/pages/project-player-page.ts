@@ -2,6 +2,7 @@ import { renderAudioPlayer } from "../templates/audio-player.js";
 import { renderMobileNavigation } from "../templates/mobile-navigation.js";
 import { renderProjectActionsMenu } from "../templates/project-actions-menu.js";
 import { renderProjectMembersPanel } from "../templates/project-members.js";
+import { renderLoadingState } from "../templates/loading-state.js";
 import type { Project, ProjectRole } from "../types.js";
 
 function escapeHtml(value: string): string {
@@ -53,6 +54,8 @@ export function renderProjectPlayerPage(project: Project | null = null): string 
   const editableClass = canManageProject
     ? " project-player-editable--enabled"
     : "";
+  const loadingHiddenAttribute = project ? "" : "hidden";
+  const contentHiddenAttribute = project ? "hidden" : "";
 
   return /*html*/ `
     <main class="app-shell project-player-page" data-page="project-player">
@@ -111,19 +114,35 @@ export function renderProjectPlayerPage(project: Project | null = null): string 
         </div>
       </header>
 
-      ${renderAudioPlayer()}
+      <div
+        id="project-player-loading"
+        class="project-player-loading"
+        ${loadingHiddenAttribute}
+      >
+        ${renderLoadingState("Loading your project...", {
+          className: "project-player-loading__state",
+        })}
+      </div>
 
-      <section class="panel project-player-tracks-panel">
-        <h2>Tracks</h2>
-        <div id="player-track-list"></div>
-        <p
-          id="project-player-status"
-          class="status-message"
-          aria-live="polite"
-        ></p>
-      </section>
+      <div
+        id="project-player-content"
+        class="project-player-content"
+        ${contentHiddenAttribute}
+      >
+        ${renderAudioPlayer()}
 
-      ${canManageProject ? renderProjectMembersPanel({ hidden: true }) : ""}
+        <section class="panel project-player-tracks-panel">
+          <h2>Tracks</h2>
+          <div id="player-track-list"></div>
+          <p
+            id="project-player-status"
+            class="status-message"
+            aria-live="polite"
+          ></p>
+        </section>
+
+        ${canManageProject ? renderProjectMembersPanel({ hidden: true }) : ""}
+      </div>
 
       ${renderMobileNavigation()}
     </main>

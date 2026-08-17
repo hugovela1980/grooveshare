@@ -1,6 +1,7 @@
 import { createGrooveShareApp } from "./app.js";
 import { clientConfig } from "./config/client-config.js";
 import { mountDevToolbar } from "./dev/dev-toolbar.js";
+import { renderAppLoadingState } from "./templates/loading-state.js";
 import "./css/main.css";
 
 const appElement = document.querySelector<HTMLDivElement>("#app");
@@ -8,6 +9,8 @@ const appElement = document.querySelector<HTMLDivElement>("#app");
 if (!appElement) {
   throw new Error("Could not find #app element");
 }
+
+appElement.innerHTML = renderAppLoadingState("Loading GrooveShare...");
 
 const app = createGrooveShareApp({
   appElement,

@@ -38,9 +38,19 @@ function createTrack(overrides: Partial<Track> = {}): Track {
 
 function createFakeButton() {
     let clickHandler: (() => void | Promise<void>) | null = null;
+    const attributes = new Map<string, string>();
 
     return {
         disabled: false,
+        setAttribute(name: string, value: string) {
+            attributes.set(name, value);
+        },
+        removeAttribute(name: string) {
+            attributes.delete(name);
+        },
+        getAttribute(name: string) {
+            return attributes.get(name) ?? null;
+        },
 
         addEventListener(
             eventName: "click",
@@ -228,4 +238,49 @@ tester.describe("create project confirmation controller", () => {
         tester.expect(statusElement.textContent).toBe("Could not create project.");
         tester.expect(submitButton.disabled).toBe(false);
     });
+    tester.it("marks Submit busy while project creation is in flight", async () => {
+        const submitButton = createFakeButton();
+        const statusElement = createFakeTextElement();
+        const projectDraftState = createProjectDraftState();
+        projectDraftState.setProjectDraft({
+            title: "Bass Groove",
+            description: "Practice loop",
+        });
+
+        let resolveCreate!: (project: Project) => void;
+        const createPromise = new Promise<Project>((resolve) => {
+            resolveCreate = resolve;
+        });
+
+        const controller = createCreateProjectConfirmationController({
+            submitButton,
+            statusElement,
+            projectDraftState,
+            projectsApi: {
+                async createProject() {
+                    return createPromise;
+                },
+            },
+            tracksApi: {
+                async uploadTrack() {
+                    return createTrack();
+                },
+            },
+            onProjectSubmitted() {},
+        });
+
+        controller.init();
+        const pendingClick = submitButton.click();
+
+        tester.expect(submitButton.disabled).toBe(true);
+        tester.expect(submitButton.getAttribute("data-busy")).toBe("true");
+        tester.expect(statusElement.textContent).toBe("Creating project...");
+
+        resolveCreate(createProject());
+        await pendingClick;
+
+        tester.expect(submitButton.disabled).toBe(false);
+        tester.expect(submitButton.getAttribute("data-busy")).toBe(null);
+    });
+
 });

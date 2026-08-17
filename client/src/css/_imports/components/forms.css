@@ -15,3 +15,13 @@ label {
     color: var(--color-text-muted);
     font-weight: 700;
 }
+input:disabled,
+textarea:disabled,
+select:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+select[aria-busy="true"] {
+    cursor: progress;
+}

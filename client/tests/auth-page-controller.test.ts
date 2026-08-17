@@ -15,14 +15,33 @@ const user: User = {
   updatedAt: "2026-01-01T00:00:00.000Z",
 };
 
+function createFakeBusyButton() {
+  const attributes = new Map<string, string>();
+
+  return {
+    disabled: false,
+    setAttribute(name: string, value: string) {
+      attributes.set(name, value);
+    },
+    removeAttribute(name: string) {
+      attributes.delete(name);
+    },
+    getAttribute(name: string) {
+      return attributes.get(name) ?? null;
+    },
+  };
+}
+
 function createSetup() {
   const loginForm = createFakeForm();
   const loginEmailInput = createFakeInput("musician@example.com");
   const loginPasswordInput = createFakeInput("a sufficiently long password");
+  const loginSubmitButton = createFakeBusyButton();
   const registerForm = createFakeForm();
   const registerDisplayNameInput = createFakeInput("Musician");
   const registerEmailInput = createFakeInput("new@example.com");
   const registerPasswordInput = createFakeInput("another long password");
+  const registerSubmitButton = createFakeBusyButton();
   const statusElement = createFakeTextElement();
   const authenticatedUsers: User[] = [];
 
@@ -30,10 +49,12 @@ function createSetup() {
     loginForm,
     loginEmailInput,
     loginPasswordInput,
+    loginSubmitButton,
     registerForm,
     registerDisplayNameInput,
     registerEmailInput,
     registerPasswordInput,
+    registerSubmitButton,
     statusElement,
     authenticatedUsers,
   };
@@ -130,4 +151,43 @@ tester.describe("auth page controller", () => {
       "Invalid email or password.",
     );
   });
+  tester.it("shows a busy button and blocks the other auth action while login is pending", async () => {
+    const setup = createSetup();
+    let resolveLogin!: (value: User) => void;
+
+    const loginPromise = new Promise<User>((resolve) => {
+      resolveLogin = resolve;
+    });
+
+    const controller = createAuthPageController({
+      ...setup,
+      authApi: {
+        async login() {
+          return loginPromise;
+        },
+        async registerUser() {
+          return user;
+        },
+      },
+      onAuthenticated(authenticatedUser) {
+        setup.authenticatedUsers.push(authenticatedUser);
+      },
+    });
+
+    controller.init();
+    const pendingSubmit = setup.loginForm.submit();
+
+    tester.expect(setup.loginSubmitButton.disabled).toBe(true);
+    tester.expect(setup.registerSubmitButton.disabled).toBe(true);
+    tester.expect(setup.loginSubmitButton.getAttribute("data-busy")).toBe("true");
+    tester.expect(setup.statusElement.textContent).toBe("Signing in...");
+
+    resolveLogin(user);
+    await pendingSubmit;
+
+    tester.expect(setup.loginSubmitButton.disabled).toBe(false);
+    tester.expect(setup.registerSubmitButton.disabled).toBe(false);
+    tester.expect(setup.loginSubmitButton.getAttribute("data-busy")).toBe(null);
+  });
+
 });

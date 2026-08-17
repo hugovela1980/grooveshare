@@ -28,6 +28,11 @@ function createFakeElements() {
     },
     emailInput: { value: "member@example.com" },
     roleSelect: { value: "viewer" },
+    submitButton: {
+      disabled: false,
+      setAttribute() {},
+      removeAttribute() {},
+    },
     memberListElement: {
       innerHTML: "",
       addEventListener(
@@ -87,6 +92,7 @@ tester.describe("project members controller", () => {
       form: elements.form,
       emailInput: elements.emailInput,
       roleSelect: elements.roleSelect,
+      submitButton: elements.submitButton,
       memberListElement: elements.memberListElement,
       statusElement: elements.statusElement,
       projectMembersApi: {

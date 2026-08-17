@@ -1,8 +1,11 @@
 import type { PendingTrackDraft } from "../project-draft/project-draft-state.js";
 import type { CreateProjectInput, Project, Track } from "../types.js";
+import {
+    setControlBusy,
+    type BusyControlLike,
+} from "../ui/async-state.js";
 
-type ButtonLike = {
-    disabled?: boolean;
+type ButtonLike = BusyControlLike & {
     addEventListener: (
         eventName: "click",
         handler: () => void | Promise<void>,
@@ -56,7 +59,13 @@ export function createCreateProjectConfirmationController({
     tracksApi,
     onProjectSubmitted,
 }: CreateProjectConfirmationControllerOptions) {
+    let submissionInFlight = false;
+
     async function handleSubmit(): Promise<void> {
+        if (submissionInFlight) {
+            return;
+        }
+
         const snapshot = projectDraftState.getSnapshot();
 
         if (!snapshot.project) {
@@ -64,8 +73,10 @@ export function createCreateProjectConfirmationController({
             return;
         }
 
+        submissionInFlight = true;
+        setControlBusy(submitButton, true);
+
         try {
-            submitButton.disabled = true;
             setStatus(statusElement, "Creating project...");
 
             const project = await projectsApi.createProject(snapshot.project);
@@ -93,7 +104,8 @@ export function createCreateProjectConfirmationController({
         } catch {
             setStatus(statusElement, "Could not create project.");
         } finally {
-            submitButton.disabled = false;
+            setControlBusy(submitButton, false);
+            submissionInFlight = false;
         }
     }
 

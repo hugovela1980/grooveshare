@@ -1,4 +1,5 @@
 import type { ProjectMember } from "../types.js";
+import { renderLoadingState } from "./loading-state.js";
 
 function escapeHtml(value: string): string {
   return value
@@ -113,10 +114,12 @@ export function renderProjectMembersPanel({
           </select>
         </label>
 
-        <button class="button" type="submit">Add Member</button>
+        <button id="add-project-member-button" class="button" type="submit">Add Member</button>
       </form>
 
-      <div id="project-member-list"></div>
+      <div id="project-member-list">
+        ${renderLoadingState("Loading project members...", { compact: true })}
+      </div>
 
       <p
         id="project-member-status"

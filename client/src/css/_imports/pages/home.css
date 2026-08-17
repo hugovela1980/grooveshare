@@ -128,3 +128,6 @@
         width: min(100%, 18rem);
     }
 }
+.project-menu-panel__list > .loading-state {
+    width: 100%;
+}
