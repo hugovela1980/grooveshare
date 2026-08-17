@@ -1,4 +1,4 @@
-export const MAX_MOBILE_AUDIO_FILE_SIZE_BYTES = 50 * 1024 * 1024;
+export const MAX_MOBILE_AUDIO_FILE_SIZE_BYTES = 100 * 1024 * 1024;
 
 export const MOBILE_AUDIO_FILE_ACCEPT = [
   "audio/*",
@@ -95,6 +95,11 @@ export function formatFileSize(sizeBytes: number): string {
   }
 
   const sizeMb = sizeKb / 1024;
+
+  if (Number.isInteger(sizeMb)) {
+    return `${sizeMb.toFixed(0)} MB`;
+  }
+
   return `${sizeMb.toFixed(sizeMb >= 10 ? 1 : 2)} MB`;
 }
 

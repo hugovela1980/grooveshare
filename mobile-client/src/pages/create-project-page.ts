@@ -1,5 +1,9 @@
 import { renderMobileNavigation } from "../templates/mobile-navigation.js";
-import { MOBILE_AUDIO_FILE_ACCEPT } from "../uploads/mobile-audio-files.js";
+import {
+  formatFileSize,
+  MAX_MOBILE_AUDIO_FILE_SIZE_BYTES,
+  MOBILE_AUDIO_FILE_ACCEPT,
+} from "../uploads/mobile-audio-files.js";
 import type { CreateProjectInput } from "../types.js";
 
 function escapeHtml(value: string): string {
@@ -89,7 +93,7 @@ export function renderCreateProjectPage(
             </button>
 
             <p class="create-project-audio-help">
-              WAV, MP3, M4A, AAC, OGG, WebM, or FLAC. Maximum 50 MB per file.
+              WAV, MP3, M4A, AAC, OGG, WebM, or FLAC. Maximum ${formatFileSize(MAX_MOBILE_AUDIO_FILE_SIZE_BYTES)} per file.
             </p>
 
             <input

@@ -1,4 +1,7 @@
-import { validateAudioUploadFile } from "../src/uploads/upload-validation.js";
+import {
+  DEFAULT_MAX_AUDIO_FILE_SIZE_BYTES,
+  validateAudioUploadFile,
+} from "../src/uploads/upload-validation.js";
 import { tester } from "./test-runner/tester.js";
 
 function createFile({
@@ -20,6 +23,10 @@ function createFile({
 }
 
 tester.describe("audio upload validation", () => {
+  tester.it("uses a 100 MB default audio-file limit", () => {
+    tester.expect(DEFAULT_MAX_AUDIO_FILE_SIZE_BYTES).toBe(100 * 1024 * 1024);
+  });
+
   tester.it("normalizes common m4a MIME aliases to audio/mp4", () => {
     for (const mimeType of ["audio/mp4", "audio/m4a", "audio/x-m4a", "video/mp4"]) {
       const result = validateAudioUploadFile(

@@ -157,7 +157,7 @@ tester.describe("mobile project/menu templates", () => {
 
     tester.expect(html.includes("Choose Audio Files")).toBe(true);
     tester.expect(html.includes("M4A")).toBe(true);
-    tester.expect(html.includes("50 MB")).toBe(true);
+    tester.expect(html.includes("100 MB")).toBe(true);
     tester.expect(html.includes(".m4a")).toBe(true);
     tester.expect(html.includes("Review Project")).toBe(true);
   });
@@ -186,7 +186,7 @@ tester.describe("mobile audio-file validation", () => {
     tester.expect(result.ok).toBe(false);
 
     if (!result.ok) {
-      tester.expect(result.error.includes("50.0 MB")).toBe(true);
+      tester.expect(result.error.includes("100 MB")).toBe(true);
     }
   });
 

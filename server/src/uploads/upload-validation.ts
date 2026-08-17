@@ -1,7 +1,7 @@
 import path from "node:path";
 import type { MultipartFile } from "./multipart-form-data.js";
 
-export const DEFAULT_MAX_AUDIO_FILE_SIZE_BYTES = 50 * 1024 * 1024;
+export const DEFAULT_MAX_AUDIO_FILE_SIZE_BYTES = 100 * 1024 * 1024;
 
 const CANONICAL_AUDIO_MIME_BY_EXTENSION = new Map([
   [".wav", "audio/wav"],
