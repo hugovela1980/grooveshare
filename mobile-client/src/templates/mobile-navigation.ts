@@ -2,6 +2,7 @@ export type MobileNavigationItem = "home" | "library" | "settings" | "logout";
 
 type MobileNavigationOptions = {
   activeItem?: Exclude<MobileNavigationItem, "logout"> | null;
+  mode?: "authenticated" | "guest";
 };
 
 function renderHomeIcon(): string {
@@ -50,8 +51,10 @@ function getActiveAttribute(
 
 export function renderMobileNavigation({
   activeItem = null,
+  mode = "authenticated",
 }: MobileNavigationOptions = {}): string {
   const homeIsActive = activeItem === "home";
+  const isGuest = mode === "guest";
 
   return /*html*/ `
     <nav class="mobile-navigation" aria-label="GrooveShare navigation">
@@ -91,12 +94,12 @@ export function renderMobileNavigation({
       </button>
 
       <button
-        id="mobile-nav-logout-button"
+        id="${isGuest ? "mobile-nav-auth-button" : "mobile-nav-logout-button"}"
         class="mobile-navigation__item"
         type="button"
       >
         <span class="mobile-navigation__icon">${renderLogoutIcon()}</span>
-        <span class="mobile-navigation__label">Log Out</span>
+        <span class="mobile-navigation__label">${isGuest ? "Log In" : "Log Out"}</span>
       </button>
     </nav>
   `;

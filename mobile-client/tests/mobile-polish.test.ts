@@ -8,6 +8,8 @@ import { renderAuthPage } from "../src/pages/auth-page.js";
 import { renderCreateProjectPage } from "../src/pages/create-project-page.js";
 import { renderProjectList } from "../src/templates/project-list.js";
 import { renderProjectMemberList, renderProjectMembersPanel } from "../src/templates/project-members.js";
+import { renderProjectInvitationPanel } from "../src/templates/project-invitation-controls.js";
+import { renderProjectActionsMenu } from "../src/templates/project-actions-menu.js";
 import {
   renderProjectEditDialog,
   renderTrackEditDialog,
@@ -321,12 +323,91 @@ tester.describe("mobile edit-dialog polish", () => {
 });
 
 tester.describe("mobile Owner controls", () => {
-  tester.it("renders membership management as a modal with a dedicated close control", () => {
-    const html = renderProjectMembersPanel({ hidden: true });
+  tester.it("separates Manage Members and Collaboration Link in the project menu", () => {
+    const menuHtml = renderProjectActionsMenu();
+    const membersHtml = renderProjectMembersPanel({ hidden: true });
+    const invitationHtml = renderProjectInvitationPanel({ hidden: true });
 
-    tester.expect(html.includes('class="modal owner-controls-modal"')).toBe(true);
-    tester.expect(html.includes('id="close-owner-controls-button"')).toBe(true);
-    tester.expect(html.includes("Viewer — listen only")).toBe(true);
+    tester.expect(menuHtml.includes("Manage Members")).toBe(true);
+    tester.expect(menuHtml.includes("Collaboration Link")).toBe(true);
+    tester.expect(membersHtml.includes('class="modal owner-controls-modal"')).toBe(true);
+    tester.expect(membersHtml.includes('id="close-project-members-button"')).toBe(true);
+    tester.expect(membersHtml.includes("Manage Members")).toBe(true);
+    tester.expect(membersHtml.includes("Viewer — listen only")).toBe(true);
+    tester.expect(membersHtml.includes("Generate Link")).toBe(false);
+    tester.expect(invitationHtml.includes('id="project-invitation-panel"')).toBe(true);
+    tester.expect(invitationHtml.includes("Generate Link")).toBe(true);
+    tester.expect(invitationHtml.includes("project-invitation-controls__secondary-action")).toBe(true);
+  });
+
+  tester.it("can reload the member list after the modal has already been initialized", async () => {
+    const form = createForm();
+    const submitButton = createButton();
+    const roleSelect = {
+      ...createButton(),
+      value: "viewer",
+    };
+    const memberListElement = {
+      innerHTML: "",
+      addEventListener() {},
+      setAttribute() {},
+      removeAttribute() {},
+    };
+    let loadCount = 0;
+    let members: ProjectMember[] = [
+      {
+        user,
+        role: "owner",
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      },
+    ];
+
+    const controller = createProjectMembersController({
+      projectId: "project-1",
+      form,
+      emailInput: { value: "" },
+      roleSelect,
+      submitButton,
+      memberListElement,
+      projectMembersApi: {
+        async getProjectMembers() {
+          loadCount += 1;
+          return members;
+        },
+        async addProjectMember() {
+          throw new Error("not used");
+        },
+        async updateProjectMemberRole() {
+          throw new Error("not used");
+        },
+        async removeProjectMember() {
+          throw new Error("not used");
+        },
+      },
+      renderMembers: renderProjectMemberList,
+    });
+
+    await controller.init();
+    members = [
+      ...members,
+      {
+        user: {
+          ...user,
+          id: "user-2",
+          displayName: "New Collaborator",
+          email: "new@example.com",
+        },
+        role: "contributor",
+        createdAt: "2026-01-02T00:00:00.000Z",
+        updatedAt: "2026-01-02T00:00:00.000Z",
+      },
+    ];
+
+    await controller.loadMembers();
+
+    tester.expect(loadCount).toBe(2);
+    tester.expect(memberListElement.innerHTML.includes("New Collaborator")).toBe(true);
   });
 
   tester.it("dismisses member-email focus after a member is added", async () => {

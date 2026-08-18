@@ -13,6 +13,7 @@ function escapeHtml(value: string): string {
 
 export function renderProjectMenuPage(
   currentUser: User | null = null,
+  { statusMessage = "" }: { statusMessage?: string } = {},
 ): string {
   const sessionMarkup = currentUser
     ? /*html*/ `
@@ -66,7 +67,7 @@ export function renderProjectMenuPage(
           id="project-menu-status"
           class="status-message"
           aria-live="polite"
-        ></p>
+        >${statusMessage ? escapeHtml(statusMessage) : ""}</p>
       </section>
 
       ${currentUser ? renderMobileNavigation({ activeItem: "home" }) : ""}

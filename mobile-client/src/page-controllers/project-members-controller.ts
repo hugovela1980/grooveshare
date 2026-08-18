@@ -270,5 +270,6 @@ export function createProjectMembersController({
 
   return {
     init,
+    loadMembers,
   };
 }

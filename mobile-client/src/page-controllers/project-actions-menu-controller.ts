@@ -44,10 +44,15 @@ type ProjectActionsMenuControllerOptions = {
   triggerButton: ButtonLike;
   menuElement: MenuLike;
   editProjectButton?: ButtonLike | null;
-  ownerControlsButton?: ButtonLike | null;
-  ownerControlsPanel?: PanelLike | null;
-  ownerControlsCloseButton?: ButtonLike | null;
+  manageMembersButton?: ButtonLike | null;
+  manageMembersPanel?: PanelLike | null;
+  manageMembersCloseButton?: ButtonLike | null;
+  collaborationLinkButton?: ButtonLike | null;
+  collaborationLinkPanel?: PanelLike | null;
+  collaborationLinkCloseButton?: ButtonLike | null;
   onEditProject?: () => void;
+  onOpenManageMembers?: () => void | Promise<void>;
+  onOpenCollaborationLink?: () => void | Promise<void>;
   documentTarget?: EventTargetLike | null;
 };
 
@@ -55,10 +60,15 @@ export function createProjectActionsMenuController({
   triggerButton,
   menuElement,
   editProjectButton = null,
-  ownerControlsButton = null,
-  ownerControlsPanel = null,
-  ownerControlsCloseButton = null,
+  manageMembersButton = null,
+  manageMembersPanel = null,
+  manageMembersCloseButton = null,
+  collaborationLinkButton = null,
+  collaborationLinkPanel = null,
+  collaborationLinkCloseButton = null,
   onEditProject,
+  onOpenManageMembers,
+  onOpenCollaborationLink,
   documentTarget =
     typeof document === "undefined"
       ? null
@@ -70,12 +80,19 @@ export function createProjectActionsMenuController({
     return !Boolean(menuElement.hidden);
   }
 
-  function ownerControlsAreOpen(): boolean {
-    return Boolean(ownerControlsPanel) && !Boolean(ownerControlsPanel?.hidden);
+  function panelIsOpen(panel: PanelLike | null): boolean {
+    return Boolean(panel) && !Boolean(panel?.hidden);
+  }
+
+  function anyPanelIsOpen(): boolean {
+    return (
+      panelIsOpen(manageMembersPanel) ||
+      panelIsOpen(collaborationLinkPanel)
+    );
   }
 
   function syncGlobalListeners(): void {
-    const shouldAttach = menuIsOpen() || ownerControlsAreOpen();
+    const shouldAttach = menuIsOpen() || anyPanelIsOpen();
 
     if (!documentTarget) {
       return;
@@ -109,29 +126,77 @@ export function createProjectActionsMenuController({
     }
   }
 
-  function openOwnerControls(): void {
-    if (!ownerControlsButton || !ownerControlsPanel) {
+  function closePanel(
+    button: ButtonLike | null,
+    panel: PanelLike | null,
+    { restoreFocus = true } = {},
+  ): void {
+    if (!button || !panel) {
       return;
     }
 
-    closeMenu();
-    ownerControlsPanel.hidden = false;
-    ownerControlsButton.setAttribute("aria-expanded", "true");
-    syncGlobalListeners();
-  }
-
-  function closeOwnerControls({ restoreFocus = true } = {}): void {
-    if (!ownerControlsButton || !ownerControlsPanel) {
-      return;
-    }
-
-    ownerControlsPanel.hidden = true;
-    ownerControlsButton.setAttribute("aria-expanded", "false");
+    panel.hidden = true;
+    button.setAttribute("aria-expanded", "false");
     syncGlobalListeners();
 
     if (restoreFocus) {
       triggerButton.focus?.();
     }
+  }
+
+  function openPanel({
+    button,
+    panel,
+    otherButton,
+    otherPanel,
+    onOpen,
+  }: {
+    button: ButtonLike | null;
+    panel: PanelLike | null;
+    otherButton: ButtonLike | null;
+    otherPanel: PanelLike | null;
+    onOpen?: () => void | Promise<void>;
+  }): void {
+    if (!button || !panel) {
+      return;
+    }
+
+    closeMenu();
+    closePanel(otherButton, otherPanel, { restoreFocus: false });
+    panel.hidden = false;
+    button.setAttribute("aria-expanded", "true");
+    syncGlobalListeners();
+    void onOpen?.();
+  }
+
+  function openManageMembers(): void {
+    openPanel({
+      button: manageMembersButton,
+      panel: manageMembersPanel,
+      otherButton: collaborationLinkButton,
+      otherPanel: collaborationLinkPanel,
+      onOpen: onOpenManageMembers,
+    });
+  }
+
+  function closeManageMembers({ restoreFocus = true } = {}): void {
+    closePanel(manageMembersButton, manageMembersPanel, { restoreFocus });
+  }
+
+  function openCollaborationLink(): void {
+    openPanel({
+      button: collaborationLinkButton,
+      panel: collaborationLinkPanel,
+      otherButton: manageMembersButton,
+      otherPanel: manageMembersPanel,
+      onOpen: onOpenCollaborationLink,
+    });
+  }
+
+  function closeCollaborationLink({ restoreFocus = true } = {}): void {
+    closePanel(collaborationLinkButton, collaborationLinkPanel, {
+      restoreFocus,
+    });
   }
 
   function handleDocumentClick(event: ClickEventLike | KeyboardEventLike): void {
@@ -153,9 +218,15 @@ export function createProjectActionsMenuController({
       return;
     }
 
-    if (ownerControlsAreOpen()) {
+    if (panelIsOpen(collaborationLinkPanel)) {
       event.preventDefault?.();
-      closeOwnerControls();
+      closeCollaborationLink();
+      return;
+    }
+
+    if (panelIsOpen(manageMembersPanel)) {
+      event.preventDefault?.();
+      closeManageMembers();
       return;
     }
 
@@ -183,24 +254,34 @@ export function createProjectActionsMenuController({
       handleEditProject();
     });
 
-    ownerControlsButton?.addEventListener("click", () => {
-      openOwnerControls();
+    manageMembersButton?.addEventListener("click", () => {
+      openManageMembers();
     });
 
-    ownerControlsCloseButton?.addEventListener("click", () => {
-      closeOwnerControls();
+    manageMembersCloseButton?.addEventListener("click", () => {
+      closeManageMembers();
+    });
+
+    collaborationLinkButton?.addEventListener("click", () => {
+      openCollaborationLink();
+    });
+
+    collaborationLinkCloseButton?.addEventListener("click", () => {
+      closeCollaborationLink();
     });
   }
 
   function destroy(): void {
     closeMenu();
-    closeOwnerControls({ restoreFocus: false });
+    closeManageMembers({ restoreFocus: false });
+    closeCollaborationLink({ restoreFocus: false });
   }
 
   return {
     init,
     closeMenu,
-    closeOwnerControls,
+    closeManageMembers,
+    closeCollaborationLink,
     destroy,
   };
 }

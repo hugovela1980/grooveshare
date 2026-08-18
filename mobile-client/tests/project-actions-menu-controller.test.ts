@@ -156,11 +156,11 @@ tester.describe("project actions menu controller", () => {
         tester.expect(triggerButton.wasFocused()).toBe(true);
     });
 
-    tester.it("opens Owner Controls without forcing field focus and restores trigger focus when it closes", () => {
+    tester.it("opens Manage Members, refreshes members, and restores trigger focus when it closes", () => {
         const triggerButton = createButton();
-        const ownerControlsButton = createButton();
-        const ownerControlsCloseButton = createButton();
-        const ownerControlsPanel = {
+        const manageMembersButton = createButton();
+        const manageMembersCloseButton = createButton();
+        const manageMembersPanel = {
             hidden: true,
         };
         const menuElement = {
@@ -170,35 +170,44 @@ tester.describe("project actions menu controller", () => {
             },
         };
         const documentTarget = createDocumentTarget();
+        let refreshCallCount = 0;
 
         const controller = createProjectActionsMenuController({
             triggerButton,
             menuElement,
-            ownerControlsButton,
-            ownerControlsPanel,
-            ownerControlsCloseButton,
+            manageMembersButton,
+            manageMembersPanel,
+            manageMembersCloseButton,
+            onOpenManageMembers() {
+                refreshCallCount += 1;
+            },
             documentTarget,
         });
 
         controller.init();
         triggerButton.click();
-        ownerControlsButton.click();
+        manageMembersButton.click();
 
-        tester.expect(ownerControlsPanel.hidden).toBe(false);
-        tester.expect(ownerControlsButton.getAttribute("aria-expanded")).toBe("true");
+        tester.expect(manageMembersPanel.hidden).toBe(false);
+        tester.expect(manageMembersButton.getAttribute("aria-expanded")).toBe("true");
+        tester.expect(refreshCallCount).toBe(1);
         tester.expect(menuElement.hidden).toBe(true);
 
-        ownerControlsCloseButton.click();
+        manageMembersCloseButton.click();
 
-        tester.expect(ownerControlsPanel.hidden).toBe(true);
-        tester.expect(ownerControlsButton.getAttribute("aria-expanded")).toBe("false");
+        tester.expect(manageMembersPanel.hidden).toBe(true);
+        tester.expect(manageMembersButton.getAttribute("aria-expanded")).toBe("false");
         tester.expect(triggerButton.wasFocused()).toBe(true);
+
+        triggerButton.click();
+        manageMembersButton.click();
+        tester.expect(refreshCallCount).toBe(2);
     });
 
-    tester.it("closes Owner Controls with Escape", () => {
+    tester.it("closes Manage Members with Escape", () => {
         const triggerButton = createButton();
-        const ownerControlsButton = createButton();
-        const ownerControlsPanel = { hidden: true };
+        const manageMembersButton = createButton();
+        const manageMembersPanel = { hidden: true };
         const menuElement = {
             hidden: true,
             contains() {
@@ -210,19 +219,58 @@ tester.describe("project actions menu controller", () => {
         const controller = createProjectActionsMenuController({
             triggerButton,
             menuElement,
-            ownerControlsButton,
-            ownerControlsPanel,
+            manageMembersButton,
+            manageMembersPanel,
             documentTarget,
         });
 
         controller.init();
         triggerButton.click();
-        ownerControlsButton.click();
+        manageMembersButton.click();
         const prevented = documentTarget.dispatchEscape();
 
         tester.expect(prevented).toBe(true);
-        tester.expect(ownerControlsPanel.hidden).toBe(true);
+        tester.expect(manageMembersPanel.hidden).toBe(true);
         tester.expect(triggerButton.wasFocused()).toBe(true);
+    });
+
+    tester.it("opens Collaboration Link separately from Manage Members", () => {
+        const triggerButton = createButton();
+        const manageMembersButton = createButton();
+        const collaborationLinkButton = createButton();
+        const collaborationLinkCloseButton = createButton();
+        const manageMembersPanel = { hidden: true };
+        const collaborationLinkPanel = { hidden: true };
+        const menuElement = {
+            hidden: true,
+            contains() {
+                return false;
+            },
+        };
+
+        const controller = createProjectActionsMenuController({
+            triggerButton,
+            menuElement,
+            manageMembersButton,
+            manageMembersPanel,
+            collaborationLinkButton,
+            collaborationLinkPanel,
+            collaborationLinkCloseButton,
+            documentTarget: null,
+        });
+
+        controller.init();
+        triggerButton.click();
+        collaborationLinkButton.click();
+
+        tester.expect(collaborationLinkPanel.hidden).toBe(false);
+        tester.expect(manageMembersPanel.hidden).toBe(true);
+        tester.expect(collaborationLinkButton.getAttribute("aria-expanded")).toBe("true");
+
+        collaborationLinkCloseButton.click();
+
+        tester.expect(collaborationLinkPanel.hidden).toBe(true);
+        tester.expect(collaborationLinkButton.getAttribute("aria-expanded")).toBe("false");
     });
 });
 

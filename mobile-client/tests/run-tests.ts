@@ -1,3 +1,7 @@
+import "./invitation-routing-and-storage.test.js";
+import "./invitations-api.test.js";
+import "./project-invitation-controller.test.js";
+import "./mobile-guest-invitation.integration.test.js";
 import "./mobile-app.integration.test.js";
 import "./mobile-project-player.integration.test.js";
 

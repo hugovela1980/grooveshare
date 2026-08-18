@@ -214,3 +214,29 @@
         width: 100%;
     }
 }
+
+/* Version 2.1 invitation entries shown only on the authenticated Projects page. */
+.project-list__item--invited {
+    display: grid;
+    gap: 0.55rem;
+}
+
+.project-list__item--invited .project-list__button--menu {
+    border-color: var(--color-accent);
+}
+
+.project-list__role--invited {
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+}
+
+.project-list__invitation-note {
+    color: var(--color-accent);
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.project-list__invitation-action {
+    width: 100%;
+    min-height: 2.9rem;
+}

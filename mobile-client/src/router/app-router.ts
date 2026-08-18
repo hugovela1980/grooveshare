@@ -1,5 +1,6 @@
 export type AppScreen =
     | "auth"
+    | "invitation"
     | "project-menu"
     | "create-project"
     | "project-player";
@@ -7,6 +8,7 @@ export type AppScreen =
 export type AppRoute = {
     screen: AppScreen;
     projectId?: string;
+    invitationToken?: string;
 };
 
 type AppElementLike = {
@@ -41,6 +43,7 @@ type AppRouterOptions = {
 function isAppScreen(value: unknown): value is AppScreen {
     return (
         value === "auth" ||
+        value === "invitation" ||
         value === "project-menu" ||
         value === "create-project" ||
         value === "project-player"
@@ -55,12 +58,15 @@ function isAppRoute(value: unknown): value is AppRoute {
     const candidate = value as {
         screen?: unknown;
         projectId?: unknown;
+        invitationToken?: unknown;
     };
 
     return (
         isAppScreen(candidate.screen) &&
         (candidate.projectId === undefined ||
-            typeof candidate.projectId === "string")
+            typeof candidate.projectId === "string") &&
+        (candidate.invitationToken === undefined ||
+            typeof candidate.invitationToken === "string")
     );
 }
 
@@ -88,6 +94,10 @@ export function routeToHash(route: AppRoute): string {
         return "#auth";
     }
 
+    if (route.screen === "invitation" && route.invitationToken) {
+        return `#invite/${encodeURIComponent(route.invitationToken)}`;
+    }
+
     if (route.screen === "project-menu") {
         return "#projects";
     }
@@ -112,6 +122,19 @@ export function parseRouteHash(hash: string): AppRoute | null {
 
     if (normalizedHash === "#auth") {
         return { screen: "auth" };
+    }
+
+    const invitationMatch = normalizedHash.match(/^#invite\/(.+)$/);
+
+    if (invitationMatch) {
+        try {
+            return {
+                screen: "invitation",
+                invitationToken: decodeURIComponent(invitationMatch[1]),
+            };
+        } catch {
+            return null;
+        }
     }
 
     if (normalizedHash === "#projects/new") {
@@ -177,7 +200,8 @@ export function createBrowserHistoryAdapter(): HistoryAdapter | null {
 function routesMatch(first: AppRoute, second: AppRoute): boolean {
     return (
         first.screen === second.screen &&
-        first.projectId === second.projectId
+        first.projectId === second.projectId &&
+        first.invitationToken === second.invitationToken
     );
 }
 

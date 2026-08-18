@@ -29,14 +29,25 @@ export function renderProjectActionsMenu(): string {
         </button>
 
         <button
-          id="owner-controls-menu-item"
+          id="manage-members-menu-item"
           class="project-actions__item"
           type="button"
           role="menuitem"
           aria-controls="project-members-panel"
           aria-expanded="false"
         >
-          Owner Controls
+          Manage Members
+        </button>
+
+        <button
+          id="collaboration-link-menu-item"
+          class="project-actions__item"
+          type="button"
+          role="menuitem"
+          aria-controls="project-invitation-panel"
+          aria-expanded="false"
+        >
+          Collaboration Link
         </button>
 
         <div class="project-actions__divider" role="separator"></div>

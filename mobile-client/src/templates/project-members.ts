@@ -93,18 +93,18 @@ export function renderProjectMembersPanel({
       >
         <header class="modal__header owner-controls-modal__header">
           <div>
-            <p class="eyebrow">Owner Controls</p>
-            <h2 id="project-members-heading">Project Members</h2>
+            <p class="eyebrow">Project access</p>
+            <h2 id="project-members-heading">Manage Members</h2>
             <p id="project-members-description" class="help-text">
-              Add collaborators and choose whether they can listen or contribute tracks.
+              Add, remove, or change account-based project access.
             </p>
           </div>
 
           <button
-            id="close-owner-controls-button"
+            id="close-project-members-button"
             class="icon-button"
             type="button"
-            aria-label="Close Owner Controls"
+            aria-label="Close Manage Members"
           >
             ×
           </button>

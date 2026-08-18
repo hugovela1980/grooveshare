@@ -251,7 +251,7 @@
     resize: vertical;
 }
 
-/* Version 2 Milestone 7: Owner Controls use a phone-friendly modal rather than
+/* Version 2 Milestone 7: Manage Members uses a phone-friendly modal rather than
    expanding a long management panel below the mixer. */
 .owner-controls-modal[hidden] {
     display: none;
@@ -361,4 +361,195 @@
     .project-member-row__remove-button {
         width: auto;
     }
+}
+
+
+/* Version 2.1 — mobile Guest invitation and Owner collaboration controls. */
+.guest-access-banner,
+.contributor-invitation-card,
+.project-invitation-controls {
+    display: grid;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    padding: 1rem;
+    border: 1px solid var(--border-input);
+    border-radius: 1rem;
+    background: var(--color-surface-strong);
+}
+
+.guest-access-banner h2,
+.contributor-invitation-card h2,
+.project-invitation-controls h3,
+.owner-controls-modal__section-heading h3 {
+    margin: 0;
+}
+
+.guest-access-banner p,
+.contributor-invitation-card p,
+.project-invitation-controls p,
+.owner-controls-modal__section-heading p {
+    margin: 0;
+}
+
+.guest-access-banner h2,
+.contributor-invitation-card h2 {
+    font-size: 1.15rem;
+}
+
+.guest-access-banner > div,
+.contributor-invitation-card > div {
+    display: grid;
+    gap: 0.35rem;
+}
+
+.project-player-header__mobile-role--guest,
+.project-invitation-controls__badge {
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+}
+
+.contributor-invitation-card__button {
+    width: 100%;
+    min-height: 3rem;
+}
+
+.project-invitation-controls {
+    margin-bottom: 0;
+    border-color: var(--border-light-medium);
+    background: var(--color-light-surface-soft);
+}
+
+.project-invitation-controls__heading {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.project-invitation-controls__heading h3,
+.owner-controls-modal__section-heading h3,
+.project-invitation-controls__warning,
+.project-invitation-controls__status {
+    color: var(--color-light-text);
+}
+
+.project-invitation-controls__badge {
+    display: inline-flex;
+    align-items: center;
+    min-height: 1.75rem;
+    padding: 0.2rem 0.55rem;
+    border: 1px solid currentColor;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 750;
+    letter-spacing: 0.035em;
+    text-transform: uppercase;
+}
+
+.project-invitation-controls__link {
+    width: 100%;
+    min-height: 3rem;
+    padding: 0.7rem 0.8rem;
+    border: 1px solid var(--border-light-strong);
+    border-radius: var(--radius-md);
+    color: var(--color-light-text);
+    background: var(--color-light-surface);
+    font: inherit;
+    font-size: 0.9rem;
+}
+
+.project-invitation-controls__link[hidden],
+.project-invitation-controls__actions button[hidden] {
+    display: none;
+}
+
+.project-invitation-controls__actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.55rem;
+}
+
+.project-invitation-controls__actions .button {
+    width: 100%;
+    min-height: 3rem;
+}
+
+.project-invitation-controls__status {
+    min-height: 1.4rem;
+    font-size: 0.85rem;
+}
+
+.owner-controls-modal__section-heading {
+    display: grid;
+    gap: 0.25rem;
+    margin-top: 0.35rem;
+}
+
+@media (min-width: 36rem) {
+    .contributor-invitation-card {
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+    }
+
+    .contributor-invitation-card__button {
+        width: auto;
+    }
+
+    .contributor-invitation-card .status-message {
+        grid-column: 1 / -1;
+    }
+
+    .project-invitation-controls__actions {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+/* Version 2.1 Stage 2 revision: dismissible Guest cards and separated sharing controls. */
+.guest-message-card {
+    position: relative;
+    padding-right: 3.65rem;
+}
+
+.guest-message-card__close {
+    position: absolute;
+    top: 0.7rem;
+    right: 0.7rem;
+    width: 2.35rem;
+    height: 2.35rem;
+    min-height: 2.35rem;
+    padding: 0;
+}
+
+.guest-message-card[hidden] {
+    display: none;
+}
+
+.project-player-notice {
+    margin: 0 0 1rem;
+    padding: 0.8rem 0.9rem;
+    border: 1px solid var(--color-accent);
+    border-radius: var(--radius-lg);
+    color: var(--color-text);
+    background: var(--color-surface-strong);
+    font-weight: 700;
+}
+
+.collaboration-link-modal__content {
+    display: grid;
+    gap: 0.75rem;
+}
+
+.collaboration-link-modal__header {
+    margin-bottom: 0;
+}
+
+.project-invitation-controls__secondary-action {
+    color: var(--color-light-text);
+    background: var(--color-light-button);
+    border: 1px solid var(--border-light-strong);
+}
+
+.project-invitation-controls__secondary-action:hover:not(:disabled) {
+    background: var(--color-light-button-hover);
 }
