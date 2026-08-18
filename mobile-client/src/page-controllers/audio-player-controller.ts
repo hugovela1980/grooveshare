@@ -300,6 +300,10 @@ export function createAudioPlayerController({
         });
     }
 
+    function destroy(): void {
+        playbackEngine.destroy?.();
+    }
+
     return {
         init,
         loadMix,
@@ -307,5 +311,6 @@ export function createAudioPlayerController({
         setChannelEnabled,
         setTrackName,
         stop,
+        destroy,
     };
 }

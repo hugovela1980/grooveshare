@@ -11,7 +11,7 @@ The package now owns behavior that already has a clear reason to be shared:
 - `SessionProvider` for authentication/session behavior;
 - `StorageProvider` for small client-side persistence;
 - `PlaybackEngine` as the presentation-independent audio contract;
-- the current multi-`HTMLAudioElement` playback implementation behind that contract;
+- a Web Audio playback implementation behind that contract, using one shared `AudioContext` clock and per-channel `GainNode`s;
 - Viewer mix storage and Owner/Contributor pending-mix recovery rules;
 - debounced mix persistence, failed-save recovery, and flush-before-navigation behavior.
 
@@ -23,7 +23,7 @@ The existing `client/` still supplies the concrete browser environment:
 
 - browser cookie-backed session behavior;
 - browser `localStorage` through `StorageProvider`;
-- real `HTMLAudioElement` instances for `createHtmlAudioPlaybackEngine`.
+- browser Web Audio APIs for `createWebAudioPlaybackEngine`, with the older `HTMLAudioElement` engine retained as a compatibility/test fallback.
 
 This keeps frontend-core testable without requiring a browser and leaves room for future Capacitor/Electron adapters.
 

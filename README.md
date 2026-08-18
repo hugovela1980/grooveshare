@@ -127,7 +127,7 @@ Supported behavior includes:
 - Looping.
 - Persistent project and track metadata.
 
-The current transport is intentionally not DAW-level or sample-accurate. Gapless looping, waveforms, shared-clock scheduling, nudge, non-destructive trim, and tighter synchronization are deferred to a later Version 2.x Web Audio Engine release.
+Version 2 now uses a minimal Web Audio transport for reliable multitrack synchronization. Project tracks are fetched and decoded into `AudioBuffer`s, scheduled from one shared `AudioContext` clock, and routed through per-channel `GainNode`s so volume and enable/disable changes do not rebuild or restart the transport. Waveforms, gapless loop scheduling, nudge, non-destructive trim, effects, and recording remain outside the Version 2 scope.
 
 ## Local Development
 
@@ -365,7 +365,7 @@ After Version 2 releases:
 - Improve loading, validation, error handling, and operational behavior.
 - Add public/share-link guest listening without automatically creating project memberships.
 - Keep guest personal mix settings in browser `localStorage`.
-- Replace the current multitrack playback implementation with a Web Audio engine when tighter synchronization, waveforms, gapless looping, nudge, trim, and edited playback are justified.
+- Extend the minimal Web Audio engine only where beta feedback justifies features such as waveforms, gapless loop scheduling, nudge, trim, and edited playback.
 
 ### Version 3 — Self-Hosting, Recording, and Mobile Clients
 

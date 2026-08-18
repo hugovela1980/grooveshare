@@ -23,7 +23,7 @@ Both presentation clients use the same Node server, PostgreSQL data, upload stor
        desktop + tablet                phone
 ```
 
-`packages/frontend-core/` owns behavior that already has a clear reason to be shared: GrooveShare domain types, project permission helpers, `SessionProvider` and `StorageProvider` contracts, mix recovery/debounce/flush behavior, the `PlaybackEngine` contract, and the current multi-`HTMLAudioElement` playback implementation behind that contract.
+`packages/frontend-core/` owns behavior that already has a clear reason to be shared: GrooveShare domain types, project permission helpers, `SessionProvider` and `StorageProvider` contracts, mix recovery/debounce/flush behavior, the `PlaybackEngine` contract, and the shared Web Audio playback implementation behind that contract.
 
 The presentation workspaces own markup, DOM event wiring, navigation, CSS, file-selection presentation, and interaction model. The duplicated browser API wrappers remain presentation-local in this first pass and intentionally target the same API contract.
 

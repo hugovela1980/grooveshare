@@ -33,7 +33,7 @@ The current focus is **Version 2 Milestone 6 — Multi-Client Frontend Foundatio
 
 Milestone 5 established the phone-oriented Project Player and mobile interaction patterns. Milestone 6 now separates presentation concerns from reusable frontend behavior just far enough to support a desktop/tablet client and a dedicated mobile client without a full frontend rewrite.
 
-The current multi-`HTMLAudioElement` playback model remains in place behind a shared `PlaybackEngine` boundary. Advanced Web Audio synchronization work remains deferred until Version 3, after Version 2 beta usage has provided more product evidence.
+Version 2 now uses a minimal Web Audio implementation behind the shared `PlaybackEngine` boundary after real-device/VPS testing exposed unreliable synchronization between independent `HTMLAudioElement` clocks. Advanced audio features remain deferred; the Version 2 engine is intentionally limited to synchronized playback, transport, looping, and live gain/enable control.
 
 ## Architectural Principles
 
@@ -798,52 +798,41 @@ Per-track edit controls remain in the channel area rather than the global transp
 
 ## Current Playback Engine
 
-Version 2 currently retains the Version 1 multi-element playback implementation.
+Version 2 uses a minimal Web Audio transport behind the shared `PlaybackEngine` contract. The older multi-`HTMLAudioElement` implementation remains available as a compatibility/test fallback, but browser playback uses one shared `AudioContext` clock.
 
-Supported expectations include:
+Current responsibilities:
 
-- `Load Mix` captures visible channel settings and persists occupied-channel enabled/volume state.
-- Enabled tracks are loaded for playback.
-- Disabled tracks preserve their mixer settings.
-- Channel volumes are applied to loaded audio.
-- Play begins the loaded channels from a shared logical start point.
-- Pause preserves the current playback position.
-- Resume continues without seeking back to the beginning.
-- Stop resets the mix.
-- Seeking moves all loaded tracks to a shared calculated position.
-- The server supports byte ranges for audio seeking.
-- Loop restarts the mix when playback reaches its end.
+- Fetch each project track and decode it into an `AudioBuffer`.
+- Schedule all playable track sources from the same `AudioContext` start time.
+- Track one shared transport position for play, pause, resume, stop, and seek.
+- Use the longest decoded track as the mix duration so track lengths can differ.
+- Route every channel through its own `GainNode`.
+- Apply volume and enabled-state changes through gain only, without rebuilding or interrupting active sources.
+- Restart all channels from one shared clock when loop playback reaches the mix end.
+- Release the page's `AudioContext` and audio nodes when leaving the Project Player.
 
-Known architectural limitations:
+This removes browser media-element buffering and independent-clock drift from the active multitrack transport. Audio files may still use normal HTTP caching while loading; once decoded, playback runs from in-memory audio buffers rather than independent streaming media elements.
 
-- Multiple HTML audio elements do not provide sample-accurate scheduling.
-- Loop restart can have a small delay.
-- Gapless looping is not guaranteed.
-- Waveforms remain placeholders.
+Known Version 2 limitations:
+
+- Loop restart is synchronized across channels but is not guaranteed to be gapless because the next source generation is scheduled after the transport-end callback.
+- Decoded `AudioBuffer`s use more memory than streaming `<audio>` elements, especially for long uncompressed multitrack projects.
+- Waveforms are not implemented.
 - Offset/nudge and non-destructive trimming are not implemented.
-- Mixer edits made after `Load Mix` require loading the mix again before playback reflects them.
-
-These limitations are accepted for Version 2.0 while mobile usability and real beta feedback are higher priorities.
+- Effects and recording are not implemented.
 
 ## Web Audio Engine — Version 2.x Direction
 
-After Version 2 is released, a Version 2.x feature release may replace the current transport when real collaboration/recording needs justify tighter synchronization.
+Version 2.x may extend the minimal shared-clock engine only where real beta usage justifies the complexity. Likely follow-up responsibilities include:
 
-Likely responsibilities:
-
-- Fetch and decode project audio into `AudioBuffer`s.
-- Use one shared `AudioContext` clock.
-- Route channels through GainNodes.
-- Schedule enabled tracks from the same clock.
-- Track shared playback position for pause/resume/stop.
-- Improve loop scheduling.
+- Schedule loop generations ahead of time for gapless looping.
 - Draw read-only waveforms from decoded audio data.
 - Display a shared playhead.
 - Store and apply per-channel offset/nudge.
 - Add non-destructive clip start/end values.
-- Make playback respect enabled state, volume, offset, and clip boundaries.
+- Add further loading/memory safeguards for large projects if beta usage exposes device limits.
 
-The existing Project Player UI should remain useful; the goal is to replace the underlying playback engine rather than rebuild the product around an audio framework.
+The existing Project Player UI and `PlaybackEngine` boundary should remain stable; follow-up audio work should extend the engine rather than rebuild the presentation clients.
 
 ## Recording Direction
 
@@ -1106,7 +1095,7 @@ Current milestone:
 Use real beta feedback to stabilize the product and add follow-up features such as:
 
 - Public guest sharing with browser-local personal mixes.
-- Web Audio Engine and synchronization tools.
+- Web Audio follow-up tools such as gapless loop scheduling, waveforms, nudge, and trim.
 - Validation, loading/error-state, and operational improvements exposed by real usage.
 
 ### Version 3

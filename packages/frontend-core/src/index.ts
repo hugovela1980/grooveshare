@@ -32,6 +32,9 @@ export {
   type HtmlAudioElementLike,
 } from "./playback/html-audio-playback-engine.js";
 export {
+  createWebAudioPlaybackEngine,
+} from "./playback/web-audio-playback-engine.js";
+export {
   clearPendingMixSettings,
   getPendingMixStorageKey,
   getViewerMixStorageKey,

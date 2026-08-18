@@ -36,4 +36,5 @@ export interface PlaybackEngine {
   setChannelEnabled(channelNumber: number, enabled: boolean): boolean;
   getSnapshot(): PlaybackSnapshot;
   subscribe(listener: PlaybackStateListener): () => void;
+  destroy?(): void;
 }

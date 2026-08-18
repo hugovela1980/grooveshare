@@ -3,6 +3,7 @@ import { projectMembersApi } from "./api/project-members-api.js";
 import { tracksApi } from "./api/tracks-api.js";
 import {
   createHtmlAudioPlaybackEngine,
+  createWebAudioPlaybackEngine,
   type SessionProvider,
   type StorageProvider,
 } from "@hugovela/frontend-core";
@@ -596,9 +597,11 @@ function initializeProjectPlayerPage({
     throw new Error("Project Player audio elements were not found.");
   }
 
-  const playbackEngine = createHtmlAudioPlaybackEngine({
-    primaryAudioElement: audioElement,
-    createAudioElement: () => document.createElement("audio"),
+  const playbackEngine = createWebAudioPlaybackEngine({
+    createFallbackEngine: () => createHtmlAudioPlaybackEngine({
+      primaryAudioElement: audioElement,
+      createAudioElement: () => document.createElement("audio"),
+    }),
   });
 
   const audioPlayerController = createAudioPlayerController({
@@ -711,7 +714,7 @@ function initializeProjectPlayerPage({
   }
 
   return () => {
-    audioPlayerController.stop();
+    audioPlayerController.destroy();
     void controller.flushPendingMixSettings();
   };
 }

@@ -301,5 +301,10 @@ export function createHtmlAudioPlaybackEngine({
         listeners.delete(listener);
       };
     },
+    destroy() {
+      stop();
+      loadedChannels = [];
+      listeners.clear();
+    },
   };
 }
