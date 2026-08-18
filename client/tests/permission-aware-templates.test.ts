@@ -63,14 +63,17 @@ tester.describe("permission-aware templates", () => {
     tester.expect(html.includes("Owner")).toBe(true);
     tester.expect(html.includes("Delete Project")).toBe(true);
     tester.expect(html.includes("Edit Project")).toBe(false);
-    tester.expect(html.includes("Owner Controls")).toBe(true);
-    tester.expect(html.includes('id="project-actions-button"')).toBe(false);
+    tester.expect(html.includes("Owner Controls")).toBe(false);
+    tester.expect(html.includes("Manage Members")).toBe(true);
+    tester.expect(html.includes("Collaboration Link")).toBe(true);
+    tester.expect(html.includes('id="project-actions-button"')).toBe(true);
     tester.expect(html.includes('id="edit-project-menu-item"')).toBe(false);
+    tester.expect(html.includes('id="manage-members-menu-item"')).toBe(true);
+    tester.expect(html.includes('id="collaboration-link-menu-item"')).toBe(true);
     tester.expect(html.includes('id="owner-controls-menu-item"')).toBe(false);
     tester.expect(html.includes('id="project-edit-modal"')).toBe(false);
     tester.expect(html.includes('id="project-edit-form"')).toBe(false);
     tester.expect(html.includes('contenteditable="true"')).toBe(true);
-    tester.expect(html.includes("Project Members")).toBe(true);
     tester.expect(html.includes('id="project-member-form"')).toBe(true);
     tester.expect(html.includes('id="project-members-panel"')).toBe(true);
 
@@ -80,7 +83,7 @@ tester.describe("permission-aware templates", () => {
       membersPanelStart + 240,
     );
 
-    tester.expect(membersPanelOpeningTag.includes("hidden")).toBe(false);
+    tester.expect(membersPanelOpeningTag.includes("hidden")).toBe(true);
   });
 
   tester.it("keeps Viewer mixer controls but removes track mutation controls", () => {

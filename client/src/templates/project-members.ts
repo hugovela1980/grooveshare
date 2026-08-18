@@ -17,7 +17,7 @@ function renderMemberRow(member: ProjectMember): string {
 
   if (member.role === "owner") {
     return /*html*/ `
-      <li class="project-member-row" data-project-member-row data-user-id="${userId}">
+      <li class="project-member-row project-member-row--owner" data-project-member-row data-user-id="${userId}">
         <div class="project-member-row__identity">
           <strong>${displayName}</strong>
           <span>${email}</span>
@@ -36,7 +36,7 @@ function renderMemberRow(member: ProjectMember): string {
       </div>
 
       <label class="project-member-row__role-control">
-        <span class="visually-hidden">Role for ${displayName}</span>
+        <span>Access</span>
         <select
           data-member-role-select
           data-user-id="${userId}"
@@ -52,8 +52,9 @@ function renderMemberRow(member: ProjectMember): string {
         type="button"
         data-member-remove-button
         data-user-id="${userId}"
+        data-member-name="${displayName}"
       >
-        Remove
+        Remove Member
       </button>
     </li>
   `;
@@ -77,55 +78,77 @@ export function renderProjectMembersPanel({
   hidden = false,
 }: { hidden?: boolean } = {}): string {
   return /*html*/ `
-    <section
+    <div
       id="project-members-panel"
-      class="panel project-members-panel"
-      aria-labelledby="project-members-heading"
+      class="modal owner-controls-modal"
       data-project-members-panel
       ${hidden ? "hidden" : ""}
     >
-      <div class="project-members-panel__header">
-        <div>
-          <p class="eyebrow">Owner Controls</p>
-          <h2 id="project-members-heading">Project Members</h2>
-          <p class="description">
-            Add collaborators and choose whether they can only listen or contribute tracks.
-          </p>
+      <section
+        class="modal__content owner-controls-modal__content"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="project-members-heading"
+        aria-describedby="project-members-description"
+      >
+        <header class="modal__header owner-controls-modal__header">
+          <div>
+            <p class="eyebrow">Project access</p>
+            <h2 id="project-members-heading">Manage Members</h2>
+            <p id="project-members-description" class="help-text">
+              Add, remove, or change account-based project access.
+            </p>
+          </div>
+
+          <button
+            id="close-project-members-button"
+            class="icon-button"
+            type="button"
+            aria-label="Close Manage Members"
+          >
+            ×
+          </button>
+        </header>
+
+        <form id="project-member-form" class="project-member-form">
+          <label class="project-member-form__field">
+            <span>Member email</span>
+            <input
+              id="project-member-email"
+              type="email"
+              inputmode="email"
+              autocomplete="email"
+              autocapitalize="none"
+              spellcheck="false"
+              enterkeyhint="next"
+              required
+              placeholder="musician@example.com"
+            />
+          </label>
+
+          <label class="project-member-form__field">
+            <span>Access</span>
+            <select id="project-member-role">
+              <option value="viewer">Viewer — listen only</option>
+              <option value="contributor">Contributor — add and edit own tracks</option>
+            </select>
+          </label>
+
+          <button id="add-project-member-button" class="button owner-controls-modal__add-button" type="submit">
+            Add Member
+          </button>
+        </form>
+
+        <p
+          id="project-member-status"
+          class="status-message owner-controls-modal__status"
+          aria-live="polite"
+        ></p>
+
+        <div id="project-member-list" class="owner-controls-modal__member-list">
+          ${renderLoadingState("Loading project members...", { compact: true })}
         </div>
-      </div>
-
-      <form id="project-member-form" class="project-member-form">
-        <label class="project-member-form__field">
-          <span>Email</span>
-          <input
-            id="project-member-email"
-            type="email"
-            autocomplete="email"
-            required
-            placeholder="musician@example.com"
-          />
-        </label>
-
-        <label class="project-member-form__field">
-          <span>Role</span>
-          <select id="project-member-role">
-            <option value="viewer">Viewer</option>
-            <option value="contributor">Contributor</option>
-          </select>
-        </label>
-
-        <button id="add-project-member-button" class="button" type="submit">Add Member</button>
-      </form>
-
-      <div id="project-member-list">
-        ${renderLoadingState("Loading project members...", { compact: true })}
-      </div>
-
-      <p
-        id="project-member-status"
-        class="status-message"
-        aria-live="polite"
-      ></p>
-    </section>
+      </section>
+    </div>
   `;
 }

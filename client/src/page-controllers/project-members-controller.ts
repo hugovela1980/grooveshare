@@ -27,6 +27,8 @@ type FormElementLike = {
 
 type InputElementLike = {
   value: string;
+  focus?: () => void;
+  blur?: () => void;
 };
 
 type SelectElementLike = BusyControlLike & {
@@ -50,6 +52,7 @@ type MemberActionTargetLike = BusyControlLike & {
   dataset?: {
     userId?: string;
     memberRoleSelect?: string;
+    memberName?: string;
   };
   closest?: (
     selector: string,
@@ -152,6 +155,7 @@ export function createProjectMembersController({
       });
 
       emailInput.value = "";
+      emailInput.blur?.();
       await loadMembers();
       setStatus(statusElement, "Member added.");
     } catch (error) {
@@ -224,7 +228,12 @@ export function createProjectMembersController({
       return;
     }
 
-    if (!confirmRemoveMember("Remove this member from the project?")) {
+    const memberName = removeButton.dataset?.memberName?.trim();
+    const confirmationMessage = memberName
+      ? `Remove "${memberName}" from this project?`
+      : "Remove this member from the project?";
+
+    if (!confirmRemoveMember(confirmationMessage)) {
       return;
     }
 
@@ -261,5 +270,6 @@ export function createProjectMembersController({
 
   return {
     init,
+    loadMembers,
   };
 }

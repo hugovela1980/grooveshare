@@ -28,6 +28,11 @@ import "./pending-mix-storage.test.js";
 import "./project-members-api.test.js";
 import "./project-members-controller.test.js";
 import "./client-config.test.js";
+import "./invitation-routing-and-storage.test.js";
+import "./invitations-api.test.js";
+import "./project-invitation-controller.test.js";
+import "./project-actions-menu-controller.test.js";
+import "./desktop-guest-invitation.integration.test.js";
 
 import { tester } from "./test-runner/tester.js";
 

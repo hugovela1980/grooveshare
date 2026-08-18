@@ -1,97 +1,91 @@
 .mix-channel-panel {
-    --mix-channel-grid-columns:
-        5.5rem minmax(10rem, 1fr) minmax(8rem, 12rem) 6rem;
-
-    display: grid;
+    display: flex;
+    justify-content: center;
     gap: 1rem;
 }
 
-.mix-channel-panel__header {
-    display: grid;
-    gap: 1rem;
-    align-items: start;
-}
-
-.mix-channel-panel__title {
-    margin: 0;
-    font-size: 1.1rem;
-}
-
-.mix-channel-panel__description {
-    margin: 0.3rem 0 0;
-    color: var(--color-text-subtle-cool);
-    line-height: 1.45;
-}
-
-
-/* Column headings */
-
+/* The desktop Project Player presents the mixer visually, so these explanatory
+   labels remain in the markup for semantics/tests but do not compete with the
+   project title and transport controls. */
+.mix-channel-panel__header,
 .mix-channel-grid-header {
     display: none;
-    text-align: center;
 }
 
-
-/* Mixer table */
-
 .mix-channel-slots {
+    --channel-width: 8rem;
+
     display: grid;
-    overflow: hidden;
-    border: 1px solid var(--border-input);
-    border-radius: var(--radius-xl);
-    background: var(--color-surface-strong);
+    grid-template-columns: repeat(auto-fit, var(--channel-width));
+    justify-content: center;
+    gap: 1rem;
+
+    width: min(100%,
+            calc((var(--channel-width) * 4) + (1rem * 3)));
 }
 
 .mix-channel-slot {
     display: grid;
-    grid-template-columns: 4.5rem minmax(0, 1fr) auto;
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(2.75rem, auto) auto minmax(12rem, 1fr) auto;
     grid-template-areas:
-        "channel name actions"
-        "channel volume actions";
-    gap: 0;
-    background: var(--color-surface-strong);
+        "name"
+        "channel"
+        "volume"
+        "actions";
+    min-width: 0;
+    min-height: 23rem;
+    overflow: hidden;
+    border: 1px solid var(--border-dark);
+    border-radius: var(--radius-xl);
+    background: linear-gradient(180deg, #2b2b2e 0%, var(--color-surface) 100%);
+    box-shadow: 0 0.45rem 1.1rem rgba(0, 0, 0, 0.14);
 }
-
-.mix-channel-slot:not(:last-child) {
-    border-bottom: 1px solid var(--border-dark);
-}
-
-
-/* Cells */
 
 .mix-channel-slot__channel-cell,
 .mix-channel-slot__name-cell,
 .mix-channel-slot__volume-cell,
 .mix-channel-slot__actions {
     min-width: 0;
-    padding: 0.7rem;
-}
-
-.mix-channel-slot__channel-cell {
-    grid-area: channel;
+    padding: 0.75rem;
 }
 
 .mix-channel-slot__name-cell {
     grid-area: name;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-bottom: 1px solid var(--border-dark);
+    background: rgba(17, 17, 19, 0.38);
+}
+
+.mix-channel-slot__channel-cell {
+    grid-area: channel;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding-bottom: 0.25rem;
 }
 
 .mix-channel-slot__volume-cell {
     grid-area: volume;
+    display: flex;
+    min-height: 12rem;
+    align-items: center;
+    justify-content: center;
+    padding-block: 0.25rem;
 }
 
 .mix-channel-slot__actions {
     grid-area: actions;
-}
-
-
-/* Channel enable toggle */
-
-.mix-channel-slot__channel-cell {
     display: flex;
+    min-height: 3.5rem;
     align-items: center;
     justify-content: center;
+    padding-top: 0.35rem;
 }
 
+/* Channel enable toggle */
 .mix-channel-slot__channel-toggle {
     position: relative;
     display: inline-grid;
@@ -109,24 +103,26 @@
 
 .mix-channel-slot__channel-number {
     display: grid;
-    width: 3.15rem;
-    height: 3.15rem;
+    width: 2.75rem;
+    height: 2.75rem;
     place-items: center;
     border: 1px solid var(--border-input);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-md);
     color: var(--color-light-text);
     background: var(--color-light-button);
-    font-size: 1.05rem;
-    font-weight: 700;
+    font-size: 0.95rem;
+    font-weight: 800;
     transition:
         background 120ms ease,
         border-color 120ms ease,
-        transform 120ms ease;
+        transform 120ms ease,
+        box-shadow 120ms ease;
 }
 
 .mix-channel-slot__enabled-input:checked+.mix-channel-slot__channel-number {
-    border-color: var(--color-accent-hover);
-    background: var(--color-accent-hover);
+    border-color: #4ade80;
+    background: #4ade80;
+    box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.12);
 }
 
 .mix-channel-slot__enabled-input:focus-visible+.mix-channel-slot__channel-number {
@@ -138,74 +134,95 @@
     transform: translateY(-1px);
 }
 
-
-/* Track name and desktop inline editing */
-
-.mix-channel-slot__name-cell { display: flex; align-items: center; }
-.mix-channel-slot__editable-name { display: flex; width: 100%; min-width: 0; padding: 0.2rem 0.3rem; border: 1px solid transparent; border-radius: var(--radius-sm); transition: background 120ms ease, border-color 120ms ease; }
-.mix-channel-slot__editable-name--enabled:hover { border-color: var(--border-input); }
-.mix-channel-slot__editable-name--enabled:focus-within { border-color: var(--color-light-button); background: var(--color-light-button); }
-.mix-channel-slot__track-name { flex: 1 1 auto; min-width: 0; overflow: hidden; color: var(--color-text); text-overflow: ellipsis; white-space: nowrap; }
-.mix-channel-slot__track-name[contenteditable="true"] { cursor: text; outline: none; }
-.mix-channel-slot__editable-name--enabled:focus-within .mix-channel-slot__track-name { color: var(--color-light-text); caret-color: var(--color-light-text); }
-
-
-/* Volume */
-
-.mix-channel-slot__volume-cell {
+/* Desktop inline track-name editing */
+.mix-channel-slot__editable-name {
     display: flex;
-    align-items: center;
+    width: 100%;
+    min-width: 0;
+    justify-content: center;
+    padding: 0.25rem 0.35rem;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
 }
 
+.mix-channel-slot__editable-name--enabled:hover,
+.mix-channel-slot__editable-name--enabled:focus-within {
+    border-color: var(--border-input);
+    background: rgba(255, 255, 255, 0.035);
+}
+
+.mix-channel-slot__track-name {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--color-text);
+    font-size: 0.88rem;
+    font-weight: 650;
+    line-height: 1.25;
+    outline: none;
+    text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.mix-channel-slot__track-name--editable {
+    cursor: text;
+}
+
+/* Vertical channel fader */
 .mix-channel-slot__volume-label {
     display: grid;
-    width: 100%;
-    gap: 0.4rem;
+    min-height: 11.5rem;
+    grid-template-rows: 1fr auto;
+    gap: 0.55rem;
+    place-items: center;
+}
+
+.mix-channel-slot__volume-label input[type="range"] {
+    width: 2rem;
+    height: 9.75rem;
+    margin: 0;
+    writing-mode: vertical-lr;
+    direction: rtl;
+    cursor: pointer;
 }
 
 .mix-channel-slot__volume-value {
-    color: var(--color-text);
-    font-size: 0.8rem;
+    min-width: 3.2rem;
+    padding: 0.22rem 0.35rem;
+    border-radius: var(--radius-pill);
+    color: var(--color-text-muted);
+    background: var(--color-surface-deep);
+    font-size: 0.72rem;
     font-variant-numeric: tabular-nums;
-    font-weight: 600;
+    font-weight: 700;
     text-align: center;
 }
 
-.mix-channel-slot__volume-label input {
-    width: 100%;
-    margin: 0;
+/* Track actions */
+.mix-channel-slot__delete-button {
+    min-height: 2.25rem;
+    padding: 0.45rem 0.75rem;
+    font-size: 0.72rem;
 }
 
-
-/* Actions */
-
-.mix-channel-slot__actions {
-    display: flex;
-    align-items: center;
-    justify-content: center;
+.mix-channel-slot__empty-label {
+    color: var(--color-text-subtle);
+    font-size: 0.82rem;
 }
 
-.mix-channel-slot__delete-button,
-.mix-channel-slot__add-track-button {
-    padding: 0.6rem 0.8rem;
-    font-size: 0.8rem;
-}
-
-.mix-channel-slot__empty-name {
-    display: none;
-}
-
-
-/* Empty channel */
-
+/* Empty strips keep the same physical footprint so the four-channel surface
+   stays stable as tracks are added. */
 .mix-channel-slot--empty {
-    min-height: 4.75rem;
-    grid-template-columns: 1fr;
+    grid-template-rows: 1fr;
     grid-template-areas: "channel";
+    background: rgba(38, 38, 38, 0.58);
 }
 
 .mix-channel-slot--empty .mix-channel-slot__channel-cell {
-    justify-content: flex-start;
+    min-height: 23rem;
+    padding: 1rem;
 }
 
 .mix-channel-slot--empty .mix-channel-slot__name-cell,
@@ -214,88 +231,44 @@
     display: none;
 }
 
-
-/* Desktop mixer grid */
-
-@media (min-width: 700px) {
-    .mix-channel-panel__header {
-        grid-template-columns: 1fr auto;
-        align-items: center;
-    }
-
-    .mix-channel-grid-header,
-    .mix-channel-slot {
-        grid-template-columns: var(--mix-channel-grid-columns);
-    }
-
-    .mix-channel-grid-header {
-        display: grid;
-        color: var(--color-text);
-        font-size: 0.85rem;
-        font-weight: 600;
-    }
-
-    .mix-channel-grid-header>span {
-        padding-inline: 0.65rem;
-    }
-
-    .mix-channel-slot {
-        grid-template-areas: "channel name volume actions";
-    }
-
-    .mix-channel-slot__channel-cell,
-    .mix-channel-slot__name-cell,
-    .mix-channel-slot__volume-cell {
-        border-right: 1px solid var(--border-dark);
-    }
-
-    .mix-channel-slot__channel-cell,
-    .mix-channel-slot__name-cell,
-    .mix-channel-slot__volume-cell,
-    .mix-channel-slot__actions {
-        padding: 0.65rem;
-    }
-
-    .mix-channel-slot--empty {
-        grid-template-columns: var(--mix-channel-grid-columns);
-        grid-template-areas: "channel name volume actions";
-    }
-
-    .mix-channel-slot--empty .mix-channel-slot__name-cell,
-    .mix-channel-slot--empty .mix-channel-slot__volume-cell,
-    .mix-channel-slot--empty .mix-channel-slot__actions {
-        display: block;
-    }
+.mix-channel-slot__add-track-button {
+    display: grid;
+    width: 100%;
+    min-height: 10rem;
+    place-items: center;
+    gap: 0.45rem;
+    padding: 1rem;
+    border: 1px dashed var(--border-input);
+    border-radius: var(--radius-lg);
+    color: var(--color-text-muted);
+    background: transparent;
+    font-size: 0.78rem;
 }
 
-@media (max-width: 30rem) {
-    .mix-channel-panel__header .button {
-        width: 100%;
-    }
+.mix-channel-slot__add-track-button::before {
+    content: "+";
+    display: grid;
+    width: 3rem;
+    height: 3rem;
+    place-items: center;
+    border: 1px solid var(--border-input);
+    border-radius: var(--radius-md);
+    color: var(--color-text);
+    font-size: 1.75rem;
+    font-weight: 400;
+    line-height: 1;
+}
 
-    .mix-channel-slot {
-        grid-template-columns: 4rem minmax(0, 1fr);
-        grid-template-areas:
-            "channel name"
-            "volume volume"
-            "actions actions";
-    }
+.mix-channel-slot__add-track-button:hover:not(:disabled),
+.mix-channel-slot__add-track-button:focus-visible {
+    border-color: var(--color-accent-hover);
+    color: var(--color-text);
+    background: rgba(134, 239, 172, 0.05);
+}
 
-    .mix-channel-slot__actions {
-        justify-content: flex-end;
-        padding-top: 0;
-    }
-
-    .mix-channel-slot__delete-button {
-        width: 100%;
-    }
-
-    .mix-channel-slot--empty {
-        grid-template-columns: 1fr;
-        grid-template-areas: "channel";
-    }
-
-    .mix-channel-slot__add-track-button {
-        width: 100%;
+@media (max-width: 34rem) {
+    .mix-channel-slot,
+    .mix-channel-slot--empty .mix-channel-slot__channel-cell {
+        min-height: 20rem;
     }
 }

@@ -54,7 +54,9 @@ tester.describe("desktop Project Player integration", () => {
     tester.expect(pageMarkup.includes('id="delete-project-button"')).toBe(true);
     tester.expect(pageMarkup.includes('contenteditable="true"')).toBe(true);
     tester.expect(pageMarkup.includes("mobile-nav-home-button")).toBe(false);
-    tester.expect(pageMarkup.includes("project-actions-button")).toBe(false);
+    tester.expect(pageMarkup.includes("project-actions-button")).toBe(true);
+    tester.expect(pageMarkup.includes("Manage Members")).toBe(true);
+    tester.expect(pageMarkup.includes("Collaboration Link")).toBe(true);
     tester.expect(pageMarkup.includes("project-edit-modal")).toBe(false);
     tester.expect(mixerMarkup.includes("data-track-name-editor")).toBe(true);
     tester.expect(mixerMarkup.includes('contenteditable="true"')).toBe(true);

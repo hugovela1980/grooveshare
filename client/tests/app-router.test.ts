@@ -16,6 +16,10 @@ function createPageRenderers() {
             return "<main>Authentication</main>";
         },
 
+        invitation() {
+            return "<main>Invitation</main>";
+        },
+
         "project-menu"() {
             return "<main>Project Menu</main>";
         },

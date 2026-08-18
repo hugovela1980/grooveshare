@@ -1,9 +1,9 @@
 /*
   Desktop/tablet responsive coordination.
 
-  The phone-first presentation now lives in mobile-client. The web client stays
-  fluid for narrower desktop windows and tablets without transforming into the
-  dedicated phone navigation or vertical-fader layout.
+  The dedicated phone presentation still lives in mobile-client. The desktop
+  web client now uses the same mixer language — vertical channel strips — while
+  reflowing those strips from four columns to two as tablet space gets tighter.
 */
 
 @media (max-width: 56rem) {
@@ -28,6 +28,6 @@
     }
 
     .project-player-tracks-panel {
-        padding: 1.1rem;
+        padding: 0;
     }
 }

@@ -9,15 +9,36 @@ import {
   apiFetch,
   parseApiResponse,
 } from "./api-client.js";
+import { PROJECT_INVITATION_HEADER } from "./invitations-api.js";
+
+function getInvitationRequestOptions(invitationToken?: string): RequestInit & {
+  notifyOnUnauthorized?: boolean;
+} {
+  if (!invitationToken) {
+    return {};
+  }
+
+  return {
+    headers: {
+      [PROJECT_INVITATION_HEADER]: invitationToken,
+    },
+    notifyOnUnauthorized: false,
+  };
+}
 
 export async function getProjects(): Promise<Project[]> {
   const response = await apiFetch(`${API_BASE_URL}/api/projects`);
   return parseApiResponse<Project[]>(response);
 }
 
-
-export async function getProject(projectId: string): Promise<Project> {
-  const response = await apiFetch(`${API_BASE_URL}/api/projects/${projectId}`);
+export async function getProject(
+  projectId: string,
+  invitationToken?: string,
+): Promise<Project> {
+  const response = await apiFetch(
+    `${API_BASE_URL}/api/projects/${projectId}`,
+    getInvitationRequestOptions(invitationToken),
+  );
   return parseApiResponse<Project>(response);
 }
 

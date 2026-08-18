@@ -6,7 +6,7 @@ export function renderAudioPlayer(): string {
       aria-labelledby="audio-player-heading"
     >
       <div class="audio-player__header">
-        <h2 id="audio-player-heading" class="audio-player__title">
+        <h2 id="audio-player-heading" class="visually-hidden">
           Audio Player
         </h2>
 
@@ -18,57 +18,59 @@ export function renderAudioPlayer(): string {
       <audio id="project-audio-player" crossorigin="use-credentials"></audio>
 
       <div class="audio-player__controls">
-        <div class="audio-player__seek-back-control">
+        <div class="audio-player__transport">
+          <div class="audio-player__seek-back-control">
+            <button
+              id="audio-seek-back-button"
+              class="button audio-player__transport-button audio-player__seek-back-button"
+              type="button"
+              aria-label="Seek backward 5 seconds"
+              disabled
+            >
+              <span aria-hidden="true">↶5</span>
+            </button>
+
+            <span class="audio-player__control-caption" aria-hidden="true">
+              -5s
+            </span>
+          </div>
+
           <button
-            id="audio-seek-back-button"
-            class="button audio-player__transport-button audio-player__seek-back-button"
+            id="audio-play-pause-button"
+            class="button audio-player__transport-button audio-player__play-pause-button"
             type="button"
-            aria-label="Seek backward 5 seconds"
+            aria-label="Play or pause mix"
             disabled
           >
-            <span aria-hidden="true">↶5</span>
+            ▶
           </button>
 
-          <span class="audio-player__control-caption" aria-hidden="true">
-            -5s
-          </span>
+          <button
+            id="audio-stop-button"
+            class="button audio-player__transport-button audio-player__stop-button"
+            type="button"
+            aria-label="Stop mix"
+            disabled
+          >
+            ■
+          </button>
+
+          <label class="audio-player__loop-control">
+            <input
+              id="audio-loop-checkbox"
+              type="checkbox"
+              data-audio-loop-checkbox
+            />
+
+            <span class="audio-player__loop-button" aria-hidden="true">
+              ↻
+            </span>
+
+            <span class="audio-player__control-caption">
+              Loop
+            </span>
+          </label>
         </div>
-
-        <button
-          id="audio-play-pause-button"
-          class="button audio-player__transport-button audio-player__play-pause-button"
-          type="button"
-          aria-label="Play or pause mix"
-          disabled
-        >
-          ▶
-        </button>
-
-        <button
-          id="audio-stop-button"
-          class="button audio-player__transport-button audio-player__stop-button"
-          type="button"
-          aria-label="Stop mix"
-          disabled
-        >
-          ■
-        </button>
-
-        <label class="audio-player__loop-control">
-          <input
-            id="audio-loop-checkbox"
-            type="checkbox"
-            data-audio-loop-checkbox
-          />
-
-          <span class="audio-player__loop-button" aria-hidden="true">
-            ↻
-          </span>
-
-          <span class="audio-player__control-caption">
-            Loop
-          </span>
-        </label>
 
         <div class="audio-player__timeline">
           <span id="audio-timestamp" class="audio-player__timestamp">

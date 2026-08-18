@@ -111,6 +111,7 @@ tester.describe("page templates", () => {
     tester.expect(html.includes("Audio Player")).toBe(true);
     tester.expect(html.includes("player-area")).toBe(true);
     tester.expect(html.includes("player-track-list")).toBe(true);
+    tester.expect(html.includes("project-player-workspace")).toBe(true);
     tester.expect(html.includes('id="project-player-loading"')).toBe(true);
     tester.expect(html.includes("Loading your project...")).toBe(true);
     tester.expect(html.includes('id="project-player-content"')).toBe(true);
@@ -140,9 +141,11 @@ tester.describe("page templates", () => {
     tester.expect(html.includes("player-area")).toBe(true);
     tester.expect(html.includes("player-track-list")).toBe(true);
     tester.expect(html.includes("player-track-upload-form")).toBe(false);
-    tester.expect(html.includes('id="project-actions-button"')).toBe(false);
+    tester.expect(html.includes('id="project-actions-button"')).toBe(true);
     tester.expect(html.includes("Edit Project")).toBe(false);
-    tester.expect(html.includes("Owner Controls")).toBe(true);
+    tester.expect(html.includes("Owner Controls")).toBe(false);
+    tester.expect(html.includes("Manage Members")).toBe(true);
+    tester.expect(html.includes("Collaboration Link")).toBe(true);
     tester.expect(html.includes("Delete Project")).toBe(true);
     tester.expect(html.includes('id="project-members-panel"')).toBe(true);
     tester.expect(html.includes("Loading your project...")).toBe(true);

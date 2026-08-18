@@ -1,101 +1,59 @@
 import { renderAudioPlayer } from "../templates/audio-player.js";
+import { renderProjectActionsMenu } from "../templates/project-actions-menu.js";
+import { renderProjectInvitationPanel } from "../templates/project-invitation-controls.js";
 import { renderProjectMembersPanel } from "../templates/project-members.js";
 import { renderLoadingState } from "../templates/loading-state.js";
-import type { Project, ProjectRole } from "../types.js";
+import type { Project, ProjectRole, User } from "../types.js";
 
-function escapeHtml(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
+function escapeHtml(value: string): string { return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;"); }
+function renderProjectHeading(project: Project | null): string { return project ? escapeHtml(project.title) : "Project Player"; }
+function renderProjectDescription(project: Project | null): string { return project ? escapeHtml(project.description) : "Select a project from the Project Menu."; }
+function isGuestProject(project: Project | null): boolean { return project?.access === "guest" && project.role == null; }
+function getProjectRole(project: Project | null): ProjectRole { return project?.role ?? "owner"; }
+function getRoleLabel(project: Project | null): string { if (isGuestProject(project)) return "Guest"; const role = getProjectRole(project); if (role === "owner") return "Owner"; if (role === "contributor") return "Contributor"; return "Viewer"; }
 
-function renderProjectHeading(project: Project | null): string {
-  return project ? escapeHtml(project.title) : "Project Player";
-}
+type ProjectPlayerPageOptions = { currentUser?: User | null; hasContributorInvitation?: boolean; statusMessage?: string };
 
-function renderProjectDescription(project: Project | null): string {
-  return project
-    ? escapeHtml(project.description)
-    : "Select a project from the Project Menu.";
-}
-
-function getProjectRole(project: Project | null): ProjectRole {
-  return project?.role ?? "owner";
-}
-
-function getRoleLabel(role: ProjectRole): string {
-  if (role === "owner") return "Owner";
-  if (role === "contributor") return "Contributor";
-  return "Viewer";
-}
-
-export function renderProjectPlayerPage(project: Project | null = null): string {
+export function renderProjectPlayerPage(project: Project | null = null, { currentUser = null, hasContributorInvitation = false, statusMessage = "" }: ProjectPlayerPageOptions = {}): string {
   const heading = renderProjectHeading(project);
   const description = renderProjectDescription(project);
-  const role = getProjectRole(project);
+  const guest = isGuestProject(project);
+  const role = guest ? null : getProjectRole(project);
   const canManageProject = Boolean(project) && role === "owner";
   const editableAttribute = canManageProject ? 'contenteditable="true"' : "";
   const editableClass = canManageProject ? " project-player-editable--enabled" : "";
+  const canBecomeContributor = Boolean(project && hasContributorInvitation && role !== "owner" && role !== "contributor");
   const loadingHiddenAttribute = project ? "" : "hidden";
   const contentHiddenAttribute = project ? "hidden" : "";
 
   return /*html*/ `
-    <main class="app-shell project-player-page desktop-project-player-page" data-page="project-player">
+    <main class="app-shell project-player-page desktop-project-player-page" data-page="project-player" ${guest ? 'data-project-access="guest"' : ""}>
       <header class="page-header project-player-header">
         <div class="project-player-header__actions">
-          <button id="player-back-button" class="button button--secondary" type="button">Back</button>
-          <button id="player-logout-button" class="button button--secondary" type="button">Log Out</button>
-          ${canManageProject ? /*html*/ `
-            <button id="delete-project-button" class="button button--danger" type="button">Delete Project</button>
-          ` : ""}
+          ${guest && !currentUser ? `<button id="player-guest-home-button" class="button button--secondary" type="button">Home</button><button id="player-login-button" class="button button--secondary" type="button">Log In</button>` : `<button id="player-back-button" class="button button--secondary" type="button">Back</button><button id="player-logout-button" class="button button--secondary" type="button">Log Out</button>`}
+          ${canManageProject ? renderProjectActionsMenu() : ""}
         </div>
-
         <div class="project-player-header__details">
-          <div class="project-player-header__eyebrow-row">
-            <p class="eyebrow">Project Player</p>
-            ${project ? `<span class="project-role-badge">${getRoleLabel(role)}</span>` : ""}
-          </div>
-
-          <div class="project-player-editable project-player-editable--title${editableClass}">
-            <h1
-              class="project-player-editable__text project-player-editable__title"
-              ${editableAttribute}
-              ${canManageProject ? 'role="textbox" aria-label="Edit project title"' : ""}
-              spellcheck="false"
-              data-project-title-display
-            >${heading}</h1>
-          </div>
-
-          <div class="project-player-editable project-player-editable--description${editableClass}">
-            <p
-              class="description project-player-editable__text project-player-editable__description"
-              ${editableAttribute}
-              ${canManageProject ? 'role="textbox" aria-label="Edit project description"' : ""}
-              data-placeholder="No description provided."
-              data-project-description-display
-            >${description}</p>
-          </div>
+          <div class="project-player-header__eyebrow-row"><p class="eyebrow">Project Player</p>${project ? `<span class="project-role-badge${guest ? " project-role-badge--guest" : ""}">${getRoleLabel(project)}</span>` : ""}</div>
+          <div class="project-player-editable project-player-editable--title${editableClass}"><h1 class="project-player-editable__text project-player-editable__title" ${editableAttribute} ${canManageProject ? 'role="textbox" aria-label="Edit project title"' : ""} spellcheck="false" data-project-title-display>${heading}</h1></div>
+          <div class="project-player-editable project-player-editable--description${editableClass}"><p class="description project-player-editable__text project-player-editable__description" ${editableAttribute} ${canManageProject ? 'role="textbox" aria-label="Edit project description"' : ""} data-placeholder="No description provided." data-project-description-display>${description}</p></div>
         </div>
       </header>
-
-      <div id="project-player-loading" class="project-player-loading" ${loadingHiddenAttribute}>
-        ${renderLoadingState("Loading your project...", { className: "project-player-loading__state" })}
-      </div>
-
+      <div id="project-player-loading" class="project-player-loading" ${loadingHiddenAttribute}>${renderLoadingState("Loading your project...", { className: "project-player-loading__state" })}</div>
       <div id="project-player-content" class="project-player-content" ${contentHiddenAttribute}>
-        ${renderAudioPlayer()}
-
-        <section class="panel project-player-tracks-panel">
-          <h2>Tracks</h2>
-          <div id="player-track-list"></div>
-          <p id="project-player-status" class="status-message" aria-live="polite"></p>
-        </section>
-
-        ${canManageProject ? renderProjectMembersPanel() : ""}
+        ${statusMessage ? `<p class="status-message project-player-notice" role="status">${escapeHtml(statusMessage)}</p>` : ""}
+        ${guest ? `<section id="guest-access-banner" class="guest-access-banner guest-message-card" aria-label="Guest access"><button id="dismiss-guest-access-button" class="icon-button guest-message-card__close" type="button" aria-label="Dismiss Guest listening message">×</button><div><p class="eyebrow">Guest Listening</p><h2>You are viewing this project as a Guest.</h2><p>Your mix stays on this browser. You cannot change the shared project or upload tracks.</p></div></section>` : ""}
+        ${canBecomeContributor ? `<section id="contributor-invitation-card" class="contributor-invitation-card guest-message-card" aria-labelledby="contributor-invitation-heading"><button id="dismiss-contributor-invitation-button" class="icon-button guest-message-card__close" type="button" aria-label="Dismiss collaboration invitation message">×</button><div><p class="eyebrow">Collaboration Invitation</p><h2 id="contributor-invitation-heading">Become a Contributor</h2><p>${currentUser ? "Accept this invitation to add tracks and collaborate through your account." : "Log in or create an account, then explicitly accept this invitation to contribute."}</p></div><button id="become-contributor-button" class="button contributor-invitation-card__button" type="button">${currentUser ? "Accept Contributor Invitation" : "Become a Contributor"}</button><p id="contributor-invitation-status" class="status-message" aria-live="polite"></p></section>` : ""}
+        <div class="project-player-workspace">
+          ${renderAudioPlayer()}
+          <section class="panel project-player-tracks-panel">
+            <h2 class="visually-hidden">Tracks</h2>
+            <div id="player-track-list"></div>
+            <p id="project-player-status" class="status-message" aria-live="polite"></p>
+          </section>
+        </div>
+        ${canManageProject ? renderProjectMembersPanel({ hidden: true }) : ""}
+        ${canManageProject ? renderProjectInvitationPanel({ hidden: true }) : ""}
       </div>
-    </main>
-  `;
+    </main>`;
 }

@@ -25,6 +25,9 @@ tester.describe("project list template", () => {
         tester.expect(html.includes("Bass Groove")).toBe(true);
         tester.expect(html.includes("Practice loop")).toBe(true);
         tester.expect(html.includes('data-project-id="project-1"')).toBe(true);
+        tester.expect(html.includes('class="project-card"')).toBe(true);
+        tester.expect(html.includes("project-list__open-button")).toBe(true);
+        tester.expect(html.includes(">Open<")).toBe(true);
         tester.expect(html.includes("Delete")).toBe(false);
         tester.expect(html.includes("data-project-delete-button")).toBe(false);
     });
