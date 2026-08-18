@@ -1,0 +1,17 @@
+BEGIN;
+
+CREATE TABLE project_invitations (
+  id UUID PRIMARY KEY,
+  project_id UUID NOT NULL UNIQUE
+    REFERENCES projects(id)
+    ON DELETE CASCADE,
+  token_hash TEXT NOT NULL UNIQUE,
+  created_by_user_id UUID NOT NULL
+    REFERENCES users(id)
+    ON DELETE CASCADE,
+  active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+COMMIT;

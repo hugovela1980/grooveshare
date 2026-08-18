@@ -39,6 +39,7 @@ import type {
   ProjectMembershipsStore,
   ProjectRole,
 } from "./stores/project-memberships-store.js";
+import type { ProjectInvitationsStore } from "./stores/project-invitations-store.js";
 import {
   getAuthenticatedUser,
 } from "./auth/authentication.js";
@@ -57,6 +58,14 @@ import {
   handleListProjectMembers,
   handleUpdateProjectMember,
 } from "./auth/project-membership-routes.js";
+import {
+  getProjectInvitationRouteProjectId,
+  handleAcceptProjectInvitation,
+  handleDisableProjectInvitation,
+  handleGenerateProjectInvitation,
+  handleGetProjectInvitationStatus,
+  handleResolveGuestInvitation,
+} from "./auth/project-invitation-routes.js";
 
 type JsonResponse = Record<string, unknown>;
 
@@ -70,6 +79,7 @@ type AppOptions = {
   maxUploadFileSizeBytes?: number;
   sessionsStore: SessionsStore;
   projectMembershipsStore: ProjectMembershipsStore;
+  projectInvitationsStore: ProjectInvitationsStore;
   resetDevelopmentData?: () => Promise<void>;
   secureCookies?: boolean;
   developmentRoutesEnabled?: boolean;
@@ -88,7 +98,7 @@ function sendJson(
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": clientOrigin,
     "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Headers": "Content-Type, Range, X-GrooveShare-Invite",
     "Access-Control-Allow-Credentials": "true",
   });
 
@@ -371,6 +381,7 @@ export function createAppServer({
   usersStore,
   sessionsStore,
   projectMembershipsStore,
+  projectInvitationsStore,
   clientOrigin = "http://localhost:5173",
   uploadRoot = DEFAULT_UPLOAD_ROOT,
   seedProjectDir = DEFAULT_SEED_PROJECT_DIR,
@@ -408,6 +419,7 @@ export function createAppServer({
         usersStore,
         sessionsStore,
         projectMembershipsStore,
+        projectInvitationsStore,
       });
 
     if (authorization.ok) {
@@ -1146,7 +1158,7 @@ export function createAppServer({
         res.writeHead(204, {
           "Access-Control-Allow-Origin": clientOrigin,
           "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-          "Access-Control-Allow-Headers": "Content-Type",
+          "Access-Control-Allow-Headers": "Content-Type, Range, X-GrooveShare-Invite",
           "Access-Control-Allow-Credentials": "true",
         });
 
@@ -1239,6 +1251,39 @@ export function createAppServer({
         return;
       }
 
+      if (
+        req.method === "GET" &&
+        req.url === "/api/invitations/guest"
+      ) {
+        logApiRequest(req, "Resolve guest project invitation");
+        await handleResolveGuestInvitation({
+          req,
+          res,
+          sendJson,
+          clientOrigin,
+          projectInvitationsStore,
+        });
+        return;
+      }
+
+      if (
+        req.method === "POST" &&
+        req.url === "/api/invitations/accept"
+      ) {
+        logApiRequest(req, "Accept project invitation");
+        await handleAcceptProjectInvitation({
+          req,
+          res,
+          sendJson,
+          clientOrigin,
+          projectInvitationsStore,
+          usersStore,
+          sessionsStore,
+          projectMembershipsStore,
+        });
+        return;
+      }
+
       // ============================================= //
       // ============================================= //
       // ============================================= //
@@ -1320,6 +1365,105 @@ export function createAppServer({
       if (req.method === "POST" && req.url === "/api/projects") {
         logApiRequest(req, "Create project");
         await handleCreateProject(req, res);
+        return;
+      }
+
+      const projectInvitationRouteProjectId =
+        getProjectInvitationRouteProjectId(req.url);
+
+      if (req.method === "GET" && projectInvitationRouteProjectId) {
+        logApiRequest(req, "Load project invitation status");
+        if (
+          !await requireProjectPermission(
+            req,
+            res,
+            projectInvitationRouteProjectId,
+            "manage",
+          )
+        ) {
+          return;
+        }
+
+        await handleGetProjectInvitationStatus({
+          res,
+          projectId: projectInvitationRouteProjectId,
+          sendJson,
+          clientOrigin,
+          projectInvitationsStore,
+        });
+        return;
+      }
+
+      if (req.method === "POST" && projectInvitationRouteProjectId) {
+        logApiRequest(req, "Generate or regenerate project invitation");
+        const authorization = await authorizeProjectRequest({
+          req,
+          projectId: projectInvitationRouteProjectId,
+          permission: "manage",
+          projectsStore,
+          usersStore,
+          sessionsStore,
+          projectMembershipsStore,
+          projectInvitationsStore,
+        });
+
+        if (authorization.ok === false) {
+          sendJson(
+            res,
+            authorization.statusCode,
+            {
+              ok: false,
+              error: authorization.error,
+            },
+            clientOrigin,
+          );
+          return;
+        }
+
+        if (authorization.accessKind !== "member") {
+          sendJson(
+            res,
+            403,
+            {
+              ok: false,
+              error: "Project access denied.",
+            },
+            clientOrigin,
+          );
+          return;
+        }
+
+        await handleGenerateProjectInvitation({
+          res,
+          projectId: projectInvitationRouteProjectId,
+          ownerUserId: authorization.user.id,
+          sendJson,
+          clientOrigin,
+          projectInvitationsStore,
+        });
+        return;
+      }
+
+      if (req.method === "DELETE" && projectInvitationRouteProjectId) {
+        logApiRequest(req, "Disable project invitation");
+        if (
+          !await requireProjectPermission(
+            req,
+            res,
+            projectInvitationRouteProjectId,
+            "manage",
+          )
+        ) {
+          return;
+        }
+
+        await handleDisableProjectInvitation({
+          res,
+          projectId: projectInvitationRouteProjectId,
+          sendJson,
+          clientOrigin,
+          projectInvitationsStore,
+        });
         return;
       }
 
@@ -1471,6 +1615,7 @@ export function createAppServer({
             usersStore,
             sessionsStore,
             projectMembershipsStore,
+            projectInvitationsStore,
           });
 
         if (authorization.ok === false) {
@@ -1492,10 +1637,16 @@ export function createAppServer({
           200,
           {
             ok: true,
-            data: {
-              ...authorization.project,
-              role: authorization.membership.role,
-            },
+            data: authorization.accessKind === "member"
+              ? {
+                  ...authorization.project,
+                  role: authorization.membership.role,
+                }
+              : {
+                  ...authorization.project,
+                  access: "guest",
+                  role: null,
+                },
           },
           clientOrigin,
         );
@@ -1575,6 +1726,7 @@ export function createAppServer({
             usersStore,
             sessionsStore,
             projectMembershipsStore,
+            projectInvitationsStore,
           });
 
         if (authorization.ok === false) {
@@ -1588,6 +1740,19 @@ export function createAppServer({
             clientOrigin,
           );
 
+          return;
+        }
+
+        if (authorization.accessKind !== "member") {
+          sendJson(
+            res,
+            403,
+            {
+              ok: false,
+              error: "Guest access is read-only.",
+            },
+            clientOrigin,
+          );
           return;
         }
 
@@ -1631,6 +1796,7 @@ export function createAppServer({
             usersStore,
             sessionsStore,
             projectMembershipsStore,
+            projectInvitationsStore,
           });
 
         if (authorization.ok === false) {
@@ -1669,6 +1835,7 @@ export function createAppServer({
             usersStore,
             sessionsStore,
             projectMembershipsStore,
+            projectInvitationsStore,
           });
 
         if (authorization.ok === false) {

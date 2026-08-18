@@ -8,6 +8,7 @@ import { createTracksJsonStore } from "../src/stores/tracks-json-store.js";
 import type { Database } from "../src/types.js";
 import { createAuthenticatedTestSession } from "./helpers/create-authenticated-test-session.js";
 import { createTestProjectMembershipsStore } from "./helpers/create-test-project-memberships-store.js";
+import { createTestProjectInvitationsStore } from "./helpers/create-test-project-invitations-store.js";
 import { createTestSessionsStore } from "./helpers/create-test-sessions-store.js";
 import { createTestUsersStore } from "./helpers/create-test-users-store.js";
 import { tester } from "./test-runner/tester.js";
@@ -110,6 +111,7 @@ async function createTestServer() {
     usersStore,
     sessionsStore,
     projectMembershipsStore,
+    projectInvitationsStore: createTestProjectInvitationsStore(),
     clientOrigin:
       "http://localhost:5173",
     uploadRoot: TEST_UPLOAD_ROOT,

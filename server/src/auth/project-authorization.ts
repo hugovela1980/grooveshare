@@ -4,12 +4,20 @@ import type {
     ProjectMembershipsStore,
     ProjectRole,
 } from "../stores/project-memberships-store.js";
+import type {
+    ProjectInvitation,
+    ProjectInvitationsStore,
+} from "../stores/project-invitations-store.js";
 import type { ProjectsStore } from "../stores/projects-store.js";
 import type { SessionsStore } from "../stores/sessions-store.js";
 import type { UsersStore } from "../stores/users-store.js";
 import type { Project } from "../types.js";
 import type { User } from "./types.js";
 import { getAuthenticatedUser } from "./authentication.js";
+import {
+    getProjectInvitationToken,
+    hashProjectInvitationToken,
+} from "./project-invitation.js";
 
 export type ProjectPermission =
     | "read"
@@ -43,13 +51,22 @@ type AuthorizeProjectRequestOptions = {
     usersStore: UsersStore;
     sessionsStore: SessionsStore;
     projectMembershipsStore: ProjectMembershipsStore;
+    projectInvitationsStore: ProjectInvitationsStore;
 };
 
-type AuthorizedProjectRequest = {
+type AuthorizedMemberProjectRequest = {
     ok: true;
+    accessKind: "member";
     user: User;
     project: Project;
     membership: ProjectMembership;
+};
+
+type AuthorizedGuestProjectRequest = {
+    ok: true;
+    accessKind: "guest";
+    project: Project;
+    invitation: ProjectInvitation;
 };
 
 type ProjectAuthorizationFailure = {
@@ -59,8 +76,32 @@ type ProjectAuthorizationFailure = {
 };
 
 export type ProjectAuthorizationResult =
-    | AuthorizedProjectRequest
+    | AuthorizedMemberProjectRequest
+    | AuthorizedGuestProjectRequest
     | ProjectAuthorizationFailure;
+
+async function getGuestInvitation(
+    req: IncomingMessage,
+    projectId: string,
+    projectInvitationsStore: ProjectInvitationsStore,
+): Promise<ProjectInvitation | null> {
+    const token = getProjectInvitationToken(req);
+
+    if (!token) {
+        return null;
+    }
+
+    const invitation =
+        await projectInvitationsStore.getActiveInvitationByTokenHash(
+            hashProjectInvitationToken(token),
+        );
+
+    if (!invitation || invitation.projectId !== projectId) {
+        return null;
+    }
+
+    return invitation;
+}
 
 export async function authorizeProjectRequest({
     req,
@@ -70,6 +111,7 @@ export async function authorizeProjectRequest({
     usersStore,
     sessionsStore,
     projectMembershipsStore,
+    projectInvitationsStore,
 }: AuthorizeProjectRequestOptions): Promise<ProjectAuthorizationResult> {
     const project = await projectsStore.getProjectById(projectId);
 
@@ -87,6 +129,53 @@ export async function authorizeProjectRequest({
         sessionsStore,
     });
 
+    if (user) {
+        const membership =
+            await projectMembershipsStore.getMembership(
+                projectId,
+                user.id,
+            );
+
+        if (
+            membership &&
+            projectRoleHasPermission(
+                membership.role,
+                permission,
+            )
+        ) {
+            return {
+                ok: true,
+                accessKind: "member",
+                user,
+                project,
+                membership,
+            };
+        }
+    }
+
+    const invitation = await getGuestInvitation(
+        req,
+        projectId,
+        projectInvitationsStore,
+    );
+
+    if (invitation) {
+        if (permission !== "read") {
+            return {
+                ok: false,
+                statusCode: 403,
+                error: "Guest access is read-only.",
+            };
+        }
+
+        return {
+            ok: true,
+            accessKind: "guest",
+            project,
+            invitation,
+        };
+    }
+
     if (!user) {
         return {
             ok: false,
@@ -95,30 +184,9 @@ export async function authorizeProjectRequest({
         };
     }
 
-    const membership =
-        await projectMembershipsStore.getMembership(
-            projectId,
-            user.id,
-        );
-
-    if (
-        !membership ||
-        !projectRoleHasPermission(
-            membership.role,
-            permission,
-        )
-    ) {
-        return {
-            ok: false,
-            statusCode: 403,
-            error: "Project access denied.",
-        };
-    }
-
     return {
-        ok: true,
-        user,
-        project,
-        membership,
+        ok: false,
+        statusCode: 403,
+        error: "Project access denied.",
     };
 }

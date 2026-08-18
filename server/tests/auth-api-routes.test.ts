@@ -13,6 +13,7 @@ import type { SessionsStore } from "../src/stores/sessions-store.js";
 import type { UsersStore } from "../src/stores/users-store.js";
 import type { Database } from "../src/types.js";
 import { createTestProjectMembershipsStore } from "./helpers/create-test-project-memberships-store.js";
+import { createTestProjectInvitationsStore } from "./helpers/create-test-project-invitations-store.js";
 import { createTestSessionsStore } from "./helpers/create-test-sessions-store.js";
 import { createTestUsersStore } from "./helpers/create-test-users-store.js";
 import { tester } from "./test-runner/tester.js";
@@ -98,6 +99,7 @@ async function createTestServer({
         usersStore,
         sessionsStore,
         projectMembershipsStore,
+        projectInvitationsStore: createTestProjectInvitationsStore(),
         clientOrigin: CLIENT_ORIGIN,
         uploadRoot: TEST_UPLOAD_ROOT,
         secureCookies,

@@ -4,6 +4,7 @@ import { createServerConfig } from "./config/server-config.js";
 import { createDatabasePool } from "./db/pool.js";
 import { resetDevelopmentData } from "./dev/reset-development-data.js";
 import { createProjectMembershipsPostgresStore } from "./stores/project-memberships-postgres-store.js";
+import { createProjectInvitationsPostgresStore } from "./stores/project-invitations-postgres-store.js";
 import { createProjectsPostgresStore } from "./stores/projects-postgres-store.js";
 import { createSessionsPostgresStore } from "./stores/sessions-postgres-store.js";
 import { createTracksPostgresStore } from "./stores/tracks-postgres-store.js";
@@ -24,6 +25,8 @@ const usersStore = createUsersPostgresStore(pool);
 const sessionsStore = createSessionsPostgresStore(pool);
 const projectMembershipsStore =
   createProjectMembershipsPostgresStore(pool);
+const projectInvitationsStore =
+  createProjectInvitationsPostgresStore(pool);
 
 const server = createAppServer({
   projectsStore,
@@ -31,6 +34,7 @@ const server = createAppServer({
   usersStore,
   sessionsStore,
   projectMembershipsStore,
+  projectInvitationsStore,
   clientOrigin: config.clientOrigin,
   uploadRoot: config.uploadRoot,
   secureCookies: config.secureCookies,

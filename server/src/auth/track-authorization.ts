@@ -1,5 +1,6 @@
 import type { IncomingMessage } from "node:http";
 import type { ProjectMembershipsStore } from "../stores/project-memberships-store.js";
+import type { ProjectInvitationsStore } from "../stores/project-invitations-store.js";
 import type { ProjectsStore } from "../stores/projects-store.js";
 import type { SessionsStore } from "../stores/sessions-store.js";
 import type { TracksStore } from "../stores/tracks-store.js";
@@ -17,6 +18,7 @@ type AuthorizeTrackManagementRequestOptions = {
     usersStore: UsersStore;
     sessionsStore: SessionsStore;
     projectMembershipsStore: ProjectMembershipsStore;
+    projectInvitationsStore: ProjectInvitationsStore;
 };
 
 type AuthorizedTrackManagementRequest = {
@@ -44,6 +46,7 @@ export async function authorizeTrackManagementRequest({
     usersStore,
     sessionsStore,
     projectMembershipsStore,
+    projectInvitationsStore,
 }: AuthorizeTrackManagementRequestOptions): Promise<TrackManagementAuthorizationResult> {
     const projectAuthorization =
         await authorizeProjectRequest({
@@ -54,10 +57,19 @@ export async function authorizeTrackManagementRequest({
             usersStore,
             sessionsStore,
             projectMembershipsStore,
+            projectInvitationsStore,
         });
 
     if (projectAuthorization.ok === false) {
         return projectAuthorization;
+    }
+
+    if (projectAuthorization.accessKind !== "member") {
+        return {
+            ok: false,
+            statusCode: 403,
+            error: "Guest access is read-only.",
+        };
     }
 
     const track = await tracksStore.getTrackById(

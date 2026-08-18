@@ -19,6 +19,7 @@ import {
   createAuthenticatedTestSession,
 } from "./helpers/create-authenticated-test-session.js";
 
+import { createTestProjectInvitationsStore } from "./helpers/create-test-project-invitations-store.js";
 import { tester } from "./test-runner/tester.js";
 
 const TEST_DB_DIR = path.join(process.cwd(), "tests/.tmp");
@@ -146,6 +147,7 @@ async function createTestServer(): Promise<{
     usersStore,
     sessionsStore,
     projectMembershipsStore,
+    projectInvitationsStore: createTestProjectInvitationsStore(),
     clientOrigin:
       "http://localhost:5173",
     uploadRoot: TEST_UPLOAD_ROOT,

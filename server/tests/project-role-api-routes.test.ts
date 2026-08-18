@@ -6,6 +6,7 @@ import type { TracksStore } from "../src/stores/tracks-store.js";
 import { createTestUsersStore } from "./helpers/create-test-users-store.js";
 import { createTestSessionsStore } from "./helpers/create-test-sessions-store.js";
 import { createTestProjectMembershipsStore } from "./helpers/create-test-project-memberships-store.js";
+import { createTestProjectInvitationsStore } from "./helpers/create-test-project-invitations-store.js";
 import { createAuthenticatedTestSession } from "./helpers/create-authenticated-test-session.js";
 import { tester } from "./test-runner/tester.js";
 
@@ -163,6 +164,7 @@ tester.describe("project role API data", () => {
       usersStore,
       sessionsStore,
       projectMembershipsStore,
+      projectInvitationsStore: createTestProjectInvitationsStore(),
     });
     const baseUrl = await listen(server);
 
@@ -197,6 +199,7 @@ tester.describe("project role API data", () => {
       usersStore,
       sessionsStore,
       projectMembershipsStore,
+      projectInvitationsStore: createTestProjectInvitationsStore(),
     });
     const baseUrl = await listen(server);
 
@@ -248,6 +251,7 @@ tester.describe("project role API data", () => {
       usersStore,
       sessionsStore,
       projectMembershipsStore,
+      projectInvitationsStore: createTestProjectInvitationsStore(),
     });
     const baseUrl = await listen(server);
 

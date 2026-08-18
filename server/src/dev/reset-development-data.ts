@@ -13,6 +13,7 @@ type ResetDevelopmentDataOptions = {
 export const RESET_DEVELOPMENT_DATA_SQL = `
   TRUNCATE TABLE
     project_mix_channels,
+    project_invitations,
     project_memberships,
     tracks,
     projects,
