@@ -1,8 +1,6 @@
-export type InvitationSession = {
-  projectId: string;
-  token: string;
-  pendingContributor: boolean;
-};
+import type { InvitationSessionState } from "@hugovela/frontend-core";
+
+export type InvitationSession = InvitationSessionState;
 
 export type InvitationSessionStore = {
   get(): InvitationSession | null;

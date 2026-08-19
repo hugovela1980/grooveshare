@@ -1,15 +1,10 @@
-export type AppScreen =
-    | "auth"
-    | "invitation"
-    | "project-menu"
-    | "create-project"
-    | "project-player";
+import type {
+    ApplicationRoute,
+    ApplicationScreen,
+} from "@hugovela/frontend-core";
 
-export type AppRoute = {
-    screen: AppScreen;
-    projectId?: string;
-    invitationToken?: string;
-};
+export type AppScreen = ApplicationScreen;
+export type AppRoute = ApplicationRoute;
 
 type AppElementLike = {
     innerHTML: string;

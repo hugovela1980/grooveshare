@@ -16,7 +16,8 @@ export type Project = {
   title: string;
   description: string;
   mixSettings?: MixSettings;
-  role?: ProjectRole;
+  role?: ProjectRole | null;
+  access?: "guest";
   createdAt: string;
   updatedAt: string;
 };

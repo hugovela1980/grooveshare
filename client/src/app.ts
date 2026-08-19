@@ -9,6 +9,8 @@ import { invitationsApi } from "./api/invitations-api.js";
 import {
   createHtmlAudioPlaybackEngine,
   createWebAudioPlaybackEngine,
+  type ApplicationNavigationOptions,
+  type ApplicationPresentationPort,
   type SessionProvider,
   type StorageProvider,
 } from "@hugovela/frontend-core";
@@ -39,10 +41,6 @@ import { createProjectTrackSelectionController } from "./page-controllers/create
 import { createCreateProjectConfirmationController } from "./page-controllers/create-project-confirmation-controller.js";
 import { createAuthPageController } from "./page-controllers/auth-page-controller.js";
 import { renderPendingTrackList } from "./templates/pending-track-list.js";
-import { renderCreateProjectPage } from "./pages/create-project-page.js";
-import { renderProjectMenuPage } from "./pages/project-menu-page.js";
-import { renderProjectPlayerPage } from "./pages/project-player-page.js";
-import { renderAuthPage } from "./pages/auth-page.js";
 import {
   createProjectDraftState,
   type PendingTrackDraft,
@@ -56,8 +54,8 @@ import {
 import { renderProjectList } from "./templates/project-list.js";
 import { renderMixChannelSlots } from "./templates/mix-channel-slots.js";
 import { renderProjectMemberList } from "./templates/project-members.js";
-import { renderAppLoadingState } from "./templates/loading-state.js";
 import { setControlBusy } from "./ui/async-state.js";
+import { createApplicationPresentationAdapter } from "./presentation/application-presentation-adapter.js";
 import type { Project, User } from "./types.js";
 
 type AppElementLike = {
@@ -72,11 +70,10 @@ type GrooveShareAppOptions = {
   storageProvider?: StorageProvider | null;
   historyAdapter?: HistoryAdapter | null;
   invitationSessionStore?: InvitationSessionStore | null;
+  presentationPort?: ApplicationPresentationPort<string>;
 };
 
-type NavigateOptions = {
-  replace?: boolean;
-};
+type NavigateOptions = ApplicationNavigationOptions;
 
 type NavigateTo = (
   screen: AppScreen,
@@ -677,6 +674,7 @@ export function createGrooveShareApp({
   storageProvider = getBrowserStorageProvider(),
   historyAdapter,
   invitationSessionStore = getBrowserInvitationSessionStore(),
+  presentationPort = createApplicationPresentationAdapter(),
 }: GrooveShareAppOptions) {
   let selectedProject: Project | null = null;
   let currentUser: User | null = null;
@@ -945,17 +943,24 @@ export function createGrooveShareApp({
     initialScreen,
     historyAdapter,
     pageRenderers: {
-      auth: () => renderAuthPage({ message: authMessage }),
+      auth: () =>
+        presentationPort.showAuthentication({ message: authMessage }),
       invitation: () =>
-        renderAppLoadingState("Opening collaboration invitation..."),
+        presentationPort.showLoading({
+          message: "Opening collaboration invitation...",
+        }),
       "project-menu": () =>
-        renderProjectMenuPage(currentUser, {
+        presentationPort.showProjects({
+          currentUser,
           statusMessage: projectMenuMessage,
         }),
       "create-project": () =>
-        renderCreateProjectPage(projectDraftState.getProjectDraft()),
+        presentationPort.showCreateProject({
+          projectDraft: projectDraftState.getProjectDraft(),
+        }),
       "project-player": () =>
-        renderProjectPlayerPage(selectedProject, {
+        presentationPort.showProjectPlayer({
+          project: selectedProject,
           currentUser,
           hasContributorInvitation: Boolean(
             selectedProject &&
@@ -1061,11 +1066,12 @@ export function createGrooveShareApp({
           (selectedProject?.id !== route.projectId ||
             Boolean(getInvitationForProject(route.projectId)))))
     ) {
-      appElement.innerHTML = renderAppLoadingState(
-        route.screen === "invitation"
-          ? "Opening collaboration invitation..."
-          : "Loading your project...",
-      );
+      appElement.innerHTML = presentationPort.showLoading({
+        message:
+          route.screen === "invitation"
+            ? "Opening collaboration invitation..."
+            : "Loading your project...",
+      });
     }
 
     const resolvedRoute = await resolveRequestedRoute(route);

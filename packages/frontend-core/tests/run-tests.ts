@@ -1,3 +1,4 @@
+import "./application-contracts.test.js";
 import "./project-permissions.test.js";
 import "./html-audio-playback-engine.test.js";
 import "./web-audio-playback-engine.test.js";
