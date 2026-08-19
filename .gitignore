@@ -36,5 +36,5 @@ server/tests/.tmp/
 server/uploads/
 
 backlog.md
-
+sandbox
 *.txt
