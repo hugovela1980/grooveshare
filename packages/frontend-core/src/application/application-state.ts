@@ -20,9 +20,8 @@ export type AuthenticationState =
     };
 
 /**
- * Browser storage currently persists this value, but its meaning belongs to the
- * shared application layer. Stage 1 only centralizes the contract; persistence
- * behavior remains in each browser client for now.
+ * Browser storage persists this value through an adapter, while its meaning and
+ * lifecycle belong to the shared application layer.
  */
 export type InvitationSessionState = {
   projectId: string;
@@ -52,10 +51,9 @@ export type ApplicationErrorState = {
 } | null;
 
 /**
- * Shared state shape that the future GrooveShare application controller can
- * own. Existing desktop/mobile workflows continue to own their live state in
- * Stage 1; this contract establishes the destination without changing runtime
- * behavior yet.
+ * Shared state shape that the GrooveShare application controller can
+ * progressively own. Invitation state is now managed by the shared invitation
+ * workflow; the remaining general application state moves in later stages.
  */
 export type GrooveShareApplicationState = {
   authentication: AuthenticationState;

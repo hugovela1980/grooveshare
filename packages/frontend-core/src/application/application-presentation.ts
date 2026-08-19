@@ -3,6 +3,7 @@ import type {
   Project,
   User,
 } from "../domain/types.js";
+import type { InvitationPresentationState } from "./invitation-guest-workflow.js";
 
 export type AuthenticationPresentationState = {
   message: string;
@@ -20,7 +21,7 @@ export type CreateProjectPresentationState = {
 export type ProjectPlayerPresentationState = {
   project: Project | null;
   currentUser: User | null;
-  hasContributorInvitation: boolean;
+  invitation: InvitationPresentationState;
   statusMessage: string;
 };
 

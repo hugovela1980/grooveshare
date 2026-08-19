@@ -82,7 +82,12 @@ tester.describe("frontend-core application contracts", () => {
       presentation.showProjectPlayer({
         project: guestProject,
         currentUser: null,
-        hasContributorInvitation: true,
+        invitation: {
+          status: "active",
+          projectId: "project-1",
+          pendingContributor: false,
+          audience: "guest",
+        },
         statusMessage: "",
       }),
     ).toBe("player:project-1:");

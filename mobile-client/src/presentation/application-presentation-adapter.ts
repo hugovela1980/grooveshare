@@ -15,8 +15,8 @@ function escapeHtml(value: string): string {
 }
 
 /**
- * Phone presentation adapter. Stage 1 deliberately delegates to the existing
- * mobile renderers so this contract boundary changes no UI behavior.
+ * Phone presentation adapter. Shared application state is translated into the
+ * existing mobile renderers without moving DOM behavior into core.
  */
 export function createApplicationPresentationAdapter(): ApplicationPresentationPort<string> {
   return {
@@ -35,12 +35,12 @@ export function createApplicationPresentationAdapter(): ApplicationPresentationP
     showProjectPlayer({
       project,
       currentUser,
-      hasContributorInvitation,
+      invitation,
       statusMessage,
     }) {
       return renderProjectPlayerPage(project, {
         currentUser,
-        hasContributorInvitation,
+        hasContributorInvitation: invitation.status === "active",
         statusMessage,
       });
     },

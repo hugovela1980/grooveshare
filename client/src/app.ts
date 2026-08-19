@@ -7,10 +7,13 @@ import {
 } from "./api/tracks-api.js";
 import { invitationsApi } from "./api/invitations-api.js";
 import {
+  INVALID_INVITATION_MESSAGE,
   createHtmlAudioPlaybackEngine,
+  createInvitationGuestWorkflow,
   createWebAudioPlaybackEngine,
   type ApplicationNavigationOptions,
   type ApplicationPresentationPort,
+  type InvitationWorkflowTransition,
   type SessionProvider,
   type StorageProvider,
 } from "@hugovela/frontend-core";
@@ -683,44 +686,44 @@ export function createGrooveShareApp({
   let projectPlayerNotice = "";
   let activePageCleanup: (() => void) | null = null;
   let historyNavigationRevision = 0;
-  let activeInvitation: InvitationSession | null =
-    invitationSessionStore?.get() ?? null;
   const projectDraftState = createProjectDraftState();
+  const invitationWorkflow = createInvitationGuestWorkflow({
+    projects: projectsApi,
+    invitations: invitationsApi,
+    sessionStore: invitationSessionStore,
+  });
 
   function setSelectedProject(project: Project): void {
     selectedProject = project;
   }
 
-  function getInvitationForProject(
-    projectId: string,
-  ): InvitationSession | null {
-    return activeInvitation?.projectId === projectId
-      ? activeInvitation
-      : null;
-  }
-
   function getActiveInvitedProjectForMenu(): Project | null {
-    if (!currentUser || !activeInvitation || selectedProject?.id !== activeInvitation.projectId) {
-      return null;
-    }
-
-    return selectedProject;
+    return invitationWorkflow.getInvitedProjectForMenu(
+      currentUser,
+      selectedProject,
+    );
   }
 
   function getActiveInvitationProjectId(): string | null {
-    return currentUser ? activeInvitation?.projectId ?? null : null;
+    return invitationWorkflow.getInvitationProjectIdForMenu(currentUser);
   }
 
-  function saveInvitationSession(
-    invitation: InvitationSession,
-  ): void {
-    activeInvitation = invitation;
-    invitationSessionStore?.save(invitation);
-  }
-
-  function clearInvitationSession(): void {
-    activeInvitation = null;
-    invitationSessionStore?.clear();
+  function applyInvitationTransition(
+    transition: InvitationWorkflowTransition,
+  ): AppRoute {
+    if (transition.project !== undefined) {
+      selectedProject = transition.project;
+    }
+    if (transition.authMessage !== undefined) {
+      authMessage = transition.authMessage;
+    }
+    if (transition.projectMenuMessage !== undefined) {
+      projectMenuMessage = transition.projectMenuMessage;
+    }
+    if (transition.projectPlayerNotice !== undefined) {
+      projectPlayerNotice = transition.projectPlayerNotice;
+    }
+    return transition.route;
   }
 
   function getRouteForScreen(screen: AppScreen): AppRoute {
@@ -742,71 +745,6 @@ export function createGrooveShareApp({
     );
   }
 
-  const invalidInvitationMessage =
-    "This collaboration invitation is invalid or no longer active.";
-
-  async function loadProjectWithInvitationValidation(
-    projectId: string,
-  ): Promise<Project> {
-    const invitation = getInvitationForProject(projectId);
-
-    if (!invitation) {
-      return projectsApi.getProject(projectId);
-    }
-
-    try {
-      const resolvedInvitation =
-        await invitationsApi.resolveGuestInvitation(invitation.token);
-
-      if (resolvedInvitation.projectId !== projectId) {
-        throw new Error(invalidInvitationMessage);
-      }
-
-      return await projectsApi.getProject(projectId, invitation.token);
-    } catch {
-      clearInvitationSession();
-
-      if (currentUser) {
-        try {
-          return await projectsApi.getProject(projectId);
-        } catch {
-          // The account does not independently have access to the project.
-        }
-      }
-
-      throw new Error(invalidInvitationMessage);
-    }
-  }
-
-  async function resolveInvitationRoute(
-    invitationToken: string,
-  ): Promise<AppRoute> {
-    const resolvedInvitation =
-      await invitationsApi.resolveGuestInvitation(invitationToken);
-
-    const existingPendingState =
-      activeInvitation?.token === invitationToken
-        ? activeInvitation.pendingContributor
-        : false;
-
-    saveInvitationSession({
-      projectId: resolvedInvitation.projectId,
-      token: invitationToken,
-      pendingContributor: existingPendingState,
-    });
-
-    selectedProject = await projectsApi.getProject(
-      resolvedInvitation.projectId,
-      invitationToken,
-    );
-    projectPlayerNotice = "";
-
-    return {
-      screen: "project-player",
-      projectId: resolvedInvitation.projectId,
-    };
-  }
-
   async function resolveRequestedRoute(
     requestedRoute: AppRoute,
   ): Promise<AppRoute> {
@@ -817,22 +755,11 @@ export function createGrooveShareApp({
           : { screen: "auth" };
       }
 
-      try {
-        return await resolveInvitationRoute(
-          requestedRoute.invitationToken,
-        );
-      } catch {
-        clearInvitationSession();
-        selectedProject = null;
-
-        if (currentUser) {
-          projectMenuMessage = invalidInvitationMessage;
-          return { screen: "project-menu" };
-        }
-
-        authMessage = invalidInvitationMessage;
-        return { screen: "auth" };
-      }
+      const transition = await invitationWorkflow.resolveInvitationRequest(
+        requestedRoute.invitationToken,
+        currentUser,
+      );
+      return applyInvitationTransition(transition);
     }
 
     if (requestedRoute.screen === "auth") {
@@ -840,23 +767,14 @@ export function createGrooveShareApp({
         return requestedRoute;
       }
 
-      if (!activeInvitation) {
+      if (!invitationWorkflow.hasActiveInvitation()) {
         return { screen: "project-menu" };
       }
 
-      try {
-        selectedProject = await loadProjectWithInvitationValidation(
-          activeInvitation.projectId,
-        );
-        return {
-          screen: "project-player",
-          projectId: selectedProject.id,
-        };
-      } catch {
-        selectedProject = null;
-        projectMenuMessage = invalidInvitationMessage;
-        return { screen: "project-menu" };
-      }
+      const transition = await invitationWorkflow.resumeAfterAuthentication(
+        currentUser,
+      );
+      return applyInvitationTransition(transition);
     }
 
     if (requestedRoute.screen === "project-menu") {
@@ -864,14 +782,15 @@ export function createGrooveShareApp({
         return { screen: "auth" };
       }
 
-      if (activeInvitation) {
-        try {
-          selectedProject = await loadProjectWithInvitationValidation(
-            activeInvitation.projectId,
-          );
-        } catch {
-          selectedProject = null;
-          projectMenuMessage = invalidInvitationMessage;
+      if (invitationWorkflow.hasActiveInvitation()) {
+        const result = await invitationWorkflow.refreshInvitedProjectForMenu(
+          currentUser,
+        );
+        if (result.project !== undefined) {
+          selectedProject = result.project;
+        }
+        if (result.projectMenuMessage !== undefined) {
+          projectMenuMessage = result.projectMenuMessage;
         }
       }
 
@@ -894,14 +813,20 @@ export function createGrooveShareApp({
         : { screen: "auth" };
     }
 
-    const invitation = getInvitationForProject(projectId);
+    const hadInvitation = Boolean(
+      invitationWorkflow.getInvitationForProject(projectId),
+    );
 
     try {
-      if (invitation) {
+      if (hadInvitation) {
         // Guest/invitation routes are always revalidated before the Project
         // Player is rendered again. This prevents browser/app history from
         // reviving a cached project after the Owner disables/regenerates the link.
-        selectedProject = await loadProjectWithInvitationValidation(projectId);
+        selectedProject =
+          await invitationWorkflow.loadProjectWithInvitationValidation(
+            projectId,
+            currentUser,
+          );
       } else if (
         selectedProject?.id === projectId &&
         selectedProject?.access !== "guest"
@@ -920,14 +845,14 @@ export function createGrooveShareApp({
       selectedProject = null;
 
       if (currentUser) {
-        projectMenuMessage = invitation
-          ? invalidInvitationMessage
+        projectMenuMessage = hadInvitation
+          ? INVALID_INVITATION_MESSAGE
           : "You do not have access to this project.";
         return { screen: "project-menu" };
       }
 
-      authMessage = invitation
-        ? invalidInvitationMessage
+      authMessage = hadInvitation
+        ? INVALID_INVITATION_MESSAGE
         : "Log in to access GrooveShare projects.";
       return { screen: "auth" };
     }
@@ -962,10 +887,12 @@ export function createGrooveShareApp({
         presentationPort.showProjectPlayer({
           project: selectedProject,
           currentUser,
-          hasContributorInvitation: Boolean(
-            selectedProject &&
-            getInvitationForProject(selectedProject.id),
-          ),
+          invitation: selectedProject
+            ? invitationWorkflow.getPresentationState(
+                selectedProject.id,
+                currentUser,
+              )
+            : { status: "none" },
           statusMessage: projectPlayerNotice,
         }),
     },
@@ -988,7 +915,7 @@ export function createGrooveShareApp({
       projectDraftState,
       sessionProvider,
       storageProvider,
-      activeInvitation,
+      activeInvitation: invitationWorkflow.getSession(),
       onAuthenticated: handleAuthenticated,
       onOpenProject: handleOpenProjectFromMenu,
       onContributorAction: handleContributorAction,
@@ -1005,14 +932,9 @@ export function createGrooveShareApp({
   function canNavigateWithoutAuthentication(
     screen: AppScreen,
   ): boolean {
-    if (screen === "auth" || screen === "invitation") {
-      return true;
-    }
-
-    return Boolean(
-      screen === "project-player" &&
-      selectedProject &&
-      getInvitationForProject(selectedProject.id),
+    return invitationWorkflow.canNavigateWithoutAuthentication(
+      screen,
+      selectedProject,
     );
   }
 
@@ -1064,7 +986,9 @@ export function createGrooveShareApp({
       (route.screen === "invitation" ||
         (route.projectId &&
           (selectedProject?.id !== route.projectId ||
-            Boolean(getInvitationForProject(route.projectId)))))
+            Boolean(
+              invitationWorkflow.getInvitationForProject(route.projectId),
+            ))))
     ) {
       appElement.innerHTML = presentationPort.showLoading({
         message:
@@ -1090,21 +1014,16 @@ export function createGrooveShareApp({
   }
 
   async function resumeInvitationAfterAuthentication(): Promise<void> {
-    if (!activeInvitation) {
-      navigateTo("project-menu", { replace: true });
+    if (!currentUser) {
+      navigateTo("auth", { replace: true });
       return;
     }
 
-    try {
-      selectedProject = await loadProjectWithInvitationValidation(
-        activeInvitation.projectId,
-      );
-      navigateTo("project-player", { replace: true });
-    } catch {
-      selectedProject = null;
-      projectMenuMessage = invalidInvitationMessage;
-      navigateTo("project-menu", { replace: true });
-    }
+    const transition = await invitationWorkflow.resumeAfterAuthentication(
+      currentUser,
+    );
+    applyInvitationTransition(transition);
+    navigateTo(transition.route.screen, { replace: true });
   }
 
   function handleAuthenticated(user: User): void {
@@ -1115,88 +1034,42 @@ export function createGrooveShareApp({
   }
 
   function handleGuestAuth(): void {
-    authMessage = activeInvitation?.pendingContributor
-      ? "Log in or create an account, then return to the project to accept the Contributor invitation."
-      : "Log in or create an account to continue with this collaboration invitation.";
-    navigateTo("auth");
+    const transition = invitationWorkflow.requestGuestAuthentication();
+    applyInvitationTransition(transition);
+    navigateTo(transition.route.screen);
   }
 
   async function handleOpenProjectFromMenu(project: Project): Promise<void> {
     projectMenuMessage = "";
     projectPlayerNotice = "";
 
-    if (getInvitationForProject(project.id)) {
-      try {
-        selectedProject = await loadProjectWithInvitationValidation(project.id);
-      } catch {
-        selectedProject = null;
-        projectMenuMessage = invalidInvitationMessage;
-        throw new Error(invalidInvitationMessage);
-      }
-    } else {
-      selectedProject = project;
+    try {
+      selectedProject = await invitationWorkflow.openProjectFromMenu(
+        project,
+        currentUser,
+      );
+    } catch {
+      selectedProject = null;
+      projectMenuMessage = INVALID_INVITATION_MESSAGE;
+      throw new Error(INVALID_INVITATION_MESSAGE);
     }
 
     navigateTo("project-player");
   }
 
   async function handleContributorAction(): Promise<void> {
-    if (!selectedProject) {
-      throw new Error("No invited project is open.");
+    const transition = await invitationWorkflow.acceptContributor({
+      selectedProject,
+      currentUser,
+      currentScreen: router.getCurrentScreen(),
+    });
+
+    applyInvitationTransition(transition);
+    navigateTo(transition.route.screen, { replace: true });
+
+    if (transition.error) {
+      throw transition.error;
     }
-
-    const invitation = getInvitationForProject(selectedProject.id);
-
-    if (!invitation) {
-      throw new Error(
-        "This collaboration invitation is no longer available in this browser session.",
-      );
-    }
-
-    if (!currentUser) {
-      invitationSessionStore?.setPendingContributor(true);
-      activeInvitation = {
-        ...invitation,
-        pendingContributor: true,
-      };
-      handleGuestAuth();
-      return;
-    }
-
-    const projectId = invitation.projectId;
-
-    try {
-      await invitationsApi.acceptProjectInvitation(invitation.token);
-    } catch (error) {
-      clearInvitationSession();
-
-      if (router.getCurrentScreen() === "project-player") {
-        try {
-          selectedProject = await projectsApi.getProject(projectId);
-          projectPlayerNotice = invalidInvitationMessage;
-          navigateTo("project-player", { replace: true });
-        } catch {
-          selectedProject = null;
-          projectMenuMessage = invalidInvitationMessage;
-          navigateTo("project-menu", { replace: true });
-        }
-      } else {
-        selectedProject = null;
-        projectMenuMessage = invalidInvitationMessage;
-      }
-
-      throw error instanceof Error
-        ? error
-        : new Error(invalidInvitationMessage);
-    }
-
-    clearInvitationSession();
-    selectedProject = await projectsApi.getProject(projectId);
-    authMessage = "";
-    projectMenuMessage = "";
-    projectPlayerNotice =
-      "You have been added as a collaborator for this project.";
-    navigateTo("project-player", { replace: true });
   }
 
   async function handleLogout(): Promise<void> {
@@ -1226,23 +1099,9 @@ export function createGrooveShareApp({
     currentUser = null;
     projectDraftState.clear();
 
-    if (activeInvitation) {
-      try {
-        selectedProject = await projectsApi.getProject(
-          activeInvitation.projectId,
-          activeInvitation.token,
-        );
-        authMessage = "";
-        navigateTo("project-player", { replace: true });
-        return;
-      } catch {
-        clearInvitationSession();
-      }
-    }
-
-    selectedProject = null;
-    authMessage = "You have been signed out.";
-    navigateTo("auth", { replace: true });
+    const transition = await invitationWorkflow.continueAfterLogout();
+    applyInvitationTransition(transition);
+    navigateTo(transition.route.screen, { replace: true });
   }
 
   function handleAuthenticationRequired(): void {
@@ -1253,29 +1112,12 @@ export function createGrooveShareApp({
     currentUser = null;
     projectDraftState.clear();
 
-    if (activeInvitation) {
-      authMessage =
-        "Your account session expired. You can keep listening as a Guest or sign in again.";
-      void (async () => {
-        try {
-          selectedProject = await projectsApi.getProject(
-            activeInvitation!.projectId,
-            activeInvitation!.token,
-          );
-          navigateTo("project-player", { replace: true });
-        } catch {
-          clearInvitationSession();
-          selectedProject = null;
-          authMessage = "Your session has expired. Sign in again.";
-          navigateTo("auth", { replace: true });
-        }
-      })();
-      return;
-    }
-
-    selectedProject = null;
-    authMessage = "Your session has expired. Sign in again.";
-    navigateTo("auth", { replace: true });
+    void (async () => {
+      const transition =
+        await invitationWorkflow.recoverAfterSessionExpiration();
+      applyInvitationTransition(transition);
+      navigateTo(transition.route.screen, { replace: true });
+    })();
   }
 
   setAuthenticationRequiredHandler(

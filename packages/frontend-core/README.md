@@ -13,7 +13,8 @@ The package owns behavior and contracts that have a clear reason to mean the sam
 - Viewer, pending, and Guest mix persistence behavior;
 - shared application state, route/action, and presentation-port contracts;
 - shared API/service contracts for authentication, projects, tracks, memberships, and invitations;
-- shared API response/error handling and service-level request behavior.
+- shared API response/error handling and service-level request behavior;
+- the shared collaboration invitation / Guest access application workflow.
 
 The package deliberately does **not** own DOM rendering, CSS, dialogs, touch behavior, browser `fetch`, `File`, `FormData`, browser storage globals, browser history, URLs, or clipboard access.
 
@@ -39,7 +40,20 @@ Guest mix key remapping and invitation-session validation are also shared here b
 
 The browser implementations now live in the separate `@hugovela/frontend-browser` adapter package. Both desktop and mobile use that same browser package while preserving their separate presentation code.
 
-The major application workflow/state machines still remain in `client/src/app.ts` and `mobile-client/src/app.ts` at the end of Stage 2. Later Version 2.2 stages will move those workflows behind the contracts established here.
+### Stage 3 — shared invitation and Guest workflow
+
+Stage 3 moves the first complete application workflow behind the shared boundary. `InvitationGuestWorkflow` now owns:
+
+- invitation session state and project scoping;
+- Guest invitation opening and revalidation;
+- revoked/disabled/regenerated invitation handling;
+- authenticated-member fallback when an invitation disappears;
+- pending Contributor intent across authentication;
+- explicit Contributor acceptance and post-accept project reload;
+- Guest continuation after logout or an expired authenticated session;
+- the invitation state supplied to presentation adapters.
+
+Desktop and mobile still own navigation/rendering mechanics, but they no longer independently implement the invitation state machine. The remaining general application coordination in each `app.ts` is intentionally deferred to Stage 4.
 
 ## Dependency direction
 
