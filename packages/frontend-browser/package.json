@@ -1,0 +1,22 @@
+{
+  "name": "@hugovela/frontend-browser",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.test.json",
+    "test": "tsx tests/run-tests.ts"
+  },
+  "dependencies": {
+    "@hugovela/frontend-core": "^0.1.0"
+  },
+  "devDependencies": {
+    "@hugovela/test-runner": "^0.1.0",
+    "@types/node": "^25.9.3",
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3"
+  }
+}
