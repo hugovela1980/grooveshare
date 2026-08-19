@@ -51,9 +51,9 @@ export type ApplicationErrorState = {
 } | null;
 
 /**
- * Shared state shape that the GrooveShare application controller can
- * progressively own. Invitation state is now managed by the shared invitation
- * workflow; the remaining general application state moves in later stages.
+ * Shared state shape owned by the GrooveShare application controller.
+ * Concrete clients may render and interact with this state differently, while
+ * the meaning and lifecycle of the state remain presentation-independent.
  */
 export type GrooveShareApplicationState = {
   authentication: AuthenticationState;

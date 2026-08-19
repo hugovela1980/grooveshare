@@ -28,9 +28,9 @@ export interface ApplicationNavigationPort {
 }
 
 /**
- * Semantic actions emitted by a presentation. These names give desktop and
- * mobile one vocabulary for user intent before Stage 4 moves their handling to
- * a shared application controller.
+ * Semantic action vocabulary shared by presentations. Stage 4 routes the
+ * current desktop/mobile user actions through the shared application controller;
+ * this port remains available for presentation adapters that prefer dispatch.
  */
 export type ApplicationAction =
   | {

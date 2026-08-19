@@ -53,7 +53,24 @@ Stage 3 moves the first complete application workflow behind the shared boundary
 - Guest continuation after logout or an expired authenticated session;
 - the invitation state supplied to presentation adapters.
 
-Desktop and mobile still own navigation/rendering mechanics, but they no longer independently implement the invitation state machine. The remaining general application coordination in each `app.ts` is intentionally deferred to Stage 4.
+Desktop and mobile still own navigation/rendering mechanics, but they no longer independently implement the invitation state machine.
+
+### Stage 4 — shared GrooveShare application controller
+
+Stage 4 moves the broader application state machine into `GrooveShareApplicationController`. The shared controller now owns:
+
+- authentication/session restoration state;
+- selected-project state;
+- requested-route resolution and authentication protection;
+- Project Menu and Project Player application state;
+- project loading and deep-link restoration;
+- application-level navigation decisions;
+- invitation/Guest workflow integration;
+- post-auth invitation continuation;
+- logout and expired-session transitions;
+- the presentation state sent through `ApplicationPresentationPort`.
+
+The concrete desktop and mobile composition roots still own browser history application, DOM lifecycle setup/cleanup, page-controller construction, HTML/CSS, dialogs, inline editing, touch behavior, and other presentation-specific interaction. Both clients now send the same application actions into the same shared controller and render the resulting state through their own presentation adapters.
 
 ## Dependency direction
 

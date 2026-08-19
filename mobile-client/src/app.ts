@@ -7,13 +7,11 @@ import {
 } from "./api/tracks-api.js";
 import { invitationsApi } from "./api/invitations-api.js";
 import {
-  INVALID_INVITATION_MESSAGE,
+  createGrooveShareApplicationController,
   createHtmlAudioPlaybackEngine,
-  createInvitationGuestWorkflow,
   createWebAudioPlaybackEngine,
   type ApplicationNavigationOptions,
   type ApplicationPresentationPort,
-  type InvitationWorkflowTransition,
   type SessionProvider,
   type StorageProvider,
 } from "@hugovela/frontend-core";
@@ -29,10 +27,7 @@ import {
   copyBrowserText,
 } from "./platform/browser-invitation-sharing.js";
 import { createGuestMixStorageProvider } from "./storage/guest-mix-storage.js";
-import {
-  ApiError,
-  setAuthenticationRequiredHandler,
-} from "./api/api-client.js";
+import { setAuthenticationRequiredHandler } from "./api/api-client.js";
 import { createCreateProjectPageController } from "./page-controllers/create-project-page-controller.js";
 import { createProjectMenuPageController } from "./page-controllers/project-menu-page-controller.js";
 import { createProjectPlayerPageController } from "./page-controllers/project-player-page-controller.js";
@@ -1269,184 +1264,17 @@ export function createGrooveShareApp({
   invitationSessionStore = getBrowserInvitationSessionStore(),
   presentationPort = createApplicationPresentationAdapter(),
 }: GrooveShareAppOptions) {
-  let selectedProject: Project | null = null;
-  let currentUser: User | null = null;
-  let authMessage = "";
-  let projectMenuMessage = "";
-  let projectPlayerNotice = "";
   let activePageCleanup: (() => void) | null = null;
   let historyNavigationRevision = 0;
   const projectDraftState = createProjectDraftState();
-  const invitationWorkflow = createInvitationGuestWorkflow({
+  const applicationController = createGrooveShareApplicationController({
+    sessionProvider,
     projects: projectsApi,
     invitations: invitationsApi,
-    sessionStore: invitationSessionStore,
+    invitationSessionStore,
+    presentationPort,
+    projectDraft: projectDraftState,
   });
-
-  function setSelectedProject(project: Project): void {
-    selectedProject = project;
-  }
-
-  function getActiveInvitedProjectForMenu(): Project | null {
-    return invitationWorkflow.getInvitedProjectForMenu(
-      currentUser,
-      selectedProject,
-    );
-  }
-
-  function getActiveInvitationProjectId(): string | null {
-    return invitationWorkflow.getInvitationProjectIdForMenu(currentUser);
-  }
-
-  function applyInvitationTransition(
-    transition: InvitationWorkflowTransition,
-  ): AppRoute {
-    if (transition.project !== undefined) {
-      selectedProject = transition.project;
-    }
-    if (transition.authMessage !== undefined) {
-      authMessage = transition.authMessage;
-    }
-    if (transition.projectMenuMessage !== undefined) {
-      projectMenuMessage = transition.projectMenuMessage;
-    }
-    if (transition.projectPlayerNotice !== undefined) {
-      projectPlayerNotice = transition.projectPlayerNotice;
-    }
-    return transition.route;
-  }
-
-  function getRouteForScreen(screen: AppScreen): AppRoute {
-    if (screen === "project-player" && selectedProject) {
-      return {
-        screen,
-        projectId: selectedProject.id,
-      };
-    }
-
-    return { screen };
-  }
-
-  function routesMatch(first: AppRoute, second: AppRoute): boolean {
-    return (
-      first.screen === second.screen &&
-      first.projectId === second.projectId &&
-      first.invitationToken === second.invitationToken
-    );
-  }
-
-  async function resolveRequestedRoute(
-    requestedRoute: AppRoute,
-  ): Promise<AppRoute> {
-    if (requestedRoute.screen === "invitation") {
-      if (!requestedRoute.invitationToken) {
-        return currentUser
-          ? { screen: "project-menu" }
-          : { screen: "auth" };
-      }
-
-      const transition = await invitationWorkflow.resolveInvitationRequest(
-        requestedRoute.invitationToken,
-        currentUser,
-      );
-      return applyInvitationTransition(transition);
-    }
-
-    if (requestedRoute.screen === "auth") {
-      if (!currentUser) {
-        return requestedRoute;
-      }
-
-      if (!invitationWorkflow.hasActiveInvitation()) {
-        return { screen: "project-menu" };
-      }
-
-      const transition = await invitationWorkflow.resumeAfterAuthentication(
-        currentUser,
-      );
-      return applyInvitationTransition(transition);
-    }
-
-    if (requestedRoute.screen === "project-menu") {
-      if (!currentUser) {
-        return { screen: "auth" };
-      }
-
-      if (invitationWorkflow.hasActiveInvitation()) {
-        const result = await invitationWorkflow.refreshInvitedProjectForMenu(
-          currentUser,
-        );
-        if (result.project !== undefined) {
-          selectedProject = result.project;
-        }
-        if (result.projectMenuMessage !== undefined) {
-          projectMenuMessage = result.projectMenuMessage;
-        }
-      }
-
-      return requestedRoute;
-    }
-
-    if (requestedRoute.screen === "create-project") {
-      return currentUser
-        ? requestedRoute
-        : { screen: "auth" };
-    }
-
-    const projectId =
-      requestedRoute.projectId ?? selectedProject?.id ?? null;
-
-    if (!projectId) {
-      selectedProject = null;
-      return currentUser
-        ? { screen: "project-menu" }
-        : { screen: "auth" };
-    }
-
-    const hadInvitation = Boolean(
-      invitationWorkflow.getInvitationForProject(projectId),
-    );
-
-    try {
-      if (hadInvitation) {
-        // Guest/invitation routes are always revalidated before the Project
-        // Player is rendered again. This prevents browser/app history from
-        // reviving a cached project after the Owner disables/regenerates the link.
-        selectedProject =
-          await invitationWorkflow.loadProjectWithInvitationValidation(
-            projectId,
-            currentUser,
-          );
-      } else if (
-        selectedProject?.id === projectId &&
-        selectedProject?.access !== "guest"
-      ) {
-        // A normal authenticated member project can safely reuse the current
-        // client snapshot during in-app navigation.
-      } else {
-        selectedProject = await projectsApi.getProject(projectId);
-      }
-
-      return {
-        screen: "project-player",
-        projectId,
-      };
-    } catch {
-      selectedProject = null;
-
-      if (currentUser) {
-        projectMenuMessage = hadInvitation
-          ? INVALID_INVITATION_MESSAGE
-          : "You do not have access to this project.";
-        return { screen: "project-menu" };
-      }
-
-      authMessage = hadInvitation
-        ? INVALID_INVITATION_MESSAGE
-        : "Log in to access GrooveShare projects.";
-      return { screen: "auth" };
-    }
-  }
 
   function disposeCurrentPage(): void {
     activePageCleanup?.();
@@ -1458,33 +1286,11 @@ export function createGrooveShareApp({
     initialScreen,
     historyAdapter,
     pageRenderers: {
-      auth: () =>
-        presentationPort.showAuthentication({ message: authMessage }),
-      invitation: () =>
-        presentationPort.showLoading({
-          message: "Opening collaboration invitation...",
-        }),
-      "project-menu": () =>
-        presentationPort.showProjects({
-          currentUser,
-          statusMessage: projectMenuMessage,
-        }),
-      "create-project": () =>
-        presentationPort.showCreateProject({
-          projectDraft: projectDraftState.getProjectDraft(),
-        }),
-      "project-player": () =>
-        presentationPort.showProjectPlayer({
-          project: selectedProject,
-          currentUser,
-          invitation: selectedProject
-            ? invitationWorkflow.getPresentationState(
-                selectedProject.id,
-                currentUser,
-              )
-            : { status: "none" },
-          statusMessage: projectPlayerNotice,
-        }),
+      auth: () => applicationController.present("auth"),
+      invitation: () => applicationController.present("invitation"),
+      "project-menu": () => applicationController.present("project-menu"),
+      "create-project": () => applicationController.present("create-project"),
+      "project-player": () => applicationController.present("project-player"),
     },
     onHistoryNavigation(route) {
       void handleHistoryNavigation(route);
@@ -1497,15 +1303,15 @@ export function createGrooveShareApp({
       currentScreen: router.getCurrentScreen(),
       navigateTo,
       goBack,
-      setSelectedProject,
-      getInvitedProject: getActiveInvitedProjectForMenu,
-      getInvitationProjectId: getActiveInvitationProjectId,
-      selectedProject,
-      currentUser,
+      setSelectedProject: applicationController.setSelectedProject,
+      getInvitedProject: applicationController.getActiveInvitedProjectForMenu,
+      getInvitationProjectId: applicationController.getActiveInvitationProjectId,
+      selectedProject: applicationController.getSelectedProject(),
+      currentUser: applicationController.getCurrentUser(),
       projectDraftState,
       sessionProvider,
       storageProvider,
-      activeInvitation: invitationWorkflow.getSession(),
+      activeInvitation: applicationController.getInvitationSession(),
       onAuthenticated: handleAuthenticated,
       onOpenProject: handleOpenProjectFromMenu,
       onContributorAction: handleContributorAction,
@@ -1519,26 +1325,13 @@ export function createGrooveShareApp({
     initializeRenderedPage();
   }
 
-  function canNavigateWithoutAuthentication(
-    screen: AppScreen,
-  ): boolean {
-    return invitationWorkflow.canNavigateWithoutAuthentication(
-      screen,
-      selectedProject,
-    );
-  }
-
   function navigateTo(
     screen: AppScreen,
     { replace = false }: NavigateOptions = {},
   ): void {
     disposeCurrentPage();
 
-    const nextScreen =
-      currentUser || canNavigateWithoutAuthentication(screen)
-        ? screen
-        : "auth";
-    const nextRoute = getRouteForScreen(nextScreen);
+    const nextRoute = applicationController.resolveNavigation(screen);
 
     if (replace) {
       router.replaceWith(nextRoute);
@@ -1552,12 +1345,8 @@ export function createGrooveShareApp({
   function goBack(fallbackScreen: AppScreen): void {
     disposeCurrentPage();
 
-    const resolvedFallbackScreen =
-      currentUser || canNavigateWithoutAuthentication(fallbackScreen)
-        ? fallbackScreen
-        : "auth";
-    const fallbackRoute = getRouteForScreen(resolvedFallbackScreen);
-
+    const fallbackRoute =
+      applicationController.resolveBackNavigation(fallbackScreen);
     const waitingForBrowserHistory = router.goBack(fallbackRoute);
 
     if (!waitingForBrowserHistory) {
@@ -1570,31 +1359,21 @@ export function createGrooveShareApp({
 
     disposeCurrentPage();
 
-    if (
-      (route.screen === "project-player" ||
-        route.screen === "invitation") &&
-      (route.screen === "invitation" ||
-        (route.projectId &&
-          (selectedProject?.id !== route.projectId ||
-            Boolean(
-              invitationWorkflow.getInvitationForProject(route.projectId),
-            ))))
-    ) {
-      appElement.innerHTML = presentationPort.showLoading({
-        message:
-          route.screen === "invitation"
-            ? "Opening collaboration invitation..."
-            : "Loading your project...",
-      });
+    const loadingPresentation =
+      applicationController.presentHistoryNavigationLoading(route);
+
+    if (loadingPresentation !== null) {
+      appElement.innerHTML = loadingPresentation;
     }
 
-    const resolvedRoute = await resolveRequestedRoute(route);
+    const resolvedRoute =
+      await applicationController.resolveRequestedRoute(route);
 
     if (navigationRevision !== historyNavigationRevision) {
       return;
     }
 
-    if (!routesMatch(resolvedRoute, route)) {
+    if (!applicationController.routesMatch(resolvedRoute, route)) {
       router.replaceWith(resolvedRoute);
       initializeRenderedPage();
       return;
@@ -1603,69 +1382,39 @@ export function createGrooveShareApp({
     renderAndInitializeCurrentRoute();
   }
 
-  async function resumeInvitationAfterAuthentication(): Promise<void> {
-    if (!currentUser) {
-      navigateTo("auth", { replace: true });
-      return;
-    }
-
-    const transition = await invitationWorkflow.resumeAfterAuthentication(
-      currentUser,
-    );
-    applyInvitationTransition(transition);
-    navigateTo(transition.route.screen, { replace: true });
-  }
-
   function handleAuthenticated(user: User): void {
-    currentUser = user;
-    authMessage = "";
-    projectMenuMessage = "";
-    void resumeInvitationAfterAuthentication();
+    void (async () => {
+      const route = await applicationController.completeAuthentication(user);
+      navigateTo(route.screen, { replace: true });
+    })();
   }
 
   function handleGuestAuth(): void {
-    const transition = invitationWorkflow.requestGuestAuthentication();
-    applyInvitationTransition(transition);
-    navigateTo(transition.route.screen);
+    const route = applicationController.requestGuestAuthentication();
+    navigateTo(route.screen);
   }
 
   async function handleOpenProjectFromMenu(project: Project): Promise<void> {
-    projectMenuMessage = "";
-    projectPlayerNotice = "";
-
-    try {
-      selectedProject = await invitationWorkflow.openProjectFromMenu(
-        project,
-        currentUser,
-      );
-    } catch {
-      selectedProject = null;
-      projectMenuMessage = INVALID_INVITATION_MESSAGE;
-      throw new Error(INVALID_INVITATION_MESSAGE);
-    }
-
-    navigateTo("project-player");
+    const route = await applicationController.openProjectFromMenu(project);
+    navigateTo(route.screen);
   }
 
   async function handleContributorAction(): Promise<void> {
-    const transition = await invitationWorkflow.acceptContributor({
-      selectedProject,
-      currentUser,
-      currentScreen: router.getCurrentScreen(),
-    });
+    const result = await applicationController.acceptContributor(
+      router.getCurrentScreen(),
+    );
 
-    applyInvitationTransition(transition);
-    navigateTo(transition.route.screen, { replace: true });
+    navigateTo(result.route.screen, { replace: true });
 
-    if (transition.error) {
-      throw transition.error;
+    if (result.error) {
+      throw result.error;
     }
   }
 
   async function handleLogout(): Promise<void> {
-    try {
-      await sessionProvider.logout();
-    } catch (error) {
+    const result = await applicationController.logout();
+
+    if (result.ok === false) {
       const statusElement =
         getElement<HTMLParagraphElement>(
           appElement,
@@ -1677,61 +1426,33 @@ export function createGrooveShareApp({
         );
 
       if (statusElement) {
-        statusElement.textContent =
-          error instanceof Error
-            ? error.message
-            : "Could not log out.";
+        statusElement.textContent = result.errorMessage;
       }
 
       return;
     }
 
-    currentUser = null;
-    projectDraftState.clear();
-
-    const transition = await invitationWorkflow.continueAfterLogout();
-    applyInvitationTransition(transition);
-    navigateTo(transition.route.screen, { replace: true });
+    navigateTo(result.route.screen, { replace: true });
   }
 
   function handleAuthenticationRequired(): void {
-    if (!currentUser) {
-      return;
-    }
-
-    currentUser = null;
-    projectDraftState.clear();
-
     void (async () => {
-      const transition =
-        await invitationWorkflow.recoverAfterSessionExpiration();
-      applyInvitationTransition(transition);
-      navigateTo(transition.route.screen, { replace: true });
+      const route = await applicationController.recoverAfterSessionExpiration();
+
+      if (!route) {
+        return;
+      }
+
+      navigateTo(route.screen, { replace: true });
     })();
   }
 
-  setAuthenticationRequiredHandler(
-    handleAuthenticationRequired,
-  );
+  setAuthenticationRequiredHandler(handleAuthenticationRequired);
 
   async function start(): Promise<void> {
-    const requestedRoute = router.getRequestedRoute();
-
-    try {
-      currentUser = await sessionProvider.getCurrentUser();
-      authMessage = "";
-    } catch (error) {
-      currentUser = null;
-
-      if (error instanceof ApiError && error.statusCode === 401) {
-        authMessage = "";
-      } else {
-        authMessage =
-          "Could not restore your account session. Guest invitation access may still be available.";
-      }
-    }
-
-    const initialRoute = await resolveRequestedRoute(requestedRoute);
+    const initialRoute = await applicationController.initialize(
+      router.getRequestedRoute(),
+    );
     router.start(initialRoute);
     initializeRenderedPage();
   }
@@ -1740,6 +1461,6 @@ export function createGrooveShareApp({
     start,
     navigateTo,
     getCurrentScreen: router.getCurrentScreen,
-    getCurrentUser: () => currentUser,
+    getCurrentUser: applicationController.getCurrentUser,
   };
 }

@@ -26,6 +26,13 @@ export {
   type InvitationPresentationState,
   type InvitationWorkflowTransition,
 } from "./application/invitation-guest-workflow.js";
+export {
+  createGrooveShareApplicationController,
+  type ApplicationActionResult,
+  type ApplicationLogoutResult,
+  type ApplicationProjectDraftPort,
+  type GrooveShareApplicationController,
+} from "./application/grooveshare-application-controller.js";
 export type {
   ApplicationPresentationPort,
   AuthenticationPresentationState,
