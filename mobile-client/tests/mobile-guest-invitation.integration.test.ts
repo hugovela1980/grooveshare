@@ -1,14 +1,12 @@
 import type { SessionProvider } from "@hugovela/frontend-core";
-import { ApiError } from "../src/api/api-client.js";
+import { ApiError } from "@hugovela/frontend-core";
 import { createGrooveShareApp } from "../src/app.js";
-import type {
-  InvitationSession,
-  InvitationSessionStore,
-} from "../src/platform/browser-invitation-session.js";
 import type {
   AppHistoryState,
   HistoryAdapter,
-} from "../src/router/app-router.js";
+  InvitationSession,
+  InvitationSessionStore,
+} from "@hugovela/frontend-browser";
 import type { User } from "../src/types.js";
 import { tester } from "./test-runner/tester.js";
 

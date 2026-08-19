@@ -1,7 +1,10 @@
 import type {
-    AddPendingTrackInput,
-    PendingTrackDraft,
-} from "../project-draft/project-draft-state.js";
+    AddPendingTrackInput as CoreAddPendingTrackInput,
+    PendingTrackDraft as CorePendingTrackDraft,
+} from "@hugovela/frontend-core";
+
+type AddPendingTrackInput = CoreAddPendingTrackInput<File>;
+type PendingTrackDraft = CorePendingTrackDraft<File>;
 
 type ClickTargetLike = {
     closest?: (

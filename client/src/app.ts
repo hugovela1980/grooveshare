@@ -1,33 +1,27 @@
-import { projectsApi } from "./api/projects-api.js";
-import { projectMembersApi } from "./api/project-members-api.js";
 import {
-  createInvitationAudioDataFetcher,
-  getTrackAudioUrl,
-  tracksApi,
-} from "./api/tracks-api.js";
-import { invitationsApi } from "./api/invitations-api.js";
-import {
-  createGrooveShareApplicationController,
+  createGuestMixStorageProvider,
   createHtmlAudioPlaybackEngine,
+  createProjectDraftState,
   createWebAudioPlaybackEngine,
   type ApplicationNavigationOptions,
   type ApplicationPresentationPort,
+  type InvitationSessionState,
+  type InvitationSessionStore,
+  type PendingTrackDraft as CorePendingTrackDraft,
+  type ProjectDraftState as CoreProjectDraftState,
   type SessionProvider,
   type StorageProvider,
 } from "@hugovela/frontend-core";
-import { browserSessionProvider } from "./platform/browser-session-provider.js";
-import { getBrowserStorageProvider } from "./platform/browser-storage-provider.js";
-import {
-  getBrowserInvitationSessionStore,
-  type InvitationSession,
-  type InvitationSessionStore,
-} from "./platform/browser-invitation-session.js";
 import {
   buildBrowserInvitationShareLink,
   copyBrowserText,
-} from "./platform/browser-invitation-sharing.js";
-import { createGuestMixStorageProvider } from "./storage/guest-mix-storage.js";
-import { setAuthenticationRequiredHandler } from "./api/api-client.js";
+  createBrowserGrooveShareApp,
+  getBrowserInvitationSessionStore,
+  getBrowserStorageProvider,
+  type AppScreen,
+  type HistoryAdapter,
+} from "@hugovela/frontend-browser";
+import { browserFrontendRuntime } from "./platform/browser-frontend-runtime.js";
 import { createCreateProjectPageController } from "./page-controllers/create-project-page-controller.js";
 import { createProjectMenuPageController } from "./page-controllers/project-menu-page-controller.js";
 import { createProjectPlayerPageController } from "./page-controllers/project-player-page-controller.js";
@@ -39,16 +33,6 @@ import { createProjectTrackSelectionController } from "./page-controllers/create
 import { createCreateProjectConfirmationController } from "./page-controllers/create-project-confirmation-controller.js";
 import { createAuthPageController } from "./page-controllers/auth-page-controller.js";
 import { renderPendingTrackList } from "./templates/pending-track-list.js";
-import {
-  createProjectDraftState,
-  type PendingTrackDraft,
-} from "./project-draft/project-draft-state.js";
-import {
-  createAppRouter,
-  type AppRoute,
-  type AppScreen,
-  type HistoryAdapter,
-} from "./router/app-router.js";
 import { renderProjectList } from "./templates/project-list.js";
 import { renderMixChannelSlots } from "./templates/mix-channel-slots.js";
 import { renderProjectMemberList } from "./templates/project-members.js";
@@ -80,7 +64,17 @@ type NavigateTo = (
 
 type GoBack = (fallbackScreen: AppScreen) => void;
 
-type ProjectDraftState = ReturnType<typeof createProjectDraftState>;
+type PendingTrackDraft = CorePendingTrackDraft<File>;
+type ProjectDraftState = CoreProjectDraftState<File>;
+
+const frontendServices = browserFrontendRuntime.services;
+const projectsApi = frontendServices.projects;
+const projectMembersApi = frontendServices.projectMembers;
+const tracksApi = frontendServices.tracks;
+const invitationsApi = frontendServices.invitations;
+const getTrackAudioUrl = tracksApi.getTrackAudioUrl;
+const createInvitationAudioDataFetcher =
+  tracksApi.createInvitationAudioDataFetcher;
 
 function getElement<T>(appElement: AppElementLike, selector: string): T | null {
   if (!appElement.querySelector) {
@@ -484,7 +478,7 @@ function initializeProjectPlayerPage({
   selectedProject: Project | null;
   currentUser: User | null;
   storageProvider: StorageProvider | null;
-  activeInvitation: InvitationSession | null;
+  activeInvitation: InvitationSessionState | null;
   onContributorAction: () => Promise<void>;
   onGuestAuth: () => void;
   onLogout: () => Promise<void>;
@@ -650,7 +644,7 @@ function initializeCurrentPage({
   projectDraftState: ProjectDraftState;
   sessionProvider: SessionProvider;
   storageProvider: StorageProvider | null;
-  activeInvitation: InvitationSession | null;
+  activeInvitation: InvitationSessionState | null;
   onAuthenticated: (user: User) => void;
   onOpenProject: (project: Project) => Promise<void>;
   onContributorAction: () => Promise<void>;
@@ -668,163 +662,67 @@ function initializeCurrentPage({
 export function createGrooveShareApp({
   appElement,
   initialScreen = "project-menu",
-  sessionProvider = browserSessionProvider,
+  sessionProvider = frontendServices.auth,
   storageProvider = getBrowserStorageProvider(),
   historyAdapter,
   invitationSessionStore = getBrowserInvitationSessionStore(),
   presentationPort = createApplicationPresentationAdapter(),
 }: GrooveShareAppOptions) {
-  let activePageCleanup: (() => void) | null = null;
-  let historyNavigationRevision = 0;
-  const projectDraftState = createProjectDraftState();
-  const applicationController = createGrooveShareApplicationController({
+  const projectDraftState = createProjectDraftState<File>();
+
+  return createBrowserGrooveShareApp({
+    appElement,
+    initialScreen,
     sessionProvider,
-    projects: projectsApi,
-    invitations: invitationsApi,
+    storageProvider,
+    historyAdapter,
     invitationSessionStore,
     presentationPort,
     projectDraft: projectDraftState,
-  });
-
-  function disposeCurrentPage(): void {
-    activePageCleanup?.();
-    activePageCleanup = null;
-  }
-
-  const router = createAppRouter({
-    appElement,
-    initialScreen,
-    historyAdapter,
-    pageRenderers: {
-      auth: () => applicationController.present("auth"),
-      invitation: () => applicationController.present("invitation"),
-      "project-menu": () => applicationController.present("project-menu"),
-      "create-project": () => applicationController.present("create-project"),
-      "project-player": () => applicationController.present("project-player"),
-    },
-    onHistoryNavigation(route) {
-      void handleHistoryNavigation(route);
-    },
-  });
-
-  function initializeRenderedPage(): void {
-    activePageCleanup = initializeCurrentPage({
-      appElement,
-      currentScreen: router.getCurrentScreen(),
+    projects: projectsApi,
+    invitations: invitationsApi,
+    transport: browserFrontendRuntime.transport,
+    initializePage({
+      currentScreen,
       navigateTo,
       goBack,
-      setSelectedProject: applicationController.setSelectedProject,
-      getInvitedProject: applicationController.getActiveInvitedProjectForMenu,
-      getInvitationProjectId: applicationController.getActiveInvitationProjectId,
-      selectedProject: applicationController.getSelectedProject(),
-      currentUser: applicationController.getCurrentUser(),
-      projectDraftState,
-      sessionProvider,
-      storageProvider,
-      activeInvitation: applicationController.getInvitationSession(),
-      onAuthenticated: handleAuthenticated,
-      onOpenProject: handleOpenProjectFromMenu,
-      onContributorAction: handleContributorAction,
-      onGuestAuth: handleGuestAuth,
-      onLogout: handleLogout,
-    });
-  }
-
-  function renderAndInitializeCurrentRoute(): void {
-    router.renderCurrentScreen();
-    initializeRenderedPage();
-  }
-
-  function navigateTo(
-    screen: AppScreen,
-    { replace = false }: NavigateOptions = {},
-  ): void {
-    disposeCurrentPage();
-
-    const nextRoute = applicationController.resolveNavigation(screen);
-
-    if (replace) {
-      router.replaceWith(nextRoute);
-    } else {
-      router.navigateTo(nextRoute);
-    }
-
-    initializeRenderedPage();
-  }
-
-  function goBack(fallbackScreen: AppScreen): void {
-    disposeCurrentPage();
-
-    const fallbackRoute =
-      applicationController.resolveBackNavigation(fallbackScreen);
-    const waitingForBrowserHistory = router.goBack(fallbackRoute);
-
-    if (!waitingForBrowserHistory) {
-      initializeRenderedPage();
-    }
-  }
-
-  async function handleHistoryNavigation(route: AppRoute): Promise<void> {
-    const navigationRevision = ++historyNavigationRevision;
-
-    disposeCurrentPage();
-
-    const loadingPresentation =
-      applicationController.presentHistoryNavigationLoading(route);
-
-    if (loadingPresentation !== null) {
-      appElement.innerHTML = loadingPresentation;
-    }
-
-    const resolvedRoute =
-      await applicationController.resolveRequestedRoute(route);
-
-    if (navigationRevision !== historyNavigationRevision) {
-      return;
-    }
-
-    if (!applicationController.routesMatch(resolvedRoute, route)) {
-      router.replaceWith(resolvedRoute);
-      initializeRenderedPage();
-      return;
-    }
-
-    renderAndInitializeCurrentRoute();
-  }
-
-  function handleAuthenticated(user: User): void {
-    void (async () => {
-      const route = await applicationController.completeAuthentication(user);
-      navigateTo(route.screen, { replace: true });
-    })();
-  }
-
-  function handleGuestAuth(): void {
-    const route = applicationController.requestGuestAuthentication();
-    navigateTo(route.screen);
-  }
-
-  async function handleOpenProjectFromMenu(project: Project): Promise<void> {
-    const route = await applicationController.openProjectFromMenu(project);
-    navigateTo(route.screen);
-  }
-
-  async function handleContributorAction(): Promise<void> {
-    const result = await applicationController.acceptContributor(
-      router.getCurrentScreen(),
-    );
-
-    navigateTo(result.route.screen, { replace: true });
-
-    if (result.error) {
-      throw result.error;
-    }
-  }
-
-  async function handleLogout(): Promise<void> {
-    const result = await applicationController.logout();
-
-    if (result.ok === false) {
+      setSelectedProject,
+      getInvitedProject,
+      getInvitationProjectId,
+      selectedProject,
+      currentUser,
+      projectDraft,
+      sessionProvider: activeSessionProvider,
+      storageProvider: activeStorageProvider,
+      activeInvitation,
+      onAuthenticated,
+      onOpenProject,
+      onContributorAction,
+      onGuestAuth,
+      onLogout,
+    }) {
+      return initializeCurrentPage({
+        appElement,
+        currentScreen,
+        navigateTo,
+        goBack,
+        setSelectedProject,
+        getInvitedProject,
+        getInvitationProjectId,
+        selectedProject,
+        currentUser,
+        projectDraftState: projectDraft,
+        sessionProvider: activeSessionProvider,
+        storageProvider: activeStorageProvider,
+        activeInvitation,
+        onAuthenticated,
+        onOpenProject,
+        onContributorAction,
+        onGuestAuth,
+        onLogout,
+      });
+    },
+    showLogoutError(errorMessage) {
       const statusElement =
         getElement<HTMLParagraphElement>(
           appElement,
@@ -836,41 +734,8 @@ export function createGrooveShareApp({
         );
 
       if (statusElement) {
-        statusElement.textContent = result.errorMessage;
+        statusElement.textContent = errorMessage;
       }
-
-      return;
-    }
-
-    navigateTo(result.route.screen, { replace: true });
-  }
-
-  function handleAuthenticationRequired(): void {
-    void (async () => {
-      const route = await applicationController.recoverAfterSessionExpiration();
-
-      if (!route) {
-        return;
-      }
-
-      navigateTo(route.screen, { replace: true });
-    })();
-  }
-
-  setAuthenticationRequiredHandler(handleAuthenticationRequired);
-
-  async function start(): Promise<void> {
-    const initialRoute = await applicationController.initialize(
-      router.getRequestedRoute(),
-    );
-    router.start(initialRoute);
-    initializeRenderedPage();
-  }
-
-  return {
-    start,
-    navigateTo,
-    getCurrentScreen: router.getCurrentScreen,
-    getCurrentUser: applicationController.getCurrentUser,
-  };
+    },
+  });
 }

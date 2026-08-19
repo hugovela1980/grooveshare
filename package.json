@@ -17,15 +17,18 @@
         "test-client": "npm test -w client && npm run typecheck -w client",
         "test-mobile": "npm test -w mobile-client && npm run typecheck -w mobile-client",
         "typecheck-frontend-core": "npm run typecheck -w @hugovela/frontend-core",
+        "typecheck-frontend-browser": "npm run typecheck -w @hugovela/frontend-browser",
         "test-runner": "npm run typecheck -w packages/test-runner && npm test -w packages/test-runner",
         "config:check": "npm run config:check -w server",
         "db:check": "npm run db:check -w server",
         "seed-auth": "npm run dev:seed-auth -w server",
         "reset-dev-data": "npm run dev:reset-data -w server",
         "test-frontend-core": "npm test -w @hugovela/frontend-core && npm run typecheck -w @hugovela/frontend-core",
+        "test-frontend-browser": "npm test -w @hugovela/frontend-browser && npm run typecheck -w @hugovela/frontend-browser",
         "test-all": "npm run typecheck --workspaces --if-present && npm test --workspaces --if-present",
         "build": "npm run build -w server && npm run build -w client && npm run build -w mobile-client",
         "verify:code": "npm run test-all && npm run build",
+        "frontend:boundaries": "node scripts/check-frontend-boundaries.mjs",
         "verify": "node scripts/verify.mjs"
     }
 }

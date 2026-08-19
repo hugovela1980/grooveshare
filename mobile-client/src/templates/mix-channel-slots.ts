@@ -1,7 +1,7 @@
 import {
   canContribute,
   canManageTrack,
-} from "../permissions/project-permissions.js";
+} from "@hugovela/frontend-core";
 import type {
   MixSettings,
   ProjectRole,

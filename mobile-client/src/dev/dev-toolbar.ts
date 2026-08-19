@@ -1,4 +1,6 @@
-import { API_BASE_URL } from "../api/api-client.js";
+import { clientConfig } from "../config/client-config.js";
+
+const API_BASE_URL = clientConfig.apiBaseUrl;
 
 type DevToolbarVisibility = boolean | 0 | 1;
 type DevToolbarEnabled = boolean | 0 | 1;

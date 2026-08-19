@@ -66,6 +66,7 @@ grooveshare/
 │   └── tests/
 ├── packages/
 │   ├── frontend-core/
+│   ├── frontend-browser/
 │   └── test-runner/
 ├── sample-audio-files/
 ├── docs/
@@ -82,6 +83,7 @@ client
 mobile-client
 grooveshare-server
 @hugovela/frontend-core
+@hugovela/frontend-browser
 @hugovela/test-runner
 ```
 
@@ -194,121 +196,48 @@ deploy to production
 
 ## Frontend Architecture
 
-The frontend remains Vite + Vanilla TypeScript using browser DOM APIs rather than a frontend framework. Milestone 6 now has two presentation workspaces consuming the same shared core.
-
-Current Phase 1 structure:
+Version 2.2 uses two independent presentation clients over one shared application layer and one shared browser-adapter layer. The frontend remains Vite + Vanilla TypeScript.
 
 ```txt
-client/src/
-├── api/
-├── css/
-├── dev/
-├── page-controllers/
-├── pages/
-├── platform/
-├── project-draft/
-├── router/
-├── storage/
-├── templates/
-├── app.ts
-├── main.ts
-└── types.ts
-
-mobile-client/src/
-├── api/
-├── css/
-├── dev/
-├── page-controllers/
-├── pages/
-├── platform/
-├── project-draft/
-├── router/
-├── storage/
-├── templates/
-├── app.ts
-├── main.ts
-└── types.ts
-
-packages/frontend-core/src/
-├── domain/
-├── mix/
-├── permissions/
-├── platform/
-└── playback/
+packages/frontend-core/
+    domain + application controller + shared services
+                    ↑
+packages/frontend-browser/
+    browser transport + storage + history + browser app shell
+              /                 \
+         client/            mobile-client/
+    desktop/tablet              phone
 ```
 
-`client/` is now the desktop/tablet presentation. It keeps a fluid browser layout, direct desktop navigation controls, horizontal mixer rows, visible Owner controls, and inline project/track editing. `mobile-client/` remains the dedicated phone presentation built from the completed Milestone 5 phone UI, including the compact Project Player header, three-dot project actions, modal editing, vertical faders, and bottom navigation.
+`packages/frontend-core/` owns application meaning: domain types, permissions, application state/navigation contracts, `GrooveShareApplicationController`, invitation/Guest workflows, shared frontend services, mix persistence, and playback contracts/implementations. It does not render pages and must not depend on desktop/mobile DOM, CSS, or either presentation workspace.
 
-### `frontend-core` Responsibilities
+`packages/frontend-browser/` owns browser mechanisms shared by both presentations: `fetch` transport, cookie/session-expiration handling, `File`/`FormData` adaptation, browser storage, invitation-session persistence, clipboard/share links, browser history/hash routing, and the browser shell that connects history/page lifecycle to the shared application controller.
 
-The shared package owns behavior that is already clearly presentation-independent:
+`client/` and `mobile-client/` own presentation. They render markup, wire DOM events, choose layouts and navigation controls, and implement device-specific editing/mixer interactions. They do not import each other.
 
-- GrooveShare domain types.
-- Project permission helpers.
-- `SessionProvider` and `StorageProvider` platform contracts.
-- `PlaybackEngine` and the current multi-`HTMLAudioElement` playback implementation behind that contract.
-- Viewer-local mix persistence.
-- Owner/Contributor pending-mix recovery.
-- Debounced server mix persistence and flush-before-navigation behavior.
-
-The package does **not** own page markup, CSS, navigation presentation, dialogs, touch behavior, desktop/mobile layout, or DOM query/event wiring.
-
-The existing HTTP API modules remain presentation-local during this first multi-client proof. `client/` and `mobile-client/` currently contain equivalent browser API wrappers that target the same GrooveShare server. This duplication is deliberate for Phase 1: track upload still depends on browser `File`/`FormData` behavior and the transport carries browser/session assumptions. A later extraction should happen only if real multi-client use shows a stable shared transport boundary.
-
-### Presentation Responsibilities
-
-The presentation client is responsible for:
-
-- Rendering screens and reusable UI.
-- Translating desktop/tablet or mobile interactions into shared application operations.
-- Browser-specific file selection and upload presentation.
-- Navigation layout and route presentation.
-- Editing interaction such as desktop inline editing versus mobile modal editing.
-- Mixer layout such as desktop horizontal controls versus mobile vertical channel strips.
-- Loading, success, failure, and session-expired presentation.
-- Supplying browser implementations for session, storage, and HTML-audio creation.
-
-The server remains authoritative for authentication and authorization regardless of what either presentation displays.
-
-### Multi-Client Direction
-
-The active Phase 1 boundary is:
+The application flow is therefore:
 
 ```txt
-                 GrooveShare server
-                        ↑
-               shared frontend core
-                /                 \
-     current web client         mobile client
-          client/              mobile-client/
-             ↓                       ↓
-       browser today             phone web today
-       desktop/tablet            Capacitor later
-       Electron later
+user interaction
+      ↓
+presentation controller
+      ↓
+shared browser shell
+      ↓
+GrooveShareApplicationController
+      ↓
+shared frontend service
+      ↓
+browser transport
+      ↓
+server
 ```
 
-Both clients consume the same domain types, permission rules, `SessionProvider`, `StorageProvider`, mix persistence coordinator, and `PlaybackEngine` contract. The mobile client supplies the browser implementations of those platform boundaries just as the current web client does.
+The response returns through application state and `ApplicationPresentationPort`; desktop and mobile adapters render that state differently without duplicating the application workflow.
 
-The goal is to share product behavior rather than force presentation markup to be shared. Intentional desktop/mobile differences should be protected by each client's integration tests rather than hidden behind increasingly complex viewport-condition branches.
+The repository enforces this direction with `npm run frontend:boundaries`, which is part of `npm run verify`. Shared service/workflow tests live in `frontend-core`; browser mechanism tests live in `frontend-browser`; desktop/mobile suites retain presentation-specific unit tests and integration flows.
 
-### Testing Boundary
-
-Shared behavior is tested in `packages/frontend-core/tests/`. Presentation behavior is now covered independently by `client/tests/` and `mobile-client/tests/`.
-
-Both presentation suites protect the same core application flows while exercising their own interaction model:
-
-- unauthenticated startup to Login;
-- authenticated startup to Home/Projects;
-- Project Player track loading and playback preparation;
-- project editing through presentation-specific controls;
-- immediate mixer-to-playback updates plus scheduled shared persistence;
-- dirty-mix flush before navigation;
-- expired-session return to Login;
-- logout with protected UI kept closed.
-
-Desktop-specific tests protect inline project/track editing and the absence of phone navigation/menu assumptions. Mobile-specific tests protect three-dot/modal editing, vertical mixer presentation, and bottom navigation. The server authorization integration suite additionally proves that two independent authenticated sessions can read and modify the same project, tracks, role, and persisted mix state through one GrooveShare service.
-
-Architectural extractions should preserve or improve automated coverage so manual smoke testing can focus on real browser/device behavior that the test harness cannot realistically reproduce.
+See `docs/frontend-clients.md` for the detailed ownership rules and guidance for future features such as recording.
 
 ## CSS Architecture
 
@@ -1025,12 +954,14 @@ It supplies independent `createTester()` instances to the client and server suit
 
 Testing responsibilities include:
 
-- API helper request/response behavior.
-- Page-controller DOM behavior.
-- Template rendering.
-- Router/application state.
-- Permission-aware UI.
-- Store contracts.
+- shared frontend service request/response behavior in `frontend-core`;
+- shared application-controller and invitation/Guest workflow behavior in `frontend-core`;
+- browser transport, storage, history, and application-shell behavior in `frontend-browser`;
+- desktop/mobile page-controller DOM behavior and template rendering in their presentation suites;
+- desktop/mobile integration flows against the shared application layer;
+- automated frontend dependency/presentation-boundary checks;
+- permission-aware UI;
+- store contracts;
 - PostgreSQL persistence.
 - Authentication/session behavior.
 - Role and track-ownership authorization.
@@ -1056,7 +987,7 @@ Useful root verification command:
 npm run verify
 ```
 
-This runs configuration validation, database connectivity, workspace typechecks/tests, and the production build.
+This runs configuration validation, database connectivity, workspace typechecks/tests, the frontend architecture-boundary audit, and the production build.
 
 ## Future Hosting Direction
 

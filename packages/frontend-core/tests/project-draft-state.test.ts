@@ -1,7 +1,8 @@
 import {
     MAX_PENDING_TRACKS,
     createProjectDraftState,
-} from "../src/project-draft/project-draft-state.js";
+    type PendingAudioFileLike,
+} from "../src/index.js";
 import { tester } from "./test-runner/tester.js";
 
 function createFakeFile({
@@ -12,12 +13,12 @@ function createFakeFile({
     name?: string;
     type?: string;
     size?: number;
-} = {}): File {
+} = {}): PendingAudioFileLike {
     return {
         name,
         type,
         size,
-    } as unknown as File;
+    };
 }
 
 tester.describe("project draft state", () => {

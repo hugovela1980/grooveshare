@@ -32,3 +32,10 @@ export {
   type AppScreen,
   type HistoryAdapter,
 } from "./app-router.js";
+
+export {
+  createBrowserGrooveShareApp,
+  type BrowserGrooveShareAppElement,
+  type BrowserGrooveShareAppOptions,
+  type BrowserGrooveSharePageContext,
+} from "./browser-grooveshare-app.js";

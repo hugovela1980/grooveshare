@@ -1,4 +1,6 @@
-import type { PendingTrackDraft } from "../project-draft/project-draft-state.js";
+import type { PendingTrackDraft as CorePendingTrackDraft } from "@hugovela/frontend-core";
+
+type PendingTrackDraft = CorePendingTrackDraft<File>;
 
 function escapeHtml(value: string): string {
   return value

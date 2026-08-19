@@ -1,85 +1,164 @@
-# GrooveShare Frontend Clients
+# GrooveShare Frontend Architecture
 
-This document records the Version 2 Milestone 6 multi-client boundary after the first architectural separation pass.
+This document records the Version 2.2 shared frontend application boundary.
 
-## Supported presentation surfaces
+## Runtime surfaces
 
-| Surface | Workspace | Current role | Future wrapper |
-| --- | --- | --- | --- |
-| Desktop/laptop browser | `client/` | Primary desktop web experience | Electron candidate |
-| Tablet browser | `client/` | Derives from the desktop design and remains fluid | No separate tablet client planned |
-| Phone browser | `mobile-client/` | Dedicated phone/touch presentation | Capacitor candidate |
-
-Both presentation clients use the same Node server, PostgreSQL data, upload storage, authentication model, project roles, and shared frontend behavior.
-
-## Shared versus presentation-specific responsibilities
-
-```txt
-                     GrooveShare server
-                            ↑
-                   shared frontend core
-                  /                    \
-            client/                mobile-client/
-       desktop + tablet                phone
-```
-
-`packages/frontend-core/` owns behavior that already has a clear reason to be shared: GrooveShare domain types, project permission helpers, `SessionProvider` and `StorageProvider` contracts, mix recovery/debounce/flush behavior, the `PlaybackEngine` contract, and the shared Web Audio playback implementation behind that contract.
-
-The presentation workspaces own markup, DOM event wiring, navigation, CSS, file-selection presentation, and interaction model. The duplicated browser API wrappers remain presentation-local in this first pass and intentionally target the same API contract.
-
-## Intentional presentation differences
-
-| Concern | Desktop/tablet `client/` | Phone `mobile-client/` |
+| Surface | Workspace/package | Responsibility |
 | --- | --- | --- |
-| Project editing | Inline title/description editing | Three-dot menu + modal form |
-| Track-name editing | Inline contenteditable name | Explicit edit control + modal |
-| Project Player navigation | Back + Log Out buttons | Compact top Back + bottom navigation |
-| Project actions | Direct controls; Owner controls visible | Three-dot menu; Owner controls toggle |
-| Mixer layout | Horizontal/row-oriented controls | Four vertical phone channel strips |
-| Volume control | Horizontal range control | Vertical range control |
-| Hover/keyboard affordances | Allowed and useful | Never required |
-| Tablet behavior | Derived from desktop design | Not the primary tablet presentation |
+| Desktop/laptop/tablet browser | `client/` | Desktop/tablet presentation and interaction |
+| Phone browser | `mobile-client/` | Phone/touch presentation and interaction |
+| Shared application/domain layer | `packages/frontend-core/` | What GrooveShare means and what the application does |
+| Shared browser adapter layer | `packages/frontend-browser/` | Browser transport, storage, history, sharing, multipart upload, and browser application shell |
 
-These differences are product decisions, not viewport hacks. Each presentation can evolve without adding `isMobile` branches to one Project Player. Phone-only navigation, project-action menu, and edit-dialog templates now live only in `mobile-client/`; they are no longer part of the desktop/tablet workspace.
+Both presentation clients use the same Node server, PostgreSQL data, authentication model, roles, invitation behavior, shared application controller, and shared browser service implementations.
 
-## Shared platform boundaries
+## Dependency direction
 
 ```txt
-SessionProvider -> BrowserSessionProvider -> existing session-cookie auth API
-StorageProvider -> BrowserStorageProvider -> localStorage
-presentation -> PlaybackEngine -> HtmlAudioPlaybackEngine (Version 2)
+                          GrooveShare server
+                                 ↑
+                        shared service API
+                                 ↑
+                    packages/frontend-core
+               domain + application + permissions
+                   + mix + playback contracts
+                                 ↑
+                    packages/frontend-browser
+               fetch/storage/history/browser shell
+                         /               \
+                        /                 \
+                  client/           mobile-client/
+             desktop + tablet            phone
 ```
 
-Version 3 can replace a provider or the playback implementation only if the native wrapper/Web Audio work actually requires it.
+Allowed dependency direction is downward toward shared packages. `client/` and `mobile-client/` must never import each other. `frontend-core` must never import either presentation or `frontend-browser`.
 
-## Automated testing responsibilities
+The root `npm run verify` gate runs an automated frontend-boundary audit in addition to tests/typechecks/builds.
 
-**`packages/frontend-core/tests/`** protects permission rules, storage/recovery behavior, debounce, successful/failed persistence, flush-before-navigation, and HTML-audio engine behavior.
+## `frontend-core`: product and application behavior
 
-**`client/tests/`** protects desktop/tablet flows: unauthenticated/authenticated startup, Project Player loading/playback preparation, inline project and track editing, mixer-to-playback/persistence behavior, dirty-mix navigation flush, expired sessions, and logout.
+`packages/frontend-core/` owns behavior whose meaning must be the same regardless of presentation:
 
-**`mobile-client/tests/`** protects the same product flows through phone controls: mobile Home/Projects, compact Project Player behavior, three-dot/modal editing, vertical mixer interaction, bottom navigation, expired sessions, and logout.
+- GrooveShare domain types: User, Project, Track, roles, membership, invitations, mix state.
+- Project permission rules.
+- Application state and route/action vocabulary.
+- `GrooveShareApplicationController`.
+- Authentication/session restoration coordination.
+- Selected-project and Project Player application state.
+- Projects/open-project navigation decisions.
+- Invitation and Guest state machine.
+- Guest → authenticated → Contributor continuation.
+- Logout and expired-session recovery.
+- Project, track, membership, auth, and invitation service behavior.
+- Guest, Viewer, and pending mix persistence behavior.
+- Playback contracts and shared playback implementations.
+- Platform contracts such as `SessionProvider`, `StorageProvider`, API transport, and invitation-session persistence.
 
-**`server/tests/`** protects the authoritative HTTP/security/data boundary. The authorization integration suite includes a two-session proof in which independent desktop and mobile sessions authenticate separately, open the same project with the same role, observe each other's project and mix updates, and receive the same track data.
+`frontend-core` does not render pages and does not contain desktop/mobile DOM, CSS, layout, or interaction assumptions.
 
-## Verification commands
+A useful rule for future features is:
 
-Focused suites:
+> If the code decides **what GrooveShare should do**, it belongs in `frontend-core` unless there is a strong platform-specific reason otherwise.
+
+Recording should therefore begin with shared recording state/use-cases/contracts in `frontend-core`, not with two independent copies in the presentation clients.
+
+## `frontend-browser`: browser mechanics shared by both presentations
+
+`packages/frontend-browser/` owns browser-specific mechanisms that both web presentations use:
+
+- `fetch` transport and cookie credentials.
+- authentication-required/401 notification.
+- `File`/`FormData` multipart upload adaptation.
+- `localStorage` and `sessionStorage` adapters.
+- browser invitation-session persistence.
+- clipboard/invitation-link sharing.
+- browser history/hash routing.
+- the shared browser shell that connects browser history/page lifecycle to `GrooveShareApplicationController`.
+
+The browser shell does not render desktop or mobile markup. Each client supplies a presentation-specific `initializePage` callback and `ApplicationPresentationPort` implementation.
+
+A useful rule is:
+
+> If the behavior is specifically about **how a browser provides a capability**, but is not desktop/mobile UI, it belongs in `frontend-browser`.
+
+Future Capacitor/Electron/native wrappers may provide different adapters without changing application meaning in `frontend-core`.
+
+## Presentation clients
+
+`client/` and `mobile-client/` own how shared state is presented and manipulated on their target surfaces.
+
+They are responsible for:
+
+- pages/templates and HTML generation;
+- CSS/layout;
+- DOM querying and event wiring;
+- device-specific navigation controls;
+- desktop inline editing versus mobile modal/touch editing;
+- desktop versus phone mixer presentation;
+- file-picker interaction;
+- page-controller composition;
+- translating user interactions into shared controller/service operations.
+
+The clients may intentionally diverge. Identical presentation files should not automatically move into a shared package merely because they happen to match today.
+
+## Application flow
+
+For example, opening a project now follows this shape:
+
+```txt
+Desktop click / Mobile tap
+           ↓
+ presentation page controller
+           ↓
+ shared browser application shell
+           ↓
+ GrooveShareApplicationController
+           ↓
+ shared ProjectsService
+           ↓
+ browser ApiTransport
+           ↓
+ server
+```
+
+The response flows back through shared application state and then the active presentation adapter:
+
+```txt
+server data
+   ↓
+shared application controller
+   ↓
+ApplicationPresentationPort.showProjectPlayer(...)
+       /                              \
+ desktop adapter                 mobile adapter
+       ↓                              ↓
+ desktop markup                   phone markup
+```
+
+## Tests
+
+**`packages/frontend-core/tests/`** owns domain/application/service/workflow tests. Shared behaviors are tested once here rather than once per presentation.
+
+**`packages/frontend-browser/tests/`** owns browser transport/storage/history/application-shell tests.
+
+**`client/tests/`** owns desktop/tablet presentation unit tests and end-to-end frontend integration flows.
+
+**`mobile-client/tests/`** owns phone presentation unit tests and end-to-end frontend integration flows.
+
+The desktop and mobile integration suites intentionally retain overlapping product scenarios because they prove that two different presentations correctly consume the same shared application layer. Low-level shared service/router/storage tests are not duplicated in the clients.
+
+## Verification
+
+Focused commands:
 
 ```bash
 npm run test-frontend-core
+npm run test-frontend-browser
 npm run test-client
 npm run test-mobile
-npm run test-server
+npm run frontend:boundaries
 ```
-
-Code-only root gate:
-
-```bash
-npm run verify:code
-```
-
-This runs workspace typechecks/tests and production builds for the server, desktop/tablet client, and mobile client.
 
 Full configured-environment gate:
 
@@ -87,14 +166,16 @@ Full configured-environment gate:
 npm run verify
 ```
 
-This additionally checks production configuration and database connectivity.
+The full gate checks server configuration/database connectivity, every workspace typecheck/test suite, frontend architecture boundaries, and production builds.
 
-## Manual verification that remains useful
+## Where future code should go
 
-Manual testing should focus on behavior the current harness cannot realistically reproduce: actual browser audio, touch ergonomics, native file selection, iOS Safari/Android Chrome differences, viewport/safe-area/mobile-keyboard behavior, and later Capacitor/Electron wrapper behavior.
+Use this decision order:
 
-## Deferred to Version 3 Phase 2
+1. **Product/domain/application rule?** Put it in `frontend-core`.
+2. **Shared browser mechanism?** Put it in `frontend-browser` behind or implementing a core contract.
+3. **Desktop/tablet appearance or interaction?** Put it in `client/`.
+4. **Phone appearance or interaction?** Put it in `mobile-client/`.
+5. **Security/data authority?** Put it on the server; the frontend must not become the authority.
 
-Milestone 6 intentionally does not settle whether API wrappers should move into `frontend-core`, whether Capacitor needs native auth/storage providers, whether Electron needs desktop-specific providers, whether shared design tokens deserve a package, whether the repository should move to an `apps/` layout, whether any UI components genuinely deserve sharing, or how recording changes the platform/playback contracts.
-
-The Version 2 proof is simpler: one GrooveShare product now supports two intentionally different presentations over one shared core and one authoritative backend.
+For recording, this means shared recording session/state transitions, permissions, synchronization contracts, persistence/use-case coordination, and recording-engine contracts should be designed in shared packages first. Desktop and mobile should then supply their own controls, layouts, permission prompts, and device-specific capture adapters as needed.

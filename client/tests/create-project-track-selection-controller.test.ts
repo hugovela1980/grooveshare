@@ -1,5 +1,5 @@
 import { createProjectTrackSelectionController } from "../src/page-controllers/create-project-track-selection-controller.js";
-import { createProjectDraftState } from "../src/project-draft/project-draft-state.js";
+import { createProjectDraftState } from "@hugovela/frontend-core";
 import { renderPendingTrackList } from "../src/templates/pending-track-list.js";
 import { createFakeTextElement } from "./helpers/fake-dom.js";
 import { tester } from "./test-runner/tester.js";
@@ -176,7 +176,7 @@ tester.describe("create project track selection controller", () => {
         const tracksToIncludeSection = createFakeHiddenElement();
         const pendingTrackListElement = createClickableListElement();
 
-        const projectDraftState = createProjectDraftState();
+        const projectDraftState = createProjectDraftState<File>();
 
         const controller = createProjectTrackSelectionController({
             addTracksButton,
@@ -204,7 +204,7 @@ tester.describe("create project track selection controller", () => {
         const tracksToIncludeSection = createFakeHiddenElement();
         const pendingTrackListElement = createClickableListElement();
 
-        const projectDraftState = createProjectDraftState();
+        const projectDraftState = createProjectDraftState<File>();
 
         const controller = createProjectTrackSelectionController({
             addTracksButton,
@@ -237,7 +237,7 @@ tester.describe("create project track selection controller", () => {
 
         let nextId = 1;
 
-        const projectDraftState = createProjectDraftState({
+        const projectDraftState = createProjectDraftState<File>({
             createId: () => `pending-track-${nextId++}`,
         });
 
@@ -285,7 +285,7 @@ tester.describe("create project track selection controller", () => {
         const tracksToIncludeSection = createFakeHiddenElement();
         const pendingTrackListElement = createClickableListElement();
 
-        const projectDraftState = createProjectDraftState({
+        const projectDraftState = createProjectDraftState<File>({
             createId: () => "pending-track-1",
         });
 
@@ -320,7 +320,7 @@ tester.describe("create project track selection controller", () => {
         const tracksToIncludeSection = createFakeHiddenElement();
         const pendingTrackListElement = createClickableListElement();
 
-        const projectDraftState = createProjectDraftState({
+        const projectDraftState = createProjectDraftState<File>({
             createId: () => "pending-track-1",
         });
 
@@ -368,7 +368,7 @@ tester.describe("create project track selection controller", () => {
 
         let nextId = 1;
 
-        const projectDraftState = createProjectDraftState({
+        const projectDraftState = createProjectDraftState<File>({
             createId: () => `pending-track-${nextId++}`,
         });
 

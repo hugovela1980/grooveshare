@@ -1,4 +1,6 @@
-import type { PendingTrackDraft } from "../src/project-draft/project-draft-state.js";
+import type { PendingTrackDraft as CorePendingTrackDraft } from "@hugovela/frontend-core";
+
+type PendingTrackDraft = CorePendingTrackDraft<File>;
 import { renderPendingTrackList } from "../src/templates/pending-track-list.js";
 import { tester } from "./test-runner/tester.js";
 

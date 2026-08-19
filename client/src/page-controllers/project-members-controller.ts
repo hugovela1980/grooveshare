@@ -2,7 +2,7 @@ import type {
   ProjectMember,
   ProjectRole,
 } from "../types.js";
-import type { ProjectMembersApi } from "../api/project-members-api.js";
+import type { ProjectMembersService } from "@hugovela/frontend-core";
 import {
   setControlBusy,
   setRegionBusy,
@@ -67,7 +67,7 @@ type ProjectMembersControllerOptions = {
   submitButton: BusyControlLike;
   memberListElement: MemberListElementLike;
   statusElement?: StatusElementLike | null;
-  projectMembersApi: ProjectMembersApi;
+  projectMembersApi: ProjectMembersService;
   renderMembers: (members: ProjectMember[]) => string;
   confirmRemoveMember?: (message: string) => boolean;
 };

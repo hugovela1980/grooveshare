@@ -1,7 +1,7 @@
 import type {
   GeneratedProjectInvitation,
   ProjectInvitationStatus,
-} from "../api/invitations-api.js";
+} from "@hugovela/frontend-core";
 import { setControlBusy } from "../ui/async-state.js";
 
 type InvitationApi = {

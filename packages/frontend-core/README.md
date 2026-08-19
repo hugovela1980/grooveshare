@@ -83,3 +83,11 @@ frontend-browser
 ```
 
 `frontend-core` knows nothing about either client or the browser package. `frontend-browser` implements browser-specific ports using `frontend-core`. Desktop and mobile can then share browser infrastructure without becoming dependent on one another.
+
+### Stage 5 — final ownership boundary
+
+Stage 5 removes the temporary presentation-local API/router/storage forwarding files and moves create-project draft behavior into the shared core. Shared service, routing, storage, permission, invitation, and project-draft tests now live with the code they protect rather than being repeated in desktop/mobile suites.
+
+The remaining overlap between `client/` and `mobile-client/` is presentation code: templates, page controllers, UI utilities, CSS, development UI, and small composition roots. Identical presentation files are not automatically shared; they may diverge as the desktop/tablet and phone experiences evolve.
+
+Future features should begin here when they define product/application meaning. Recording state, recording use-cases, permissions, synchronization rules, and engine contracts should therefore be modeled in shared code before either presentation wires its device-specific controls.

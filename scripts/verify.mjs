@@ -46,6 +46,11 @@ runStep(
 );
 
 runStep(
+    "typecheck - frontend-browser",
+    "npm run typecheck -w @hugovela/frontend-browser",
+);
+
+runStep(
     "typecheck - client",
     "npm run typecheck -w client",
 );
@@ -71,6 +76,11 @@ runStep(
 );
 
 runStep(
+    "tests - frontend-browser",
+    "npm test -w @hugovela/frontend-browser",
+);
+
+runStep(
     "tests - client",
     "npm test -w client",
 );
@@ -83,6 +93,11 @@ runStep(
 runStep(
     "tests - test-runner",
     "npm test -w @hugovela/test-runner",
+);
+
+runStep(
+    "frontend architecture boundaries",
+    "npm run frontend:boundaries",
 );
 
 runStep(

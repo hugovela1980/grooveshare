@@ -1,5 +1,5 @@
 import { createCreateProjectConfirmationController } from "../src/page-controllers/create-project-confirmation-controller.js";
-import { createProjectDraftState } from "../src/project-draft/project-draft-state.js";
+import { createProjectDraftState } from "@hugovela/frontend-core";
 import type { CreateProjectInput, Project, Track } from "../src/types.js";
 import { createFakeTextElement } from "./helpers/fake-dom.js";
 import { tester } from "./test-runner/tester.js";
@@ -76,7 +76,7 @@ tester.describe("create project confirmation controller", () => {
         const submitButton = createFakeButton();
         const statusElement = createFakeTextElement();
 
-        const projectDraftState = createProjectDraftState({
+        const projectDraftState = createProjectDraftState<File>({
             createId: (() => {
                 let nextId = 1;
 
@@ -166,7 +166,7 @@ tester.describe("create project confirmation controller", () => {
     tester.it("shows a message when project details are missing", async () => {
         const submitButton = createFakeButton();
         const statusElement = createFakeTextElement();
-        const projectDraftState = createProjectDraftState();
+        const projectDraftState = createProjectDraftState<File>();
 
         let createProjectCallCount = 0;
 
@@ -205,7 +205,7 @@ tester.describe("create project confirmation controller", () => {
         const submitButton = createFakeButton();
         const statusElement = createFakeTextElement();
 
-        const projectDraftState = createProjectDraftState();
+        const projectDraftState = createProjectDraftState<File>();
 
         projectDraftState.setProjectDraft({
             title: "Bass Groove",
@@ -241,7 +241,7 @@ tester.describe("create project confirmation controller", () => {
     tester.it("marks Submit busy while project creation is in flight", async () => {
         const submitButton = createFakeButton();
         const statusElement = createFakeTextElement();
-        const projectDraftState = createProjectDraftState();
+        const projectDraftState = createProjectDraftState<File>();
         projectDraftState.setProjectDraft({
             title: "Bass Groove",
             description: "Practice loop",

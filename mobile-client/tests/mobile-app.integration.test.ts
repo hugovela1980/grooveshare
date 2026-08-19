@@ -1,10 +1,11 @@
-import { ApiError, apiFetch } from "../src/api/api-client.js";
+import { ApiError } from "@hugovela/frontend-core";
+import { browserFrontendRuntime } from "../src/platform/browser-frontend-runtime.js";
 import type { SessionProvider } from "@hugovela/frontend-core";
 import { createGrooveShareApp } from "../src/app.js";
 import type {
   AppHistoryState,
   HistoryAdapter,
-} from "../src/router/app-router.js";
+} from "@hugovela/frontend-browser";
 import type { User } from "../src/types.js";
 import { createFakeContainer } from "./helpers/fake-dom.js";
 import { tester } from "./test-runner/tester.js";
@@ -304,7 +305,7 @@ tester.describe("mobile client application flows", () => {
     }) as typeof fetch;
 
     try {
-      await apiFetch("http://localhost:3000/api/projects");
+      await browserFrontendRuntime.transport.request("http://localhost:3000/api/projects");
 
       tester.expect(app.getCurrentScreen()).toBe("auth");
       tester.expect(app.getCurrentUser()).toBe(null);

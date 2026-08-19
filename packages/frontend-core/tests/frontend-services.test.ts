@@ -250,4 +250,242 @@ tester.describe("frontend-core shared frontend services", () => {
     tester.expect(calls[0]?.options?.notifyOnUnauthorized).toBe(false);
     tester.expect(calls[1]?.options?.method).toBe("POST");
   });
+
+  tester.it("shares the complete authentication session workflow", async () => {
+    const calls: TransportCall[] = [];
+    const transport: ApiTransport = {
+      async request(input, options) {
+        calls.push({ input, options });
+        return createJsonResponse(user);
+      },
+    };
+    const services = createFrontendServices<string>({
+      apiBaseUrl: "https://grooveshare.example",
+      transport,
+      multipartBodyFactory: {
+        createTrackUploadBody() {
+          return "multipart";
+        },
+      },
+    });
+
+    await services.auth.login({
+      email: " MUSICIAN@EXAMPLE.COM ",
+      password: "password",
+    });
+    await services.auth.getCurrentUser();
+    await services.auth.logout();
+
+    tester.expect(calls).toEqual([
+      {
+        input: "https://grooveshare.example/api/auth/login",
+        options: {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: "musician@example.com",
+            password: "password",
+          }),
+          notifyOnUnauthorized: false,
+        },
+      },
+      {
+        input: "https://grooveshare.example/api/auth/me",
+        options: { notifyOnUnauthorized: false },
+      },
+      {
+        input: "https://grooveshare.example/api/auth/logout",
+        options: {
+          method: "POST",
+          notifyOnUnauthorized: false,
+        },
+      },
+    ]);
+  });
+
+  tester.it("shares project read, update, mix, and delete routes", async () => {
+    const calls: TransportCall[] = [];
+    const transport: ApiTransport = {
+      async request(input, options) {
+        calls.push({ input, options });
+        return createJsonResponse(project);
+      },
+    };
+    const services = createFrontendServices<string>({
+      apiBaseUrl: "https://grooveshare.example",
+      transport,
+      multipartBodyFactory: {
+        createTrackUploadBody() {
+          return "multipart";
+        },
+      },
+    });
+
+    await services.projects.getProject("project-1");
+    await services.projects.updateProjectDetails("project-1", {
+      title: "Updated",
+      description: "Description",
+    });
+    await services.projects.saveMixSettings("project-1", {
+      channels: [],
+    });
+    await services.projects.deleteProject("project-1");
+
+    tester.expect(calls.map((call) => [call.input, call.options?.method ?? "GET"]))
+      .toEqual([
+        ["https://grooveshare.example/api/projects/project-1", "GET"],
+        ["https://grooveshare.example/api/projects/project-1", "PUT"],
+        ["https://grooveshare.example/api/projects/project-1/mix-settings", "PUT"],
+        ["https://grooveshare.example/api/projects/project-1", "DELETE"],
+      ]);
+  });
+
+  tester.it("shares track list, rename, and delete routes", async () => {
+    const calls: TransportCall[] = [];
+    const transport: ApiTransport = {
+      async request(input, options) {
+        calls.push({ input, options });
+        const data = input.endsWith("/tracks") ? [track] : track;
+        return createJsonResponse(data);
+      },
+    };
+    const services = createFrontendServices<string>({
+      apiBaseUrl: "https://grooveshare.example",
+      transport,
+      multipartBodyFactory: {
+        createTrackUploadBody() {
+          return "multipart";
+        },
+      },
+    });
+
+    await services.tracks.getTracksByProjectId("project-1");
+    await services.tracks.updateTrackName("project-1", "track-1", "Lead Guitar");
+    await services.tracks.deleteTrack("project-1", "track-1");
+
+    tester.expect(calls.map((call) => [call.input, call.options?.method ?? "GET"]))
+      .toEqual([
+        ["https://grooveshare.example/api/projects/project-1/tracks", "GET"],
+        ["https://grooveshare.example/api/projects/project-1/tracks/track-1", "PUT"],
+        ["https://grooveshare.example/api/projects/project-1/tracks/track-1", "DELETE"],
+      ]);
+  });
+
+  tester.it("shares the complete membership mutation workflow", async () => {
+    const calls: TransportCall[] = [];
+    const transport: ApiTransport = {
+      async request(input, options) {
+        calls.push({ input, options });
+        return createJsonResponse(member);
+      },
+    };
+    const services = createFrontendServices<string>({
+      apiBaseUrl: "https://grooveshare.example",
+      transport,
+      multipartBodyFactory: {
+        createTrackUploadBody() {
+          return "multipart";
+        },
+      },
+    });
+
+    await services.projectMembers.getProjectMembers("project-1");
+    await services.projectMembers.addProjectMember("project-1", {
+      email: " MEMBER@EXAMPLE.COM ",
+      role: "viewer",
+    });
+    await services.projectMembers.updateProjectMemberRole(
+      "project-1",
+      "user-1",
+      "contributor",
+    );
+    await services.projectMembers.removeProjectMember("project-1", "user-1");
+
+    tester.expect(calls.map((call) => [call.input, call.options?.method ?? "GET"]))
+      .toEqual([
+        ["https://grooveshare.example/api/projects/project-1/members", "GET"],
+        ["https://grooveshare.example/api/projects/project-1/members", "POST"],
+        ["https://grooveshare.example/api/projects/project-1/members/user-1", "PUT"],
+        ["https://grooveshare.example/api/projects/project-1/members/user-1", "DELETE"],
+      ]);
+  });
+
+  tester.it("shares Owner invitation generate, status, and disable routes", async () => {
+    const calls: TransportCall[] = [];
+    const transport: ApiTransport = {
+      async request(input, options) {
+        calls.push({ input, options });
+        const method = options?.method ?? "GET";
+        const data = method === "POST"
+          ? {
+              token: "owner-token",
+              active: true,
+              createdAt: "2026-08-18T00:00:00.000Z",
+              updatedAt: "2026-08-18T00:00:00.000Z",
+            }
+          : {
+              active: method !== "DELETE",
+              createdAt: "2026-08-18T00:00:00.000Z",
+              updatedAt: "2026-08-18T00:00:01.000Z",
+            };
+        return createJsonResponse(data);
+      },
+    };
+    const services = createFrontendServices<string>({
+      apiBaseUrl: "https://grooveshare.example",
+      transport,
+      multipartBodyFactory: {
+        createTrackUploadBody() {
+          return "multipart";
+        },
+      },
+    });
+
+    const generated = await services.invitations.generateProjectInvitation("project-1");
+    const status = await services.invitations.getProjectInvitationStatus("project-1");
+    const disabled = await services.invitations.disableProjectInvitation("project-1");
+
+    tester.expect(generated.token).toBe("owner-token");
+    tester.expect(status?.active).toBe(true);
+    tester.expect(disabled.active).toBe(false);
+    tester.expect(calls.map((call) => call.options?.method ?? "GET"))
+      .toEqual(["POST", "GET", "DELETE"]);
+  });
+
+  tester.it("surfaces server errors from the shared service layer", async () => {
+    const transport: ApiTransport = {
+      async request() {
+        return {
+          ok: false,
+          status: 403,
+          statusText: "Forbidden",
+          async json() {
+            return { ok: false, error: "You cannot delete this project." };
+          },
+          async arrayBuffer() {
+            return new ArrayBuffer(0);
+          },
+        };
+      },
+    };
+    const services = createFrontendServices<string>({
+      apiBaseUrl: "https://grooveshare.example",
+      transport,
+      multipartBodyFactory: {
+        createTrackUploadBody() {
+          return "multipart";
+        },
+      },
+    });
+
+    let message = "";
+    try {
+      await services.projects.deleteProject("project-1");
+    } catch (error) {
+      message = error instanceof Error ? error.message : String(error);
+    }
+
+    tester.expect(message).toBe("You cannot delete this project.");
+  });
+
 });

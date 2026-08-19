@@ -3,7 +3,9 @@ import { createAuthPageController } from "../src/page-controllers/auth-page-cont
 import { createCreateProjectConfirmationController } from "../src/page-controllers/create-project-confirmation-controller.js";
 import { createProjectTrackSelectionController } from "../src/page-controllers/create-project-track-selection-controller.js";
 import { createProjectMembersController } from "../src/page-controllers/project-members-controller.js";
-import { createProjectDraftState, type PendingTrackDraft } from "../src/project-draft/project-draft-state.js";
+import { createProjectDraftState, type PendingTrackDraft as CorePendingTrackDraft } from "@hugovela/frontend-core";
+
+type PendingTrackDraft = CorePendingTrackDraft<File>;
 import { renderAuthPage } from "../src/pages/auth-page.js";
 import { renderCreateProjectPage } from "../src/pages/create-project-page.js";
 import { renderProjectList } from "../src/templates/project-list.js";
@@ -205,7 +207,7 @@ tester.describe("mobile audio-file validation", () => {
 
 tester.describe("mobile create-project track selection", () => {
   tester.it("adds valid phone audio and reports invalid selections without losing valid files", () => {
-    const projectDraftState = createProjectDraftState({ createId: () => "track-draft-1" });
+    const projectDraftState = createProjectDraftState<File>({ createId: () => "track-draft-1" });
     const addTracksButton = {
       addEventListener(
         _eventName: string,
@@ -262,7 +264,7 @@ tester.describe("mobile create-project upload feedback", () => {
     const submitButton = createButton();
     const statusElement = { textContent: "" as string | null };
     const audioFile = new File(["audio"], "memo.m4a", { type: "audio/mp4" });
-    const draftState = createProjectDraftState({ createId: () => "draft-1" });
+    const draftState = createProjectDraftState<File>({ createId: () => "draft-1" });
     draftState.setProjectDraft({ title: "Song", description: "" });
     draftState.addPendingTrack({ trackName: "Memo", audioFile });
 
