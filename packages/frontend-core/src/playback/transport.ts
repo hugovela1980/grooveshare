@@ -22,6 +22,7 @@ export type TransportPlayOptions = {
 
 export type PlaybackScheduleInstruction = {
   startAtClockTime: number;
+  endAtClockTime: number;
   projectPositionSeconds: number;
   durationSeconds: number;
   loopEnabled: boolean;
@@ -52,6 +53,9 @@ export type TransportOptions = {
 export interface Transport {
   setDuration(durationSeconds: number): void;
   play(options?: TransportPlayOptions): PlaybackScheduleInstruction | null;
+  createNextLoopInstruction(
+    previousInstruction: PlaybackScheduleInstruction,
+  ): PlaybackScheduleInstruction | null;
   pause(): void;
   stop(): void;
   seek(seconds: number): void;
@@ -107,6 +111,8 @@ function normalizeLeadTime(leadTimeSeconds: number | undefined): number {
  *   the shared project timeline.
  * - While playing, elapsed time is derived exclusively from getClockTime().
  *   UI timers only request/observe snapshots and never advance the transport.
+ * - With looping enabled, project position wraps on the same authoritative
+ *   clock; the loop boundary is not advanced by a JavaScript callback.
  */
 export function createTransport({
   getClockTime,
@@ -136,17 +142,63 @@ export function createTransport({
       : 0;
   }
 
+  function getRunningPositionAt(clockTime: number): number {
+    const elapsedSeconds = Math.max(
+      0,
+      clockTime - playbackStartClockTime,
+    );
+    const rawPosition = playbackStartPosition + elapsedSeconds;
+
+    if (!loopEnabled || durationSeconds <= 0) {
+      return clampPosition(rawPosition);
+    }
+
+    if (rawPosition < durationSeconds) {
+      return rawPosition;
+    }
+
+    return rawPosition % durationSeconds;
+  }
+
+  function syncNaturalCompletion(clockTime: number): void {
+    if (
+      playbackState !== "playing" ||
+      loopEnabled ||
+      durationSeconds <= 0
+    ) {
+      return;
+    }
+
+    const elapsedSeconds = Math.max(
+      0,
+      clockTime - playbackStartClockTime,
+    );
+    const rawPosition = playbackStartPosition + elapsedSeconds;
+
+    if (rawPosition < durationSeconds) {
+      return;
+    }
+
+    positionSeconds = durationSeconds;
+    playbackStartPosition = durationSeconds;
+    playbackStartClockTime = clockTime;
+    playbackState = "ended";
+    stopTicker();
+  }
+
   function getPosition(): number {
     if (playbackState !== "playing") {
       return clampPosition(positionSeconds);
     }
 
-    const elapsedSeconds = Math.max(
-      0,
-      getClockTime() - playbackStartClockTime,
-    );
+    const clockTime = getClockTime();
+    syncNaturalCompletion(clockTime);
 
-    return clampPosition(playbackStartPosition + elapsedSeconds);
+    if (playbackState !== "playing") {
+      return clampPosition(positionSeconds);
+    }
+
+    return getRunningPositionAt(clockTime);
   }
 
   function getSnapshot(): TransportSnapshot {
@@ -191,34 +243,72 @@ export function createTransport({
     intervalHandle = scheduleInterval(notify, snapshotIntervalMs);
   }
 
+  function rebasePlayingPosition(clockTime: number): number {
+    const currentPosition = playbackState === "playing"
+      ? getRunningPositionAt(clockTime)
+      : clampPosition(positionSeconds);
+
+    positionSeconds = currentPosition;
+    playbackStartPosition = currentPosition;
+    playbackStartClockTime = clockTime;
+
+    return currentPosition;
+  }
+
   function setDuration(nextDurationSeconds: number): void {
     if (destroyed) {
       return;
     }
+
+    const clockTime = getClockTime();
+    const wasPlaying = playbackState === "playing";
+    const currentPosition = wasPlaying
+      ? getRunningPositionAt(clockTime)
+      : clampPosition(positionSeconds);
 
     durationSeconds = normalizeDuration(nextDurationSeconds);
 
     if (durationSeconds === 0) {
       positionSeconds = 0;
       playbackStartPosition = 0;
-      playbackStartClockTime = getClockTime();
+      playbackStartClockTime = clockTime;
       playbackState = "stopped";
       stopTicker();
       notify();
       return;
     }
 
-    const currentPosition = getPosition();
     positionSeconds = Math.min(durationSeconds, currentPosition);
     playbackStartPosition = positionSeconds;
-    playbackStartClockTime = getClockTime();
+    playbackStartClockTime = clockTime;
 
     if (positionSeconds >= durationSeconds) {
       playbackState = "ended";
       stopTicker();
+    } else if (wasPlaying) {
+      playbackState = "playing";
+      startTicker();
     }
 
     notify();
+  }
+
+  function createInstruction(
+    startAtClockTime: number,
+    projectPositionSeconds: number,
+  ): PlaybackScheduleInstruction {
+    const remainingDurationSeconds = Math.max(
+      0,
+      durationSeconds - projectPositionSeconds,
+    );
+
+    return {
+      startAtClockTime,
+      endAtClockTime: startAtClockTime + remainingDurationSeconds,
+      projectPositionSeconds,
+      durationSeconds,
+      loopEnabled,
+    };
   }
 
   function play(
@@ -244,12 +334,22 @@ export function createTransport({
     startTicker();
     notify();
 
-    return {
-      startAtClockTime,
-      projectPositionSeconds: playbackStartPosition,
-      durationSeconds,
-      loopEnabled,
-    };
+    return createInstruction(startAtClockTime, playbackStartPosition);
+  }
+
+  function createNextLoopInstruction(
+    previousInstruction: PlaybackScheduleInstruction,
+  ): PlaybackScheduleInstruction | null {
+    if (
+      destroyed ||
+      playbackState !== "playing" ||
+      !loopEnabled ||
+      durationSeconds <= 0
+    ) {
+      return null;
+    }
+
+    return createInstruction(previousInstruction.endAtClockTime, 0);
   }
 
   function pause(): void {
@@ -257,9 +357,10 @@ export function createTransport({
       return;
     }
 
-    positionSeconds = getPosition();
+    const clockTime = getClockTime();
+    positionSeconds = getRunningPositionAt(clockTime);
     playbackStartPosition = positionSeconds;
-    playbackStartClockTime = getClockTime();
+    playbackStartClockTime = clockTime;
     playbackState = positionSeconds >= durationSeconds && durationSeconds > 0
       ? "ended"
       : "paused";
@@ -317,6 +418,12 @@ export function createTransport({
       return;
     }
 
+    const clockTime = getClockTime();
+
+    if (playbackState === "playing") {
+      rebasePlayingPosition(clockTime);
+    }
+
     loopEnabled = enabled;
     notify();
   }
@@ -366,6 +473,7 @@ export function createTransport({
   return {
     setDuration,
     play,
+    createNextLoopInstruction,
     pause,
     stop,
     seek,

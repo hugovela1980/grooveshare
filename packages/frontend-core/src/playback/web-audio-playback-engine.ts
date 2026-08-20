@@ -55,6 +55,12 @@ type ActiveSource = {
   source: AudioBufferSourceNodeLike;
 };
 
+type ScheduledSourceGeneration = {
+  instruction: PlaybackScheduleInstruction;
+  sources: ActiveSource[];
+  isLoopContinuation: boolean;
+};
+
 type ScheduleInterval = (
   handler: () => void,
   milliseconds: number,
@@ -73,7 +79,7 @@ type WebAudioPlaybackEngineOptions = {
 
 const END_EPSILON_SECONDS = 0.01;
 const PLAYBACK_START_LEAD_SECONDS = 0.03;
-const LOOP_RESTART_LEAD_SECONDS = 0.01;
+const LOOP_SCHEDULE_LOOKAHEAD_SECONDS = 1;
 const SNAPSHOT_INTERVAL_MS = 100;
 
 function clampVolume(volume: number): number {
@@ -151,10 +157,10 @@ export function createWebAudioPlaybackEngine(
   });
 
   let loadedChannels: LoadedWebAudioChannel[] = [];
-  let activeSources: ActiveSource[] = [];
+  let sourceGenerations: ScheduledSourceGeneration[] = [];
+  let lastScheduledLoopInstruction: PlaybackScheduleInstruction | null = null;
   const listeners = new Set<PlaybackStateListener>();
   let loadGeneration = 0;
-  let sourceGeneration = 0;
   let loadingPromise: Promise<void> = Promise.resolve();
   let destroyed = false;
   const transport = createTransport({
@@ -214,6 +220,8 @@ export function createWebAudioPlaybackEngine(
   }
 
   const unsubscribeTransport = transport.subscribe(() => {
+    pruneCompletedSourceGenerations();
+    maintainLoopSchedule();
     notify();
   });
 
@@ -243,14 +251,42 @@ export function createWebAudioPlaybackEngine(
     source.disconnect?.();
   }
 
-  function clearActiveSources(): void {
-    sourceGeneration += 1;
+  function releaseSource(source: AudioBufferSourceNodeLike): void {
+    source.onended = null;
+    source.disconnect?.();
+  }
 
-    for (const { source } of activeSources) {
-      safeStopSource(source);
+  function clearActiveSources(): void {
+    for (const generation of sourceGenerations) {
+      for (const { source } of generation.sources) {
+        safeStopSource(source);
+      }
     }
 
-    activeSources = [];
+    sourceGenerations = [];
+    lastScheduledLoopInstruction = null;
+  }
+
+  function pruneCompletedSourceGenerations(): void {
+    if (sourceGenerations.length === 0) {
+      return;
+    }
+
+    const clockTime = audioContext.currentTime;
+    const remainingGenerations: ScheduledSourceGeneration[] = [];
+
+    for (const generation of sourceGenerations) {
+      if (generation.instruction.endAtClockTime <= clockTime) {
+        for (const { source } of generation.sources) {
+          releaseSource(source);
+        }
+        continue;
+      }
+
+      remainingGenerations.push(generation);
+    }
+
+    sourceGenerations = remainingGenerations;
   }
 
   function disconnectLoadedChannels(): void {
@@ -259,71 +295,16 @@ export function createWebAudioPlaybackEngine(
     }
   }
 
-  function findTransportAnchor(
-    positionSeconds: number,
-  ): LoadedWebAudioChannel | null {
-    let anchor: LoadedWebAudioChannel | null = null;
-    let longestRemainingDuration = -1;
-
-    for (const loadedChannel of loadedChannels) {
-      const buffer = loadedChannel.buffer;
-
-      if (!buffer || positionSeconds >= buffer.duration - END_EPSILON_SECONDS) {
-        continue;
-      }
-
-      const remainingDuration = buffer.duration - positionSeconds;
-
-      if (remainingDuration > longestRemainingDuration) {
-        anchor = loadedChannel;
-        longestRemainingDuration = remainingDuration;
-      }
-    }
-
-    return anchor;
-  }
-
-  function handleTransportEnded(generation: number): void {
-    const transportSnapshot = transport.getSnapshot();
-
-    if (
-      destroyed ||
-      generation !== sourceGeneration ||
-      transportSnapshot.playbackState !== "playing"
-    ) {
-      return;
-    }
-
-    clearActiveSources();
-
-    if (transportSnapshot.loopEnabled) {
-      transport.pause();
-      transport.seek(0);
-      scheduleAndStartSources(LOOP_RESTART_LEAD_SECONDS);
-      return;
-    }
-
-    transport.complete();
-  }
-
   function startSources(
     instruction: PlaybackScheduleInstruction,
-  ): void {
+    isLoopContinuation = false,
+  ): ScheduledSourceGeneration | null {
     if (!hasReadyChannels()) {
-      return;
+      return null;
     }
 
     const playbackPosition = instruction.projectPositionSeconds;
-    const anchor = findTransportAnchor(playbackPosition);
-
-    if (!anchor) {
-      transport.complete();
-      return;
-    }
-
-    sourceGeneration += 1;
-    const currentGeneration = sourceGeneration;
-    activeSources = [];
+    const sources: ActiveSource[] = [];
 
     for (const loadedChannel of loadedChannels) {
       const buffer = loadedChannel.buffer;
@@ -340,21 +321,105 @@ export function createWebAudioPlaybackEngine(
       const source = audioContext.createBufferSource();
       source.buffer = buffer;
       source.connect(gainNode);
-
-      if (loadedChannel === anchor) {
-        source.onended = () => {
-          handleTransportEnded(currentGeneration);
-        };
-      }
-
       source.start(
         instruction.startAtClockTime,
         instruction.projectPositionSeconds,
       );
-      activeSources.push({
+      sources.push({
         channelNumber: loadedChannel.channel.channelNumber,
         source,
       });
+    }
+
+    if (sources.length === 0) {
+      return null;
+    }
+
+    const generation = {
+      instruction,
+      sources,
+      isLoopContinuation,
+    };
+    sourceGenerations.push(generation);
+
+    return generation;
+  }
+
+  function getCurrentOrUpcomingInstruction(): PlaybackScheduleInstruction | null {
+    const clockTime = audioContext.currentTime;
+    const currentGeneration = sourceGenerations.find((generation) => {
+      return (
+        generation.instruction.startAtClockTime <= clockTime &&
+        generation.instruction.endAtClockTime > clockTime
+      );
+    });
+
+    if (currentGeneration) {
+      return currentGeneration.instruction;
+    }
+
+    const upcomingGeneration = sourceGenerations.find((generation) => {
+      return generation.instruction.startAtClockTime > clockTime;
+    });
+
+    return upcomingGeneration?.instruction ?? null;
+  }
+
+  function cancelFutureLoopGenerations(): void {
+    const clockTime = audioContext.currentTime;
+    const remainingGenerations: ScheduledSourceGeneration[] = [];
+
+    for (const generation of sourceGenerations) {
+      if (
+        generation.isLoopContinuation &&
+        generation.instruction.startAtClockTime > clockTime
+      ) {
+        for (const { source } of generation.sources) {
+          safeStopSource(source);
+        }
+        continue;
+      }
+
+      remainingGenerations.push(generation);
+    }
+
+    sourceGenerations = remainingGenerations;
+  }
+
+  function maintainLoopSchedule(force = false): void {
+    const transportSnapshot = transport.getSnapshot();
+
+    if (
+      destroyed ||
+      transportSnapshot.playbackState !== "playing" ||
+      !transportSnapshot.loopEnabled ||
+      !lastScheduledLoopInstruction
+    ) {
+      return;
+    }
+
+    const shouldScheduleNext =
+      force ||
+      audioContext.currentTime >=
+        lastScheduledLoopInstruction.startAtClockTime -
+          LOOP_SCHEDULE_LOOKAHEAD_SECONDS;
+
+    if (!shouldScheduleNext) {
+      return;
+    }
+
+    const nextInstruction = transport.createNextLoopInstruction(
+      lastScheduledLoopInstruction,
+    );
+
+    if (!nextInstruction) {
+      return;
+    }
+
+    const generation = startSources(nextInstruction, true);
+
+    if (generation) {
+      lastScheduledLoopInstruction = nextInstruction;
     }
   }
 
@@ -369,7 +434,18 @@ export function createWebAudioPlaybackEngine(
       return;
     }
 
-    startSources(instruction);
+    const generation = startSources(instruction);
+
+    if (!generation) {
+      transport.complete();
+      return;
+    }
+
+    lastScheduledLoopInstruction = instruction;
+
+    if (instruction.loopEnabled) {
+      maintainLoopSchedule(true);
+    }
   }
 
   async function play(): Promise<void> {
@@ -576,7 +652,26 @@ export function createWebAudioPlaybackEngine(
     seek,
     seekBy,
     setLoopEnabled(enabled) {
+      const transportSnapshot = transport.getSnapshot();
+
+      if (transportSnapshot.loopEnabled === enabled) {
+        return;
+      }
+
       transport.setLoopEnabled(enabled);
+
+      if (transportSnapshot.playbackState !== "playing") {
+        return;
+      }
+
+      if (!enabled) {
+        cancelFutureLoopGenerations();
+        lastScheduledLoopInstruction = null;
+        return;
+      }
+
+      lastScheduledLoopInstruction = getCurrentOrUpcomingInstruction();
+      maintainLoopSchedule(true);
     },
     setChannelVolume,
     setChannelEnabled,

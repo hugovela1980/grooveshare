@@ -96,6 +96,7 @@ function createFakeAudioContext() {
 function createEngineHarness() {
   const audioContext = createFakeAudioContext();
   const fetchedUrls: string[] = [];
+  let intervalHandler: (() => void) | null = null;
   const durationsByUrl = new Map<string, number>([
     ["/drums.wav", 60],
     ["/bass.wav", 60],
@@ -110,10 +111,13 @@ function createEngineHarness() {
       const duration = durationsByUrl.get(audioUrl) ?? 60;
       return new Uint8Array([duration]).buffer;
     },
-    scheduleInterval() {
+    scheduleInterval(handler) {
+      intervalHandler = handler;
       return { fakeInterval: true };
     },
-    clearScheduledInterval() {},
+    clearScheduledInterval() {
+      intervalHandler = null;
+    },
     onLoadError(error) {
       throw error;
     },
@@ -123,6 +127,9 @@ function createEngineHarness() {
     audioContext,
     engine,
     fetchedUrls,
+    tickTransport() {
+      intervalHandler?.();
+    },
   };
 }
 
@@ -230,6 +237,43 @@ tester.describe("WebAudioPlaybackEngine", () => {
     engine.destroy?.();
   });
 
+  tester.it("supports seek while stopped and paused without starting sources until play resumes", async () => {
+    const { audioContext, engine } = createEngineHarness();
+
+    engine.loadMix(twoChannelMix);
+    await engine.play();
+    engine.stop();
+
+    const sourceCountAfterStop = audioContext.sources.length;
+    engine.seek(15);
+
+    tester.expect(audioContext.sources.length).toBe(sourceCountAfterStop);
+    tester.expect(engine.getSnapshot().currentTime).toBe(15);
+    tester.expect(engine.getSnapshot().isPlaying).toBe(false);
+
+    await engine.play();
+    let generation = audioContext.sources.slice(-2);
+    tester.expect(generation[0]?.startOffset).toBe(15);
+    tester.expect(generation[1]?.startOffset).toBe(15);
+
+    const resumedStart = generation[0]?.startWhen ?? 0;
+    audioContext.currentTime = resumedStart + 5;
+    engine.pause();
+    const sourceCountAfterPause = audioContext.sources.length;
+
+    engine.seek(30);
+    tester.expect(audioContext.sources.length).toBe(sourceCountAfterPause);
+    tester.expect(engine.getSnapshot().currentTime).toBe(30);
+    tester.expect(engine.getSnapshot().isPlaying).toBe(false);
+
+    await engine.play();
+    generation = audioContext.sources.slice(-2);
+    tester.expect(generation[0]?.startOffset).toBe(30);
+    tester.expect(generation[1]?.startOffset).toBe(30);
+
+    engine.destroy?.();
+  });
+
   tester.it("uses GainNodes for live volume and enable changes without restarting sources", async () => {
     const { audioContext, engine } = createEngineHarness();
 
@@ -318,7 +362,7 @@ tester.describe("WebAudioPlaybackEngine", () => {
     tester.expect(shortSource?.startWhen).toBe(longSource?.startWhen);
     tester.expect(shortSource?.startOffset).toBe(longSource?.startOffset);
     tester.expect(shortSource?.onended).toBe(null);
-    tester.expect(longSource?.onended !== null).toBe(true);
+    tester.expect(longSource?.onended).toBe(null);
 
     const sharedStartTime = longSource?.startWhen ?? 0;
     audioContext.currentTime = sharedStartTime + 20;
@@ -332,7 +376,83 @@ tester.describe("WebAudioPlaybackEngine", () => {
     engine.destroy?.();
   });
 
-  tester.it("restarts every track from zero on one shared clock when looping", async () => {
+  tester.it("ends playback from the transport clock without relying on source onended callbacks", async () => {
+    const { audioContext, engine, tickTransport } = createEngineHarness();
+
+    engine.loadMix(twoChannelMix);
+    await engine.play();
+
+    const firstStartTime = audioContext.sources[0]?.startWhen ?? 0;
+    tester.expect(audioContext.sources[0]?.onended).toBe(null);
+    tester.expect(audioContext.sources[1]?.onended).toBe(null);
+
+    audioContext.currentTime = firstStartTime + 60;
+    tickTransport();
+
+    tester.expect(engine.getSnapshot().currentTime).toBe(60);
+    tester.expect(engine.getSnapshot().isPlaying).toBe(false);
+
+    engine.destroy?.();
+  });
+
+  tester.it("pre-schedules loop boundaries on the shared Web Audio clock without onended callbacks", async () => {
+    const { audioContext, engine, tickTransport } = createEngineHarness();
+
+    engine.loadMix(twoChannelMix);
+    engine.setLoopEnabled(true);
+    await engine.play();
+
+    const firstGeneration = audioContext.sources.slice(0, 2);
+    const secondGeneration = audioContext.sources.slice(2, 4);
+    const firstStartTime = firstGeneration[0]?.startWhen ?? 0;
+    const secondStartTime = secondGeneration[0]?.startWhen ?? 0;
+
+    tester.expect(audioContext.sources.length).toBe(4);
+    tester.expect(firstGeneration[0]?.onended).toBe(null);
+    tester.expect(firstGeneration[1]?.onended).toBe(null);
+    tester.expect(secondGeneration[0]?.onended).toBe(null);
+    tester.expect(secondGeneration[1]?.onended).toBe(null);
+    tester.expect(firstGeneration[0]?.startWhen).toBe(
+      firstGeneration[1]?.startWhen,
+    );
+    tester.expect(secondGeneration[0]?.startWhen).toBe(
+      secondGeneration[1]?.startWhen,
+    );
+    tester.expect(
+      Math.abs(secondStartTime - (firstStartTime + 60)) < 0.000001,
+    ).toBe(true);
+    tester.expect(secondGeneration[0]?.startOffset).toBe(0);
+    tester.expect(secondGeneration[1]?.startOffset).toBe(0);
+
+    audioContext.currentTime = secondStartTime - 0.5;
+    tickTransport();
+
+    const thirdGeneration = audioContext.sources.slice(-2);
+    tester.expect(audioContext.sources.length).toBe(6);
+    tester.expect(
+      Math.abs(
+        (thirdGeneration[0]?.startWhen ?? 0) - (secondStartTime + 60),
+      ) < 0.000001,
+    ).toBe(true);
+    tester.expect(thirdGeneration[0]?.startWhen).toBe(
+      thirdGeneration[1]?.startWhen,
+    );
+
+    audioContext.currentTime = secondStartTime;
+    tester.expect(engine.getSnapshot().isPlaying).toBe(true);
+    tester.expect(
+      Math.abs(engine.getSnapshot().currentTime - 0) < 0.000001,
+    ).toBe(true);
+
+    audioContext.currentTime = secondStartTime + 1;
+    tester.expect(
+      Math.abs(engine.getSnapshot().currentTime - 1) < 0.000001,
+    ).toBe(true);
+
+    engine.destroy?.();
+  });
+
+  tester.it("cancels future loop generations when loop is disabled without stopping the current generation", async () => {
     const { audioContext, engine } = createEngineHarness();
 
     engine.loadMix(twoChannelMix);
@@ -340,23 +460,77 @@ tester.describe("WebAudioPlaybackEngine", () => {
     await engine.play();
 
     const firstGeneration = audioContext.sources.slice(0, 2);
-    const anchorSource = firstGeneration[0];
-    tester.expect(anchorSource?.onended !== null).toBe(true);
+    const futureLoopGeneration = audioContext.sources.slice(2, 4);
+    const firstStartTime = firstGeneration[0]?.startWhen ?? 0;
 
-    audioContext.currentTime = (anchorSource?.startWhen ?? 0) + 60;
-    anchorSource?.onended?.();
+    audioContext.currentTime = firstStartTime + 10;
+    engine.setLoopEnabled(false);
 
-    const loopSources = audioContext.sources.slice(-2);
-    tester.expect(loopSources[0]?.startWhen).toBe(loopSources[1]?.startWhen);
-    tester.expect(loopSources[0]?.startOffset).toBe(0);
-    tester.expect(loopSources[1]?.startOffset).toBe(0);
+    tester.expect(firstGeneration[0]?.stopCallCount).toBe(0);
+    tester.expect(firstGeneration[1]?.stopCallCount).toBe(0);
+    tester.expect(futureLoopGeneration[0]?.stopCallCount).toBe(1);
+    tester.expect(futureLoopGeneration[1]?.stopCallCount).toBe(1);
     tester.expect(engine.getSnapshot().isPlaying).toBe(true);
-
-    const loopStartTime = loopSources[0]?.startWhen ?? 0;
-    audioContext.currentTime = loopStartTime + 1;
     tester.expect(
-      Math.abs(engine.getSnapshot().currentTime - 1) < 0.000001,
+      Math.abs(engine.getSnapshot().currentTime - 10) < 0.000001,
     ).toBe(true);
+
+    engine.destroy?.();
+  });
+
+  tester.it("keeps repeated transport operations aligned across every replacement source generation", async () => {
+    const { audioContext, engine } = createEngineHarness();
+
+    engine.loadMix(twoChannelMix);
+    await engine.play();
+
+    const firstStart = audioContext.sources[0]?.startWhen ?? 0;
+    audioContext.currentTime = firstStart + 8;
+    engine.seek(20);
+
+    let generation = audioContext.sources.slice(-2);
+    tester.expect(generation[0]?.startWhen).toBe(generation[1]?.startWhen);
+    tester.expect(generation[0]?.startOffset).toBe(20);
+    tester.expect(generation[1]?.startOffset).toBe(20);
+
+    const seekStart = generation[0]?.startWhen ?? 0;
+    audioContext.currentTime = seekStart + 5;
+    engine.pause();
+    tester.expect(
+      Math.abs(engine.getSnapshot().currentTime - 25) < 0.000001,
+    ).toBe(true);
+
+    await engine.play();
+    generation = audioContext.sources.slice(-2);
+    tester.expect(generation[0]?.startWhen).toBe(generation[1]?.startWhen);
+    tester.expect(
+      Math.abs((generation[0]?.startOffset ?? 0) - 25) < 0.000001,
+    ).toBe(true);
+    tester.expect(
+      Math.abs((generation[1]?.startOffset ?? 0) - 25) < 0.000001,
+    ).toBe(true);
+
+    const resumeStart = generation[0]?.startWhen ?? 0;
+    audioContext.currentTime = resumeStart + 3;
+    engine.seekBy(7);
+    generation = audioContext.sources.slice(-2);
+    tester.expect(generation[0]?.startWhen).toBe(generation[1]?.startWhen);
+    tester.expect(
+      Math.abs((generation[0]?.startOffset ?? 0) - 35) < 0.000001,
+    ).toBe(true);
+    tester.expect(
+      Math.abs((generation[1]?.startOffset ?? 0) - 35) < 0.000001,
+    ).toBe(true);
+
+    engine.stop();
+    tester.expect(engine.getSnapshot().currentTime).toBe(0);
+    tester.expect(engine.getSnapshot().isPlaying).toBe(false);
+
+    await engine.play();
+    generation = audioContext.sources.slice(-2);
+    tester.expect(generation[0]?.startWhen).toBe(generation[1]?.startWhen);
+    tester.expect(generation[0]?.startOffset).toBe(0);
+    tester.expect(generation[1]?.startOffset).toBe(0);
 
     engine.destroy?.();
   });

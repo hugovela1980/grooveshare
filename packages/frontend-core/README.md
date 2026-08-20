@@ -120,12 +120,34 @@ same playback generation must obey.
 `WebAudioPlaybackEngine` still owns decoded buffers, GainNodes,
 `AudioBufferSourceNode` creation/destruction, enabled state, and live volume.
 It no longer computes absolute source start times or independently reads the
-project position for each source. Initial play, resume, seek, and the current
-reactive loop restart all request one instruction from Transport and schedule
-all playable sources from that single immutable instruction.
+project position for each source. Initial play, resume, and seek request one
+instruction from Transport and schedule all playable sources from that single
+immutable instruction.
 
 Mixed-duration semantics remain unchanged: the longest decoded track defines
-the project duration, shorter tracks may end naturally without completing the
-Transport, and the longest remaining source acts as the current natural-end
-anchor. Stage 3 will harden control transitions and replace the remaining
-reactive loop-end callback with clock-based loop scheduling.
+the project duration and shorter tracks may end naturally without completing
+the Transport.
+
+### Milestone 1 Stage 3 — hardened controls and clock-scheduled looping
+
+Stage 3 makes transport lifecycle semantics explicit enough for recording to
+rely on them. Play begins from the current project position, pause freezes that
+position against the Web Audio clock, stop always returns to project time zero,
+and seek/relative seek remain bounded by the shared project timeline whether
+the transport is stopped, paused, or playing. Repeated transitions recreate
+one-shot Web Audio sources from one shared scheduling instruction so source
+generations do not drift apart.
+
+Natural project completion and loop position are now derived from the
+Transport's authoritative clock rather than from an `AudioBufferSourceNode`
+`onended` callback. `PlaybackScheduleInstruction` includes the exact clock time
+at which its project segment ends. When looping is enabled, the Web Audio engine
+pre-schedules the next source generation at that exact boundary and keeps one
+future generation scheduled ahead. The 100 ms Transport ticker only maintains
+that ahead-of-time queue and publishes UI observations; it does not choose the
+actual loop start time.
+
+This means JavaScript callback latency no longer defines the loop boundary.
+Every loop generation starts at an absolute AudioContext clock time chosen by
+Transport. Turning loop off cancels future scheduled generations without
+interrupting the currently playing generation.

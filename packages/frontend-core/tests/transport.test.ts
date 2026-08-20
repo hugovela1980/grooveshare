@@ -71,6 +71,7 @@ tester.describe("Transport", () => {
 
     tester.expect(instruction).toEqual({
       startAtClockTime: 42.03,
+      endAtClockTime: 99.03,
       projectPositionSeconds: 18,
       durationSeconds: 75,
       loopEnabled: true,
@@ -94,12 +95,13 @@ tester.describe("Transport", () => {
 
     const instruction = transport.play({ leadTimeSeconds: 0.02 });
 
-    tester.expect(instruction).toEqual({
-      startAtClockTime: 50.02,
-      projectPositionSeconds: 0,
-      durationSeconds: 30,
-      loopEnabled: false,
-    });
+    tester.expect(instruction?.startAtClockTime).toBe(50.02);
+    tester.expect(
+      Math.abs((instruction?.endAtClockTime ?? 0) - 80.02) < 0.000001,
+    ).toBe(true);
+    tester.expect(instruction?.projectPositionSeconds).toBe(0);
+    tester.expect(instruction?.durationSeconds).toBe(30);
+    tester.expect(instruction?.loopEnabled).toBe(false);
     tester.expect(transport.getSnapshot().playbackState).toBe("playing");
 
     transport.destroy();
@@ -152,6 +154,39 @@ tester.describe("Transport", () => {
     transport.seek(15);
     tester.expect(transport.getPosition()).toBe(15);
     tester.expect(transport.getSnapshot().playbackState).toBe("paused");
+
+    transport.destroy();
+  });
+
+
+  tester.it("supports seek semantics while stopped paused and playing", () => {
+    const harness = createTransportHarness();
+    const { transport } = harness;
+
+    transport.setDuration(60);
+    transport.seek(15);
+    tester.expect(transport.getPosition()).toBe(15);
+    tester.expect(transport.getSnapshot().playbackState).toBe("stopped");
+
+    harness.setClockTime(20);
+    const firstPlay = transport.play({ leadTimeSeconds: 0.03 });
+    tester.expect(firstPlay?.projectPositionSeconds).toBe(15);
+
+    harness.setClockTime(25.03);
+    transport.pause();
+    tester.expect(transport.getPosition()).toBe(20);
+    tester.expect(transport.getSnapshot().playbackState).toBe("paused");
+
+    transport.seek(35);
+    tester.expect(transport.getPosition()).toBe(35);
+    tester.expect(transport.getSnapshot().playbackState).toBe("paused");
+
+    harness.setClockTime(30);
+    transport.play({ leadTimeSeconds: 0.03 });
+    harness.setClockTime(32.03);
+    transport.seek(45);
+    tester.expect(transport.getPosition()).toBe(45);
+    tester.expect(transport.getSnapshot().playbackState).toBe("playing");
 
     transport.destroy();
   });
@@ -227,14 +262,13 @@ tester.describe("Transport", () => {
     transport.destroy();
   });
 
-  tester.it("marks natural completion at the project duration without applying stop semantics", () => {
+  tester.it("marks natural completion from the authoritative clock without an end callback", () => {
     const harness = createTransportHarness();
     const { transport } = harness;
 
     transport.setDuration(60);
     transport.play();
     harness.setClockTime(70);
-    transport.complete();
 
     tester.expect(transport.getSnapshot()).toEqual({
       positionSeconds: 60,
@@ -246,6 +280,106 @@ tester.describe("Transport", () => {
     transport.play({ leadTimeSeconds: 5 });
     tester.expect(transport.getSnapshot().positionSeconds).toBe(0);
     tester.expect(transport.getSnapshot().playbackState).toBe("playing");
+
+    transport.destroy();
+  });
+
+  tester.it("wraps loop position from the audio clock and creates exact loop-boundary schedules", () => {
+    const harness = createTransportHarness();
+    const { transport } = harness;
+
+    transport.setDuration(30);
+    transport.seek(12);
+    transport.setLoopEnabled(true);
+    harness.setClockTime(20);
+
+    const firstInstruction = transport.play({ leadTimeSeconds: 0.03 });
+
+    tester.expect(firstInstruction !== null).toBe(true);
+    tester.expect(firstInstruction?.startAtClockTime).toBe(20.03);
+    tester.expect(firstInstruction?.projectPositionSeconds).toBe(12);
+    tester.expect(
+      Math.abs((firstInstruction?.endAtClockTime ?? 0) - 38.03) < 0.000001,
+    ).toBe(true);
+
+    const nextInstruction = firstInstruction
+      ? transport.createNextLoopInstruction(firstInstruction)
+      : null;
+
+    tester.expect(nextInstruction?.startAtClockTime).toBe(
+      firstInstruction?.endAtClockTime,
+    );
+    tester.expect(nextInstruction?.projectPositionSeconds).toBe(0);
+    tester.expect(
+      Math.abs((nextInstruction?.endAtClockTime ?? 0) - 68.03) < 0.000001,
+    ).toBe(true);
+
+    harness.setClockTime(38.03);
+    tester.expect(
+      Math.abs(transport.getPosition() - 0) < 0.000001,
+    ).toBe(true);
+
+    harness.setClockTime(43.03);
+    tester.expect(
+      Math.abs(transport.getPosition() - 5) < 0.000001,
+    ).toBe(true);
+    tester.expect(transport.getSnapshot().playbackState).toBe("playing");
+
+    transport.destroy();
+  });
+
+  tester.it("rebases the running timeline when loop mode changes", () => {
+    const harness = createTransportHarness();
+    const { transport } = harness;
+
+    transport.setDuration(30);
+    transport.setLoopEnabled(true);
+    transport.play();
+
+    harness.setClockTime(45);
+    tester.expect(transport.getPosition()).toBe(5);
+
+    transport.setLoopEnabled(false);
+    tester.expect(transport.getPosition()).toBe(5);
+
+    harness.setClockTime(50);
+    tester.expect(transport.getPosition()).toBe(10);
+    tester.expect(transport.getSnapshot().playbackState).toBe("playing");
+
+    transport.destroy();
+  });
+
+  tester.it("keeps repeated play seek pause resume stop transitions on one timeline", () => {
+    const harness = createTransportHarness();
+    const { transport } = harness;
+
+    transport.setDuration(90);
+    harness.setClockTime(10);
+    transport.play({ leadTimeSeconds: 0.03 });
+
+    harness.setClockTime(20.03);
+    transport.seek(40);
+    tester.expect(transport.getPosition()).toBe(40);
+
+    harness.setClockTime(24.03);
+    transport.pause();
+    tester.expect(transport.getPosition()).toBe(44);
+
+    harness.setClockTime(30);
+    const resumed = transport.play({ leadTimeSeconds: 0.03 });
+    tester.expect(resumed?.projectPositionSeconds).toBe(44);
+
+    harness.setClockTime(35.03);
+    transport.seekBy(6);
+    tester.expect(transport.getPosition()).toBe(55);
+
+    transport.stop();
+    tester.expect(transport.getPosition()).toBe(0);
+    tester.expect(transport.getSnapshot().playbackState).toBe("stopped");
+
+    harness.setClockTime(40);
+    const restarted = transport.play({ leadTimeSeconds: 0.03 });
+    tester.expect(restarted?.projectPositionSeconds).toBe(0);
 
     transport.destroy();
   });
