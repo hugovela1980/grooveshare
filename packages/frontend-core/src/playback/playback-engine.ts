@@ -18,11 +18,10 @@ export type PlaybackStateListener = (
 ) => void;
 
 /**
- * Presentation-independent playback contract.
+ * Presentation-independent playback contract used by both GrooveShare clients.
  *
- * Checkpoint 1 only establishes the seam. Checkpoint 3 will place the existing
- * multi-HTMLAudioElement implementation behind this interface without changing
- * Version 2 playback behavior.
+ * The Web Audio implementation delegates project timeline state to the shared
+ * Transport abstraction while this contract remains the UI-facing playback seam.
  */
 export interface PlaybackEngine {
   loadMix(channels: PlaybackChannel[]): void;

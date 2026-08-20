@@ -4,6 +4,7 @@ import type {
   PlaybackSnapshot,
   PlaybackStateListener,
 } from "./playback-engine.js";
+import { createTransport } from "./transport.js";
 
 type AudioBufferLike = {
   duration: number;
@@ -149,15 +150,16 @@ export function createWebAudioPlaybackEngine(
   let loadedChannels: LoadedWebAudioChannel[] = [];
   let activeSources: ActiveSource[] = [];
   const listeners = new Set<PlaybackStateListener>();
-  let loopEnabled = false;
-  let isPlaying = false;
-  let transportPositionSeconds = 0;
-  let transportStartContextTime = 0;
   let loadGeneration = 0;
   let sourceGeneration = 0;
   let loadingPromise: Promise<void> = Promise.resolve();
-  let snapshotIntervalHandle: unknown = null;
   let destroyed = false;
+  const transport = createTransport({
+    getClockTime: () => audioContext.currentTime,
+    scheduleInterval,
+    clearScheduledInterval,
+    snapshotIntervalMs: SNAPSHOT_INTERVAL_MS,
+  });
 
   function hasReadyChannels(): boolean {
     return (
@@ -178,30 +180,21 @@ export function createWebAudioPlaybackEngine(
     }, 0);
   }
 
-  function getTransportCurrentTime(): number {
-    const duration = getMixDuration();
-
-    if (!isPlaying) {
-      return duration > 0
-        ? Math.min(duration, transportPositionSeconds)
-        : transportPositionSeconds;
-    }
-
-    const elapsedSeconds = Math.max(
-      0,
-      audioContext.currentTime - transportStartContextTime,
-    );
-    const currentTime = transportPositionSeconds + elapsedSeconds;
-
-    return duration > 0 ? Math.min(duration, currentTime) : currentTime;
-  }
-
   function getSnapshot(): PlaybackSnapshot {
+    const hasLoadedChannels = hasReadyChannels();
+    const transportSnapshot = transport.getSnapshot();
+
     return {
-      currentTime: hasReadyChannels() ? getTransportCurrentTime() : 0,
-      duration: hasReadyChannels() ? getMixDuration() : 0,
-      isPlaying: hasReadyChannels() && isPlaying,
-      hasLoadedChannels: hasReadyChannels(),
+      currentTime: hasLoadedChannels
+        ? transportSnapshot.positionSeconds
+        : 0,
+      duration: hasLoadedChannels
+        ? transportSnapshot.durationSeconds
+        : 0,
+      isPlaying:
+        hasLoadedChannels &&
+        transportSnapshot.playbackState === "playing",
+      hasLoadedChannels,
     };
   }
 
@@ -217,25 +210,9 @@ export function createWebAudioPlaybackEngine(
     }
   }
 
-  function startSnapshotTicker(): void {
-    if (snapshotIntervalHandle !== null) {
-      return;
-    }
-
-    snapshotIntervalHandle = scheduleInterval(
-      notify,
-      SNAPSHOT_INTERVAL_MS,
-    );
-  }
-
-  function stopSnapshotTicker(): void {
-    if (snapshotIntervalHandle === null) {
-      return;
-    }
-
-    clearScheduledInterval(snapshotIntervalHandle);
-    snapshotIntervalHandle = null;
-  }
+  const unsubscribeTransport = transport.subscribe(() => {
+    notify();
+  });
 
   function setGainValue(
     gainNode: GainNodeLike,
@@ -304,29 +281,28 @@ export function createWebAudioPlaybackEngine(
   }
 
   function handleTransportEnded(generation: number): void {
+    const transportSnapshot = transport.getSnapshot();
+
     if (
       destroyed ||
       generation !== sourceGeneration ||
-      !isPlaying
+      transportSnapshot.playbackState !== "playing"
     ) {
       return;
     }
 
     clearActiveSources();
 
-    if (loopEnabled) {
-      transportPositionSeconds = 0;
+    if (transportSnapshot.loopEnabled) {
+      transport.pause();
+      transport.seek(0);
       startSources(
         audioContext.currentTime + LOOP_RESTART_LEAD_SECONDS,
       );
       return;
     }
 
-    transportPositionSeconds = getMixDuration();
-    transportStartContextTime = audioContext.currentTime;
-    isPlaying = false;
-    stopSnapshotTicker();
-    notify();
+    transport.complete();
   }
 
   function startSources(startAtContextTime: number): void {
@@ -334,21 +310,20 @@ export function createWebAudioPlaybackEngine(
       return;
     }
 
-    const duration = getMixDuration();
+    const duration = transport.getSnapshot().durationSeconds;
 
     if (
       duration <= 0 ||
-      transportPositionSeconds >= duration - END_EPSILON_SECONDS
+      transport.getPosition() >= duration - END_EPSILON_SECONDS
     ) {
-      transportPositionSeconds = 0;
+      transport.seek(0);
     }
 
-    const playbackPosition = transportPositionSeconds;
+    const playbackPosition = transport.getPosition();
     const anchor = findTransportAnchor(playbackPosition);
 
     if (!anchor) {
-      isPlaying = false;
-      notify();
+      transport.complete();
       return;
     }
 
@@ -385,10 +360,7 @@ export function createWebAudioPlaybackEngine(
       });
     }
 
-    transportStartContextTime = startAtContextTime;
-    isPlaying = true;
-    startSnapshotTicker();
-    notify();
+    transport.play(startAtContextTime);
   }
 
   async function play(): Promise<void> {
@@ -398,7 +370,10 @@ export function createWebAudioPlaybackEngine(
 
     await loadingPromise;
 
-    if (!hasReadyChannels() || isPlaying) {
+    if (
+      !hasReadyChannels() ||
+      transport.getSnapshot().playbackState === "playing"
+    ) {
       return;
     }
 
@@ -412,25 +387,17 @@ export function createWebAudioPlaybackEngine(
   }
 
   function pause(): void {
-    if (!isPlaying) {
+    if (transport.getSnapshot().playbackState !== "playing") {
       return;
     }
 
-    transportPositionSeconds = getTransportCurrentTime();
-    transportStartContextTime = audioContext.currentTime;
-    isPlaying = false;
+    transport.pause();
     clearActiveSources();
-    stopSnapshotTicker();
-    notify();
   }
 
   function stop(): void {
-    isPlaying = false;
-    transportPositionSeconds = 0;
-    transportStartContextTime = audioContext.currentTime;
+    transport.stop();
     clearActiveSources();
-    stopSnapshotTicker();
-    notify();
   }
 
   function seek(seconds: number): void {
@@ -442,27 +409,28 @@ export function createWebAudioPlaybackEngine(
       return;
     }
 
-    const duration = getMixDuration();
+    const transportSnapshot = transport.getSnapshot();
+    const duration = transportSnapshot.durationSeconds;
     const nextPosition = Math.max(
       0,
       Math.min(duration, seconds),
     );
-    const shouldResume = isPlaying && nextPosition < duration;
+    const shouldResume =
+      transportSnapshot.playbackState === "playing" &&
+      nextPosition < duration;
 
-    isPlaying = false;
+    if (transportSnapshot.playbackState === "playing") {
+      transport.pause();
+    }
+
     clearActiveSources();
-    transportPositionSeconds = nextPosition;
-    transportStartContextTime = audioContext.currentTime;
+    transport.seek(nextPosition);
 
     if (shouldResume) {
       startSources(
         audioContext.currentTime + PLAYBACK_START_LEAD_SECONDS,
       );
-      return;
     }
-
-    stopSnapshotTicker();
-    notify();
   }
 
   function seekBy(seconds: number): void {
@@ -470,7 +438,7 @@ export function createWebAudioPlaybackEngine(
       return;
     }
 
-    seek(getTransportCurrentTime() + seconds);
+    seek(transport.getPosition() + seconds);
   }
 
   function getChannel(channelNumber: number): LoadedWebAudioChannel | null {
@@ -519,11 +487,7 @@ export function createWebAudioPlaybackEngine(
     const generation = loadGeneration + 1;
     loadGeneration = generation;
 
-    isPlaying = false;
-    transportPositionSeconds = 0;
-    transportStartContextTime = audioContext.currentTime;
     clearActiveSources();
-    stopSnapshotTicker();
     disconnectLoadedChannels();
     loadedChannels = channels.map((channel) => ({
       channel: {
@@ -533,7 +497,8 @@ export function createWebAudioPlaybackEngine(
       buffer: null,
       gainNode: null,
     }));
-    notify();
+    transport.stop();
+    transport.setDuration(0);
 
     if (loadedChannels.length === 0) {
       loadingPromise = Promise.resolve();
@@ -568,7 +533,7 @@ export function createWebAudioPlaybackEngine(
           gainNode.connect(audioContext.destination);
         }
 
-        notify();
+        transport.setDuration(getMixDuration());
       })
       .catch((error: unknown) => {
         if (destroyed || generation !== loadGeneration) {
@@ -577,8 +542,8 @@ export function createWebAudioPlaybackEngine(
 
         disconnectLoadedChannels();
         loadedChannels = [];
+        transport.setDuration(0);
         onLoadError(error);
-        notify();
       });
   }
 
@@ -587,12 +552,12 @@ export function createWebAudioPlaybackEngine(
       return;
     }
 
-    isPlaying = false;
     loadGeneration += 1;
     clearActiveSources();
-    stopSnapshotTicker();
     disconnectLoadedChannels();
     loadedChannels = [];
+    unsubscribeTransport();
+    transport.destroy();
     listeners.clear();
     destroyed = true;
     void audioContext.close?.();
@@ -606,7 +571,7 @@ export function createWebAudioPlaybackEngine(
     seek,
     seekBy,
     setLoopEnabled(enabled) {
-      loopEnabled = enabled;
+      transport.setLoopEnabled(enabled);
     },
     setChannelVolume,
     setChannelEnabled,

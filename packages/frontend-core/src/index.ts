@@ -82,6 +82,16 @@ export type {
   PlaybackStateListener,
 } from "./playback/playback-engine.js";
 export {
+  createTransport,
+  type ClearTransportInterval,
+  type ScheduleTransportInterval,
+  type Transport,
+  type TransportOptions,
+  type TransportPlaybackState,
+  type TransportSnapshot,
+  type TransportStateListener,
+} from "./playback/transport.js";
+export {
   createHtmlAudioPlaybackEngine,
   type HtmlAudioElementLike,
 } from "./playback/html-audio-playback-engine.js";

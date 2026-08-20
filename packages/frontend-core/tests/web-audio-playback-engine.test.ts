@@ -304,6 +304,12 @@ tester.describe("WebAudioPlaybackEngine", () => {
     tester.expect(loopSources[1]?.startOffset).toBe(0);
     tester.expect(engine.getSnapshot().isPlaying).toBe(true);
 
+    const loopStartTime = loopSources[0]?.startWhen ?? 0;
+    audioContext.currentTime = loopStartTime + 1;
+    tester.expect(
+      Math.abs(engine.getSnapshot().currentTime - 1) < 0.000001,
+    ).toBe(true);
+
     engine.destroy?.();
   });
 });

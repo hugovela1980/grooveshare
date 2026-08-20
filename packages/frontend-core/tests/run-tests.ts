@@ -4,6 +4,7 @@ import "./grooveshare-application-controller.test.js";
 import "./project-draft-state.test.js";
 import "./project-permissions.test.js";
 import "./html-audio-playback-engine.test.js";
+import "./transport.test.js";
 import "./web-audio-playback-engine.test.js";
 import "./mix-storage.test.js";
 import "./mix-persistence.test.js";

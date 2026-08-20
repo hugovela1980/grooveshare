@@ -9,7 +9,7 @@ The package owns behavior and contracts that have a clear reason to mean the sam
 - shared project, track, user, membership, invitation-access, invitation-session, and mix domain types;
 - project permission rules;
 - `SessionProvider` and `StorageProvider` platform contracts;
-- `PlaybackEngine` and shared Web Audio playback;
+- `PlaybackEngine`, the shared project `Transport`, and shared Web Audio playback;
 - Viewer, pending, and Guest mix persistence behavior;
 - shared application state, route/action, and presentation-port contracts;
 - shared API/service contracts for authentication, projects, tracks, memberships, and invitations;
@@ -91,3 +91,20 @@ Stage 5 removes the temporary presentation-local API/router/storage forwarding f
 The remaining overlap between `client/` and `mobile-client/` is presentation code: templates, page controllers, UI utilities, CSS, development UI, and small composition roots. Identical presentation files are not automatically shared; they may diverge as the desktop/tablet and phone experiences evolve.
 
 Future features should begin here when they define product/application meaning. Recording state, recording use-cases, permissions, synchronization rules, and engine contracts should therefore be modeled in shared code before either presentation wires its device-specific controls.
+
+
+## Version 3 audio-transport direction
+
+### Milestone 1 Stage 1 — shared Transport and timeline foundation
+
+Version 3 begins by separating the GrooveShare project timeline from the concrete Web Audio playback engine. `Transport` is now the shared, presentation-independent owner of:
+
+- project position and duration;
+- stopped, paused, playing, and ended state;
+- loop state;
+- play, pause, stop, seek, and relative-seek timeline transitions;
+- observable transport snapshots.
+
+`WebAudioPlaybackEngine` supplies `AudioContext.currentTime` as the Transport clock. While playback is running, that clock is the source of truth for elapsed project time. The 100 ms snapshot ticker only publishes observations to UI subscribers; it does not advance playback or transport state.
+
+For the current zero-offset stem model, project time zero means the beginning of every loaded source, and project duration is the duration of the longest decoded source. Shorter tracks are allowed to end without ending the shared project timeline. Later Milestone 1 stages will separate source scheduling more explicitly, harden loop scheduling, and add recording timeline markers without introducing microphone capture yet.
