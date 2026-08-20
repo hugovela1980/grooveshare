@@ -33,6 +33,28 @@ tester.describe("project draft state", () => {
         tester.expect(draftState.getProjectDraft()).toEqual({
             title: "Bass Groove",
             description: "Practice loop",
+            musicalTimeline: {
+                bpm: 120,
+                timeSignature: { numerator: 4, denominator: 4 },
+            },
+        });
+    });
+
+    tester.it("stores an explicit project musical timeline", () => {
+        const draftState = createProjectDraftState();
+
+        draftState.setProjectDraft({
+            title: "Odd Meter Idea",
+            description: "DAW export",
+            musicalTimeline: {
+                bpm: 98,
+                timeSignature: { numerator: 7, denominator: 8 },
+            },
+        });
+
+        tester.expect(draftState.getProjectDraft()?.musicalTimeline).toEqual({
+            bpm: 98,
+            timeSignature: { numerator: 7, denominator: 8 },
         });
     });
 
@@ -122,6 +144,10 @@ tester.describe("project draft state", () => {
             project: {
                 title: "Band Idea",
                 description: "Scratch recording",
+                musicalTimeline: {
+                    bpm: 120,
+                    timeSignature: { numerator: 4, denominator: 4 },
+                },
             },
             pendingTracks: [pendingTrack],
         });

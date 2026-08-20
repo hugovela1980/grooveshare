@@ -85,6 +85,11 @@ tester.describe("projects PostgreSQL store", () => {
                 "Guitar riff with scratch drums",
             );
 
+            tester.expect(project.musicalTimeline).toEqual({
+                bpm: 120,
+                timeSignature: { numerator: 4, denominator: 4 },
+            });
+
             tester.expect(typeof project.createdAt).toBe(
                 "string",
             );
@@ -95,6 +100,30 @@ tester.describe("projects PostgreSQL store", () => {
 
             tester.expect(project.mixSettings).toEqual({
                 channels: [],
+            });
+        },
+    );
+
+    tester.it(
+        "persists explicit project musical timing",
+        async () => {
+            const store =
+                createProjectsPostgresStore(postgresTestPool);
+
+            const project = await store.createProject({
+                title: "DAW Session",
+                description: "Imported stems",
+                musicalTimeline: {
+                    bpm: 98,
+                    timeSignature: { numerator: 6, denominator: 8 },
+                },
+            });
+
+            const loadedProject = await store.getProjectById(project.id);
+
+            tester.expect(loadedProject?.musicalTimeline).toEqual({
+                bpm: 98,
+                timeSignature: { numerator: 6, denominator: 8 },
             });
         },
     );
@@ -155,6 +184,19 @@ tester.describe("projects PostgreSQL store", () => {
             tester.expect(updatedProject?.description).toBe(
                 "Old description",
             );
+
+            const timelineProject =
+                await store.updateProjectDetails(project.id, {
+                    musicalTimeline: {
+                        bpm: 105,
+                        timeSignature: { numerator: 3, denominator: 4 },
+                    },
+                });
+
+            tester.expect(timelineProject?.musicalTimeline).toEqual({
+                bpm: 105,
+                timeSignature: { numerator: 3, denominator: 4 },
+            });
 
             tester.expect(
                 updatedProject?.updatedAt === project.updatedAt,

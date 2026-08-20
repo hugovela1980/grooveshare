@@ -94,4 +94,30 @@ tester.describe("database migration behavior", () => {
       tester.expect(storedTrack?.uploadedByUserId).toBe(null);
     },
   );
+
+  tester.it(
+    "gives pre-timeline project inserts the musical defaults",
+    async () => {
+      const projectId = crypto.randomUUID();
+
+      await postgresTestPool.query(
+        `
+          INSERT INTO projects (
+            id, title, description, created_at, updated_at
+          )
+          VALUES ($1, $2, $3, NOW(), NOW())
+        `,
+        [projectId, "Legacy Project", "Created without timing columns"],
+      );
+
+      const projectsStore = createProjectsPostgresStore(postgresTestPool);
+      const project = await projectsStore.getProjectById(projectId);
+
+      tester.expect(project?.musicalTimeline).toEqual({
+        bpm: 120,
+        timeSignature: { numerator: 4, denominator: 4 },
+      });
+    },
+  );
+
 });

@@ -135,8 +135,13 @@ function createFakeTextElement() {
     };
 }
 
+type AudioPlayerControllerInput = Parameters<typeof createAudioPlayerController>[0];
+
 function createControllerTestSetup(options: {
     createAudioElement?: () => ReturnType<typeof createFakeAudioElement>;
+    musicalTimeline?: AudioPlayerControllerInput["musicalTimeline"];
+    projectId?: string;
+    debugLogger?: AudioPlayerControllerInput["debugLogger"];
 } = {}) {
     const audioElement = createFakeAudioElement();
     const seekBackwardButton = createFakeButton();
@@ -156,6 +161,11 @@ function createControllerTestSetup(options: {
 
     const controller = createAudioPlayerController({
         playbackEngine,
+        ...(options.musicalTimeline
+            ? { musicalTimeline: options.musicalTimeline }
+            : {}),
+        ...(options.projectId ? { projectId: options.projectId } : {}),
+        ...(options.debugLogger ? { debugLogger: options.debugLogger } : {}),
         seekBackwardButton,
         playPauseButton,
         stopButton,
@@ -272,6 +282,46 @@ tester.describe("audio player controller", () => {
         tester.expect(audioElement.pauseCallCount).toBe(1);
         tester.expect(audioElement.paused).toBe(true);
         tester.expect(playPauseButton.textContent).toBe("▶");
+    });
+
+    tester.it("logs the project musical timeline when playback begins", async () => {
+        let loggedMessage = "";
+        let loggedDetails: unknown = null;
+        const { controller, playPauseButton } = createControllerTestSetup({
+            musicalTimeline: {
+                bpm: 96,
+                timeSignature: { numerator: 3, denominator: 4 },
+            },
+            projectId: "project-1",
+            debugLogger(message, details) {
+                loggedMessage = message;
+                loggedDetails = details;
+            },
+        });
+
+        controller.init();
+        controller.loadMix([
+            {
+                channelNumber: 1,
+                trackId: "track-1",
+                name: "Guitar Take",
+                audioUrl: "http://localhost:3000/audio/guitar.wav",
+                volume: 1,
+            },
+        ]);
+
+        await playPauseButton.click();
+
+        tester.expect(loggedMessage).toBe(
+            "[GrooveShare] Playback musical timeline",
+        );
+        tester.expect(loggedDetails).toEqual({
+            projectId: "project-1",
+            bpm: 96,
+            timeSignature: "3/4",
+            transportSeconds: 0,
+            musicalPosition: { bar: 1, beat: 1 },
+        });
     });
 
     tester.it("resumes a paused track without seeking again", async () => {

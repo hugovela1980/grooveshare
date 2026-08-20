@@ -292,6 +292,10 @@ tester.describe("project API routes", () => {
         body: JSON.stringify({
           title: "Chorus Riff Idea",
           description: "Guitar riff with scratch drums",
+          musicalTimeline: {
+            bpm: 110,
+            timeSignature: { numerator: 3, denominator: 4 },
+          },
         }),
       });
 
@@ -302,6 +306,10 @@ tester.describe("project API routes", () => {
       tester.expect(typeof body.data?.id).toBe("string");
       tester.expect(body.data?.title).toBe("Chorus Riff Idea");
       tester.expect(body.data?.description).toBe("Guitar riff with scratch drums");
+      tester.expect(body.data?.musicalTimeline).toEqual({
+        bpm: 110,
+        timeSignature: { numerator: 3, denominator: 4 },
+      });
     } finally {
       await closeServer(server);
     }
@@ -1645,11 +1653,33 @@ tester.describe("project API routes", () => {
 
       tester.expect(descriptionResponse.status).toBe(200);
 
+      const timelineResponse = await request(
+        `${baseUrl}/api/projects/${projectId}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            musicalTimeline: {
+              bpm: 128,
+              timeSignature: { numerator: 7, denominator: 8 },
+            },
+          }),
+        },
+      );
+
+      tester.expect(timelineResponse.status).toBe(200);
+
       const getResponse = await request(`${baseUrl}/api/projects/${projectId}`);
       const getBody = (await getResponse.json()) as ApiResponse<Project>;
 
       tester.expect(getBody.data?.title).toBe("Updated Title");
       tester.expect(getBody.data?.description).toBe("Updated description");
+      tester.expect(getBody.data?.musicalTimeline).toEqual({
+        bpm: 128,
+        timeSignature: { numerator: 7, denominator: 8 },
+      });
     } finally {
       await closeServer(server);
     }
@@ -1692,6 +1722,39 @@ tester.describe("project API routes", () => {
       tester.expect(response.status).toBe(400);
       tester.expect(body.ok).toBe(false);
       tester.expect(body.error).toBe("Invalid project details.");
+    } finally {
+      await closeServer(server);
+    }
+  });
+
+  tester.it("returns 400 for invalid project musical timing", async () => {
+    const { baseUrl, server, request } = await createTestServer();
+
+    try {
+      const createResponse = await request(`${baseUrl}/api/projects`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: "Project", description: "Description" }),
+      });
+      const createBody = (await createResponse.json()) as ApiResponse<Project>;
+      const projectId = createBody.data?.id;
+
+      if (!projectId) {
+        throw new Error("Created project did not include an ID.");
+      }
+
+      const response = await request(`${baseUrl}/api/projects/${projectId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          musicalTimeline: {
+            bpm: 0,
+            timeSignature: { numerator: 4, denominator: 4 },
+          },
+        }),
+      });
+
+      tester.expect(response.status).toBe(400);
     } finally {
       await closeServer(server);
     }

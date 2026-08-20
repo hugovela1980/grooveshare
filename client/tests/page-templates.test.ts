@@ -53,6 +53,10 @@ tester.describe("page templates", () => {
     tester.expect(html.includes("Create Project")).toBe(true);
     tester.expect(html.includes("project-form")).toBe(true);
     tester.expect(html.includes("project-title")).toBe(true);
+    tester.expect(html.includes("project-bpm")).toBe(true);
+    tester.expect(html.includes("project-time-signature-numerator")).toBe(true);
+    tester.expect(html.includes("project-time-signature-denominator")).toBe(true);
+    tester.expect(html.includes("create-project-confirmation-musical-timeline")).toBe(true);
 
     tester.expect(html.includes("Add Audio Tracks")).toBe(true);
     tester.expect(html.includes("open-add-tracks-modal-button")).toBe(false);
@@ -86,10 +90,17 @@ tester.describe("page templates", () => {
     const html = renderCreateProjectPage({
       title: "Bass Groove",
       description: "Practice loop",
+      musicalTimeline: {
+        bpm: 95,
+        timeSignature: { numerator: 6, denominator: 8 },
+      },
     });
 
     tester.expect(html.includes('value="Bass Groove"')).toBe(true);
     tester.expect(html.includes(">Practice loop</textarea>")).toBe(true);
+    tester.expect(html.includes('value="95"')).toBe(true);
+    tester.expect(html.includes('value="6"')).toBe(true);
+    tester.expect(html.includes('<option value="8" selected>8</option>')).toBe(true);
   });
 
   tester.it("escapes saved project draft values on the Create Project page", () => {
@@ -134,6 +145,8 @@ tester.describe("page templates", () => {
     tester.expect(html.includes("guitar and bass")).toBe(true);
     tester.expect(html.includes("data-project-title-display")).toBe(true);
     tester.expect(html.includes("data-project-description-display")).toBe(true);
+    tester.expect(html.includes("data-project-musical-timeline-display")).toBe(true);
+    tester.expect(html.includes("120 BPM · 4/4 · Bar 1 at project start")).toBe(true);
     tester.expect(html.includes('contenteditable="true"')).toBe(true);
     tester.expect(html.includes('id="project-edit-modal"')).toBe(false);
     tester.expect(html.includes('id="track-edit-modal"')).toBe(false);

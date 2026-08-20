@@ -1,3 +1,4 @@
+import { getProjectMusicalTimeline } from "@hugovela/frontend-core";
 import { renderAudioPlayer } from "../templates/audio-player.js";
 import { renderMobileNavigation } from "../templates/mobile-navigation.js";
 import { renderProjectActionsMenu } from "../templates/project-actions-menu.js";
@@ -21,6 +22,17 @@ function escapeHtml(value: string): string {
 
 function renderProjectHeading(project: Project | null): string {
   return project ? escapeHtml(project.title) : "Project Player";
+}
+
+
+function renderMusicalTimelineSummary(project: Project | null): string {
+  if (!project) {
+    return "";
+  }
+
+  const timeline = getProjectMusicalTimeline(project);
+
+  return `${timeline.bpm} BPM · ${timeline.timeSignature.numerator}/${timeline.timeSignature.denominator} · Bar 1 at project start`;
 }
 
 function isGuestProject(project: Project | null): boolean {
@@ -66,6 +78,7 @@ export function renderProjectPlayerPage(
   }: ProjectPlayerPageOptions = {},
 ): string {
   const heading = renderProjectHeading(project);
+  const musicalTimelineSummary = renderMusicalTimelineSummary(project);
   const guest = isGuestProject(project);
   const role = guest ? null : getProjectRole(project);
   const canManageProject = Boolean(project) && role === "owner";
@@ -172,6 +185,10 @@ export function renderProjectPlayerPage(
               <p id="contributor-invitation-status" class="status-message" aria-live="polite"></p>
             </section>
           `
+          : ""}
+
+        ${project
+          ? `<p class="description project-musical-timeline-summary" data-project-musical-timeline-display>${musicalTimelineSummary}</p>`
           : ""}
 
         ${renderAudioPlayer()}

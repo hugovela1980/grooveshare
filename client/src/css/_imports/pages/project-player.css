@@ -460,3 +460,8 @@
         width: 100%;
     }
 }
+
+.project-musical-timeline-summary {
+    margin-top: 0.45rem;
+    font-size: 0.9rem;
+}

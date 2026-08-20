@@ -1,3 +1,4 @@
+import { isValidMusicalTimeline } from "@hugovela/frontend-core";
 import type { CreateProjectInput } from "../types.js";
 
 type SubmitEventLike = {
@@ -23,6 +24,9 @@ type CreateProjectPageControllerOptions = {
   form: FormLike;
   titleInput: InputLike;
   descriptionInput: InputLike;
+  bpmInput: InputLike;
+  timeSignatureNumeratorInput: InputLike;
+  timeSignatureDenominatorInput: InputLike;
   statusElement: TextElementLike;
   onProjectDraftReady: (input: CreateProjectInput) => void | Promise<void>;
 };
@@ -31,6 +35,9 @@ export function createCreateProjectPageController({
   form,
   titleInput,
   descriptionInput,
+  bpmInput,
+  timeSignatureNumeratorInput,
+  timeSignatureDenominatorInput,
   statusElement,
   onProjectDraftReady,
 }: CreateProjectPageControllerOptions) {
@@ -39,15 +46,28 @@ export function createCreateProjectPageController({
 
     const title = titleInput.value.trim();
     const description = descriptionInput.value.trim();
+    const musicalTimeline = {
+      bpm: Number(bpmInput.value),
+      timeSignature: {
+        numerator: Number(timeSignatureNumeratorInput.value),
+        denominator: Number(timeSignatureDenominatorInput.value),
+      },
+    };
 
     if (!title) {
       statusElement.textContent = "Project title is required.";
       return;
     }
 
+    if (!isValidMusicalTimeline(musicalTimeline)) {
+      statusElement.textContent = "Enter a valid BPM and time signature.";
+      return;
+    }
+
     await onProjectDraftReady({
       title,
       description,
+      musicalTimeline,
     });
   }
 

@@ -1,4 +1,5 @@
 import type { CreateProjectInput } from "../domain/types.js";
+import { normalizeMusicalTimeline } from "../timeline/musical-timeline.js";
 
 export const MAX_PENDING_TRACKS = 4;
 
@@ -66,6 +67,7 @@ export function createProjectDraftState<
     project = {
       title: input.title.trim(),
       description: input.description.trim(),
+      musicalTimeline: normalizeMusicalTimeline(input.musicalTimeline),
     };
   }
 

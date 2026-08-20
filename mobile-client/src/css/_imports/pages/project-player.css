@@ -553,3 +553,9 @@
 .project-invitation-controls__secondary-action:hover:not(:disabled) {
     background: var(--color-light-button-hover);
 }
+
+.project-musical-timeline-summary {
+    margin: 0 0 0.75rem;
+    text-align: center;
+    font-size: 0.84rem;
+}

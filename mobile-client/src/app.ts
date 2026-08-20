@@ -3,6 +3,7 @@ import {
   createHtmlAudioPlaybackEngine,
   createProjectDraftState,
   createWebAudioPlaybackEngine,
+  getProjectMusicalTimeline,
   type ApplicationNavigationOptions,
   type ApplicationPresentationPort,
   type InvitationSessionState,
@@ -406,6 +407,18 @@ function initializeCreateProjectPage({
     appElement,
     "#project-description",
   );
+  const bpmInput = getElement<HTMLInputElement>(
+    appElement,
+    "#project-bpm",
+  );
+  const timeSignatureNumeratorInput = getElement<HTMLInputElement>(
+    appElement,
+    "#project-time-signature-numerator",
+  );
+  const timeSignatureDenominatorInput = getElement<HTMLSelectElement>(
+    appElement,
+    "#project-time-signature-denominator",
+  );
   const statusElement = getElement<HTMLParagraphElement>(
     appElement,
     "#project-status",
@@ -424,6 +437,11 @@ function initializeCreateProjectPage({
   const confirmationProjectDescriptionElement = getElement<HTMLElement>(
     appElement,
     "#create-project-confirmation-project-description",
+  );
+
+  const confirmationMusicalTimelineElement = getElement<HTMLElement>(
+    appElement,
+    "#create-project-confirmation-musical-timeline",
   );
 
   const confirmationTrackListElement = getElement<HTMLDivElement>(
@@ -473,6 +491,7 @@ function initializeCreateProjectPage({
       !confirmationModal ||
       !confirmationProjectTitleElement ||
       !confirmationProjectDescriptionElement ||
+      !confirmationMusicalTimelineElement ||
       !confirmationTrackListElement
     ) {
       return;
@@ -482,6 +501,11 @@ function initializeCreateProjectPage({
 
     confirmationProjectDescriptionElement.textContent =
       snapshot.project.description.trim() || "No description provided.";
+
+    const timeline = snapshot.project.musicalTimeline;
+    confirmationMusicalTimelineElement.textContent = timeline
+      ? `${timeline.bpm} BPM · ${timeline.timeSignature.numerator}/${timeline.timeSignature.denominator} · Bar 1 at project start`
+      : "120 BPM · 4/4 · Bar 1 at project start";
 
     confirmationTrackListElement.innerHTML = renderConfirmationTrackList(
       snapshot.pendingTracks,
@@ -504,11 +528,22 @@ function initializeCreateProjectPage({
     closeConfirmationModal();
   });
 
-  if (form && titleInput && descriptionInput && statusElement) {
+  if (
+    form &&
+    titleInput &&
+    descriptionInput &&
+    bpmInput &&
+    timeSignatureNumeratorInput &&
+    timeSignatureDenominatorInput &&
+    statusElement
+  ) {
     const controller = createCreateProjectPageController({
       form,
       titleInput,
       descriptionInput,
+      bpmInput,
+      timeSignatureNumeratorInput,
+      timeSignatureDenominatorInput,
       statusElement,
       onProjectDraftReady(projectDraft) {
         projectDraftState.setProjectDraft(projectDraft);
@@ -870,6 +905,9 @@ function initializeProjectPlayerPage({
 
   const audioPlayerController = createAudioPlayerController({
     playbackEngine,
+    musicalTimeline: getProjectMusicalTimeline(selectedProject),
+    projectId: selectedProject.id,
+    debugLogger: (message, details) => console.info(message, details),
     seekBackwardButton,
     playPauseButton,
     stopButton,

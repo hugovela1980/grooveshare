@@ -1,3 +1,4 @@
+import { getProjectMusicalTimeline } from "@hugovela/frontend-core";
 import { renderAudioPlayer } from "../templates/audio-player.js";
 import { renderProjectActionsMenu } from "../templates/project-actions-menu.js";
 import { renderProjectInvitationPanel } from "../templates/project-invitation-controls.js";
@@ -11,12 +12,18 @@ function renderProjectDescription(project: Project | null): string { return proj
 function isGuestProject(project: Project | null): boolean { return project?.access === "guest" && project.role == null; }
 function getProjectRole(project: Project | null): ProjectRole { return project?.role ?? "owner"; }
 function getRoleLabel(project: Project | null): string { if (isGuestProject(project)) return "Guest"; const role = getProjectRole(project); if (role === "owner") return "Owner"; if (role === "contributor") return "Contributor"; return "Viewer"; }
+function renderMusicalTimelineSummary(project: Project | null): string {
+  if (!project) return "";
+  const timeline = getProjectMusicalTimeline(project);
+  return `${timeline.bpm} BPM · ${timeline.timeSignature.numerator}/${timeline.timeSignature.denominator} · Bar 1 at project start`;
+}
 
 type ProjectPlayerPageOptions = { currentUser?: User | null; hasContributorInvitation?: boolean; statusMessage?: string };
 
 export function renderProjectPlayerPage(project: Project | null = null, { currentUser = null, hasContributorInvitation = false, statusMessage = "" }: ProjectPlayerPageOptions = {}): string {
   const heading = renderProjectHeading(project);
   const description = renderProjectDescription(project);
+  const musicalTimelineSummary = renderMusicalTimelineSummary(project);
   const guest = isGuestProject(project);
   const role = guest ? null : getProjectRole(project);
   const canManageProject = Boolean(project) && role === "owner";
@@ -37,6 +44,7 @@ export function renderProjectPlayerPage(project: Project | null = null, { curren
           <div class="project-player-header__eyebrow-row"><p class="eyebrow">Project Player</p>${project ? `<span class="project-role-badge${guest ? " project-role-badge--guest" : ""}">${getRoleLabel(project)}</span>` : ""}</div>
           <div class="project-player-editable project-player-editable--title${editableClass}"><h1 class="project-player-editable__text project-player-editable__title" ${editableAttribute} ${canManageProject ? 'role="textbox" aria-label="Edit project title"' : ""} spellcheck="false" data-project-title-display>${heading}</h1></div>
           <div class="project-player-editable project-player-editable--description${editableClass}"><p class="description project-player-editable__text project-player-editable__description" ${editableAttribute} ${canManageProject ? 'role="textbox" aria-label="Edit project description"' : ""} data-placeholder="No description provided." data-project-description-display>${description}</p></div>
+          ${project ? `<p class="description project-musical-timeline-summary" data-project-musical-timeline-display>${musicalTimelineSummary}</p>` : ""}
         </div>
       </header>
       <div id="project-player-loading" class="project-player-loading" ${loadingHiddenAttribute}>${renderLoadingState("Loading your project...", { className: "project-player-loading__state" })}</div>

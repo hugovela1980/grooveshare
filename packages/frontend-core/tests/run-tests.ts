@@ -6,6 +6,7 @@ import "./project-permissions.test.js";
 import "./html-audio-playback-engine.test.js";
 import "./transport.test.js";
 import "./recording-timeline.test.js";
+import "./musical-timeline.test.js";
 import "./web-audio-playback-engine.test.js";
 import "./mix-storage.test.js";
 import "./mix-persistence.test.js";

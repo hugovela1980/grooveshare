@@ -1,7 +1,9 @@
-import type {
-    PlaybackChannel,
-    PlaybackEngine,
-    PlaybackSnapshot,
+import {
+    transportSecondsToMusicalPosition,
+    type MusicalTimeline,
+    type PlaybackChannel,
+    type PlaybackEngine,
+    type PlaybackSnapshot,
 } from "@hugovela/frontend-core";
 
 type MixChannelForPlayer = {
@@ -43,8 +45,27 @@ type TextElementLike = {
     textContent: string | null;
 };
 
+type PlaybackMusicalTimelineDebugDetails = {
+    projectId?: string;
+    bpm: number;
+    timeSignature: string;
+    transportSeconds: number;
+    musicalPosition: {
+        bar: number;
+        beat: number;
+    };
+};
+
+type PlaybackDebugLogger = (
+    message: string,
+    details: PlaybackMusicalTimelineDebugDetails,
+) => void;
+
 type AudioPlayerControllerOptions = {
     playbackEngine: PlaybackEngine;
+    musicalTimeline?: MusicalTimeline;
+    projectId?: string;
+    debugLogger?: PlaybackDebugLogger;
     seekBackwardButton: ButtonElementLike;
     playPauseButton: ButtonElementLike;
     stopButton: ButtonElementLike;
@@ -72,6 +93,9 @@ export function formatTimestamp(totalSeconds: number): string {
 
 export function createAudioPlayerController({
     playbackEngine,
+    musicalTimeline,
+    projectId,
+    debugLogger,
     seekBackwardButton,
     playPauseButton,
     stopButton,
@@ -140,6 +164,28 @@ export function createAudioPlayerController({
             : `Mix loaded: ${trackNames}`;
     }
 
+    function logMusicalTimeline(snapshot: PlaybackSnapshot): void {
+        if (!musicalTimeline || !debugLogger) {
+            return;
+        }
+
+        const musicalPosition = transportSecondsToMusicalPosition(
+            musicalTimeline,
+            snapshot.currentTime,
+        );
+
+        debugLogger("[GrooveShare] Playback musical timeline", {
+            ...(projectId ? { projectId } : {}),
+            bpm: musicalTimeline.bpm,
+            timeSignature: `${musicalTimeline.timeSignature.numerator}/${musicalTimeline.timeSignature.denominator}`,
+            transportSeconds: Number(snapshot.currentTime.toFixed(3)),
+            musicalPosition: {
+                bar: musicalPosition.bar,
+                beat: Number(musicalPosition.beat.toFixed(3)),
+            },
+        });
+    }
+
     async function handlePlayPauseClick(): Promise<void> {
         const snapshot = playbackEngine.getSnapshot();
 
@@ -152,6 +198,7 @@ export function createAudioPlayerController({
             return;
         }
 
+        logMusicalTimeline(snapshot);
         await playbackEngine.play();
     }
 

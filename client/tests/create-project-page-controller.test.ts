@@ -12,6 +12,9 @@ tester.describe("create project page controller", () => {
         const form = createFakeForm();
         const titleInput = createFakeInput("  New Jam  ");
         const descriptionInput = createFakeInput("  Rough demo idea  ");
+        const bpmInput = createFakeInput("96");
+        const timeSignatureNumeratorInput = createFakeInput("6");
+        const timeSignatureDenominatorInput = createFakeInput("8");
         const statusElement = createFakeTextElement();
 
         let projectDraft: CreateProjectInput | null = null;
@@ -20,6 +23,9 @@ tester.describe("create project page controller", () => {
             form,
             titleInput,
             descriptionInput,
+            bpmInput,
+            timeSignatureNumeratorInput,
+            timeSignatureDenominatorInput,
             statusElement,
             onProjectDraftReady(input) {
                 projectDraft = input;
@@ -33,6 +39,10 @@ tester.describe("create project page controller", () => {
         tester.expect(projectDraft).toEqual({
             title: "New Jam",
             description: "Rough demo idea",
+            musicalTimeline: {
+                bpm: 96,
+                timeSignature: { numerator: 6, denominator: 8 },
+            },
         });
     });
 
@@ -40,6 +50,9 @@ tester.describe("create project page controller", () => {
         const form = createFakeForm();
         const titleInput = createFakeInput("   ");
         const descriptionInput = createFakeInput("No title yet");
+        const bpmInput = createFakeInput("120");
+        const timeSignatureNumeratorInput = createFakeInput("4");
+        const timeSignatureDenominatorInput = createFakeInput("4");
         const statusElement = createFakeTextElement();
 
         let draftReadyCallCount = 0;
@@ -48,6 +61,9 @@ tester.describe("create project page controller", () => {
             form,
             titleInput,
             descriptionInput,
+            bpmInput,
+            timeSignatureNumeratorInput,
+            timeSignatureDenominatorInput,
             statusElement,
             onProjectDraftReady() {
                 draftReadyCallCount += 1;
@@ -60,5 +76,38 @@ tester.describe("create project page controller", () => {
 
         tester.expect(draftReadyCallCount).toBe(0);
         tester.expect(statusElement.textContent).toBe("Project title is required.");
+    });
+
+    tester.it("does not continue with invalid musical timing", async () => {
+        const form = createFakeForm();
+        const titleInput = createFakeInput("New Jam");
+        const descriptionInput = createFakeInput("");
+        const bpmInput = createFakeInput("0");
+        const timeSignatureNumeratorInput = createFakeInput("4");
+        const timeSignatureDenominatorInput = createFakeInput("4");
+        const statusElement = createFakeTextElement();
+
+        let draftReadyCallCount = 0;
+
+        const controller = createCreateProjectPageController({
+            form,
+            titleInput,
+            descriptionInput,
+            bpmInput,
+            timeSignatureNumeratorInput,
+            timeSignatureDenominatorInput,
+            statusElement,
+            onProjectDraftReady() {
+                draftReadyCallCount += 1;
+            },
+        });
+
+        controller.init();
+        await form.submit();
+
+        tester.expect(draftReadyCallCount).toBe(0);
+        tester.expect(statusElement.textContent).toBe(
+            "Enter a valid BPM and time signature.",
+        );
     });
 });

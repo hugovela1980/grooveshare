@@ -10,6 +10,7 @@ import type {
     Track,
     UpdateProjectDetailsInput,
 } from "../types.js";
+import { normalizeMusicalTimeline } from "../musical-timeline.js";
 import type {
     DeleteProjectResult,
     ProjectsStore,
@@ -19,6 +20,9 @@ type ProjectRow = {
     id: string;
     title: string;
     description: string;
+    bpm: number;
+    time_signature_numerator: number;
+    time_signature_denominator: number;
     created_at: Date;
     updated_at: Date;
 };
@@ -106,6 +110,13 @@ async function projectRowToProject(
         id: row.id,
         title: row.title,
         description: row.description,
+        musicalTimeline: {
+            bpm: row.bpm,
+            timeSignature: {
+                numerator: row.time_signature_numerator,
+                denominator: row.time_signature_denominator,
+            },
+        },
         mixSettings,
         createdAt: row.created_at.toISOString(),
         updatedAt: row.updated_at.toISOString(),
@@ -122,6 +133,9 @@ export function createProjectsPostgresStore(
           id,
           title,
           description,
+          bpm,
+          time_signature_numerator,
+          time_signature_denominator,
           created_at,
           updated_at
         FROM projects
@@ -145,6 +159,9 @@ export function createProjectsPostgresStore(
             id,
             title,
             description,
+            bpm,
+            time_signature_numerator,
+            time_signature_denominator,
             created_at,
             updated_at
           FROM projects
@@ -168,6 +185,10 @@ export function createProjectsPostgresStore(
         const id = crypto.randomUUID();
         const now = new Date();
 
+        const musicalTimeline = normalizeMusicalTimeline(
+            projectInput.musicalTimeline,
+        );
+
         const result =
             await pool.query<ProjectRow>(
                 `
@@ -175,14 +196,20 @@ export function createProjectsPostgresStore(
             id,
             title,
             description,
+            bpm,
+            time_signature_numerator,
+            time_signature_denominator,
             created_at,
             updated_at
           )
-          VALUES ($1, $2, $3, $4, $4)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $7)
           RETURNING
             id,
             title,
             description,
+            bpm,
+            time_signature_numerator,
+            time_signature_denominator,
             created_at,
             updated_at
         `,
@@ -190,6 +217,9 @@ export function createProjectsPostgresStore(
                     id,
                     projectInput.title,
                     projectInput.description,
+                    musicalTimeline.bpm,
+                    musicalTimeline.timeSignature.numerator,
+                    musicalTimeline.timeSignature.denominator,
                     now,
                 ],
             );
@@ -209,6 +239,11 @@ export function createProjectsPostgresStore(
         projectId: string,
         projectInput: UpdateProjectDetailsInput,
     ): Promise<Project | null> {
+        const musicalTimeline =
+            projectInput.musicalTimeline !== undefined
+                ? normalizeMusicalTimeline(projectInput.musicalTimeline)
+                : undefined;
+
         const result =
             await pool.query<ProjectRow>(
                 `
@@ -224,12 +259,30 @@ export function createProjectsPostgresStore(
               THEN $5::text
               ELSE description
             END,
+            bpm = CASE
+              WHEN $6::boolean
+              THEN $7::double precision
+              ELSE bpm
+            END,
+            time_signature_numerator = CASE
+              WHEN $6::boolean
+              THEN $8::smallint
+              ELSE time_signature_numerator
+            END,
+            time_signature_denominator = CASE
+              WHEN $6::boolean
+              THEN $9::smallint
+              ELSE time_signature_denominator
+            END,
             updated_at = NOW()
           WHERE id = $1
           RETURNING
             id,
             title,
             description,
+            bpm,
+            time_signature_numerator,
+            time_signature_denominator,
             created_at,
             updated_at
         `,
@@ -239,6 +292,10 @@ export function createProjectsPostgresStore(
                     projectInput.title ?? null,
                     projectInput.description !== undefined,
                     projectInput.description ?? null,
+                    musicalTimeline !== undefined,
+                    musicalTimeline?.bpm ?? null,
+                    musicalTimeline?.timeSignature.numerator ?? null,
+                    musicalTimeline?.timeSignature.denominator ?? null,
                 ],
             );
 
@@ -267,6 +324,9 @@ export function createProjectsPostgresStore(
               id,
               title,
               description,
+              bpm,
+              time_signature_numerator,
+              time_signature_denominator,
               created_at,
               updated_at
             FROM projects
@@ -346,6 +406,9 @@ export function createProjectsPostgresStore(
               id,
               title,
               description,
+              bpm,
+              time_signature_numerator,
+              time_signature_denominator,
               created_at,
               updated_at
             FROM projects

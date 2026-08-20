@@ -11,10 +11,33 @@ export type MixSettings = {
 
 export type ProjectRole = "owner" | "contributor" | "viewer";
 
+export type TimeSignature = {
+  numerator: number;
+  denominator: number;
+};
+
+/**
+ * Project-level musical timing. BPM is expressed in quarter notes per minute,
+ * matching common DAW tempo conventions. Bar 1, beat 1 maps to project time 0.
+ */
+export type MusicalTimeline = {
+  bpm: number;
+  timeSignature: TimeSignature;
+};
+
+export type MusicalPosition = {
+  /** One-based bar number. */
+  bar: number;
+  /** One-based beat within the bar. Fractional values represent sub-beat time. */
+  beat: number;
+};
+
 export type Project = {
   id: string;
   title: string;
   description: string;
+  /** Legacy project objects may omit this; use getProjectMusicalTimeline(). */
+  musicalTimeline?: MusicalTimeline;
   mixSettings?: MixSettings;
   role?: ProjectRole | null;
   access?: "guest";
@@ -25,11 +48,14 @@ export type Project = {
 export type CreateProjectInput = {
   title: string;
   description: string;
+  /** Omitted legacy callers receive the default 120 BPM, 4/4 timeline. */
+  musicalTimeline?: MusicalTimeline;
 };
 
 export type UpdateProjectDetailsInput = {
   title?: string;
   description?: string;
+  musicalTimeline?: MusicalTimeline;
 };
 
 export type Track = {

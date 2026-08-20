@@ -5,6 +5,8 @@ import type {
   UpdateProjectDetailsInput,
 } from "../types.js";
 
+import { normalizeMusicalTimeline } from "../musical-timeline.js";
+
 import type {
   DeleteProjectResult,
   ProjectsStore,
@@ -19,9 +21,16 @@ import {
 export function createProjectsJsonStore(
   dbFilePath = DEFAULT_DB_FILE_PATH,
 ): ProjectsStore {
+  function normalizeProject(project: Project): Project {
+    return {
+      ...project,
+      musicalTimeline: normalizeMusicalTimeline(project.musicalTimeline),
+    };
+  }
+
   async function getProjects(): Promise<Project[]> {
     const database = await readDatabase(dbFilePath);
-    return database.projects;
+    return database.projects.map(normalizeProject);
   }
 
   async function getProjectById(projectId: string): Promise<Project | null> {
@@ -31,7 +40,7 @@ export function createProjectsJsonStore(
       return project.id === projectId;
     });
 
-    return project ?? null;
+    return project ? normalizeProject(project) : null;
   }
 
   async function createProject(
@@ -45,6 +54,7 @@ export function createProjectsJsonStore(
       id: crypto.randomUUID(),
       title: projectInput.title,
       description: projectInput.description,
+      musicalTimeline: normalizeMusicalTimeline(projectInput.musicalTimeline),
       mixSettings: {
         channels: [],
       },
@@ -87,6 +97,9 @@ export function createProjectsJsonStore(
       ...(projectInput.description !== undefined
         ? { description: projectInput.description }
         : {}),
+      ...(projectInput.musicalTimeline !== undefined
+        ? { musicalTimeline: normalizeMusicalTimeline(projectInput.musicalTimeline) }
+        : { musicalTimeline: normalizeMusicalTimeline(existingProject.musicalTimeline) }),
       updatedAt: new Date().toISOString(),
     };
 
@@ -119,6 +132,7 @@ export function createProjectsJsonStore(
 
     const updatedProject: Project = {
       ...existingProject,
+      musicalTimeline: normalizeMusicalTimeline(existingProject.musicalTimeline),
       mixSettings,
       updatedAt: new Date().toISOString(),
     };
@@ -162,7 +176,7 @@ export function createProjectsJsonStore(
 
     return {
       ok: true,
-      deletedProject: projectToDelete,
+      deletedProject: normalizeProject(projectToDelete),
       deletedTracks,
     };
   }

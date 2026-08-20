@@ -22,6 +22,10 @@ function createTestProject(id = "project-1"): Project {
     id,
     title: `Project ${id}`,
     description: "Test project",
+    musicalTimeline: {
+      bpm: 120,
+      timeSignature: { numerator: 4, denominator: 4 },
+    },
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",
   };
@@ -86,9 +90,51 @@ tester.describe("projects JSON store", () => {
     tester.expect(typeof project.id).toBe("string");
     tester.expect(project.title).toBe("Chorus Riff Idea");
     tester.expect(project.description).toBe("Guitar riff with scratch drums");
+    tester.expect(project.musicalTimeline).toEqual({
+      bpm: 120,
+      timeSignature: { numerator: 4, denominator: 4 },
+    });
     tester.expect(typeof project.createdAt).toBe("string");
     tester.expect(typeof project.updatedAt).toBe("string");
     tester.expect(project.mixSettings).toEqual({ channels: [] });
+  });
+
+  tester.it("creates a project with explicit musical timing", async () => {
+    const store = createProjectsJsonStore(TEST_DB_FILE_PATH);
+
+    const project = await store.createProject({
+      title: "DAW Session",
+      description: "Imported stems",
+      musicalTimeline: {
+        bpm: 92.5,
+        timeSignature: { numerator: 7, denominator: 8 },
+      },
+    });
+
+    tester.expect(project.musicalTimeline).toEqual({
+      bpm: 92.5,
+      timeSignature: { numerator: 7, denominator: 8 },
+    });
+  });
+
+  tester.it("normalizes legacy projects without musical timing", async () => {
+    const legacyProject: Project = {
+      id: "legacy-project",
+      title: "Legacy",
+      description: "Predates musical timing",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    };
+
+    await writeTestDatabase({ projects: [legacyProject], tracks: [] });
+
+    const store = createProjectsJsonStore(TEST_DB_FILE_PATH);
+    const project = await store.getProjectById("legacy-project");
+
+    tester.expect(project?.musicalTimeline).toEqual({
+      bpm: 120,
+      timeSignature: { numerator: 4, denominator: 4 },
+    });
   });
 
   tester.it("writes created projects to the JSON database file", async () => {

@@ -1,3 +1,4 @@
+import { normalizeMusicalTimeline } from "@hugovela/frontend-core";
 import type { CreateProjectInput } from "../types.js";
 
 function escapeHtml(value: string): string {
@@ -14,6 +15,12 @@ export function renderCreateProjectPage(
 ): string {
   const title = escapeHtml(projectDraft?.title ?? "");
   const description = escapeHtml(projectDraft?.description ?? "");
+  const musicalTimeline = normalizeMusicalTimeline(projectDraft?.musicalTimeline);
+  const bpm = String(musicalTimeline.bpm);
+  const numerator = String(musicalTimeline.timeSignature.numerator);
+  const denominator = musicalTimeline.timeSignature.denominator;
+  const denominatorOption = (value: number) =>
+    `<option value="${value}"${denominator === value ? " selected" : ""}>${value}</option>`;
 
   return /*html*/ `
     <main class="app-shell create-project-page" data-page="create-project">
@@ -56,6 +63,59 @@ export function renderCreateProjectPage(
                 placeholder="Guitar riff with scratch drums"
               >${description}</textarea>
             </label>
+          </section>
+
+          <section class="create-project-form__section project-musical-timeline-section">
+            <div class="create-project-section-heading">
+              <h2>Musical timeline</h2>
+              <p>Bar 1, beat 1 begins at the start of the project.</p>
+            </div>
+
+            <label>
+              <span>Tempo (BPM)</span>
+              <input
+                id="project-bpm"
+                name="bpm"
+                type="number"
+                min="1"
+                max="999"
+                step="0.01"
+                value="${bpm}"
+                required
+              />
+            </label>
+
+            <div class="project-time-signature-fields">
+              <label>
+                <span>Beats per bar</span>
+                <input
+                  id="project-time-signature-numerator"
+                  name="timeSignatureNumerator"
+                  type="number"
+                  min="1"
+                  max="32"
+                  step="1"
+                  value="${numerator}"
+                  required
+                />
+              </label>
+
+              <label>
+                <span>Beat unit</span>
+                <select
+                  id="project-time-signature-denominator"
+                  name="timeSignatureDenominator"
+                  required
+                >
+                  ${denominatorOption(1)}
+                  ${denominatorOption(2)}
+                  ${denominatorOption(4)}
+                  ${denominatorOption(8)}
+                  ${denominatorOption(16)}
+                  ${denominatorOption(32)}
+                </select>
+              </label>
+            </div>
           </section>
 
           <section class="create-project-form__section">
@@ -141,6 +201,11 @@ export function renderCreateProjectPage(
                 <div>
                   <dt>Description</dt>
                   <dd id="create-project-confirmation-project-description"></dd>
+                </div>
+
+                <div>
+                  <dt>Musical timeline</dt>
+                  <dd id="create-project-confirmation-musical-timeline"></dd>
                 </div>
               </dl>
             </section>

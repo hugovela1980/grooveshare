@@ -9,10 +9,21 @@ export type MixSettings = {
     channels: MixChannelSetting[];
 };
 
+export type TimeSignature = {
+    numerator: number;
+    denominator: number;
+};
+
+export type MusicalTimeline = {
+    bpm: number;
+    timeSignature: TimeSignature;
+};
+
 export type Project = {
     id: string;
     title: string;
     description: string;
+    musicalTimeline?: MusicalTimeline;
     mixSettings?: MixSettings;
     createdAt: string;
     updatedAt: string;
@@ -38,11 +49,13 @@ export type Database = {
 export type CreateProjectInput = {
     title: string;
     description: string;
+    musicalTimeline?: MusicalTimeline;
 };
 
 export type UpdateProjectDetailsInput = {
     title?: string;
     description?: string;
+    musicalTimeline?: MusicalTimeline;
 };
 
 export type UpdateTrackNameInput = {

@@ -14,9 +14,11 @@ import type { TracksStore } from "./stores/tracks-store.js";
 import type {
   CreateProjectInput,
   MixSettings,
+  MusicalTimeline,
   UpdateProjectDetailsInput,
   UpdateTrackNameInput,
 } from "./types.js";
+import { isValidMusicalTimeline } from "./musical-timeline.js";
 import { parseMultipartFormData } from "./uploads/multipart-form-data.js";
 import {
   DEFAULT_UPLOAD_ROOT,
@@ -129,6 +131,37 @@ async function readRequestBody(req: IncomingMessage): Promise<string> {
   return body.toString("utf-8");
 }
 
+function isMusicalTimeline(data: unknown): data is MusicalTimeline {
+  if (!data || typeof data !== "object") {
+    return false;
+  }
+
+  const timeline = data as Record<string, unknown>;
+  const timeSignature = timeline.timeSignature;
+
+  if (!timeSignature || typeof timeSignature !== "object") {
+    return false;
+  }
+
+  const signature = timeSignature as Record<string, unknown>;
+
+  if (
+    typeof timeline.bpm !== "number" ||
+    typeof signature.numerator !== "number" ||
+    typeof signature.denominator !== "number"
+  ) {
+    return false;
+  }
+
+  return isValidMusicalTimeline({
+    bpm: timeline.bpm,
+    timeSignature: {
+      numerator: signature.numerator,
+      denominator: signature.denominator,
+    },
+  });
+}
+
 function isCreateProjectInput(data: unknown): data is CreateProjectInput {
   if (!data || typeof data !== "object") {
     return false;
@@ -136,10 +169,15 @@ function isCreateProjectInput(data: unknown): data is CreateProjectInput {
 
   const input = data as Record<string, unknown>;
 
+  const musicalTimelineIsValid =
+    !Object.hasOwn(input, "musicalTimeline") ||
+    isMusicalTimeline(input.musicalTimeline);
+
   return (
     typeof input.title === "string" &&
     input.title.trim().length > 0 &&
-    typeof input.description === "string"
+    typeof input.description === "string" &&
+    musicalTimelineIsValid
   );
 }
 
@@ -153,8 +191,9 @@ function isUpdateProjectDetailsInput(
   const input = data as Record<string, unknown>;
   const hasTitle = Object.hasOwn(input, "title");
   const hasDescription = Object.hasOwn(input, "description");
+  const hasMusicalTimeline = Object.hasOwn(input, "musicalTimeline");
 
-  if (!hasTitle && !hasDescription) {
+  if (!hasTitle && !hasDescription && !hasMusicalTimeline) {
     return false;
   }
 
@@ -166,6 +205,10 @@ function isUpdateProjectDetailsInput(
   }
 
   if (hasDescription && typeof input.description !== "string") {
+    return false;
+  }
+
+  if (hasMusicalTimeline && !isMusicalTimeline(input.musicalTimeline)) {
     return false;
   }
 
@@ -544,6 +587,9 @@ export function createAppServer({
     const project = await projectsStore.createProject({
       title: parsedBody.title.trim(),
       description: parsedBody.description.trim(),
+      ...(parsedBody.musicalTimeline !== undefined
+        ? { musicalTimeline: parsedBody.musicalTimeline }
+        : {}),
     });
 
     try {
@@ -619,6 +665,9 @@ export function createAppServer({
         : {}),
       ...(parsedBody.description !== undefined
         ? { description: parsedBody.description.trim() }
+        : {}),
+      ...(parsedBody.musicalTimeline !== undefined
+        ? { musicalTimeline: parsedBody.musicalTimeline }
         : {}),
     };
 

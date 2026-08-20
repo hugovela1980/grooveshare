@@ -141,6 +141,10 @@ tester.describe("create project confirmation controller", () => {
         tester.expect(createdProjectInput).toEqual({
             title: "Bass Groove",
             description: "Practice loop",
+            musicalTimeline: {
+                bpm: 120,
+                timeSignature: { numerator: 4, denominator: 4 },
+            },
         });
 
         tester.expect(uploadedTracks).toEqual([
