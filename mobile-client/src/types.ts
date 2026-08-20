@@ -16,7 +16,9 @@ export type {
   RegisterUserInput,
   TimeSignature,
   Track,
+  TrackMusicalPlacement,
   UpdateProjectDetailsInput,
+  UpdateTrackDetailsInput,
   User,
 } from "@hugovela/frontend-core";
 

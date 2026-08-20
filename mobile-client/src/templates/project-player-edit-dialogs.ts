@@ -85,7 +85,7 @@ export function renderTrackEditDialog(): string {
         <div class="modal__header">
           <div>
             <p class="eyebrow">Track Actions</p>
-            <h2 id="track-edit-dialog-title">Edit Track Name</h2>
+            <h2 id="track-edit-dialog-title">Edit Track</h2>
           </div>
 
           <button
@@ -110,6 +110,25 @@ export function renderTrackEditDialog(): string {
             />
           </label>
 
+          <div class="project-player-edit-form__timing-grid">
+            <label class="project-player-edit-form__field">
+              <span>Start bar</span>
+              <input id="track-edit-start-bar-input" type="number" min="1" step="1" required inputmode="numeric" />
+            </label>
+
+            <label class="project-player-edit-form__field">
+              <span>Start beat</span>
+              <input id="track-edit-start-beat-input" type="number" min="1" step="any" required inputmode="decimal" />
+            </label>
+          </div>
+
+          <label class="project-player-edit-form__field">
+            <span>Musical length (bars, optional)</span>
+            <input id="track-edit-length-bars-input" type="number" min="0" step="any" inputmode="decimal" placeholder="Unknown" />
+          </label>
+
+          <p class="description project-player-edit-form__hint">Musical placement is separate from the raw audio-file duration.</p>
+
           <p
             id="track-edit-status"
             class="status-message"
@@ -130,7 +149,7 @@ export function renderTrackEditDialog(): string {
               class="button"
               type="submit"
             >
-              Save Track Name
+              Save Track
             </button>
           </div>
         </form>

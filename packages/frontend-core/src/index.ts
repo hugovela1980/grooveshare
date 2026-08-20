@@ -66,7 +66,9 @@ export type {
   RegisterUserInput,
   TimeSignature,
   Track,
+  TrackMusicalPlacement,
   UpdateProjectDetailsInput,
+  UpdateTrackDetailsInput,
   UploadTrackInput,
   User,
 } from "./domain/types.js";
@@ -84,6 +86,18 @@ export {
   normalizeMusicalTimeline,
   transportSecondsToMusicalPosition,
 } from "./timeline/musical-timeline.js";
+export {
+  DEFAULT_TRACK_MUSICAL_PLACEMENT,
+  DEFAULT_TRACK_MUSICAL_START_POSITION,
+  getTrackMusicalEndPosition,
+  getTrackMusicalPlacement,
+  getTrackMusicalSpanSeconds,
+  getTrackMusicalStartSeconds,
+  isValidTrackMusicalPlacement,
+  musicalSpanBarsToBeats,
+  musicalSpanBeatsToBars,
+  normalizeTrackMusicalPlacement,
+} from "./timeline/track-musical-placement.js";
 export {
   canContribute,
   canManageProject,

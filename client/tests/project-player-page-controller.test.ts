@@ -1598,6 +1598,102 @@ tester.describe("project player page controller", () => {
     tester.expect(loadMixCallCount).toBe(1);
   });
 
+  tester.it("persists inline desktop musical placement edits", async () => {
+    const project = createProject({
+      musicalTimeline: {
+        bpm: 120,
+        timeSignature: { numerator: 4, denominator: 4 },
+      },
+    });
+    const track = createTrack({
+      musicalPlacement: {
+        start: { bar: 1, beat: 1 },
+        spanBeats: null,
+      },
+    });
+    const timingInputs = {
+      startBar: createFakeValueInput("3"),
+      startBeat: createFakeValueInput("2.5"),
+      spanBars: createFakeValueInput("2"),
+    };
+    let changeHandler: ((event: FakeTrackListEvent) => void | Promise<void>) | null = null;
+    const statusElement = createFakeStatusElement();
+    let savedPlacement: Track["musicalPlacement"] | undefined;
+
+    const trackListElement = {
+      innerHTML: "",
+      addEventListener(
+        eventName: "click" | "input" | "change" | "keydown" | "focusout",
+        handler: (event: FakeTrackListEvent) => void | Promise<void>,
+      ) {
+        if (eventName === "change") {
+          changeHandler = handler;
+        }
+      },
+      querySelector(selector: string) {
+        if (selector.includes("data-track-musical-start-bar")) return timingInputs.startBar;
+        if (selector.includes("data-track-musical-start-beat")) return timingInputs.startBeat;
+        if (selector.includes("data-track-musical-span-bars")) return timingInputs.spanBars;
+        return null;
+      },
+      querySelectorAll() {
+        return [];
+      },
+    };
+
+    const controller = createProjectPlayerPageController({
+      project,
+      trackListElement,
+      statusElement,
+      tracksApi: {
+        async getTracksByProjectId() {
+          return [track];
+        },
+        async deleteTrack() {
+          return track;
+        },
+        async updateTrackDetails(projectId, trackId, details) {
+          tester.expect(projectId).toBe("project-1");
+          tester.expect(trackId).toBe("track-1");
+          savedPlacement = details.musicalPlacement;
+          return {
+            ...track,
+            musicalPlacement: details.musicalPlacement,
+          };
+        },
+      },
+      renderTrackList() {
+        return "tracks";
+      },
+    });
+
+    await controller.init();
+
+    if (!changeHandler) {
+      throw new Error("Change handler was not registered.");
+    }
+
+    const registeredChangeHandler = changeHandler as (
+      event: FakeTrackListEvent,
+    ) => void | Promise<void>;
+
+    await registeredChangeHandler({
+      target: {
+        value: "3",
+        dataset: {
+          trackMusicalStartBar: "",
+          trackId: "track-1",
+        },
+      } as unknown as EventTarget,
+    });
+
+    tester.expect(savedPlacement).toEqual({
+      start: { bar: 3, beat: 2.5 },
+      spanBeats: 8,
+    });
+    tester.expect(statusElement.textContent).toBe("Track timing updated.");
+  });
+
   tester.it("opens an explicit track editor and persists the edited name", async () => {
     const project = createProject();
     const trackListElement = createFakeTrackListElement();

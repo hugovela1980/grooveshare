@@ -3,6 +3,10 @@ import {
     canManageProject,
     canManageTrack,
     createMixPersistenceCoordinator,
+    getProjectMusicalTimeline,
+    getTrackMusicalPlacement,
+    musicalSpanBarsToBeats,
+    musicalSpanBeatsToBars,
     type StorageProvider,
 } from "@hugovela/frontend-core";
 import {
@@ -27,6 +31,17 @@ import {
 type TracksApi = {
     getTracksByProjectId: (projectId: string) => Promise<Track[]>;
     deleteTrack: (projectId: string, trackId: string) => Promise<Track>;
+    updateTrackDetails?: (
+        projectId: string,
+        trackId: string,
+        details: {
+            name?: string;
+            musicalPlacement?: {
+                start: { bar: number; beat: number };
+                spanBeats: number | null;
+            };
+        },
+    ) => Promise<Track>;
     updateTrackName?: (
         projectId: string,
         trackId: string,
@@ -206,6 +221,9 @@ type ProjectPlayerPageControllerOptions = {
     trackEditModal?: DialogElementLike | null;
     trackEditForm?: FormElementLike | null;
     trackEditNameInput?: ValueInputLike | null;
+    trackEditStartBarInput?: ValueInputLike | null;
+    trackEditStartBeatInput?: ValueInputLike | null;
+    trackEditLengthBarsInput?: ValueInputLike | null;
     trackEditSaveButton?: ButtonElementLike | null;
     trackEditCancelButton?: ButtonElementLike | null;
     trackEditCloseButton?: ButtonElementLike | null;
@@ -218,6 +236,7 @@ type ProjectPlayerPageControllerOptions = {
         context?: {
             role: ProjectRole;
             currentUserId: string | null;
+            musicalTimeline?: Project["musicalTimeline"];
         },
     ) => string;
     projectRole?: ProjectRole;
@@ -288,6 +307,9 @@ export function createProjectPlayerPageController({
     trackEditModal,
     trackEditForm,
     trackEditNameInput,
+    trackEditStartBarInput,
+    trackEditStartBeatInput,
+    trackEditLengthBarsInput,
     trackEditSaveButton,
     trackEditCancelButton,
     trackEditCloseButton,
@@ -359,6 +381,7 @@ export function createProjectPlayerPageController({
                 {
                     role: projectRole,
                     currentUserId,
+                    musicalTimeline: getProjectMusicalTimeline(project),
                 },
             );
             prepareCurrentMixForPlayback();
@@ -499,30 +522,24 @@ export function createProjectPlayerPageController({
         return value.trim().replace(/\s+/g, " ");
     }
 
-    function replaceCurrentTrackName(
-        trackId: string,
-        name: string,
-    ): void {
+    function replaceCurrentTrack(updatedTrack: Track): void {
         currentTracks = currentTracks.map((currentTrack) => {
-            if (currentTrack.id !== trackId) {
-                return currentTrack;
-            }
-
-            return {
-                ...currentTrack,
-                name,
-            };
+            return currentTrack.id === updatedTrack.id
+                ? updatedTrack
+                : currentTrack;
         });
     }
 
-    function updateRenderedTrackName(trackId: string, name: string): void {
-        const trackNameElement = trackListElement.querySelector?.(
-            `[data-track-name-display][data-track-id="${trackId}"]`,
-        ) as TextElementLike | null;
-
-        if (trackNameElement) {
-            trackNameElement.textContent = name;
-        }
+    function rerenderTracks(): void {
+        trackListElement.innerHTML = renderTrackList(
+            currentTracks,
+            mixPersistence.getCurrentMixSettings(),
+            {
+                role: projectRole,
+                currentUserId,
+                musicalTimeline: getProjectMusicalTimeline(project),
+            },
+        );
     }
 
     function setDialogOpen(
@@ -651,6 +668,15 @@ export function createProjectPlayerPageController({
 
         activeTrackEditId = track.id;
         trackEditNameInput.value = track.name;
+        const timeline = getProjectMusicalTimeline(project);
+        const placement = getTrackMusicalPlacement(timeline, track);
+        if (trackEditStartBarInput && trackEditStartBeatInput && trackEditLengthBarsInput) {
+            trackEditStartBarInput.value = String(placement.start.bar);
+            trackEditStartBeatInput.value = String(placement.start.beat);
+            trackEditLengthBarsInput.value = placement.spanBeats === null
+                ? ""
+                : String(musicalSpanBeatsToBars(timeline, placement.spanBeats));
+        }
         setStatus(trackEditStatusElement, "");
         setDialogOpen(trackEditModal, true);
     }
@@ -675,7 +701,7 @@ export function createProjectPlayerPageController({
             trackEditInFlight ||
             !activeTrackEditId ||
             !trackEditNameInput ||
-            !tracksApi.updateTrackName
+            (!tracksApi.updateTrackDetails && !tracksApi.updateTrackName)
         ) {
             return;
         }
@@ -704,36 +730,98 @@ export function createProjectPlayerPageController({
             return;
         }
 
-        if (nextName === track.name) {
+        const timeline = getProjectMusicalTimeline(project);
+        const currentPlacement = getTrackMusicalPlacement(timeline, track);
+        const hasTimingInputs = Boolean(
+            trackEditStartBarInput &&
+            trackEditStartBeatInput &&
+            trackEditLengthBarsInput,
+        );
+        let musicalPlacement = currentPlacement;
+
+        if (hasTimingInputs) {
+            const startBar = Number(trackEditStartBarInput!.value);
+            const startBeat = Number(trackEditStartBeatInput!.value);
+            const lengthBarsText = trackEditLengthBarsInput!.value.trim();
+            const lengthBars = lengthBarsText ? Number(lengthBarsText) : null;
+
+            if (!Number.isInteger(startBar) || startBar < 1) {
+                setStatus(trackEditStatusElement, "Start bar must be a whole number of 1 or greater.");
+                trackEditStartBarInput!.focus?.();
+                return;
+            }
+
+            if (
+                !Number.isFinite(startBeat) ||
+                startBeat < 1 ||
+                startBeat >= timeline.timeSignature.numerator + 1
+            ) {
+                setStatus(
+                    trackEditStatusElement,
+                    `Start beat must be between 1 and ${timeline.timeSignature.numerator}.`,
+                );
+                trackEditStartBeatInput!.focus?.();
+                return;
+            }
+
+            if (lengthBars !== null && (!Number.isFinite(lengthBars) || lengthBars <= 0)) {
+                setStatus(trackEditStatusElement, "Musical length must be greater than 0 bars.");
+                trackEditLengthBarsInput!.focus?.();
+                return;
+            }
+
+            musicalPlacement = {
+                start: { bar: startBar, beat: startBeat },
+                spanBeats: lengthBars === null
+                    ? null
+                    : musicalSpanBarsToBeats(timeline, lengthBars),
+            };
+        }
+
+        if (
+            nextName === track.name &&
+            currentPlacement.start.bar === musicalPlacement.start.bar &&
+            currentPlacement.start.beat === musicalPlacement.start.beat &&
+            currentPlacement.spanBeats === musicalPlacement.spanBeats
+        ) {
             closeTrackEditor();
             return;
         }
 
         trackEditInFlight = true;
         setControlBusy(trackEditSaveButton, true);
-        setStatus(trackEditStatusElement, "Saving track name...");
+        setStatus(trackEditStatusElement, "Saving track...");
 
         try {
-            const updatedTrack = await tracksApi.updateTrackName(
-                project.id,
-                track.id,
-                nextName,
-            );
+            const updatedTrack = tracksApi.updateTrackDetails
+                ? await tracksApi.updateTrackDetails(
+                    project.id,
+                    track.id,
+                    {
+                        name: nextName,
+                        musicalPlacement,
+                    },
+                )
+                : await tracksApi.updateTrackName!(
+                    project.id,
+                    track.id,
+                    nextName,
+                );
 
-            replaceCurrentTrackName(track.id, updatedTrack.name);
-            updateRenderedTrackName(track.id, updatedTrack.name);
+            replaceCurrentTrack(updatedTrack);
+            rerenderTracks();
             audioPlayerController?.setTrackName?.(
                 track.id,
                 updatedTrack.name,
             );
 
-            setStatus(statusElement, "Track name updated.");
+            setStatus(statusElement, "Track updated.");
             activeTrackEditId = null;
             trackEditNameInput.blur?.();
             setDialogOpen(trackEditModal, false);
             setStatus(trackEditStatusElement, "");
         } catch {
-            setStatus(trackEditStatusElement, "Could not save track name.");
+            setStatus(trackEditStatusElement, "Could not save track.");
         } finally {
             setControlBusy(trackEditSaveButton, false);
             trackEditInFlight = false;

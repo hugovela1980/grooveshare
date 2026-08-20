@@ -803,6 +803,18 @@ function initializeProjectPlayerPage({
     appElement,
     "#track-edit-name-input",
   );
+  const trackEditStartBarInput = getElement<HTMLInputElement>(
+    appElement,
+    "#track-edit-start-bar-input",
+  );
+  const trackEditStartBeatInput = getElement<HTMLInputElement>(
+    appElement,
+    "#track-edit-start-beat-input",
+  );
+  const trackEditLengthBarsInput = getElement<HTMLInputElement>(
+    appElement,
+    "#track-edit-length-bars-input",
+  );
   const trackEditSaveButton = getElement<HTMLButtonElement>(
     appElement,
     "#save-track-edit-button",
@@ -960,6 +972,9 @@ function initializeProjectPlayerPage({
     trackEditModal,
     trackEditForm,
     trackEditNameInput,
+    trackEditStartBarInput,
+    trackEditStartBeatInput,
+    trackEditLengthBarsInput,
     trackEditSaveButton,
     trackEditCancelButton,
     trackEditCloseButton,

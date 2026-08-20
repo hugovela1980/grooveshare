@@ -15,10 +15,12 @@ import type {
   CreateProjectInput,
   MixSettings,
   MusicalTimeline,
+  TrackMusicalPlacement,
   UpdateProjectDetailsInput,
-  UpdateTrackNameInput,
+  UpdateTrackDetailsInput,
 } from "./types.js";
 import { isValidMusicalTimeline } from "./musical-timeline.js";
+import { isValidTrackMusicalPlacement } from "./track-musical-placement.js";
 import { parseMultipartFormData } from "./uploads/multipart-form-data.js";
 import {
   DEFAULT_UPLOAD_ROOT,
@@ -215,14 +217,86 @@ function isUpdateProjectDetailsInput(
   return true;
 }
 
-function isUpdateTrackNameInput(data: unknown): data is UpdateTrackNameInput {
+function isTrackMusicalPlacement(
+  data: unknown,
+  timeline: MusicalTimeline,
+): data is TrackMusicalPlacement {
+  if (!data || typeof data !== "object") {
+    return false;
+  }
+
+  const placement = data as Record<string, unknown>;
+  const start = placement.start;
+
+  if (!start || typeof start !== "object") {
+    return false;
+  }
+
+  const startPosition = start as Record<string, unknown>;
+  const spanBeats = placement.spanBeats;
+
+  if (
+    typeof startPosition.bar !== "number" ||
+    typeof startPosition.beat !== "number" ||
+    !(spanBeats === null || typeof spanBeats === "number")
+  ) {
+    return false;
+  }
+
+  return isValidTrackMusicalPlacement(timeline, {
+    start: { bar: startPosition.bar, beat: startPosition.beat },
+    spanBeats,
+  });
+}
+
+function isUpdateTrackDetailsInput(
+  data: unknown,
+  timeline: MusicalTimeline,
+): data is UpdateTrackDetailsInput {
   if (!data || typeof data !== "object") {
     return false;
   }
 
   const input = data as Record<string, unknown>;
+  const hasName = Object.hasOwn(input, "name");
+  const hasPlacement = Object.hasOwn(input, "musicalPlacement");
 
-  return typeof input.name === "string" && input.name.trim().length > 0;
+  if (!hasName && !hasPlacement) {
+    return false;
+  }
+
+  if (hasName && (typeof input.name !== "string" || input.name.trim().length === 0)) {
+    return false;
+  }
+
+  return !hasPlacement || isTrackMusicalPlacement(input.musicalPlacement, timeline);
+}
+
+function parseUploadTrackMusicalPlacement(
+  fields: Record<string, string>,
+  timeline: MusicalTimeline,
+): TrackMusicalPlacement | undefined {
+  const hasPlacementFields =
+    fields.musicalStartBar !== undefined ||
+    fields.musicalStartBeat !== undefined ||
+    fields.musicalSpanBeats !== undefined;
+
+  if (!hasPlacementFields) {
+    return undefined;
+  }
+
+  const spanText = fields.musicalSpanBeats?.trim() ?? "";
+  const placement: TrackMusicalPlacement = {
+    start: {
+      bar: Number(fields.musicalStartBar),
+      beat: Number(fields.musicalStartBeat),
+    },
+    spanBeats: spanText ? Number(spanText) : null,
+  };
+
+  return isValidTrackMusicalPlacement(timeline, placement)
+    ? placement
+    : undefined;
 }
 
 function isMixSettings(data: unknown): data is MixSettings {
@@ -837,6 +911,27 @@ export function createAppServer({
     }
 
     const trackName = parsedForm.fields.trackName?.trim() || audioFile.filename;
+    const hasMusicalPlacementFields =
+      parsedForm.fields.musicalStartBar !== undefined ||
+      parsedForm.fields.musicalStartBeat !== undefined ||
+      parsedForm.fields.musicalSpanBeats !== undefined;
+    const musicalPlacement = parseUploadTrackMusicalPlacement(
+      parsedForm.fields,
+      project.musicalTimeline ?? {
+        bpm: 120,
+        timeSignature: { numerator: 4, denominator: 4 },
+      },
+    );
+
+    if (hasMusicalPlacementFields && !musicalPlacement) {
+      sendJson(
+        res,
+        400,
+        { ok: false, error: "Invalid track musical placement." },
+        clientOrigin,
+      );
+      return;
+    }
 
     const uploadDir = await ensureProjectUploadDir({
       uploadRoot,
@@ -857,6 +952,7 @@ export function createAppServer({
       mimeType: audioFileValidation.mimeType,
       fileSize: audioFile.size,
       uploadedByUserId,
+      musicalPlacement,
     });
 
     sendJson(
@@ -1023,51 +1119,57 @@ export function createAppServer({
     }
   }
 
-  async function handleUpdateTrackName(
+  async function handleUpdateTrackDetails(
     req: IncomingMessage,
     res: ServerResponse,
     projectId: string,
     trackId: string,
   ): Promise<void> {
-    const body = await readRequestBody(req);
+    const project = await projectsStore.getProjectById(projectId);
 
+    if (!project) {
+      sendJson(res, 404, { ok: false, error: "Project not found." }, clientOrigin);
+      return;
+    }
+
+    const body = await readRequestBody(req);
     let parsedBody: unknown;
 
     try {
       parsedBody = JSON.parse(body) as unknown;
     } catch {
-      sendJson(
-        res,
-        400,
-        {
-          ok: false,
-          error: "Invalid track name.",
-        },
-        clientOrigin,
-      );
-
+      sendJson(res, 400, { ok: false, error: "Invalid track details." }, clientOrigin);
       return;
     }
 
-    if (!isUpdateTrackNameInput(parsedBody)) {
-      sendJson(
-        res,
-        400,
-        {
-          ok: false,
-          error: "Invalid track name.",
-        },
-        clientOrigin,
-      );
+    const timeline = project.musicalTimeline ?? {
+      bpm: 120,
+      timeSignature: { numerator: 4, denominator: 4 },
+    };
 
+    if (!isUpdateTrackDetailsInput(parsedBody, timeline)) {
+      const input = parsedBody && typeof parsedBody === "object"
+        ? parsedBody as Record<string, unknown>
+        : {};
+      const error = Object.hasOwn(input, "name")
+        ? "Invalid track name."
+        : Object.hasOwn(input, "musicalPlacement")
+          ? "Invalid track musical placement."
+          : "Invalid track details.";
+      sendJson(res, 400, { ok: false, error }, clientOrigin);
       return;
     }
 
-    const result = await tracksStore.updateTrackName(
+    const result = await tracksStore.updateTrackDetails(
       projectId,
       trackId,
       {
-        name: parsedBody.name.trim(),
+        ...(parsedBody.name !== undefined
+          ? { name: parsedBody.name.trim() }
+          : {}),
+        ...(parsedBody.musicalPlacement !== undefined
+          ? { musicalPlacement: parsedBody.musicalPlacement }
+          : {}),
       },
     );
 
@@ -1076,29 +1178,11 @@ export function createAppServer({
         result.reason === "project-not-found"
           ? "Project not found."
           : "Track not found.";
-
-      sendJson(
-        res,
-        404,
-        {
-          ok: false,
-          error,
-        },
-        clientOrigin,
-      );
-
+      sendJson(res, 404, { ok: false, error }, clientOrigin);
       return;
     }
 
-    sendJson(
-      res,
-      200,
-      {
-        ok: true,
-        data: result.updatedTrack,
-      },
-      clientOrigin,
-    );
+    sendJson(res, 200, { ok: true, data: result.updatedTrack }, clientOrigin);
   }
 
   async function handleDeleteTrack(
@@ -1862,7 +1946,7 @@ export function createAppServer({
           return;
         }
 
-        await handleUpdateTrackName(
+        await handleUpdateTrackDetails(
           req,
           res,
           trackRouteParams.projectId,

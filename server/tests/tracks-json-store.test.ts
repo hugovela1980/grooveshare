@@ -92,6 +92,60 @@ tester.describe("tracks JSON store", () => {
     tester.expect(typeof track.createdAt).toBe("string");
   });
 
+  tester.it("defaults legacy/new tracks to bar 1 beat 1 with unknown musical span", async () => {
+    const store = createTracksJsonStore(TEST_DB_FILE_PATH);
+
+    const track = await store.createTrack({
+      projectId: "project-1",
+      name: "Guitar",
+      originalFilename: "guitar.wav",
+      filePath: "uploads/projects/project-1/track-1-guitar.wav",
+      mimeType: "audio/wav",
+      fileSize: 100,
+      uploadedByUserId: null,
+    });
+
+    tester.expect(track.musicalPlacement).toEqual({
+      start: { bar: 1, beat: 1 },
+      spanBeats: null,
+    });
+  });
+
+  tester.it("persists explicit track musical placement updates", async () => {
+    const track = createTestTrack();
+
+    await writeTestDatabase({
+      projects: [createTestProject("project-1")],
+      tracks: [track],
+    });
+
+    const store = createTracksJsonStore(TEST_DB_FILE_PATH);
+    const result = await store.updateTrackDetails("project-1", "track-1", {
+      musicalPlacement: {
+        start: { bar: 5, beat: 2.5 },
+        spanBeats: 12,
+      },
+    });
+
+    tester.expect(result.ok).toBe(true);
+
+    if (!result.ok) {
+      throw new Error("Expected track musical placement update to succeed.");
+    }
+
+    tester.expect(result.updatedTrack.musicalPlacement).toEqual({
+      start: { bar: 5, beat: 2.5 },
+      spanBeats: 12,
+    });
+
+    const database = await readTestDatabase();
+
+    tester.expect(database.tracks[0]?.musicalPlacement).toEqual({
+      start: { bar: 5, beat: 2.5 },
+      spanBeats: 12,
+    });
+  });
+
   tester.it("writes created tracks to the JSON database file", async () => {
     const store = createTracksJsonStore(TEST_DB_FILE_PATH);
 

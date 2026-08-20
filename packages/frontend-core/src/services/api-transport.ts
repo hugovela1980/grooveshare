@@ -1,3 +1,5 @@
+import type { TrackMusicalPlacement } from "../domain/types.js";
+
 export type ApiHeaders = Readonly<Record<string, string>>;
 
 export type ApiRequestOptions = {
@@ -92,5 +94,6 @@ export interface MultipartBodyFactory<TFile = unknown> {
   createTrackUploadBody(input: {
     trackName: string;
     audioFile: TFile;
+    musicalPlacement?: TrackMusicalPlacement;
   }): unknown;
 }

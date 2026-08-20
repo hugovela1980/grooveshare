@@ -57,6 +57,10 @@ tester.describe("tracks PostgreSQL store", () => {
                 mimeType: "audio/wav",
                 fileSize: 123456,
                 uploadedByUserId: null,
+                musicalPlacement: {
+                    start: { bar: 3, beat: 2.5 },
+                    spanBeats: 8,
+                },
             });
 
             tester.expect(typeof track.id).toBe("string");
@@ -73,6 +77,10 @@ tester.describe("tracks PostgreSQL store", () => {
 
             tester.expect(track.mimeType).toBe("audio/wav");
             tester.expect(track.fileSize).toBe(123456);
+            tester.expect(track.musicalPlacement).toEqual({
+                start: { bar: 3, beat: 2.5 },
+                spanBeats: 8,
+            });
 
             tester.expect(typeof track.createdAt).toBe(
                 "string",
@@ -236,6 +244,37 @@ tester.describe("tracks PostgreSQL store", () => {
             tester.expect(savedTrack?.name).toBe(
                 "Lead Guitar",
             );
+        },
+    );
+
+    tester.it(
+        "updates track musical placement independently from the audio file",
+        async () => {
+            const store = createTracksPostgresStore(postgresTestPool);
+            const projectId = await createTestProject();
+            const track = await store.createTrack({
+                projectId,
+                name: "Guitar",
+                originalFilename: "guitar.wav",
+                filePath: "uploads/guitar.wav",
+                mimeType: "audio/wav",
+                fileSize: 100,
+                uploadedByUserId: null,
+            });
+
+            const result = await store.updateTrackDetails(projectId, track.id, {
+                musicalPlacement: {
+                    start: { bar: 9, beat: 1.5 },
+                    spanBeats: 12,
+                },
+            });
+
+            tester.expect(result.ok).toBe(true);
+            if (!result.ok) throw new Error("Expected placement update to succeed.");
+            tester.expect(result.updatedTrack.musicalPlacement).toEqual({
+                start: { bar: 9, beat: 1.5 },
+                spanBeats: 12,
+            });
         },
     );
 

@@ -1,5 +1,6 @@
 import type {
   Track,
+  UpdateTrackDetailsInput,
   UploadTrackInput,
 } from "../domain/types.js";
 import {
@@ -15,6 +16,11 @@ export interface TracksService<TAudioFile = unknown> {
     invitationToken?: string,
   ): Promise<Track[]>;
   uploadTrack(input: UploadTrackInput<TAudioFile>): Promise<Track>;
+  updateTrackDetails(
+    projectId: string,
+    trackId: string,
+    details: UpdateTrackDetailsInput,
+  ): Promise<Track>;
   updateTrackName(
     projectId: string,
     trackId: string,
@@ -57,7 +63,7 @@ export function createTracksService<TAudioFile>(input: {
       return parseApiResponse<Track[]>(response);
     },
 
-    async uploadTrack({ projectId, trackName, audioFile }) {
+    async uploadTrack({ projectId, trackName, audioFile, musicalPlacement }) {
       const response = await transport.request(
         `${apiBaseUrl}/api/projects/${projectId}/tracks`,
         {
@@ -65,6 +71,7 @@ export function createTracksService<TAudioFile>(input: {
           body: multipartBodyFactory.createTrackUploadBody({
             trackName,
             audioFile,
+            musicalPlacement,
           }),
         },
       );
@@ -92,6 +99,19 @@ export function createTracksService<TAudioFile>(input: {
 
         return response.arrayBuffer();
       };
+    },
+
+
+    async updateTrackDetails(projectId, trackId, details) {
+      const response = await transport.request(
+        `${apiBaseUrl}/api/projects/${projectId}/tracks/${trackId}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(details),
+        },
+      );
+      return parseApiResponse<Track>(response);
     },
 
     async updateTrackName(projectId, trackId, name) {

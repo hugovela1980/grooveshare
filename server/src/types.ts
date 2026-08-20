@@ -19,6 +19,16 @@ export type MusicalTimeline = {
     timeSignature: TimeSignature;
 };
 
+export type MusicalPosition = {
+    bar: number;
+    beat: number;
+};
+
+export type TrackMusicalPlacement = {
+    start: MusicalPosition;
+    spanBeats: number | null;
+};
+
 export type Project = {
     id: string;
     title: string;
@@ -38,6 +48,7 @@ export type Track = {
     mimeType: string;
     fileSize: number;
     uploadedByUserId: string | null;
+    musicalPlacement?: TrackMusicalPlacement;
     createdAt: string;
 };
 
@@ -58,6 +69,11 @@ export type UpdateProjectDetailsInput = {
     musicalTimeline?: MusicalTimeline;
 };
 
+export type UpdateTrackDetailsInput = {
+    name?: string;
+    musicalPlacement?: TrackMusicalPlacement;
+};
+
 export type UpdateTrackNameInput = {
     name: string;
 };
@@ -70,4 +86,5 @@ export type CreateTrackInput = {
     mimeType: string;
     fileSize: number;
     uploadedByUserId: string | null;
+    musicalPlacement?: TrackMusicalPlacement;
 };

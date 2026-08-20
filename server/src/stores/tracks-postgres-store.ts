@@ -2,6 +2,7 @@ import type { Pool } from "pg";
 import type {
     CreateTrackInput,
     Track,
+    UpdateTrackDetailsInput,
     UpdateTrackNameInput,
 } from "../types.js";
 import type {
@@ -19,6 +20,9 @@ type TrackRow = {
     mime_type: string;
     file_size: number;
     uploaded_by_user_id: string | null;
+    musical_start_bar: number;
+    musical_start_beat: number;
+    musical_span_beats: number | null;
     created_at: Date;
 };
 
@@ -34,6 +38,13 @@ function trackRowToTrack(
         mimeType: row.mime_type,
         fileSize: row.file_size,
         uploadedByUserId: row.uploaded_by_user_id,
+        musicalPlacement: {
+            start: {
+                bar: row.musical_start_bar,
+                beat: row.musical_start_beat,
+            },
+            spanBeats: row.musical_span_beats,
+        },
         createdAt: row.created_at.toISOString(),
     };
 }
@@ -56,6 +67,9 @@ export function createTracksPostgresStore(
             mime_type,
             file_size,
             uploaded_by_user_id,
+            musical_start_bar,
+            musical_start_beat,
+            musical_span_beats,
             created_at
           FROM tracks
           WHERE project_id = $1
@@ -83,6 +97,9 @@ export function createTracksPostgresStore(
             mime_type,
             file_size,
             uploaded_by_user_id,
+            musical_start_bar,
+            musical_start_beat,
+            musical_span_beats,
             created_at
           FROM tracks
           WHERE project_id = $1
@@ -118,6 +135,9 @@ export function createTracksPostgresStore(
             mime_type,
             file_size,
             uploaded_by_user_id,
+            musical_start_bar,
+            musical_start_beat,
+            musical_span_beats,
             created_at
           )
           VALUES (
@@ -129,6 +149,9 @@ export function createTracksPostgresStore(
             $6,
             $7,
             $8,
+            $9,
+            $10,
+            $11,
             NOW()
           )
           RETURNING
@@ -140,6 +163,9 @@ export function createTracksPostgresStore(
             mime_type,
             file_size,
             uploaded_by_user_id,
+            musical_start_bar,
+            musical_start_beat,
+            musical_span_beats,
             created_at
         `,
                 [
@@ -151,6 +177,9 @@ export function createTracksPostgresStore(
                     trackInput.mimeType,
                     trackInput.fileSize,
                     trackInput.uploadedByUserId,
+                    trackInput.musicalPlacement?.start.bar ?? 1,
+                    trackInput.musicalPlacement?.start.beat ?? 1,
+                    trackInput.musicalPlacement?.spanBeats ?? null,
                 ],
             );
 
@@ -165,10 +194,10 @@ export function createTracksPostgresStore(
         return trackRowToTrack(row);
     }
 
-    async function updateTrackName(
+    async function updateTrackDetails(
         projectId: string,
         trackId: string,
-        trackInput: UpdateTrackNameInput,
+        trackInput: UpdateTrackDetailsInput,
     ): Promise<UpdateTrackResult> {
         const projectResult =
             await pool.query(
@@ -187,11 +216,19 @@ export function createTracksPostgresStore(
             };
         }
 
+        const placement = trackInput.musicalPlacement;
         const result =
             await pool.query<TrackRow>(
                 `
           UPDATE tracks
-          SET name = $3
+          SET
+            name = COALESCE($3, name),
+            musical_start_bar = COALESCE($4, musical_start_bar),
+            musical_start_beat = COALESCE($5, musical_start_beat),
+            musical_span_beats = CASE
+              WHEN $6::boolean THEN $7
+              ELSE musical_span_beats
+            END
           WHERE project_id = $1
             AND id = $2
           RETURNING
@@ -203,12 +240,19 @@ export function createTracksPostgresStore(
             mime_type,
             file_size,
             uploaded_by_user_id,
+            musical_start_bar,
+            musical_start_beat,
+            musical_span_beats,
             created_at
         `,
                 [
                     projectId,
                     trackId,
-                    trackInput.name,
+                    trackInput.name ?? null,
+                    placement?.start.bar ?? null,
+                    placement?.start.beat ?? null,
+                    placement !== undefined,
+                    placement?.spanBeats ?? null,
                 ],
             );
 
@@ -225,6 +269,16 @@ export function createTracksPostgresStore(
             ok: true,
             updatedTrack: trackRowToTrack(row),
         };
+    }
+
+    async function updateTrackName(
+        projectId: string,
+        trackId: string,
+        trackInput: UpdateTrackNameInput,
+    ): Promise<UpdateTrackResult> {
+        return updateTrackDetails(projectId, trackId, {
+            name: trackInput.name,
+        });
     }
 
     async function deleteTrackById(
@@ -263,6 +317,9 @@ export function createTracksPostgresStore(
             mime_type,
             file_size,
             uploaded_by_user_id,
+            musical_start_bar,
+            musical_start_beat,
+            musical_span_beats,
             created_at
         `,
                 [
@@ -290,6 +347,7 @@ export function createTracksPostgresStore(
         getTracksByProjectId,
         getTrackById,
         createTrack,
+        updateTrackDetails,
         updateTrackName,
         deleteTrackById,
     };

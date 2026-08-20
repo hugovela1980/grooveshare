@@ -103,6 +103,9 @@ function createTracksStore(): TracksStore {
         createdAt: new Date().toISOString(),
       };
     },
+    async updateTrackDetails() {
+      return { ok: false as const, reason: "track-not-found" as const };
+    },
     async updateTrackName() {
       return { ok: false as const, reason: "track-not-found" as const };
     },

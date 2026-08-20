@@ -1,4 +1,5 @@
-import type { Track } from "../domain/types.js";
+import type { MusicalTimeline, Track } from "../domain/types.js";
+import { getTrackMusicalStartSeconds } from "../timeline/track-musical-placement.js";
 import type {
   Transport,
   TransportPlaybackState,
@@ -30,9 +31,10 @@ export type RecordingStopMarker = {
 /**
  * Timing metadata that a future recorded track can persist alongside its audio.
  *
- * `timelineOffsetSeconds` is the project position where the recorded file
- * belongs. Existing uploaded stems omit that value and continue to mean
- * project time zero.
+ * `timelineOffsetSeconds` is the transport-time position captured by the
+ * recording engine. Checkpoint 2 also models persisted musical placement on
+ * Track; later recording work can translate this marker into that shared
+ * project musical timeline without discarding the precise clock observation.
  */
 export type RecordingPositionMetadata = {
   startProjectPositionSeconds: number;
@@ -65,12 +67,19 @@ function normalizeTrackOffset(offsetSeconds: number | undefined): number {
 }
 
 /**
- * Legacy/uploaded stems currently begin at project time zero. Future recorded
- * tracks can persist `timelineOffsetSeconds` without changing that default.
+ * Resolve a track's project-time offset without breaking the recording
+ * transport primitive introduced in Milestone 1. When a project musical
+ * timeline and persisted musical placement are available, musical placement is
+ * authoritative. Otherwise callers retain the legacy seconds-offset behavior.
  */
 export function getTrackTimelineOffsetSeconds(
-  track: Pick<Track, "timelineOffsetSeconds">,
+  track: Pick<Track, "timelineOffsetSeconds" | "musicalPlacement">,
+  musicalTimeline?: MusicalTimeline,
 ): number {
+  if (musicalTimeline && track.musicalPlacement) {
+    return getTrackMusicalStartSeconds(musicalTimeline, track);
+  }
+
   return normalizeTrackOffset(track.timelineOffsetSeconds);
 }
 

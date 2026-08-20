@@ -1,9 +1,12 @@
 import {
   canContribute,
   canManageTrack,
+  getTrackMusicalPlacement,
+  musicalSpanBeatsToBars,
 } from "@hugovela/frontend-core";
 import type {
   MixSettings,
+  MusicalTimeline,
   ProjectRole,
   Track,
 } from "../types.js";
@@ -18,6 +21,7 @@ type ChannelSlot = {
 export type MixChannelRenderContext = {
   role: ProjectRole;
   currentUserId: string | null;
+  musicalTimeline?: MusicalTimeline;
 };
 
 const DEFAULT_RENDER_CONTEXT: MixChannelRenderContext = {
@@ -43,6 +47,22 @@ function createMixChannelSlots(tracks: Track[]): ChannelSlot[] {
   });
 }
 
+function renderTrackMusicalTiming(
+  track: Track,
+  timeline: MusicalTimeline | undefined,
+): string {
+  if (!timeline) {
+    return "";
+  }
+
+  const placement = getTrackMusicalPlacement(timeline, track);
+  const spanLabel = placement.spanBeats === null
+    ? "length unknown"
+    : `${musicalSpanBeatsToBars(timeline, placement.spanBeats)} bars`;
+
+  return `Bar ${placement.start.bar}, beat ${placement.start.beat} · ${spanLabel}`;
+}
+
 function renderAssignedChannelSlot(
   slot: ChannelSlot,
   mixSettings: MixSettings | undefined,
@@ -66,6 +86,7 @@ function renderAssignedChannelSlot(
     currentUserId: context.currentUserId,
     track,
   });
+  const timingLabel = renderTrackMusicalTiming(track, context.musicalTimeline);
 
   const trackNameMarkup = /*html*/ `
     <span
@@ -103,7 +124,10 @@ function renderAssignedChannelSlot(
 
       <div class="mix-channel-slot__name-cell">
         <div class="mix-channel-slot__track-name-group">
-          ${trackNameMarkup}
+          <span class="mix-channel-slot__track-details">
+            ${trackNameMarkup}
+            ${timingLabel ? `<span class="mix-channel-slot__timing" data-track-timing-display data-track-id="${escapeHtml(track.id)}">${escapeHtml(timingLabel)}</span>` : ""}
+          </span>
           ${mayManageTrack
             ? /*html*/ `
               <button

@@ -1,9 +1,12 @@
 import {
     canContribute,
     canManageTrack,
+    getTrackMusicalPlacement,
+    musicalSpanBeatsToBars,
 } from "@hugovela/frontend-core";
 import type {
     MixSettings,
+    MusicalTimeline,
     ProjectRole,
     Track,
 } from "../types.js";
@@ -18,6 +21,7 @@ type ChannelSlot = {
 export type MixChannelRenderContext = {
     role: ProjectRole;
     currentUserId: string | null;
+    musicalTimeline?: MusicalTimeline;
 };
 
 const DEFAULT_RENDER_CONTEXT: MixChannelRenderContext = {
@@ -44,6 +48,79 @@ function createMixChannelSlots(tracks: Track[]): ChannelSlot[] {
     );
 }
 
+function formatMusicalValue(value: number): string {
+    return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(4)));
+}
+
+function renderTrackMusicalTiming(
+    track: Track,
+    timeline: MusicalTimeline | undefined,
+    mayManageTrack: boolean,
+): string {
+    if (!timeline) {
+        return "";
+    }
+
+    const placement = getTrackMusicalPlacement(timeline, track);
+    const spanBars = placement.spanBeats === null
+        ? null
+        : musicalSpanBeatsToBars(timeline, placement.spanBeats);
+    const spanLabel = spanBars === null
+        ? "length unknown"
+        : `${formatMusicalValue(spanBars)} bars`;
+    const timingLabel = `Bar ${formatMusicalValue(placement.start.bar)}, beat ${formatMusicalValue(placement.start.beat)} · ${spanLabel}`;
+
+    if (!mayManageTrack) {
+        return `<span class="mix-channel-slot__timing" data-track-timing-display data-track-id="${escapeHtml(track.id)}">${escapeHtml(timingLabel)}</span>`;
+    }
+
+    return /*html*/ `
+      <details class="mix-channel-slot__timing-editor" data-track-timing-editor data-track-id="${escapeHtml(track.id)}">
+        <summary class="mix-channel-slot__timing" data-track-timing-display data-track-id="${escapeHtml(track.id)}">${escapeHtml(timingLabel)}</summary>
+        <div class="mix-channel-slot__timing-fields">
+          <label>
+            <span>Bar</span>
+            <input
+              type="number"
+              min="1"
+              step="1"
+              value="${formatMusicalValue(placement.start.bar)}"
+              data-track-musical-start-bar
+              data-track-id="${escapeHtml(track.id)}"
+              aria-label="Start bar for ${escapeHtml(track.name)}"
+            />
+          </label>
+          <label>
+            <span>Beat</span>
+            <input
+              type="number"
+              min="1"
+              max="${timeline.timeSignature.numerator}"
+              step="any"
+              value="${formatMusicalValue(placement.start.beat)}"
+              data-track-musical-start-beat
+              data-track-id="${escapeHtml(track.id)}"
+              aria-label="Start beat for ${escapeHtml(track.name)}"
+            />
+          </label>
+          <label>
+            <span>Length (bars)</span>
+            <input
+              type="number"
+              min="0"
+              step="any"
+              value="${spanBars === null ? "" : formatMusicalValue(spanBars)}"
+              placeholder="Unknown"
+              data-track-musical-span-bars
+              data-track-id="${escapeHtml(track.id)}"
+              aria-label="Musical length in bars for ${escapeHtml(track.name)}"
+            />
+          </label>
+        </div>
+      </details>
+    `;
+}
+
 function renderAssignedChannelSlot(
     slot: ChannelSlot,
     mixSettings: MixSettings | undefined,
@@ -67,6 +144,11 @@ function renderAssignedChannelSlot(
         currentUserId: context.currentUserId,
         track,
     });
+    const timingMarkup = renderTrackMusicalTiming(
+        track,
+        context.musicalTimeline,
+        mayManageTrack,
+    );
 
     const trackNameMarkup = mayManageTrack
         ? /*html*/ `
@@ -120,6 +202,7 @@ function renderAssignedChannelSlot(
                 : ""}"
           >
             ${trackNameMarkup}
+            ${timingMarkup}
           </div>
         </div>
 

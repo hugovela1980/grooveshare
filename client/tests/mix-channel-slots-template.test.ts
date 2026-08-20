@@ -115,6 +115,37 @@ tester.describe("mix channel slots template", () => {
         tester.expect(html.includes("✎")).toBe(false);
     });
 
+    tester.it("renders musical placement as an inline desktop editor when a project timeline is available", () => {
+        const html = renderMixChannelSlots(
+            [
+                createTrack({
+                    musicalPlacement: {
+                        start: { bar: 3, beat: 2.5 },
+                        spanBeats: 8,
+                    },
+                }),
+            ],
+            undefined,
+            {
+                role: "owner",
+                currentUserId: null,
+                musicalTimeline: {
+                    bpm: 120,
+                    timeSignature: { numerator: 4, denominator: 4 },
+                },
+            },
+        );
+
+        tester.expect(html.includes("Bar 3, beat 2.5 · 2 bars")).toBe(true);
+        tester.expect(html.includes("data-track-musical-start-bar")).toBe(true);
+        tester.expect(html.includes("data-track-musical-start-beat")).toBe(true);
+        tester.expect(html.includes("data-track-musical-span-bars")).toBe(true);
+        tester.expect(html.includes('value="3"')).toBe(true);
+        tester.expect(html.includes('value="2.5"')).toBe(true);
+        tester.expect(html.includes('value="2"')).toBe(true);
+        tester.expect(html.includes("data-track-edit-button")).toBe(false);
+    });
+
     tester.it("renders enabled, volume, and delete controls without waveform placeholders", () => {
         const html = renderMixChannelSlots([createTrack()]);
 

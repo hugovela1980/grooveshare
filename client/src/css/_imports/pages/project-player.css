@@ -465,3 +465,50 @@
     margin-top: 0.45rem;
     font-size: 0.9rem;
 }
+
+/* V3 M2: musical track placement */
+.mix-channel-slot__timing {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.78rem;
+  opacity: 0.72;
+}
+
+.mix-channel-slot__timing-editor {
+  margin-top: 0.2rem;
+}
+
+.mix-channel-slot__timing-editor > summary {
+  width: fit-content;
+  cursor: pointer;
+  user-select: none;
+}
+
+.mix-channel-slot__timing-editor[open] > summary {
+  margin-bottom: 0.5rem;
+}
+
+.mix-channel-slot__timing-fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(5rem, 1fr));
+  gap: 0.45rem;
+  max-width: 24rem;
+}
+
+.mix-channel-slot__timing-fields label {
+  display: grid;
+  gap: 0.2rem;
+  font-size: 0.72rem;
+}
+
+.mix-channel-slot__timing-fields input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+@media (max-width: 42rem) {
+  .mix-channel-slot__timing-fields {
+    grid-template-columns: 1fr;
+  }
+}

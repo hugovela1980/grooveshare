@@ -32,6 +32,12 @@ export type MusicalPosition = {
   beat: number;
 };
 
+export type TrackMusicalPlacement = {
+  start: MusicalPosition;
+  /** Length in project time-signature beat units. Null means not yet declared. */
+  spanBeats: number | null;
+};
+
 export type Project = {
   id: string;
   title: string;
@@ -68,11 +74,13 @@ export type Track = {
   fileSize: number;
   uploadedByUserId?: string | null;
   /**
-   * Project-timeline position where this track begins. Existing uploaded stems
-   * omit the value and therefore begin at project time zero. Recording will
-   * persist non-zero offsets in a later milestone.
+   * Legacy transport-time offset retained for recording-clock compatibility.
+   * Persisted musical placement is authoritative when a project timeline is
+   * available; callers without one may continue using this seconds offset.
    */
   timelineOffsetSeconds?: number;
+  /** Musical placement is authoritative when present; legacy tracks default to bar 1, beat 1. */
+  musicalPlacement?: TrackMusicalPlacement;
   createdAt: string;
 };
 
@@ -85,6 +93,12 @@ export type UploadTrackInput<TAudioFile = unknown> = {
   projectId: string;
   trackName: string;
   audioFile: TAudioFile;
+  musicalPlacement?: TrackMusicalPlacement;
+};
+
+export type UpdateTrackDetailsInput = {
+  name?: string;
+  musicalPlacement?: TrackMusicalPlacement;
 };
 
 export type User = {

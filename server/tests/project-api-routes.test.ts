@@ -1820,6 +1820,132 @@ tester.describe("project API routes", () => {
     }
   });
 
+  tester.it("updates and returns track musical placement", async () => {
+    const project: Project = {
+      id: "project-1",
+      title: "Project One",
+      description: "Test project",
+      musicalTimeline: {
+        bpm: 90,
+        timeSignature: { numerator: 3, denominator: 4 },
+      },
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    };
+
+    const track: Track = {
+      id: "track-1",
+      projectId: "project-1",
+      name: "Guitar",
+      originalFilename: "guitar.wav",
+      filePath: "uploads/projects/project-1/guitar.wav",
+      mimeType: "audio/wav",
+      fileSize: 100,
+      uploadedByUserId: null,
+      createdAt: "2026-01-01T00:00:00.000Z",
+    };
+
+    await writeFile(
+      TEST_DB_FILE_PATH,
+      `${JSON.stringify({ projects: [project], tracks: [track] }, null, 2)}\n`,
+      "utf-8",
+    );
+
+    const { baseUrl, server, request } = await createTestServer();
+
+    try {
+      const response = await request(
+        `${baseUrl}/api/projects/project-1/tracks/track-1`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            musicalPlacement: {
+              start: { bar: 7, beat: 2.5 },
+              spanBeats: 12,
+            },
+          }),
+        },
+      );
+
+      const body = (await response.json()) as ApiResponse<Track>;
+
+      tester.expect(response.status).toBe(200);
+      tester.expect(body.data?.musicalPlacement).toEqual({
+        start: { bar: 7, beat: 2.5 },
+        spanBeats: 12,
+      });
+
+      const tracksResponse = await request(
+        `${baseUrl}/api/projects/project-1/tracks`,
+      );
+      const tracksBody = (await tracksResponse.json()) as ApiResponse<Track[]>;
+
+      tester.expect(tracksBody.data?.[0]?.musicalPlacement).toEqual({
+        start: { bar: 7, beat: 2.5 },
+        spanBeats: 12,
+      });
+    } finally {
+      await closeServer(server);
+    }
+  });
+
+  tester.it("returns 400 for track placement outside the project time signature", async () => {
+    const project: Project = {
+      id: "project-1",
+      title: "Project One",
+      description: "Test project",
+      musicalTimeline: {
+        bpm: 90,
+        timeSignature: { numerator: 3, denominator: 4 },
+      },
+      createdAt: "2026-01-01T00:00:00.000Z",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    };
+    const track: Track = {
+      id: "track-1",
+      projectId: "project-1",
+      name: "Guitar",
+      originalFilename: "guitar.wav",
+      filePath: "uploads/projects/project-1/guitar.wav",
+      mimeType: "audio/wav",
+      fileSize: 100,
+      uploadedByUserId: null,
+      createdAt: "2026-01-01T00:00:00.000Z",
+    };
+
+    await writeFile(
+      TEST_DB_FILE_PATH,
+      `${JSON.stringify({ projects: [project], tracks: [track] }, null, 2)}\n`,
+      "utf-8",
+    );
+
+    const { baseUrl, server, request } = await createTestServer();
+
+    try {
+      const response = await request(
+        `${baseUrl}/api/projects/project-1/tracks/track-1`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            musicalPlacement: {
+              start: { bar: 2, beat: 4 },
+              spanBeats: 3,
+            },
+          }),
+        },
+      );
+
+      const body = (await response.json()) as ApiResponse<unknown>;
+
+      tester.expect(response.status).toBe(400);
+      tester.expect(body.error).toBe("Invalid track musical placement.");
+    } finally {
+      await closeServer(server);
+    }
+  });
+
   tester.it("returns 400 for an invalid track name update", async () => {
     const project: Project = {
       id: "project-1",

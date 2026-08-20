@@ -1,6 +1,7 @@
 import type {
     CreateTrackInput,
     Track,
+    UpdateTrackDetailsInput,
     UpdateTrackNameInput,
 } from "../types.js";
 
@@ -27,6 +28,12 @@ export type DeleteTrackResult =
 export type TracksStore = {
     getTracksByProjectId: (projectId: string) => Promise<Track[]>;
     createTrack: (trackInput: CreateTrackInput) => Promise<Track>;
+
+    updateTrackDetails: (
+        projectId: string,
+        trackId: string,
+        trackInput: UpdateTrackDetailsInput,
+    ) => Promise<UpdateTrackResult>;
 
     updateTrackName: (
         projectId: string,

@@ -1,6 +1,7 @@
 import type {
   CreateTrackInput,
   Track,
+  UpdateTrackDetailsInput,
   UpdateTrackNameInput,
 } from "../types.js";
 
@@ -22,9 +23,17 @@ export function createTracksJsonStore(
   async function getTracksByProjectId(projectId: string): Promise<Track[]> {
     const database = await readDatabase(dbFilePath);
 
-    return database.tracks.filter((track) => {
-      return track.projectId === projectId;
-    });
+    return database.tracks
+      .filter((track) => {
+        return track.projectId === projectId;
+      })
+      .map((track) => ({
+        ...track,
+        musicalPlacement: track.musicalPlacement ?? {
+          start: { bar: 1, beat: 1 },
+          spanBeats: null,
+        },
+      }));
   }
 
   async function createTrack(trackInput: CreateTrackInput): Promise<Track> {
@@ -40,6 +49,10 @@ export function createTracksJsonStore(
       mimeType: trackInput.mimeType,
       fileSize: trackInput.fileSize,
       uploadedByUserId: trackInput.uploadedByUserId,
+      musicalPlacement: trackInput.musicalPlacement ?? {
+        start: { bar: 1, beat: 1 },
+        spanBeats: null,
+      },
       createdAt: now,
     };
 
@@ -50,10 +63,10 @@ export function createTracksJsonStore(
     return track;
   }
 
-  async function updateTrackName(
+  async function updateTrackDetails(
     projectId: string,
     trackId: string,
-    trackInput: UpdateTrackNameInput,
+    trackInput: UpdateTrackDetailsInput,
   ): Promise<UpdateTrackResult> {
     const database = await readDatabase(dbFilePath);
 
@@ -62,10 +75,7 @@ export function createTracksJsonStore(
     });
 
     if (!projectExists) {
-      return {
-        ok: false,
-        reason: "project-not-found",
-      };
+      return { ok: false, reason: "project-not-found" };
     }
 
     const trackIndex = database.tracks.findIndex((track) => {
@@ -73,34 +83,38 @@ export function createTracksJsonStore(
     });
 
     if (trackIndex === -1) {
-      return {
-        ok: false,
-        reason: "track-not-found",
-      };
+      return { ok: false, reason: "track-not-found" };
     }
 
     const existingTrack = database.tracks[trackIndex];
 
     if (!existingTrack) {
-      return {
-        ok: false,
-        reason: "track-not-found",
-      };
+      return { ok: false, reason: "track-not-found" };
     }
 
     const updatedTrack: Track = {
       ...existingTrack,
-      name: trackInput.name,
+      ...(trackInput.name !== undefined ? { name: trackInput.name } : {}),
+      musicalPlacement:
+        trackInput.musicalPlacement ??
+        existingTrack.musicalPlacement ?? {
+          start: { bar: 1, beat: 1 },
+          spanBeats: null,
+        },
     };
 
     database.tracks[trackIndex] = updatedTrack;
-
     await writeDatabase(dbFilePath, database);
 
-    return {
-      ok: true,
-      updatedTrack,
-    };
+    return { ok: true, updatedTrack };
+  }
+
+  async function updateTrackName(
+    projectId: string,
+    trackId: string,
+    trackInput: UpdateTrackNameInput,
+  ): Promise<UpdateTrackResult> {
+    return updateTrackDetails(projectId, trackId, { name: trackInput.name });
   }
 
   async function deleteTrackById(
@@ -153,13 +167,22 @@ export function createTracksJsonStore(
       return track.projectId === projectId && track.id === trackId;
     });
 
-    return track ?? null;
+    return track
+      ? {
+          ...track,
+          musicalPlacement: track.musicalPlacement ?? {
+            start: { bar: 1, beat: 1 },
+            spanBeats: null,
+          },
+        }
+      : null;
   }
 
   return {
     getTracksByProjectId,
     getTrackById,
     createTrack,
+    updateTrackDetails,
     updateTrackName,
     deleteTrackById,
   };

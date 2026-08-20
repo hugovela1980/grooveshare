@@ -96,6 +96,22 @@ tester.describe("frontend-browser adapters", () => {
     tester.expect((body.get("audioFile") as File).name).toBe("guitar.wav");
   });
 
+  tester.it("adds musical placement fields to track uploads", () => {
+    const file = new File([new Uint8Array([1])], "part.wav", { type: "audio/wav" });
+    const body = createBrowserMultipartBodyFactory().createTrackUploadBody({
+      trackName: "Part",
+      audioFile: file,
+      musicalPlacement: {
+        start: { bar: 5, beat: 2.5 },
+        spanBeats: 8,
+      },
+    }) as FormData;
+
+    tester.expect(body.get("musicalStartBar")).toBe("5");
+    tester.expect(body.get("musicalStartBeat")).toBe("2.5");
+    tester.expect(body.get("musicalSpanBeats")).toBe("8");
+  });
+
   tester.it("adapts browser local storage to the core storage port", () => {
     const storage = createMemoryStorage();
     const adapter = createBrowserStorageProvider(storage);

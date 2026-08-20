@@ -120,4 +120,31 @@ tester.describe("database migration behavior", () => {
     },
   );
 
+  tester.it(
+    "gives legacy tracks a bar-one start without inventing a musical length",
+    async () => {
+      const projectId = crypto.randomUUID();
+      const trackId = crypto.randomUUID();
+
+      await postgresTestPool.query(
+        `INSERT INTO projects (id, title, description, created_at, updated_at)
+         VALUES ($1, $2, $3, NOW(), NOW())`,
+        [projectId, "Legacy Track Timeline", "Migration default test"],
+      );
+      await postgresTestPool.query(
+        `INSERT INTO tracks (id, project_id, name, original_filename, file_path, mime_type, file_size, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
+        [trackId, projectId, "Legacy Stem", "stem.wav", "uploads/stem.wav", "audio/wav", 100],
+      );
+
+      const tracksStore = createTracksPostgresStore(postgresTestPool);
+      const track = await tracksStore.getTrackById(projectId, trackId);
+
+      tester.expect(track?.musicalPlacement).toEqual({
+        start: { bar: 1, beat: 1 },
+        spanBeats: null,
+      });
+    },
+  );
+
 });
