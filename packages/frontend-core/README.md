@@ -1,80 +1,12 @@
 # @hugovela/frontend-core
 
-`frontend-core` is the presentation-independent frontend boundary shared by GrooveShare presentation clients.
+`@hugovela/frontend-core` is GrooveShare's presentation-independent frontend package.
 
-## Current shared responsibilities
+It contains shared product meaning, application workflows, service behavior, permissions, mix persistence, and audio/timeline behavior that should be identical whether GrooveShare is being presented by the desktop/tablet client or the phone client.
 
-The package owns behavior and contracts that have a clear reason to mean the same thing in every presentation:
+## Dependency boundary
 
-- shared project, track, user, membership, invitation-access, invitation-session, and mix domain types;
-- project permission rules;
-- `SessionProvider` and `StorageProvider` platform contracts;
-- `PlaybackEngine`, the shared project `Transport`, and shared Web Audio playback;
-- Viewer, pending, and Guest mix persistence behavior;
-- shared application state, route/action, and presentation-port contracts;
-- shared API/service contracts for authentication, projects, tracks, memberships, and invitations;
-- shared API response/error handling and service-level request behavior;
-- the shared collaboration invitation / Guest access application workflow.
-
-The package deliberately does **not** own DOM rendering, CSS, dialogs, touch behavior, browser `fetch`, `File`, `FormData`, browser storage globals, browser history, URLs, or clipboard access.
-
-## Version 2.2 application-layer direction
-
-### Stage 1 — application contracts
-
-Stage 1 established the vocabulary between application behavior and presentation: shared state, routes/actions, and `ApplicationPresentationPort` implementations supplied by desktop and mobile.
-
-### Stage 2 — shared services and browser adapters
-
-Stage 2 consolidates the service behavior that desktop and mobile had proven to be identical:
-
-- authentication;
-- projects and mix settings;
-- tracks and Guest audio loading;
-- project membership;
-- invitation management and Guest resolution/acceptance.
-
-Those services depend only on `ApiTransport` and, for browser file uploads, the abstract `MultipartBodyFactory` port. They do not call `fetch` or construct `FormData` themselves.
-
-Guest mix key remapping and invitation-session validation are also shared here because their meaning is platform-independent.
-
-The browser implementations now live in the separate `@hugovela/frontend-browser` adapter package. Both desktop and mobile use that same browser package while preserving their separate presentation code.
-
-### Stage 3 — shared invitation and Guest workflow
-
-Stage 3 moves the first complete application workflow behind the shared boundary. `InvitationGuestWorkflow` now owns:
-
-- invitation session state and project scoping;
-- Guest invitation opening and revalidation;
-- revoked/disabled/regenerated invitation handling;
-- authenticated-member fallback when an invitation disappears;
-- pending Contributor intent across authentication;
-- explicit Contributor acceptance and post-accept project reload;
-- Guest continuation after logout or an expired authenticated session;
-- the invitation state supplied to presentation adapters.
-
-Desktop and mobile still own navigation/rendering mechanics, but they no longer independently implement the invitation state machine.
-
-### Stage 4 — shared GrooveShare application controller
-
-Stage 4 moves the broader application state machine into `GrooveShareApplicationController`. The shared controller now owns:
-
-- authentication/session restoration state;
-- selected-project state;
-- requested-route resolution and authentication protection;
-- Project Menu and Project Player application state;
-- project loading and deep-link restoration;
-- application-level navigation decisions;
-- invitation/Guest workflow integration;
-- post-auth invitation continuation;
-- logout and expired-session transitions;
-- the presentation state sent through `ApplicationPresentationPort`.
-
-The concrete desktop and mobile composition roots still own browser history application, DOM lifecycle setup/cleanup, page-controller construction, HTML/CSS, dialogs, inline editing, touch behavior, and other presentation-specific interaction. Both clients now send the same application actions into the same shared controller and render the resulting state through their own presentation adapters.
-
-## Dependency direction
-
-```text
+```txt
 frontend-core
     ↑
 frontend-browser
@@ -82,103 +14,250 @@ frontend-browser
  client      mobile-client
 ```
 
-`frontend-core` knows nothing about either client or the browser package. `frontend-browser` implements browser-specific ports using `frontend-core`. Desktop and mobile can then share browser infrastructure without becoming dependent on one another.
+`frontend-core` must not import:
 
-### Stage 5 — final ownership boundary
+- `client/`;
+- `mobile-client/`;
+- `@hugovela/frontend-browser`;
+- presentation CSS;
+- page DOM/rendering code.
 
-Stage 5 removes the temporary presentation-local API/router/storage forwarding files and moves create-project draft behavior into the shared core. Shared service, routing, storage, permission, invitation, and project-draft tests now live with the code they protect rather than being repeated in desktop/mobile suites.
+The root architecture check enforces this boundary:
 
-The remaining overlap between `client/` and `mobile-client/` is presentation code: templates, page controllers, UI utilities, CSS, development UI, and small composition roots. Identical presentation files are not automatically shared; they may diverge as the desktop/tablet and phone experiences evolve.
+```bash
+npm run frontend:boundaries
+```
 
-Future features should begin here when they define product/application meaning. Recording state, recording use-cases, permissions, synchronization rules, and engine contracts should therefore be modeled in shared code before either presentation wires its device-specific controls.
+## Package areas
 
+### `application/`
 
-## Version 3 audio-transport direction
+Owns shared application state and use-case coordination.
 
-### Milestone 1 Stage 1 — shared Transport and timeline foundation
+Important modules include:
 
-Version 3 begins by separating the GrooveShare project timeline from the concrete Web Audio playback engine. `Transport` is now the shared, presentation-independent owner of:
+- `application-state.ts` — authentication, selected-project, invitation, loading, and error state.
+- `application-navigation.ts` — shared screen/route/action vocabulary.
+- `application-presentation.ts` — `ApplicationPresentationPort`, which lets shared application code request presentation changes without rendering HTML.
+- `grooveshare-application-controller.ts` — the shared application state machine used by both presentation clients.
+- `invitation-guest-workflow.ts` — collaboration invitation and Guest-access lifecycle.
+- `project-draft-state.ts` — presentation-independent create-project draft behavior.
+
+`GrooveShareApplicationController` currently coordinates:
+
+- session restoration and authentication state;
+- Projects/Project Player application state;
+- selected project;
+- project loading and route protection;
+- navigation decisions;
+- invitation/Guest behavior;
+- post-auth Contributor continuation;
+- logout and expired-session recovery;
+- presentation state sent through `ApplicationPresentationPort`.
+
+### `domain/`
+
+Owns shared domain types such as:
+
+- `User`;
+- `Project`;
+- `Track`;
+- `ProjectRole`;
+- `ProjectMember`;
+- mix settings;
+- project/track/authentication service inputs.
+
+`Track.timelineOffsetSeconds` is reserved for tracks that begin at a non-zero project position. Existing uploaded stems omit it and therefore begin at project time zero. Database persistence for recording offsets is intentionally deferred until the recording workflow is implemented.
+
+### `services/`
+
+Owns presentation-independent API/service behavior for:
+
+- authentication;
+- projects and shared mix settings;
+- tracks;
+- project memberships;
+- collaboration invitations.
+
+Services depend on abstract capabilities such as `ApiTransport` and `MultipartBodyFactory`. They do not call browser `fetch` or construct `FormData` directly.
+
+Concrete browser implementations live in `@hugovela/frontend-browser`.
+
+### `permissions/`
+
+Owns frontend permission interpretation used to present valid controls:
+
+- contribute;
+- manage project;
+- persist shared mix;
+- manage a specific track.
+
+These rules improve UI behavior but do not replace server authorization. The server remains the security boundary.
+
+### `mix/`
+
+Owns shared mix-persistence behavior:
+
+- browser-local Viewer mixes;
+- browser-local Guest mix key remapping;
+- pending Owner/Contributor recovery copies;
+- debounced server persistence;
+- overlapping-save/revision protection;
+- flush-before-controlled-navigation semantics.
+
+The presentation decides when a mix control changes; the core decides how that state should persist.
+
+### `platform/`
+
+Contains abstract platform contracts such as:
+
+- `SessionProvider`;
+- `StorageProvider`;
+- invitation-session persistence.
+
+These let application behavior remain independent of `localStorage`, `sessionStorage`, or another future platform implementation.
+
+### `playback/`
+
+Owns shared playback/audio timing behavior.
+
+The UI-facing seam is `PlaybackEngine`:
+
+```ts
+interface PlaybackEngine {
+  loadMix(...): void;
+  play(): Promise<void>;
+  pause(): void;
+  stop(): void;
+  seek(seconds: number): void;
+  seekBy(seconds: number): void;
+  setLoopEnabled(enabled: boolean): void;
+  // ...
+}
+```
+
+The primary implementation is `WebAudioPlaybackEngine`.
+
+## Shared Transport
+
+`Transport` is the authoritative GrooveShare project timeline.
+
+It owns:
 
 - project position and duration;
-- stopped, paused, playing, and ended state;
+- `stopped`, `paused`, `playing`, and `ended` state;
 - loop state;
-- play, pause, stop, seek, and relative-seek timeline transitions;
-- observable transport snapshots.
+- play, pause, stop, seek, and relative-seek transitions;
+- observable transport snapshots;
+- exact playback scheduling instructions;
+- exact timeline markers for future recording.
 
-`WebAudioPlaybackEngine` supplies `AudioContext.currentTime` as the Transport clock. While playback is running, that clock is the source of truth for elapsed project time. The 100 ms snapshot ticker only publishes observations to UI subscribers; it does not advance playback or transport state.
+The Web Audio engine supplies:
 
-For the current zero-offset stem model, project time zero means the beginning of every loaded source, and project duration is the duration of the longest decoded source. Shorter tracks are allowed to end without ending the shared project timeline. Later Milestone 1 stages will separate source scheduling more explicitly, harden loop scheduling, and add recording timeline markers without introducing microphone capture yet.
+```ts
+getClockTime: () => audioContext.currentTime
+```
 
-### Milestone 1 Stage 2 — shared playback scheduling and alignment
+While playback is running, `AudioContext.currentTime` is therefore the authoritative clock. UI timers only request/publish snapshots; they do not advance time.
 
-Stage 2 makes the Transport the authority that turns the current project
-position plus a small scheduling lead into one `PlaybackScheduleInstruction`.
-That instruction contains the absolute audio-clock start time, project playback
-position, project duration, and loop state that every Web Audio source in the
-same playback generation must obey.
+### Playback scheduling
 
-`WebAudioPlaybackEngine` still owns decoded buffers, GainNodes,
-`AudioBufferSourceNode` creation/destruction, enabled state, and live volume.
-It no longer computes absolute source start times or independently reads the
-project position for each source. Initial play, resume, and seek request one
-instruction from Transport and schedule all playable sources from that single
-immutable instruction.
+`Transport.play()` produces one `PlaybackScheduleInstruction` containing values such as:
 
-Mixed-duration semantics remain unchanged: the longest decoded track defines
-the project duration and shorter tracks may end naturally without completing
-the Transport.
+- absolute audio-clock start time;
+- absolute audio-clock end time;
+- project playback position;
+- project duration;
+- loop state.
 
-### Milestone 1 Stage 3 — hardened controls and clock-scheduled looping
+Every active `AudioBufferSourceNode` in that playback generation receives the same instruction. Pause/resume and seek recreate one-shot source nodes against a new shared instruction rather than allowing individual media clocks to drift.
 
-Stage 3 makes transport lifecycle semantics explicit enough for recording to
-rely on them. Play begins from the current project position, pause freezes that
-position against the Web Audio clock, stop always returns to project time zero,
-and seek/relative seek remain bounded by the shared project timeline whether
-the transport is stopped, paused, or playing. Repeated transitions recreate
-one-shot Web Audio sources from one shared scheduling instruction so source
-generations do not drift apart.
+Project duration is currently the longest decoded source. Shorter tracks may end naturally without ending the shared Transport.
 
-Natural project completion and loop position are now derived from the
-Transport's authoritative clock rather than from an `AudioBufferSourceNode`
-`onended` callback. `PlaybackScheduleInstruction` includes the exact clock time
-at which its project segment ends. When looping is enabled, the Web Audio engine
-pre-schedules the next source generation at that exact boundary and keeps one
-future generation scheduled ahead. The 100 ms Transport ticker only maintains
-that ahead-of-time queue and publishes UI observations; it does not choose the
-actual loop start time.
+### Looping
 
-This means JavaScript callback latency no longer defines the loop boundary.
-Every loop generation starts at an absolute AudioContext clock time chosen by
-Transport. Turning loop off cancels future scheduled generations without
-interrupting the currently playing generation.
+Loop boundaries are scheduled against absolute AudioContext clock times. The Web Audio engine maintains an ahead-of-time loop generation rather than waiting for `AudioBufferSourceNode.onended` to decide when the next loop should start.
 
-### Milestone 1 Stage 4 — recording timeline primitives and track placement
+This keeps JavaScript callback latency out of the actual loop boundary.
 
-Stage 4 adds the timing vocabulary that microphone capture will use without
-implementing microphone access or recording UI. `Transport.markTimelinePosition()`
-captures the authoritative audio-clock value and the project position derived
-from that same clock read. `RecordingTimeline` turns those exact observations
-into recording-start and recording-stop markers plus shared
-`RecordingPositionMetadata`.
+## Recording timeline foundation
 
-Recording duration is calculated from the authoritative audio clock rather
-than by subtracting project positions. That distinction matters when project
-position wraps at a loop boundary: a recording may start near the end of a
-loop, stop near the beginning of the next pass, and still have an unambiguous
-positive duration.
+The package contains `recording-timeline.ts`, which provides presentation-neutral timing primitives without microphone capture.
 
-The shared `Track` domain type now reserves optional `timelineOffsetSeconds` as
-the place where a future recorded track can declare that its audio begins at a
-non-zero project position. Existing uploaded stems omit the field and continue
-to mean project time zero. Stage 4 does **not** add database persistence for the
-offset; that belongs with the recording/upload workflow that begins in the
-next milestone.
+`Transport.markTimelinePosition()` captures one exact observation:
 
-`WebAudioPlaybackEngine` exposes optional recording-marker methods through the
-existing playback seam because its `AudioContext.currentTime` clock is precise
-enough to support them. The HTML-audio fallback deliberately does not claim
-recording-clock capability.
+```ts
+{
+  clockTimeSeconds,
+  projectPositionSeconds,
+  playbackState,
+}
+```
 
-Still deferred: microphone capture, MediaRecorder/Web Audio input plumbing,
-automatic input-latency compensation, device calibration, manual nudge,
-waveform editing, punch-in/out, and other DAW-grade correction/editing tools.
+`RecordingTimeline` converts those observations into:
+
+- `RecordingStartMarker`;
+- `RecordingStopMarker`;
+- `RecordingPositionMetadata`.
+
+Recording duration is calculated from the authoritative audio clock rather than by subtracting project positions. This matters if project position wraps across a loop boundary.
+
+`WebAudioPlaybackEngine` exposes optional `markRecordingStart()` / `markRecordingStop()` methods through `PlaybackEngine`. The HTML-audio fallback intentionally does not claim recording-grade clock capability.
+
+Not implemented yet:
+
+- microphone capture;
+- MediaRecorder/Web Audio input plumbing;
+- persistence of recorded-track offsets;
+- input-latency compensation;
+- device calibration;
+- manual nudge;
+- waveform editing;
+- punch-in/out or comping.
+
+## What does not belong here
+
+Keep these outside `frontend-core`:
+
+- HTML rendering and templates;
+- CSS/layout;
+- DOM queries/event wiring;
+- desktop/mobile-specific navigation;
+- touch/gesture behavior;
+- browser `fetch`;
+- browser `File`/`FormData` construction;
+- direct `localStorage` / `sessionStorage` access;
+- browser history and clipboard APIs.
+
+Browser implementations of abstract capabilities belong in `@hugovela/frontend-browser`; presentation-specific behavior belongs in `client/` or `mobile-client/`.
+
+## Tests
+
+Run the package tests and typecheck from the repository root:
+
+```bash
+npm run test-frontend-core
+```
+
+Or separately:
+
+```bash
+npm test -w @hugovela/frontend-core
+npm run typecheck -w @hugovela/frontend-core
+```
+
+The package test suite covers application contracts/controller behavior, invitations/Guest workflows, permissions, project draft state, services, mix storage/persistence, HTML-audio fallback behavior, Transport behavior, recording timeline markers, and Web Audio scheduling/synchronization.
+
+Full repository verification:
+
+```bash
+npm run verify
+```
+
+## Rule for new features
+
+A useful first question is:
+
+> Does this define what GrooveShare does, or only how one client presents it?
+
+If it defines shared product/application meaning, model it here first. That is especially important for recording: shared recording state, timeline relationships, save/discard semantics, permissions, and recording-engine contracts should have one authoritative implementation before desktop and mobile add their own controls.

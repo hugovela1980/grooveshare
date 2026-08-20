@@ -1,154 +1,199 @@
 # GrooveShare
 
-GrooveShare is a lightweight browser-based music collaboration app for sharing stems, practicing parts, and building rough remote band workflows.
+GrooveShare is a lightweight browser-based music collaboration app for sharing stems, practicing parts, building rough mixes, inviting collaborators, and moving toward simple remote recording workflows.
 
-The project is intentionally narrower than a DAW. GrooveShare focuses on a simple shared workflow: create a project, upload audio tracks, invite collaborators, listen to the tracks together, adjust a four-channel mix, and eventually capture rough remote takes.
+GrooveShare is intentionally narrower than a DAW. The goal is a focused band workspace: create a project, add tracks, listen together, adjust a shared or personal mix, invite other musicians, and eventually capture rough takes against the same project timeline.
 
 ## Current Status
 
-The current stable release is **v1.0.0** on `main`.
+`main` is the production/release branch. `develop` is the integration branch for the latest completed work.
 
-Active development is on **Version 2 — Multi-User Hosted Beta** on `develop`.
+The current `develop` branch contains two major architectural milestones:
 
-Version 2 now includes:
+- **Version 2.2 — Shared Frontend Application Layer** is complete. Desktop/tablet and phone presentations are separate, while shared product behavior lives in `@hugovela/frontend-core` and shared browser mechanics live in `@hugovela/frontend-browser`.
+- **Version 3 Milestone 1 — Recording-Capable Web Audio Engine and Transport** is complete through the pre-recording foundation. GrooveShare now has an explicit Web Audio transport, clock-scheduled multitrack playback/looping, and recording timeline markers. Microphone capture and recording UI have not been implemented yet.
 
-- PostgreSQL-backed project, track, mix, user, session, and membership data.
-- User registration, login, logout, and persistent server-managed sessions.
-- Project membership roles: **Viewer**, **Contributor**, and **Owner**.
-- Server-enforced authorization for project, track, upload, edit, delete, mix, and membership actions.
-- Permission-aware client controls.
-- Track upload ownership for Contributor permissions.
-- A production-ready configuration boundary.
-- A Linux VPS deployment with PostgreSQL, Caddy, HTTPS, systemd services, firewall rules, persistent uploads, logging, and backups.
-- A separate internet-accessible Labs environment for testing the latest `develop` branch.
+Current product capabilities include:
 
-The current development focus is **Version 2 Milestone 5 — Mobile-Ready UI/UX**: make the existing web application genuinely comfortable to use on a modern phone before adding more advanced audio features.
+- PostgreSQL-backed projects, tracks, users, sessions, memberships, invitation links, and persisted project mix settings.
+- Registration, login, logout, and server-managed sessions.
+- Project roles: **Viewer**, **Contributor**, and **Owner**.
+- Server-enforced authorization for project, track, membership, upload, edit, delete, and mix operations.
+- A separate desktop/tablet presentation (`client`) and phone presentation (`mobile-client`).
+- Shared application state/workflows and services through `@hugovela/frontend-core`.
+- Shared browser adapters through `@hugovela/frontend-browser`.
+- Reusable collaboration invitation links and unauthenticated Guest listening.
+- Explicit Guest → authenticated → Contributor conversion.
+- Four-channel project mixing with server persistence for Contributors/Owners and browser-local mixes for Viewers/Guests.
+- Synchronized multitrack Web Audio playback from one `AudioContext` clock.
+- A first-class project `Transport` for play, pause, stop, seek, relative seek, looping, and project position.
+- Recording timeline start/stop markers tied to the same authoritative audio clock.
+- Production and Labs deployments behind Caddy with HTTPS, PostgreSQL, persistent uploads, systemd, firewall rules, and backups.
 
 ## Deployment Environments
 
-GrooveShare uses separate stable and development environments.
+GrooveShare keeps production and active integration testing separate.
 
 ```txt
 main
   ↓
-production release
+production
   ↓
 grooveshare.hugovela.com
 
 develop
   ↓
-Labs / current integration build
+Labs / integration
   ↓
 labs.grooveshare.hugovela.com
 ```
 
-`labs.grooveshare.hugovela.com` is the live testing environment for current development and contributor feedback.
+The two VPS environments use separate Node processes, PostgreSQL databases, upload directories, and ports so Labs testing does not modify production data.
 
-The production hostname is reserved for code released from `main`. Until Version 2 is ready for release, the production hostname does not need to expose the current development build.
+## Access Models
 
-The two VPS environments use separate application processes, PostgreSQL databases, upload directories, and Node ports so testing in Labs does not modify production data.
-
-## Current User Roles
-
-Authorization is enforced by the server. The client hides or shows controls for usability, but hidden controls are never treated as the security boundary.
+Authorization is enforced by the server. Client-side permission checks improve usability, but the UI is never the security boundary.
 
 ### Viewer
 
-A Viewer can:
-
-- Open projects they belong to.
-- Read project and track information.
-- Stream and play project audio.
-- Use the playback/mix interface where permitted.
+A Viewer can open projects they belong to, read project/track information, stream project audio, and use a personal mix. Viewer mix changes are stored locally in the browser rather than changing the shared project mix.
 
 ### Contributor
 
-A Contributor has Viewer abilities and can also:
-
-- Upload tracks.
-- Rename and delete tracks they uploaded.
-- Participate in the project without receiving Owner-level management privileges.
+A Contributor has Viewer abilities and can also upload tracks, manage tracks they uploaded, and persist the shared project mix.
 
 ### Owner
 
-An Owner has Contributor abilities and can also:
-
-- Edit and delete the project.
-- Manage all project tracks.
-- Add, remove, and change project members.
-- Manage project-level collaboration settings.
+An Owner has Contributor abilities and can also edit/delete the project, manage all project tracks, manage project members, and create/regenerate/disable collaboration invitation links.
 
 Creating a project makes the authenticated creator its Owner.
 
+### Guest
+
+Guest access is separate from Viewer membership. A valid invitation link can grant temporary read-only project access without creating a project membership.
+
+A Guest can listen and keep a personal mix in browser storage. A Guest cannot upload, edit, delete, manage members, or persist the project's shared mix. An invitation can later be explicitly accepted by an authenticated user to become a Contributor.
+
+## Frontend Architecture
+
+GrooveShare uses two independent presentation clients over shared application and browser layers:
+
+```txt
+                       GrooveShare server
+                              ↑
+                       shared API contract
+                              ↑
+                 @hugovela/frontend-core
+          domain + application + services + audio
+                              ↑
+                @hugovela/frontend-browser
+           fetch + storage + history + browser shell
+                       /             \
+                      /               \
+                client/          mobile-client/
+             desktop/tablet           phone
+```
+
+The key ownership rule is:
+
+> `frontend-core` owns what GrooveShare does; `frontend-browser` owns shared browser mechanisms; `client` and `mobile-client` own how GrooveShare looks and feels on their target surfaces.
+
+`npm run frontend:boundaries` enforces the dependency direction and is included in the full verification gate.
+
+See [`docs/frontend-clients.md`](docs/frontend-clients.md) for the detailed frontend boundary and [`docs/architecture.md`](docs/architecture.md) for the complete system architecture.
+
 ## Current App Flow
 
-The authenticated Version 2 flow is:
+Authenticated flow:
 
 ```txt
 Open GrooveShare
       ↓
-Register or Log In
+Restore session or show authentication
       ↓
-Resolve current session
+Projects
       ↓
-Project Menu
-      ↓
-Create Project or open an existing project
+Create project or open project
       ↓
 Project Player
       ↓
-Role-aware playback, mixing, uploads, editing, and management
+Role-aware playback, mixing, uploads, editing,
+membership management, and collaboration controls
 ```
 
-The Project Player is the center of the current GrooveShare experience. It contains:
+Invitation flow:
 
-- A four-channel track/mixer area.
-- Per-channel enabled state and volume.
-- Persistent project mix settings.
-- Inline project and track editing.
-- Track upload and deletion controls where authorized.
-- A shared Audio Player with play/pause, stop, loop, timestamp, progress, and seeking.
-- Owner membership-management controls.
+```txt
+Owner generates invitation link
+      ↓
+Guest opens link
+      ↓
+Guest listens without membership
+      ↓
+optional: Become a Contributor
+      ↓
+login/register if necessary
+      ↓
+explicit invitation acceptance
+      ↓
+Contributor membership
+```
 
-## Audio Playback Today
+## Audio Architecture Today
 
-The current transport uses multiple browser HTML audio elements.
+GrooveShare's primary playback engine is `WebAudioPlaybackEngine` in `@hugovela/frontend-core`.
 
-Supported behavior includes:
+The current audio model is:
 
-- Up to four project channels.
-- Enable/disable state per channel.
-- Per-channel volume.
-- Saved mix settings.
-- Shared play/pause/stop behavior.
-- Pause and resume without returning to the beginning.
-- Shared seeking.
-- HTTP byte-range audio responses.
-- Looping.
-- Persistent project and track metadata.
+```txt
+AudioContext.currentTime
+        ↓
+     Transport
+        ↓
+PlaybackScheduleInstruction
+        ↓
+WebAudioPlaybackEngine
+        ↓
+AudioBufferSourceNode → GainNode → destination
+```
 
-Version 2 now uses a minimal Web Audio transport for reliable multitrack synchronization. Project tracks are fetched and decoded into `AudioBuffer`s, scheduled from one shared `AudioContext` clock, and routed through per-channel `GainNode`s so volume and enable/disable changes do not rebuild or restart the transport. Waveforms, gapless loop scheduling, nudge, non-destructive trim, effects, and recording remain outside the Version 2 scope.
+Important properties:
+
+- `AudioContext.currentTime` is the authoritative running clock.
+- Project duration is currently the longest decoded track in the loaded mix.
+- Existing uploaded stems begin at project time zero.
+- All active sources in a playback generation receive the same absolute Web Audio start time and project offset.
+- Pause/resume and seek recreate one-shot `AudioBufferSourceNode`s against a shared schedule.
+- Loop continuations are scheduled against absolute AudioContext times rather than started by a late `onended` callback.
+- UI snapshot timers observe transport state but do not advance audio time.
+- `RecordingTimeline` can mark recording start/stop positions against both project time and AudioContext time.
+- `Track.timelineOffsetSeconds` reserves the domain concept for future recorded tracks that start after project time zero; persistence for that field is not implemented yet.
+
+An HTML-audio playback implementation remains as a fallback, but it intentionally does not claim recording-clock capability.
+
+Microphone capture, MediaRecorder/input plumbing, latency calibration, waveform editing, punch-in/out, comping, and other DAW-grade features remain future work.
 
 ## Local Development
 
 ### Prerequisites
 
-The active Version 2 development environment requires:
+- Node.js and npm
+- PostgreSQL
+- Git
+- A modern browser
 
-- Node.js and npm.
-- PostgreSQL.
-- Git.
-- A modern browser.
-
-The repository uses npm workspaces for:
+The repository uses npm workspaces:
 
 ```txt
-client/
-server/
-packages/test-runner/
+client
+grooveshare-server
+mobile-client
+@hugovela/frontend-core
+@hugovela/frontend-browser
+@hugovela/test-runner
 ```
 
-Install all workspace dependencies from the repository root:
+Install workspace dependencies from the repository root:
 
 ```bash
 npm ci
@@ -156,7 +201,7 @@ npm ci
 
 ### PostgreSQL
 
-Create separate development and test databases. A typical local setup uses:
+A typical local setup uses:
 
 ```txt
 Database user:  grooveshare_app
@@ -164,251 +209,181 @@ Development DB: grooveshare_dev
 Test DB:        grooveshare_test
 ```
 
-Create `server/.env` from the supplied example:
+Create `server/.env` from the example:
 
 ```bash
 cp server/env.example server/.env
 ```
 
-Then provide your local PostgreSQL password and any local overrides in `server/.env`.
+Then supply your local PostgreSQL password and any required overrides. Real `.env` files are ignored by Git.
 
-The default development configuration expects:
+Apply SQL migrations from `server/db/migrations/` in filename order. The runtime server uses PostgreSQL stores; when applying migrations with an administrative PostgreSQL account, ensure newly created tables remain owned by or accessible to the application database role.
 
-```dotenv
-NODE_ENV=development
-HOST=127.0.0.1
-PORT=3000
-CLIENT_ORIGIN=http://localhost:5173
-UPLOAD_ROOT=./uploads
+### Run locally
 
-PGHOST=localhost
-PGPORT=5432
-PGDATABASE=grooveshare_dev
-PGTESTDATABASE=grooveshare_test
-PGUSER=grooveshare_app
-PGPASSWORD=your-local-password
-```
-
-Real `.env` files are ignored by Git.
-
-Apply the SQL migrations in `server/db/migrations/` to the development database in filename order before starting the application.
-
-### Start the Server
-
-From the repository root:
+Server:
 
 ```bash
 npm run dev-server
 ```
 
-The development API runs at:
-
-```txt
-http://localhost:3000
-```
-
-Health endpoint:
-
-```txt
-http://localhost:3000/api/health
-```
-
-### Start the Client
-
-In a second terminal:
+Desktop/tablet client:
 
 ```bash
 npm run dev-client
 ```
 
-The Vite client runs at:
+Phone client:
 
-```txt
-http://localhost:5173
+```bash
+npm run dev-mobile
 ```
 
-No client environment file is required for the normal local setup. Development defaults to the API at `http://localhost:3000`.
+For the phone Vite server when using USB/ADB forwarding:
+
+```bash
+npm run dev-mobile-usb
+```
+
+Default local endpoints are:
+
+```txt
+Desktop Vite: http://localhost:5173
+Mobile Vite:  http://localhost:5174
+API:          http://127.0.0.1:3000
+Health:       http://localhost:3000/api/health
+```
 
 ## Development Seed Tools
 
-Development-only tooling can create repeatable Owner, Contributor, and Viewer scenarios for testing permissions.
-
-From the repository root:
+Development-only tooling can create repeatable Owner/Contributor/Viewer scenarios:
 
 ```bash
 npm run seed-auth
 ```
 
-To reset development data:
+Reset development data:
 
 ```bash
 npm run reset-dev-data
 ```
 
-These commands and the related `/api/dev/*` routes are protected from production use.
+The related development routes are disabled outside the development configuration.
 
 ## Verification
 
-Useful root commands:
+The primary repository gate is:
 
 ```bash
-npm run config:check
-npm run db:check
-npm run test-all
-npm run build
 npm run verify
 ```
 
-`npm run verify` performs the configuration check, database connection check, all workspace typechecks/tests, and the production build.
+It checks:
 
-Individual suites can also be run with:
+- server configuration;
+- PostgreSQL connectivity;
+- typechecking for server, frontend-core, frontend-browser, client, mobile-client, and test-runner;
+- all workspace test suites;
+- frontend dependency boundaries;
+- production builds for server, desktop client, and mobile client.
+
+Useful focused commands include:
 
 ```bash
-npm run test-client
 npm run test-server
+npm run test-client
+npm run test-mobile
+npm run test-frontend-core
+npm run test-frontend-browser
 npm run test-runner
+npm run frontend:boundaries
+npm run build
 ```
 
-The client and server use the shared custom `@hugovela/test-runner` workspace.
+The repository uses the custom [`@hugovela/test-runner`](packages/test-runner/README.md) workspace for its TypeScript test suites.
 
-## Project Structure
+## Repository Structure
 
 ```txt
 grooveshare/
-├── client/
-│   └── src/
-│       ├── api/
-│       ├── css/
-│       ├── dev/
-│       ├── page-controllers/
-│       ├── pages/
-│       ├── permissions/
-│       ├── project-draft/
-│       ├── router/
-│       ├── storage/
-│       └── templates/
-├── server/
-│   ├── db/
-│   │   └── migrations/
+├── client/                         # desktop/tablet presentation
+├── mobile-client/                  # phone presentation
+├── server/                         # Node API + PostgreSQL/filesystem adapters
+│   ├── db/migrations/
 │   ├── src/
-│   │   ├── auth/
-│   │   ├── config/
-│   │   ├── db/
-│   │   ├── dev/
-│   │   ├── stores/
-│   │   └── uploads/
 │   └── tests/
 ├── packages/
-│   └── test-runner/
-├── sample-audio-files/
+│   ├── frontend-core/              # shared product/application/audio behavior
+│   ├── frontend-browser/           # shared browser adapters and shell
+│   └── test-runner/                # small internal test framework
+├── scripts/
+│   ├── verify.mjs
+│   └── check-frontend-boundaries.mjs
 ├── docs/
 │   ├── architecture.md
-│   └── production-configuration.md
+│   ├── frontend-clients.md
+│   └── milestone-6-client-architecture-tour.md
+├── sample-audio-files/
 ├── package.json
 └── README.md
 ```
 
-`backlog.md` is intentionally kept as a private local planning document and is ignored by Git.
+`backlog.md` is intentionally kept as a private local planning file and is ignored by Git.
 
 ## Production Architecture
-
-The hosted Version 2 infrastructure uses:
 
 ```txt
 Browser
   ↓ HTTPS
 Caddy
-  ├── static Vite client
-  └── /api/* → Node API
-                    ↓
-              PostgreSQL
-                    +
-              filesystem audio
+  ├── /api/* → Node API
+  ├── phone user-agent → mobile-client/dist
+  └── other browser → client/dist
+                          ↓
+                    PostgreSQL
+                          +
+                   filesystem audio
 ```
 
-Important production properties:
+Production properties include:
 
 - Caddy handles public HTTP/HTTPS and TLS.
-- Node binds to `127.0.0.1`, not a public interface.
-- UFW exposes only the required public ports.
+- Node binds to loopback rather than a public interface.
 - PostgreSQL is not exposed publicly.
-- Audio files live outside the Git repository in a persistent filesystem location.
-- Secrets and deployment-specific values live outside source control.
-- The Node application runs under systemd.
-- Production backups include PostgreSQL data and uploaded audio.
-- Production and Labs use separate databases, upload roots, services, and ports.
+- Uploaded audio lives outside the Git checkout in persistent storage.
+- Secrets and deployment-specific values remain outside source control.
+- systemd manages the Node application processes.
+- production backups include PostgreSQL data and uploaded audio.
+- Labs and production use separate databases, upload roots, Node ports, and services.
 
-See [`docs/architecture.md`](docs/architecture.md) for the detailed system design.
+## Roadmap Direction
 
-## Roadmap
+### Version 3 — Recording and Mature Collaboration
 
-### Version 2 — Multi-User Hosted Beta
+Make GrooveShare a practical band collaboration platform before changing its hosting/distribution model.
 
-Completed foundations:
+Current direction:
 
-1. Accounts and Authorization Foundation.
-2. Permission-Aware UI.
-3. Production Configuration.
-4. VPS Deployment.
+1. **Recording-Capable Web Audio Engine and Transport** — completed pre-recording foundation: one authoritative clock, transport, synchronized scheduling, hardened looping, and recording timeline markers.
+2. **Basic Microphone Recording Workflow** — capture a rough take while listening to the project, then preview/retry/save it as a GrooveShare track.
+3. **Collaboration Workflow Polish** — add useful low-complexity collaboration features such as project/track notes, clearer project status, and other improvements shaped by real use.
+4. **Recording and Collaboration Hardening** — exercise the complete workflow with real musicians/devices and improve reliability.
 
-Current:
+### Version 4 — Self-Hosted and Native Mobile GrooveShare
 
-5. **Mobile-Ready UI/UX** — make authentication, project navigation, the Project Player, mixer, uploads, membership management, and feedback states comfortable on phone-sized touch screens.
+Move the mature application toward desktop/home-server hosting (likely through Cloudflare Tunnel), harden installed/mobile behavior, and wrap the existing phone client with Capacitor for Android and later iOS.
 
-The Version 2 release should be a usable hosted collaboration app before more advanced audio-engine work is required.
+### Version 5 — Advanced Collaboration and Audio
 
-### Version 2.x — Beta Stabilization and Follow-Up Features
-
-After Version 2 releases:
-
-- Use GrooveShare with real bandmates and fix issues discovered through real usage.
-- Improve loading, validation, error handling, and operational behavior.
-- Add public/share-link guest listening without automatically creating project memberships.
-- Keep guest personal mix settings in browser `localStorage`.
-- Extend the minimal Web Audio engine only where beta feedback justifies features such as waveforms, gapless loop scheduling, nudge, trim, and edited playback.
-
-### Version 3 — Self-Hosting, Recording, and Mobile Clients
-
-Planned direction:
-
-- Move the centralized service toward desktop/home-server hosting, likely using Cloudflare Tunnel.
-- Add a browser microphone recording workflow for Contributors.
-- Reuse the mobile-ready web client inside Capacitor for Android and later iOS.
-- Keep the same centralized GrooveShare API contract so infrastructure changes do not require rewriting the product.
-
-### Version 4 — Mature Collaboration
-
-Longer-term collaboration work may include:
-
-- Invitations.
-- Project notes and instructions.
-- Comments.
-- Notifications.
-- Private sharing improvements.
-- Project status/history.
-- Collaboration features shaped by real band usage.
-
-## Public Guest Sharing Direction
-
-A future public-share mode is intentionally separate from Viewer/Contributor/Owner membership.
-
-A guest with an approved share link should eventually be able to:
-
-- Read approved shared project information.
-- Stream project tracks.
-- Adjust a personal mix.
-- Keep that personal mix in the current browser with `localStorage`.
-
-A guest should not automatically become a project member and should not be able to upload, record, edit, delete, manage members, or change the project's persisted shared mix.
+Reserve higher-complexity work for later: latency calibration/offset correction, multiple takes and comping, punch-in/out, waveform editing, richer history/notifications, real-time presence, advanced routing, and other DAW-like or distributed-collaboration features.
 
 ## Project Philosophy
 
-GrooveShare is being built incrementally around actual musical collaboration needs.
+GrooveShare favors:
 
-The project favors:
-
-- A small understandable architecture over unnecessary framework complexity.
-- Server-side security rules over client-only assumptions.
-- Reusable web UI before maintaining separate native interfaces.
-- Real beta feedback before adding expensive audio or infrastructure complexity.
-- A focused collaboration tool rather than a browser DAW.
+- understandable modular architecture over unnecessary framework complexity;
+- server-side authorization over client-only assumptions;
+- one shared application model with intentionally different presentation clients;
+- one authoritative audio timeline rather than independently timed media elements;
+- real musical use and feedback before expensive audio features;
+- a focused collaboration tool rather than a browser DAW.
