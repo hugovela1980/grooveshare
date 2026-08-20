@@ -108,3 +108,24 @@ Version 3 begins by separating the GrooveShare project timeline from the concret
 `WebAudioPlaybackEngine` supplies `AudioContext.currentTime` as the Transport clock. While playback is running, that clock is the source of truth for elapsed project time. The 100 ms snapshot ticker only publishes observations to UI subscribers; it does not advance playback or transport state.
 
 For the current zero-offset stem model, project time zero means the beginning of every loaded source, and project duration is the duration of the longest decoded source. Shorter tracks are allowed to end without ending the shared project timeline. Later Milestone 1 stages will separate source scheduling more explicitly, harden loop scheduling, and add recording timeline markers without introducing microphone capture yet.
+
+### Milestone 1 Stage 2 — shared playback scheduling and alignment
+
+Stage 2 makes the Transport the authority that turns the current project
+position plus a small scheduling lead into one `PlaybackScheduleInstruction`.
+That instruction contains the absolute audio-clock start time, project playback
+position, project duration, and loop state that every Web Audio source in the
+same playback generation must obey.
+
+`WebAudioPlaybackEngine` still owns decoded buffers, GainNodes,
+`AudioBufferSourceNode` creation/destruction, enabled state, and live volume.
+It no longer computes absolute source start times or independently reads the
+project position for each source. Initial play, resume, seek, and the current
+reactive loop restart all request one instruction from Transport and schedule
+all playable sources from that single immutable instruction.
+
+Mixed-duration semantics remain unchanged: the longest decoded track defines
+the project duration, shorter tracks may end naturally without completing the
+Transport, and the longest remaining source acts as the current natural-end
+anchor. Stage 3 will harden control transitions and replace the remaining
+reactive loop-end callback with clock-based loop scheduling.

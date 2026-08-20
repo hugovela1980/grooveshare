@@ -11,6 +11,22 @@ export type TransportSnapshot = {
   loopEnabled: boolean;
 };
 
+export type TransportPlayOptions = {
+  /**
+   * Small scheduling lead used by an audio engine to give Web Audio source
+   * nodes time to be created before playback begins. The Transport converts
+   * this relative lead into one absolute clock start time for every source.
+   */
+  leadTimeSeconds?: number;
+};
+
+export type PlaybackScheduleInstruction = {
+  startAtClockTime: number;
+  projectPositionSeconds: number;
+  durationSeconds: number;
+  loopEnabled: boolean;
+};
+
 export type TransportStateListener = (
   snapshot: TransportSnapshot,
 ) => void;
@@ -35,7 +51,7 @@ export type TransportOptions = {
 
 export interface Transport {
   setDuration(durationSeconds: number): void;
-  play(startAtClockTime?: number): void;
+  play(options?: TransportPlayOptions): PlaybackScheduleInstruction | null;
   pause(): void;
   stop(): void;
   seek(seconds: number): void;
@@ -49,6 +65,7 @@ export interface Transport {
 }
 
 const DEFAULT_SNAPSHOT_INTERVAL_MS = 100;
+const PLAYBACK_END_EPSILON_SECONDS = 0.01;
 
 function scheduleDefaultInterval(
   handler: () => void,
@@ -69,6 +86,14 @@ function normalizeDuration(durationSeconds: number): number {
   }
 
   return durationSeconds;
+}
+
+function normalizeLeadTime(leadTimeSeconds: number | undefined): number {
+  if (!Number.isFinite(leadTimeSeconds) || (leadTimeSeconds ?? 0) <= 0) {
+    return 0;
+  }
+
+  return leadTimeSeconds ?? 0;
 }
 
 /**
@@ -196,22 +221,35 @@ export function createTransport({
     notify();
   }
 
-  function play(startAtClockTime = getClockTime()): void {
+  function play(
+    options: TransportPlayOptions = {},
+  ): PlaybackScheduleInstruction | null {
     if (destroyed || durationSeconds <= 0 || playbackState === "playing") {
-      return;
+      return null;
     }
 
-    if (positionSeconds >= durationSeconds) {
+    if (
+      positionSeconds >=
+      Math.max(0, durationSeconds - PLAYBACK_END_EPSILON_SECONDS)
+    ) {
       positionSeconds = 0;
     }
 
+    const leadTimeSeconds = normalizeLeadTime(options.leadTimeSeconds);
+    const startAtClockTime = getClockTime() + leadTimeSeconds;
+
     playbackStartPosition = positionSeconds;
-    playbackStartClockTime = Number.isFinite(startAtClockTime)
-      ? startAtClockTime
-      : getClockTime();
+    playbackStartClockTime = startAtClockTime;
     playbackState = "playing";
     startTicker();
     notify();
+
+    return {
+      startAtClockTime,
+      projectPositionSeconds: playbackStartPosition,
+      durationSeconds,
+      loopEnabled,
+    };
   }
 
   function pause(): void {

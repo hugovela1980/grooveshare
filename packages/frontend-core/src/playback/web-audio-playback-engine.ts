@@ -4,7 +4,10 @@ import type {
   PlaybackSnapshot,
   PlaybackStateListener,
 } from "./playback-engine.js";
-import { createTransport } from "./transport.js";
+import {
+  createTransport,
+  type PlaybackScheduleInstruction,
+} from "./transport.js";
 
 type AudioBufferLike = {
   duration: number;
@@ -296,30 +299,21 @@ export function createWebAudioPlaybackEngine(
     if (transportSnapshot.loopEnabled) {
       transport.pause();
       transport.seek(0);
-      startSources(
-        audioContext.currentTime + LOOP_RESTART_LEAD_SECONDS,
-      );
+      scheduleAndStartSources(LOOP_RESTART_LEAD_SECONDS);
       return;
     }
 
     transport.complete();
   }
 
-  function startSources(startAtContextTime: number): void {
+  function startSources(
+    instruction: PlaybackScheduleInstruction,
+  ): void {
     if (!hasReadyChannels()) {
       return;
     }
 
-    const duration = transport.getSnapshot().durationSeconds;
-
-    if (
-      duration <= 0 ||
-      transport.getPosition() >= duration - END_EPSILON_SECONDS
-    ) {
-      transport.seek(0);
-    }
-
-    const playbackPosition = transport.getPosition();
+    const playbackPosition = instruction.projectPositionSeconds;
     const anchor = findTransportAnchor(playbackPosition);
 
     if (!anchor) {
@@ -353,14 +347,29 @@ export function createWebAudioPlaybackEngine(
         };
       }
 
-      source.start(startAtContextTime, playbackPosition);
+      source.start(
+        instruction.startAtClockTime,
+        instruction.projectPositionSeconds,
+      );
       activeSources.push({
         channelNumber: loadedChannel.channel.channelNumber,
         source,
       });
     }
+  }
 
-    transport.play(startAtContextTime);
+  function scheduleAndStartSources(leadTimeSeconds: number): void {
+    if (!hasReadyChannels()) {
+      return;
+    }
+
+    const instruction = transport.play({ leadTimeSeconds });
+
+    if (!instruction) {
+      return;
+    }
+
+    startSources(instruction);
   }
 
   async function play(): Promise<void> {
@@ -381,9 +390,7 @@ export function createWebAudioPlaybackEngine(
       await audioContext.resume();
     }
 
-    startSources(
-      audioContext.currentTime + PLAYBACK_START_LEAD_SECONDS,
-    );
+    scheduleAndStartSources(PLAYBACK_START_LEAD_SECONDS);
   }
 
   function pause(): void {
@@ -427,9 +434,7 @@ export function createWebAudioPlaybackEngine(
     transport.seek(nextPosition);
 
     if (shouldResume) {
-      startSources(
-        audioContext.currentTime + PLAYBACK_START_LEAD_SECONDS,
-      );
+      scheduleAndStartSources(PLAYBACK_START_LEAD_SECONDS);
     }
   }
 

@@ -158,6 +158,7 @@ tester.describe("WebAudioPlaybackEngine", () => {
     tester.expect(audioContext.sources[0]?.startWhen).toBe(
       audioContext.sources[1]?.startWhen,
     );
+    tester.expect(audioContext.sources[0]?.startWhen).toBe(10.03);
     tester.expect(audioContext.sources[0]?.startOffset).toBe(0);
     tester.expect(audioContext.sources[1]?.startOffset).toBe(0);
     tester.expect(engine.getSnapshot().duration).toBe(60);
@@ -189,6 +190,9 @@ tester.describe("WebAudioPlaybackEngine", () => {
     tester.expect(resumedSources[0]?.startWhen).toBe(
       resumedSources[1]?.startWhen,
     );
+    tester.expect(resumedSources[0]?.startWhen).toBe(
+      audioContext.currentTime + 0.03,
+    );
     tester.expect(
       Math.abs((resumedSources[0]?.startOffset ?? 0) - 12) < 0.000001,
     ).toBe(true);
@@ -206,11 +210,15 @@ tester.describe("WebAudioPlaybackEngine", () => {
     await engine.play();
     const originalSourceCount = audioContext.sources.length;
 
+    audioContext.currentTime = 25;
     engine.seek(30);
 
+    tester.expect(audioContext.sources[0]?.stopCallCount).toBe(1);
+    tester.expect(audioContext.sources[1]?.stopCallCount).toBe(1);
     tester.expect(audioContext.sources.length).toBe(originalSourceCount + 2);
     const soughtSources = audioContext.sources.slice(-2);
     tester.expect(soughtSources[0]?.startWhen).toBe(soughtSources[1]?.startWhen);
+    tester.expect(soughtSources[0]?.startWhen).toBe(25.03);
     tester.expect(soughtSources[0]?.startOffset).toBe(30);
     tester.expect(soughtSources[1]?.startOffset).toBe(30);
 
@@ -280,6 +288,46 @@ tester.describe("WebAudioPlaybackEngine", () => {
     const resumedSources = audioContext.sources.slice(-1);
     tester.expect(resumedSources.length).toBe(1);
     tester.expect(resumedSources[0]?.startOffset).toBe(20);
+
+    engine.destroy?.();
+  });
+
+  tester.it("lets shorter tracks end without ending the shared transport", async () => {
+    const { audioContext, engine } = createEngineHarness();
+
+    engine.loadMix([
+      {
+        channelNumber: 1,
+        trackId: "short-track",
+        audioUrl: "/loop.wav",
+        volume: 1,
+        enabled: true,
+      },
+      {
+        channelNumber: 2,
+        trackId: "long-track",
+        audioUrl: "/long-take.m4a",
+        volume: 1,
+        enabled: true,
+      },
+    ]);
+    await engine.play();
+
+    const shortSource = audioContext.sources[0];
+    const longSource = audioContext.sources[1];
+    tester.expect(shortSource?.startWhen).toBe(longSource?.startWhen);
+    tester.expect(shortSource?.startOffset).toBe(longSource?.startOffset);
+    tester.expect(shortSource?.onended).toBe(null);
+    tester.expect(longSource?.onended !== null).toBe(true);
+
+    const sharedStartTime = longSource?.startWhen ?? 0;
+    audioContext.currentTime = sharedStartTime + 20;
+
+    tester.expect(engine.getSnapshot().duration).toBe(60);
+    tester.expect(engine.getSnapshot().isPlaying).toBe(true);
+    tester.expect(
+      Math.abs(engine.getSnapshot().currentTime - 20) < 0.000001,
+    ).toBe(true);
 
     engine.destroy?.();
   });

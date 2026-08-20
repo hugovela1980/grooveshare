@@ -45,7 +45,7 @@ tester.describe("Transport", () => {
 
     transport.setDuration(60);
     transport.seek(12);
-    transport.play(20);
+    transport.play({ leadTimeSeconds: 10 });
 
     harness.setClockTime(20);
     tester.expect(transport.getPosition()).toBe(12);
@@ -57,12 +57,60 @@ tester.describe("Transport", () => {
     transport.destroy();
   });
 
+
+  tester.it("creates one shared playback scheduling instruction from the transport clock", () => {
+    const harness = createTransportHarness();
+    const { transport } = harness;
+
+    transport.setDuration(75);
+    transport.seek(18);
+    transport.setLoopEnabled(true);
+    harness.setClockTime(42);
+
+    const instruction = transport.play({ leadTimeSeconds: 0.03 });
+
+    tester.expect(instruction).toEqual({
+      startAtClockTime: 42.03,
+      projectPositionSeconds: 18,
+      durationSeconds: 75,
+      loopEnabled: true,
+    });
+
+    harness.setClockTime(42.03);
+    tester.expect(transport.getPosition()).toBe(18);
+    harness.setClockTime(47.03);
+    tester.expect(transport.getPosition()).toBe(23);
+
+    transport.destroy();
+  });
+
+  tester.it("restarts an ended timeline from project zero when creating a new schedule", () => {
+    const harness = createTransportHarness();
+    const { transport } = harness;
+
+    transport.setDuration(30);
+    transport.seek(30);
+    harness.setClockTime(50);
+
+    const instruction = transport.play({ leadTimeSeconds: 0.02 });
+
+    tester.expect(instruction).toEqual({
+      startAtClockTime: 50.02,
+      projectPositionSeconds: 0,
+      durationSeconds: 30,
+      loopEnabled: false,
+    });
+    tester.expect(transport.getSnapshot().playbackState).toBe("playing");
+
+    transport.destroy();
+  });
+
   tester.it("preserves position on pause and resets project time to zero on stop", () => {
     const harness = createTransportHarness();
     const { transport } = harness;
 
     transport.setDuration(90);
-    transport.play(10);
+    transport.play();
     harness.setClockTime(24.25);
     transport.pause();
 
@@ -142,7 +190,7 @@ tester.describe("Transport", () => {
     });
 
     harness.transport.setDuration(60);
-    harness.transport.play(10);
+    harness.transport.play();
 
     tester.expect(harness.getScheduledMilliseconds()).toBe(100);
 
@@ -184,7 +232,7 @@ tester.describe("Transport", () => {
     const { transport } = harness;
 
     transport.setDuration(60);
-    transport.play(10);
+    transport.play();
     harness.setClockTime(70);
     transport.complete();
 
@@ -195,7 +243,7 @@ tester.describe("Transport", () => {
       loopEnabled: false,
     });
 
-    transport.play(75);
+    transport.play({ leadTimeSeconds: 5 });
     tester.expect(transport.getSnapshot().positionSeconds).toBe(0);
     tester.expect(transport.getSnapshot().playbackState).toBe("playing");
 

@@ -85,9 +85,11 @@ export {
   createTransport,
   type ClearTransportInterval,
   type ScheduleTransportInterval,
+  type PlaybackScheduleInstruction,
   type Transport,
   type TransportOptions,
   type TransportPlaybackState,
+  type TransportPlayOptions,
   type TransportSnapshot,
   type TransportStateListener,
 } from "./playback/transport.js";
