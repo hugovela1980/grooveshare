@@ -12,6 +12,10 @@ export function canPersistMix(role: ProjectRole): boolean {
   return canContribute(role);
 }
 
+export function canRecord(role: ProjectRole): boolean {
+  return canContribute(role);
+}
+
 export function canManageTrack({
   role,
   currentUserId,

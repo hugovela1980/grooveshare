@@ -1,4 +1,8 @@
 export {
+  createBrowserMicrophoneRecordingAdapter,
+  type BrowserMicrophoneRecordingAdapterOptions,
+} from "./browser-microphone-recording-adapter.js";
+export {
   createBrowserApiTransport,
   type AuthenticationRequiredHandler,
   type BrowserApiTransport,

@@ -103,7 +103,24 @@ export {
   canManageProject,
   canManageTrack,
   canPersistMix,
+  canRecord,
 } from "./permissions/project-permissions.js";
+export {
+  MicrophoneRecordingError,
+  toMicrophoneRecordingFailure,
+  type MicrophoneRecordingErrorCode,
+  type MicrophoneRecordingFailure,
+  type MicrophoneRecordingFailureHandler,
+  type MicrophoneRecordingPort,
+  type RecordedAudioCapture,
+} from "./platform/microphone-recording-port.js";
+export {
+  createMicrophoneRecordingSession,
+  type MicrophoneRecordingSession,
+  type MicrophoneRecordingSnapshot,
+  type MicrophoneRecordingStateListener,
+  type MicrophoneRecordingStatus,
+} from "./recording/microphone-recording-session.js";
 export type { SessionProvider } from "./platform/session-provider.js";
 export type { StorageProvider } from "./platform/storage-provider.js";
 export type {

@@ -3,6 +3,7 @@ import {
   canManageProject,
   canManageTrack,
   canPersistMix,
+  canRecord,
   type Track,
 } from "../src/index.js";
 import { tester } from "./test-runner/tester.js";
@@ -26,6 +27,7 @@ tester.describe("frontend-core project permissions", () => {
     tester.expect(canManageProject("owner")).toBe(true);
     tester.expect(canContribute("owner")).toBe(true);
     tester.expect(canPersistMix("owner")).toBe(true);
+    tester.expect(canRecord("owner")).toBe(true);
     tester.expect(
       canManageTrack({
         role: "owner",
@@ -36,6 +38,7 @@ tester.describe("frontend-core project permissions", () => {
 
     tester.expect(canManageProject("contributor")).toBe(false);
     tester.expect(canContribute("contributor")).toBe(true);
+    tester.expect(canRecord("contributor")).toBe(true);
     tester.expect(
       canManageTrack({
         role: "contributor",
@@ -53,5 +56,6 @@ tester.describe("frontend-core project permissions", () => {
 
     tester.expect(canContribute("viewer")).toBe(false);
     tester.expect(canPersistMix("viewer")).toBe(false);
+    tester.expect(canRecord("viewer")).toBe(false);
   });
 });
