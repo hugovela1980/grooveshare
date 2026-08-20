@@ -534,4 +534,99 @@ tester.describe("WebAudioPlaybackEngine", () => {
 
     engine.destroy?.();
   });
+
+  tester.it("marks recording start and stop against the same clock that schedules aligned sources", async () => {
+    const { audioContext, engine } = createEngineHarness();
+
+    engine.loadMix(twoChannelMix);
+    await engine.play();
+
+    tester.expect(typeof engine.markRecordingStart).toBe("function");
+    tester.expect(typeof engine.markRecordingStop).toBe("function");
+
+    if (!engine.markRecordingStart || !engine.markRecordingStop) {
+      throw new Error("Web Audio engine must expose recording timeline markers.");
+    }
+
+    const firstGeneration = audioContext.sources.slice(0, 2);
+    const sharedStartTime = firstGeneration[0]?.startWhen ?? 0;
+    tester.expect(firstGeneration[0]?.startWhen).toBe(
+      firstGeneration[1]?.startWhen,
+    );
+
+    audioContext.currentTime = sharedStartTime + 12;
+    const start = engine.markRecordingStart();
+
+    tester.expect(
+      Math.abs(start.projectPositionSeconds - 12) < 0.000001,
+    ).toBe(true);
+    tester.expect(
+      Math.abs(start.audioContextTimeSeconds - (sharedStartTime + 12)) <
+        0.000001,
+    ).toBe(true);
+
+    audioContext.currentTime = sharedStartTime + 18.5;
+    const result = engine.markRecordingStop(start);
+
+    tester.expect(
+      Math.abs(result.stop.projectPositionSeconds - 18.5) < 0.000001,
+    ).toBe(true);
+    tester.expect(
+      Math.abs(
+        result.stop.audioContextTimeSeconds - (sharedStartTime + 18.5),
+      ) < 0.000001,
+    ).toBe(true);
+    tester.expect(
+      Math.abs(result.metadata.durationSeconds - 6.5) < 0.000001,
+    ).toBe(true);
+    tester.expect(
+      Math.abs(result.metadata.timelineOffsetSeconds - 12) < 0.000001,
+    ).toBe(true);
+
+    engine.destroy?.();
+  });
+
+  tester.it("keeps recording markers mapped to project time across a clock-scheduled loop", async () => {
+    const { audioContext, engine } = createEngineHarness();
+
+    engine.loadMix(twoChannelMix);
+    engine.setLoopEnabled(true);
+    await engine.play();
+
+    if (!engine.markRecordingStart || !engine.markRecordingStop) {
+      throw new Error("Web Audio engine must expose recording timeline markers.");
+    }
+
+    const firstGeneration = audioContext.sources.slice(0, 2);
+    const secondGeneration = audioContext.sources.slice(2, 4);
+    const firstStartTime = firstGeneration[0]?.startWhen ?? 0;
+    const secondStartTime = secondGeneration[0]?.startWhen ?? 0;
+
+    tester.expect(secondGeneration[0]?.startWhen).toBe(
+      secondGeneration[1]?.startWhen,
+    );
+    tester.expect(
+      Math.abs(secondStartTime - (firstStartTime + 60)) < 0.000001,
+    ).toBe(true);
+
+    audioContext.currentTime = secondStartTime - 1;
+    const start = engine.markRecordingStart();
+    tester.expect(
+      Math.abs(start.projectPositionSeconds - 59) < 0.000001,
+    ).toBe(true);
+
+    audioContext.currentTime = secondStartTime + 1;
+    const result = engine.markRecordingStop(start);
+
+    tester.expect(
+      Math.abs(result.stop.projectPositionSeconds - 1) < 0.000001,
+    ).toBe(true);
+    tester.expect(result.metadata.durationSeconds).toBe(2);
+    tester.expect(
+      Math.abs(result.metadata.timelineOffsetSeconds - 59) < 0.000001,
+    ).toBe(true);
+
+    engine.destroy?.();
+  });
+
 });

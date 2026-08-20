@@ -151,3 +151,34 @@ This means JavaScript callback latency no longer defines the loop boundary.
 Every loop generation starts at an absolute AudioContext clock time chosen by
 Transport. Turning loop off cancels future scheduled generations without
 interrupting the currently playing generation.
+
+### Milestone 1 Stage 4 — recording timeline primitives and track placement
+
+Stage 4 adds the timing vocabulary that microphone capture will use without
+implementing microphone access or recording UI. `Transport.markTimelinePosition()`
+captures the authoritative audio-clock value and the project position derived
+from that same clock read. `RecordingTimeline` turns those exact observations
+into recording-start and recording-stop markers plus shared
+`RecordingPositionMetadata`.
+
+Recording duration is calculated from the authoritative audio clock rather
+than by subtracting project positions. That distinction matters when project
+position wraps at a loop boundary: a recording may start near the end of a
+loop, stop near the beginning of the next pass, and still have an unambiguous
+positive duration.
+
+The shared `Track` domain type now reserves optional `timelineOffsetSeconds` as
+the place where a future recorded track can declare that its audio begins at a
+non-zero project position. Existing uploaded stems omit the field and continue
+to mean project time zero. Stage 4 does **not** add database persistence for the
+offset; that belongs with the recording/upload workflow that begins in the
+next milestone.
+
+`WebAudioPlaybackEngine` exposes optional recording-marker methods through the
+existing playback seam because its `AudioContext.currentTime` clock is precise
+enough to support them. The HTML-audio fallback deliberately does not claim
+recording-clock capability.
+
+Still deferred: microphone capture, MediaRecorder/Web Audio input plumbing,
+automatic input-latency compensation, device calibration, manual nudge,
+waveform editing, punch-in/out, and other DAW-grade correction/editing tools.

@@ -1,3 +1,8 @@
+import type {
+  RecordingStartMarker,
+  RecordingTimelineResult,
+} from "./recording-timeline.js";
+
 export type PlaybackChannel = {
   channelNumber: number;
   trackId: string;
@@ -35,5 +40,11 @@ export interface PlaybackEngine {
   setChannelEnabled(channelNumber: number, enabled: boolean): boolean;
   getSnapshot(): PlaybackSnapshot;
   subscribe(listener: PlaybackStateListener): () => void;
+  /**
+   * Available on recording-capable engines backed by an authoritative audio
+   * clock. The HTML fallback intentionally leaves these undefined.
+   */
+  markRecordingStart?(): RecordingStartMarker;
+  markRecordingStop?(start: RecordingStartMarker): RecordingTimelineResult;
   destroy?(): void;
 }

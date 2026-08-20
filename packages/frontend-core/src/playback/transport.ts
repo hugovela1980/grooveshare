@@ -28,6 +28,17 @@ export type PlaybackScheduleInstruction = {
   loopEnabled: boolean;
 };
 
+/**
+ * One exact observation of the GrooveShare project timeline against the
+ * authoritative audio clock. Recording uses these markers to relate captured
+ * audio to project time without introducing a second timing source.
+ */
+export type TransportTimelineMarker = {
+  clockTimeSeconds: number;
+  projectPositionSeconds: number;
+  playbackState: TransportPlaybackState;
+};
+
 export type TransportStateListener = (
   snapshot: TransportSnapshot,
 ) => void;
@@ -62,6 +73,7 @@ export interface Transport {
   seekBy(seconds: number): void;
   setLoopEnabled(enabled: boolean): void;
   complete(): void;
+  markTimelinePosition(): TransportTimelineMarker;
   getPosition(): number;
   getSnapshot(): TransportSnapshot;
   subscribe(listener: TransportStateListener): () => void;
@@ -199,6 +211,24 @@ export function createTransport({
     }
 
     return getRunningPositionAt(clockTime);
+  }
+
+  function markTimelinePosition(): TransportTimelineMarker {
+    const clockTimeSeconds = getClockTime();
+
+    if (playbackState === "playing") {
+      syncNaturalCompletion(clockTimeSeconds);
+    }
+
+    const projectPositionSeconds = playbackState === "playing"
+      ? getRunningPositionAt(clockTimeSeconds)
+      : clampPosition(positionSeconds);
+
+    return {
+      clockTimeSeconds,
+      projectPositionSeconds,
+      playbackState,
+    };
   }
 
   function getSnapshot(): TransportSnapshot {
@@ -480,6 +510,7 @@ export function createTransport({
     seekBy,
     setLoopEnabled,
     complete,
+    markTimelinePosition,
     getPosition,
     getSnapshot,
     subscribe,

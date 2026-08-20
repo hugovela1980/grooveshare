@@ -383,4 +383,31 @@ tester.describe("Transport", () => {
 
     transport.destroy();
   });
+  tester.it("captures one exact timeline marker from the authoritative clock", () => {
+    const harness = createTransportHarness();
+    const { transport } = harness;
+
+    transport.setDuration(60);
+    transport.seek(12);
+    harness.setClockTime(20);
+    transport.play({ leadTimeSeconds: 0.03 });
+
+    harness.setClockTime(27.53);
+    tester.expect(transport.markTimelinePosition()).toEqual({
+      clockTimeSeconds: 27.53,
+      projectPositionSeconds: 19.5,
+      playbackState: "playing",
+    });
+
+    transport.pause();
+    harness.setClockTime(40);
+    tester.expect(transport.markTimelinePosition()).toEqual({
+      clockTimeSeconds: 40,
+      projectPositionSeconds: 19.5,
+      playbackState: "paused",
+    });
+
+    transport.destroy();
+  });
+
 });

@@ -92,7 +92,18 @@ export {
   type TransportPlayOptions,
   type TransportSnapshot,
   type TransportStateListener,
+  type TransportTimelineMarker,
 } from "./playback/transport.js";
+export {
+  DEFAULT_TRACK_TIMELINE_OFFSET_SECONDS,
+  createRecordingTimeline,
+  getTrackTimelineOffsetSeconds,
+  type RecordingPositionMetadata,
+  type RecordingStartMarker,
+  type RecordingStopMarker,
+  type RecordingTimeline,
+  type RecordingTimelineResult,
+} from "./playback/recording-timeline.js";
 export {
   createHtmlAudioPlaybackEngine,
   type HtmlAudioElementLike,

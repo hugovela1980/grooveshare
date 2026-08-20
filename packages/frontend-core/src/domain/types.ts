@@ -41,6 +41,12 @@ export type Track = {
   mimeType: string;
   fileSize: number;
   uploadedByUserId?: string | null;
+  /**
+   * Project-timeline position where this track begins. Existing uploaded stems
+   * omit the value and therefore begin at project time zero. Recording will
+   * persist non-zero offsets in a later milestone.
+   */
+  timelineOffsetSeconds?: number;
   createdAt: string;
 };
 

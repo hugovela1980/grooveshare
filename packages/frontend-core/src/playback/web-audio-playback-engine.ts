@@ -8,6 +8,7 @@ import {
   createTransport,
   type PlaybackScheduleInstruction,
 } from "./transport.js";
+import { createRecordingTimeline } from "./recording-timeline.js";
 
 type AudioBufferLike = {
   duration: number;
@@ -169,6 +170,7 @@ export function createWebAudioPlaybackEngine(
     clearScheduledInterval,
     snapshotIntervalMs: SNAPSHOT_INTERVAL_MS,
   });
+  const recordingTimeline = createRecordingTimeline(transport);
 
   function hasReadyChannels(): boolean {
     return (
@@ -676,6 +678,12 @@ export function createWebAudioPlaybackEngine(
     setChannelVolume,
     setChannelEnabled,
     getSnapshot,
+    markRecordingStart() {
+      return recordingTimeline.markStart();
+    },
+    markRecordingStop(start) {
+      return recordingTimeline.markStop(start);
+    },
     subscribe(listener) {
       listeners.add(listener);
       listener(getSnapshot());
