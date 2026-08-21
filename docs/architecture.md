@@ -27,9 +27,9 @@ The current `develop` branch contains:
 - separate desktop/tablet and phone presentation clients;
 - shared browser adapters in `@hugovela/frontend-browser`;
 - the completed pre-recording work for **Version 3 Milestone 1 — Recording-Capable Web Audio Engine and Transport**;
-- recording timeline primitives, but **not** microphone capture or recording UI.
+- the current **Version 3 Milestone 2** musical-timeline/recording foundation, including project/track musical placement, browser microphone capture, and transport-synchronized in-memory takes.
 
-The next major product direction is basic Contributor recording and broader collaboration polish.
+The current recording work intentionally stops before take review, permanent recorded-track upload, waveform editing, or latency calibration.
 
 ## Architectural Principles
 
@@ -489,9 +489,7 @@ Loop restarts are not driven by a late `onended` callback.
 
 When looping is enabled, the Web Audio engine uses Transport to create the next generation's exact absolute clock boundary and schedules that generation ahead of time. Turning loop off cancels future scheduled loop generations without interrupting the generation currently playing.
 
-### Recording timeline primitives
-
-Microphone capture is not implemented yet, but timing primitives are ready.
+### Recording timeline and microphone capture
 
 `Transport.markTimelinePosition()` captures one exact observation of:
 
@@ -501,11 +499,18 @@ project position derived from that same clock read
 playback state
 ```
 
-`RecordingTimeline` converts those observations into start/stop markers and `RecordingPositionMetadata`.
+`RecordingTimeline` converts those observations into start/stop markers and `RecordingPositionMetadata`. Recording duration is calculated from audio-clock time, not merely `stopProjectPosition - startProjectPosition`, so duration remains correct even when project position wraps through a loop boundary.
 
-Recording duration is calculated from audio-clock time, not merely `stopProjectPosition - startProjectPosition`. This keeps duration correct even when project position wraps through a loop boundary.
+Browser microphone mechanics are implemented by `@hugovela/frontend-browser` behind the shared `MicrophoneRecordingPort`. `frontend-core` owns authorization, recording state, and transport synchronization without depending directly on `navigator`, `MediaRecorder`, `MediaStream`, or browser `Blob` behavior.
 
-The recording metadata includes the future track's `timelineOffsetSeconds`, currently equal to the recording start project position.
+For a synchronized take, project playback begins from the current transport position, microphone capture starts, and the recording session then captures the authoritative transport marker observed at capture start. When the take stops, the in-memory take preserves:
+
+- exact transport/audio-clock start and stop metadata;
+- `timelineOffsetSeconds` equal to the captured start project position;
+- project musical start/stop positions;
+- a musical span derived from authoritative clock elapsed time rather than raw encoded-file duration.
+
+This timing metadata is intentionally sufficient for later recorded-track creation without implementing that upload/persistence workflow yet.
 
 ### HTML-audio fallback
 

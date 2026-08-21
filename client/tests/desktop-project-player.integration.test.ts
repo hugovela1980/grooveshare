@@ -58,9 +58,30 @@ tester.describe("desktop Project Player integration", () => {
     tester.expect(pageMarkup.includes("Manage Members")).toBe(true);
     tester.expect(pageMarkup.includes("Collaboration Link")).toBe(true);
     tester.expect(pageMarkup.includes("project-edit-modal")).toBe(false);
+    tester.expect(pageMarkup.includes('id="microphone-arm-button"')).toBe(true);
     tester.expect(mixerMarkup.includes("data-track-name-editor")).toBe(true);
     tester.expect(mixerMarkup.includes('contenteditable="true"')).toBe(true);
     tester.expect(mixerMarkup.includes("data-track-edit-button")).toBe(false);
+  });
+
+  tester.it("shows microphone recording only to Contributors and Owners", () => {
+    const contributorMarkup = renderProjectPlayerPage({
+      ...ownerProject,
+      role: "contributor",
+    });
+    const viewerMarkup = renderProjectPlayerPage({
+      ...ownerProject,
+      role: "viewer",
+    });
+    const guestMarkup = renderProjectPlayerPage({
+      ...ownerProject,
+      role: null,
+      access: "guest",
+    });
+
+    tester.expect(contributorMarkup.includes('id="microphone-record-button"')).toBe(true);
+    tester.expect(viewerMarkup.includes('id="microphone-record-button"')).toBe(false);
+    tester.expect(guestMarkup.includes('id="microphone-record-button"')).toBe(false);
   });
 
   tester.it("persists desktop project editing through the shared project update operation", async () => {

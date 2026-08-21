@@ -1,6 +1,7 @@
 import {
   createGuestMixStorageProvider,
   createHtmlAudioPlaybackEngine,
+  createMicrophoneRecordingSession,
   createProjectDraftState,
   createWebAudioPlaybackEngine,
   getProjectMusicalTimeline,
@@ -16,6 +17,7 @@ import {
 import {
   buildBrowserInvitationShareLink,
   copyBrowserText,
+  createBrowserMicrophoneRecordingAdapter,
   createBrowserGrooveShareApp,
   getBrowserInvitationSessionStore,
   getBrowserStorageProvider,
@@ -30,6 +32,7 @@ import { createProjectMembersController } from "./page-controllers/project-membe
 import { createProjectActionsMenuController } from "./page-controllers/project-actions-menu-controller.js";
 import { createProjectInvitationController } from "./page-controllers/project-invitation-controller.js";
 import { createAudioPlayerController } from "./page-controllers/audio-player-controller.js";
+import { createMicrophoneRecordingController } from "./page-controllers/microphone-recording-controller.js";
 import { createProjectTrackSelectionController } from "./page-controllers/create-project-track-selection-controller.js";
 import { createCreateProjectConfirmationController } from "./page-controllers/create-project-confirmation-controller.js";
 import { createAuthPageController } from "./page-controllers/auth-page-controller.js";
@@ -567,9 +570,10 @@ function initializeProjectPlayerPage({
     ...(invitationForProject ? { fetchAudioData: createInvitationAudioDataFetcher(invitationForProject.token) } : {}),
     createFallbackEngine: () => createHtmlAudioPlaybackEngine({ primaryAudioElement: audioElement, createAudioElement: () => document.createElement("audio") }),
   });
+  const musicalTimeline = getProjectMusicalTimeline(selectedProject);
   const audioPlayerController = createAudioPlayerController({
     playbackEngine,
-    musicalTimeline: getProjectMusicalTimeline(selectedProject),
+    musicalTimeline,
     projectId: selectedProject.id,
     debugLogger: (message, details) => console.info(message, details),
     seekBackwardButton,
@@ -582,6 +586,52 @@ function initializeProjectPlayerPage({
     loopCheckbox,
   });
   audioPlayerController.init();
+
+  const microphoneArmButton = getElement<HTMLButtonElement>(
+    appElement,
+    "#microphone-arm-button",
+  );
+  const microphoneRecordButton = getElement<HTMLButtonElement>(
+    appElement,
+    "#microphone-record-button",
+  );
+  const microphoneStopButton = getElement<HTMLButtonElement>(
+    appElement,
+    "#microphone-stop-button",
+  );
+  const microphoneStatusElement = getElement<HTMLParagraphElement>(
+    appElement,
+    "#microphone-recording-status",
+  );
+  const recordingRole = selectedProject.role ?? null;
+  const recordingSession =
+    (recordingRole === "owner" || recordingRole === "contributor") &&
+    microphoneArmButton &&
+    microphoneRecordButton &&
+    microphoneStopButton &&
+    microphoneStatusElement
+      ? createMicrophoneRecordingSession({
+          role: recordingRole,
+          recordingPort: createBrowserMicrophoneRecordingAdapter(),
+          playbackEngine,
+          musicalTimeline,
+        })
+      : null;
+  const microphoneRecordingController = recordingSession &&
+    microphoneArmButton &&
+    microphoneRecordButton &&
+    microphoneStopButton &&
+    microphoneStatusElement
+      ? createMicrophoneRecordingController({
+          recordingSession,
+          armButton: microphoneArmButton,
+          recordButton: microphoneRecordButton,
+          stopButton: microphoneStopButton,
+          statusElement: microphoneStatusElement,
+        })
+      : null;
+
+  microphoneRecordingController?.init();
 
   const projectTracksApi = invitationForProject ? { ...tracksApi, getTracksByProjectId(projectId: string) { return tracksApi.getTracksByProjectId(projectId, invitationForProject.token); } } : tracksApi;
   const projectStorageProvider = isGuestProject ? createGuestMixStorageProvider(selectedProject.id, storageProvider) : storageProvider;
@@ -608,8 +658,14 @@ function initializeProjectPlayerPage({
   });
   void controller.init();
 
-  async function leavePlayerWithBack(): Promise<void> { await controller.flushPendingMixSettings(); audioPlayerController.stop(); goBack("project-menu"); }
-  async function logoutFromPlayer(): Promise<void> { await controller.flushPendingMixSettings(); audioPlayerController.stop(); await onLogout(); }
+  async function stopActiveRecording(): Promise<void> {
+    if (recordingSession?.getSnapshot().status === "recording") {
+      await recordingSession.stop();
+    }
+  }
+
+  async function leavePlayerWithBack(): Promise<void> { await stopActiveRecording(); await controller.flushPendingMixSettings(); audioPlayerController.stop(); goBack("project-menu"); }
+  async function logoutFromPlayer(): Promise<void> { await stopActiveRecording(); await controller.flushPendingMixSettings(); audioPlayerController.stop(); await onLogout(); }
   backButton?.addEventListener("click", () => { void runBusyButtonAction(backButton, leavePlayerWithBack); });
   logoutButton?.addEventListener("click", () => { void runBusyButtonAction(logoutButton, logoutFromPlayer); });
   guestHomeButton?.addEventListener("click", onGuestAuth);
@@ -657,7 +713,13 @@ function initializeProjectPlayerPage({
     }
   }
 
-  return () => { destroyProjectActionsMenu?.(); audioPlayerController.destroy(); void controller.flushPendingMixSettings(); };
+  return () => {
+    destroyProjectActionsMenu?.();
+    microphoneRecordingController?.destroy();
+    void recordingSession?.destroy();
+    audioPlayerController.destroy();
+    void controller.flushPendingMixSettings();
+  };
 }
 
 function initializeCurrentPage({

@@ -266,6 +266,28 @@ function createNoopTracksApi(tracks: Track[] = []) {
 }
 
 tester.describe("mobile Project Player integration", () => {
+  tester.it("shows microphone recording only to Contributors and Owners", () => {
+    const ownerMarkup = renderProjectPlayerPage(ownerProject);
+    const contributorMarkup = renderProjectPlayerPage({
+      ...ownerProject,
+      role: "contributor",
+    });
+    const viewerMarkup = renderProjectPlayerPage({
+      ...ownerProject,
+      role: "viewer",
+    });
+    const guestMarkup = renderProjectPlayerPage({
+      ...ownerProject,
+      role: null,
+      access: "guest",
+    });
+
+    tester.expect(ownerMarkup.includes('id="microphone-arm-button"')).toBe(true);
+    tester.expect(contributorMarkup.includes('id="microphone-record-button"')).toBe(true);
+    tester.expect(viewerMarkup.includes('id="microphone-record-button"')).toBe(false);
+    tester.expect(guestMarkup.includes('id="microphone-record-button"')).toBe(false);
+  });
+
   tester.it("loads project tracks and prepares playback through the shared playback boundary", async () => {
     const pageMarkup = renderProjectPlayerPage(ownerProject);
     tester.expect(pageMarkup.includes("mobile-nav-home-button")).toBe(true);

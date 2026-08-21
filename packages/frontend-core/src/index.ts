@@ -116,8 +116,10 @@ export {
 } from "./platform/microphone-recording-port.js";
 export {
   createMicrophoneRecordingSession,
+  type MicrophoneRecordedTake,
   type MicrophoneRecordingSession,
   type MicrophoneRecordingSnapshot,
+  type MicrophoneRecordingStartPosition,
   type MicrophoneRecordingStateListener,
   type MicrophoneRecordingStatus,
 } from "./recording/microphone-recording-session.js";

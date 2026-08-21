@@ -180,9 +180,9 @@ Loop boundaries are scheduled against absolute AudioContext clock times. The Web
 
 This keeps JavaScript callback latency out of the actual loop boundary.
 
-## Recording timeline foundation
+## Recording timeline and microphone capture foundation
 
-The package contains `recording-timeline.ts`, which provides presentation-neutral timing primitives without microphone capture.
+The package contains `recording-timeline.ts`, which provides presentation-neutral timing primitives backed by the authoritative project `Transport`.
 
 `Transport.markTimelinePosition()` captures one exact observation:
 
@@ -202,13 +202,22 @@ The package contains `recording-timeline.ts`, which provides presentation-neutra
 
 Recording duration is calculated from the authoritative audio clock rather than by subtracting project positions. This matters if project position wraps across a loop boundary.
 
-`WebAudioPlaybackEngine` exposes optional `markRecordingStart()` / `markRecordingStop()` methods through `PlaybackEngine`. The HTML-audio fallback intentionally does not claim recording-grade clock capability.
+`MicrophoneRecordingSession` owns shared authorization and recording state. Its injected `MicrophoneRecordingPort` keeps `navigator.mediaDevices`, `MediaRecorder`, `MediaStream`, and browser `Blob` behavior outside `frontend-core`.
+
+When the session receives a recording-capable `PlaybackEngine` and the project `MusicalTimeline`, starting a take starts/resumes the existing project transport, starts microphone capture, and then records the authoritative transport marker observed at capture start. Stopping preserves an in-memory take containing:
+
+- captured browser-neutral audio bytes + MIME type;
+- exact transport/audio-clock start and stop metadata;
+- musical start and stop positions;
+- musical span in project beat units derived from transport-clock elapsed time, not encoded-file duration.
+
+`WebAudioPlaybackEngine` exposes `markRecordingStart()` / `markRecordingStop()` through `PlaybackEngine`. The HTML-audio fallback intentionally does not claim recording-grade clock capability and therefore cannot start synchronized capture.
 
 Not implemented yet:
 
-- microphone capture;
-- MediaRecorder/Web Audio input plumbing;
-- persistence of recorded-track offsets;
+- audition/retry/discard take review;
+- permanent recording upload or recorded-track creation;
+- persistence of recorded-track offsets from a take;
 - input-latency compensation;
 - device calibration;
 - manual nudge;

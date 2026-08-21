@@ -1,5 +1,6 @@
-import { getProjectMusicalTimeline } from "@hugovela/frontend-core";
+import { canRecord, getProjectMusicalTimeline } from "@hugovela/frontend-core";
 import { renderAudioPlayer } from "../templates/audio-player.js";
+import { renderMicrophoneRecordingControls } from "../templates/microphone-recording-controls.js";
 import { renderProjectActionsMenu } from "../templates/project-actions-menu.js";
 import { renderProjectInvitationPanel } from "../templates/project-invitation-controls.js";
 import { renderProjectMembersPanel } from "../templates/project-members.js";
@@ -27,6 +28,7 @@ export function renderProjectPlayerPage(project: Project | null = null, { curren
   const guest = isGuestProject(project);
   const role = guest ? null : getProjectRole(project);
   const canManageProject = Boolean(project) && role === "owner";
+  const canRecordProject = Boolean(project?.role && canRecord(project.role));
   const editableAttribute = canManageProject ? 'contenteditable="true"' : "";
   const editableClass = canManageProject ? " project-player-editable--enabled" : "";
   const canBecomeContributor = Boolean(project && hasContributorInvitation && role !== "owner" && role !== "contributor");
@@ -54,6 +56,7 @@ export function renderProjectPlayerPage(project: Project | null = null, { curren
         ${canBecomeContributor ? `<section id="contributor-invitation-card" class="contributor-invitation-card guest-message-card" aria-labelledby="contributor-invitation-heading"><button id="dismiss-contributor-invitation-button" class="icon-button guest-message-card__close" type="button" aria-label="Dismiss collaboration invitation message">×</button><div><p class="eyebrow">Collaboration Invitation</p><h2 id="contributor-invitation-heading">Become a Contributor</h2><p>${currentUser ? "Accept this invitation to add tracks and collaborate through your account." : "Log in or create an account, then explicitly accept this invitation to contribute."}</p></div><button id="become-contributor-button" class="button contributor-invitation-card__button" type="button">${currentUser ? "Accept Contributor Invitation" : "Become a Contributor"}</button><p id="contributor-invitation-status" class="status-message" aria-live="polite"></p></section>` : ""}
         <div class="project-player-workspace">
           ${renderAudioPlayer()}
+          ${canRecordProject ? renderMicrophoneRecordingControls() : ""}
           <section class="panel project-player-tracks-panel">
             <h2 class="visually-hidden">Tracks</h2>
             <div id="player-track-list"></div>

@@ -1,5 +1,6 @@
-import { getProjectMusicalTimeline } from "@hugovela/frontend-core";
+import { canRecord, getProjectMusicalTimeline } from "@hugovela/frontend-core";
 import { renderAudioPlayer } from "../templates/audio-player.js";
+import { renderMicrophoneRecordingControls } from "../templates/microphone-recording-controls.js";
 import { renderMobileNavigation } from "../templates/mobile-navigation.js";
 import { renderProjectActionsMenu } from "../templates/project-actions-menu.js";
 import { renderProjectInvitationPanel } from "../templates/project-invitation-controls.js";
@@ -82,6 +83,7 @@ export function renderProjectPlayerPage(
   const guest = isGuestProject(project);
   const role = guest ? null : getProjectRole(project);
   const canManageProject = Boolean(project) && role === "owner";
+  const canRecordProject = Boolean(project?.role && canRecord(project.role));
   const canEditTracks = Boolean(project) && (role === "owner" || role === "contributor");
   const canBecomeContributor = Boolean(
     project &&
@@ -192,6 +194,8 @@ export function renderProjectPlayerPage(
           : ""}
 
         ${renderAudioPlayer()}
+
+        ${canRecordProject ? renderMicrophoneRecordingControls() : ""}
 
         <section class="panel project-player-tracks-panel">
           <h2 class="visually-hidden">Tracks</h2>

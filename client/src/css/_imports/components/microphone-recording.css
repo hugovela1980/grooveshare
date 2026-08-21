@@ -1,0 +1,41 @@
+.microphone-recording {
+    display: grid;
+    gap: 1rem;
+    padding: 1rem 1.1rem;
+}
+
+.microphone-recording__details {
+    display: grid;
+    gap: 0.35rem;
+}
+
+.microphone-recording__details .eyebrow,
+.microphone-recording__details h2,
+.microphone-recording__hint,
+.microphone-recording__status {
+    margin: 0;
+}
+
+.microphone-recording__details h2 {
+    font-size: 1.05rem;
+}
+
+.microphone-recording__hint {
+    color: var(--color-text-muted-cool);
+    line-height: 1.45;
+}
+
+.microphone-recording__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+}
+
+.microphone-recording__actions .button:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.microphone-recording__status {
+    min-height: 1.25rem;
+}

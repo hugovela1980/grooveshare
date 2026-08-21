@@ -1,3 +1,4 @@
+import "./microphone-recording-controller.test.js";
 import "./auth-page-controller.test.js";
 import "./async-state.test.js";
 import "./loading-state-template.test.js";
