@@ -191,6 +191,7 @@ tester.describe("microphone recording session", () => {
 type PlaybackHarness = {
   engine: PlaybackEngine;
   events: string[];
+  seekCalls: number[];
   setClockTime(nextTime: number): void;
   pause(): void;
 };
@@ -206,6 +207,7 @@ function createPlaybackHarness({
 } = {}): PlaybackHarness {
   let clockTime = 100;
   const events: string[] = [];
+  const seekCalls: number[] = [];
   const transport = createTransport({
     getClockTime: () => clockTime,
     scheduleInterval() {
@@ -232,6 +234,7 @@ function createPlaybackHarness({
       transport.stop();
     },
     seek(seconds) {
+      seekCalls.push(seconds);
       transport.seek(seconds);
     },
     seekBy(seconds) {
@@ -285,6 +288,7 @@ function createPlaybackHarness({
   return {
     engine,
     events,
+    seekCalls,
     setClockTime(nextTime) {
       clockTime = nextTime;
     },
@@ -517,7 +521,7 @@ async function recordStoppedTakeForReview({
 }
 
 tester.describe("local microphone take review", () => {
-  tester.it("auditions a stopped take and returns to review state when playback ends", async () => {
+  tester.it("auditions a stopped take in context from its stored project position and stops both when the take ends", async () => {
     const recordingHarness = createRecordingPortHarness();
     const playbackHarness = createPlaybackHarness({ startPositionSeconds: 2 });
     const takePlaybackHarness = createTakePlaybackHarness();
@@ -530,14 +534,66 @@ tester.describe("local microphone take review", () => {
     await session.audition();
     tester.expect(session.getSnapshot().status).toBe("stopped");
     tester.expect(session.getSnapshot().takeReviewStatus).toBe("auditioning");
+    tester.expect(playbackHarness.seekCalls).toEqual([2]);
+    tester.expect(playbackHarness.engine.getSnapshot().isPlaying).toBe(true);
     tester.expect(takePlaybackHarness.playCalls).toBe(1);
     tester.expect(Array.from(takePlaybackHarness.lastCapture?.bytes ?? [])).toEqual([1, 2, 3]);
 
     takePlaybackHarness.end();
     tester.expect(session.getSnapshot().takeReviewStatus).toBe("idle");
     tester.expect(session.getSnapshot().take).toBeTruthy();
+    tester.expect(playbackHarness.engine.getSnapshot().isPlaying).toBe(false);
+    tester.expect(playbackHarness.engine.getSnapshot().currentTime).toBe(0);
 
     await session.destroy();
+    playbackHarness.engine.destroy?.();
+  });
+
+  tester.it("stops both temporary take playback and project playback when audition is stopped manually", async () => {
+    const recordingHarness = createRecordingPortHarness();
+    const playbackHarness = createPlaybackHarness({ startPositionSeconds: 4 });
+    const takePlaybackHarness = createTakePlaybackHarness();
+    const session = await recordStoppedTakeForReview({
+      recordingHarness,
+      playbackHarness,
+      takePlaybackHarness,
+    });
+
+    await session.audition();
+    tester.expect(playbackHarness.seekCalls).toEqual([4]);
+    tester.expect(playbackHarness.engine.getSnapshot().isPlaying).toBe(true);
+
+    await session.stopAudition();
+
+    tester.expect(session.getSnapshot().takeReviewStatus).toBe("idle");
+    tester.expect(session.getSnapshot().take).toBeTruthy();
+    tester.expect(takePlaybackHarness.stopCalls).toBe(1);
+    tester.expect(playbackHarness.engine.getSnapshot().isPlaying).toBe(false);
+    tester.expect(playbackHarness.engine.getSnapshot().currentTime).toBe(0);
+
+    await session.destroy();
+    playbackHarness.engine.destroy?.();
+  });
+
+  tester.it("stops in-context project playback when the recording session is destroyed during audition", async () => {
+    const recordingHarness = createRecordingPortHarness();
+    const playbackHarness = createPlaybackHarness({ startPositionSeconds: 5 });
+    const takePlaybackHarness = createTakePlaybackHarness();
+    const session = await recordStoppedTakeForReview({
+      recordingHarness,
+      playbackHarness,
+      takePlaybackHarness,
+    });
+
+    await session.audition();
+    tester.expect(playbackHarness.engine.getSnapshot().isPlaying).toBe(true);
+
+    await session.destroy();
+
+    tester.expect(playbackHarness.engine.getSnapshot().isPlaying).toBe(false);
+    tester.expect(playbackHarness.engine.getSnapshot().currentTime).toBe(0);
+    tester.expect(takePlaybackHarness.releaseCalls).toBe(1);
+
     playbackHarness.engine.destroy?.();
   });
 
@@ -630,6 +686,8 @@ tester.describe("local microphone take review", () => {
       "Temporary take could not be decoded.",
     );
     tester.expect(session.getSnapshot().take).toBeTruthy();
+    tester.expect(playbackHarness.engine.getSnapshot().isPlaying).toBe(false);
+    tester.expect(playbackHarness.engine.getSnapshot().currentTime).toBe(0);
 
     await session.destroy();
     playbackHarness.engine.destroy?.();

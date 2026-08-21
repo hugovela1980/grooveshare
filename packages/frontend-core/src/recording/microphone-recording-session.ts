@@ -136,7 +136,8 @@ function cloneTake(take: MicrophoneRecordedTake | null): MicrophoneRecordedTake 
  * browser primitives remain behind injected platform ports.
  *
  * Checkpoint 3B owns transport-synchronized capture. Checkpoint 3C adds a
- * temporary local review loop: a stopped take can be auditioned, rejected for
+ * temporary local review loop: a stopped take can be auditioned in context
+ * with project playback from its stored transport position, rejected for
  * another pass, or discarded without any server persistence.
  */
 export function createMicrophoneRecordingSession({
@@ -211,9 +212,40 @@ export function createMicrophoneRecordingSession({
     }
   }
 
-  function pauseProjectPlaybackForAudition(): void {
-    if (playbackEngine?.getSnapshot().isPlaying) {
+  function stopProjectPlaybackForAudition(): void {
+    playbackEngine?.stop();
+  }
+
+  async function startProjectPlaybackForAudition(
+    recordedTake: MicrophoneRecordedTake,
+  ): Promise<void> {
+    if (!playbackEngine) {
+      throw new Error(
+        "Project playback is unavailable for synchronized take audition.",
+      );
+    }
+
+    const playbackSnapshot = playbackEngine.getSnapshot();
+
+    if (!playbackSnapshot.hasLoadedChannels) {
+      throw new Error(
+        "Load at least one project track before auditioning a recorded take.",
+      );
+    }
+
+    if (playbackSnapshot.isPlaying) {
       playbackEngine.pause();
+    }
+
+    playbackEngine.seek(
+      recordedTake.timing.transport.startProjectPositionSeconds,
+    );
+    await playbackEngine.play();
+
+    if (!playbackEngine.getSnapshot().isPlaying) {
+      throw new Error(
+        "Project playback could not start for synchronized take audition.",
+      );
     }
   }
 
@@ -274,6 +306,9 @@ export function createMicrophoneRecordingSession({
 
   async function releaseTakePlayback(): Promise<void> {
     takeReviewGeneration += 1;
+    if (takeReviewStatus === "auditioning") {
+      stopProjectPlaybackForAudition();
+    }
     takeReviewStatus = "idle";
     takeReviewFailure = null;
     await takePlaybackPort?.release();
@@ -534,18 +569,20 @@ export function createMicrophoneRecordingSession({
       return notify();
     }
 
-    pauseProjectPlaybackForAudition();
     const generation = ++takeReviewGeneration;
-    takeReviewStatus = "auditioning";
-    takeReviewFailure = null;
-    notify();
 
     try {
+      await startProjectPlaybackForAudition(take);
+      takeReviewStatus = "auditioning";
+      takeReviewFailure = null;
+      notify();
+
       await takePlaybackPort.play(take.capture, {
         onEnded() {
           if (destroyed || generation !== takeReviewGeneration) {
             return;
           }
+          stopProjectPlaybackForAudition();
           takeReviewStatus = "idle";
           takeReviewFailure = null;
           notify();
@@ -554,6 +591,7 @@ export function createMicrophoneRecordingSession({
           if (destroyed || generation !== takeReviewGeneration) {
             return;
           }
+          stopProjectPlaybackForAudition();
           takeReviewStatus = "idle";
           takeReviewFailure = { ...nextFailure };
           notify();
@@ -562,6 +600,7 @@ export function createMicrophoneRecordingSession({
       return getSnapshot();
     } catch (error) {
       if (generation === takeReviewGeneration) {
+        stopProjectPlaybackForAudition();
         takeReviewStatus = "idle";
         takeReviewFailure = {
           message: error instanceof Error && error.message.trim()
@@ -586,6 +625,7 @@ export function createMicrophoneRecordingSession({
     }
 
     takeReviewGeneration += 1;
+    stopProjectPlaybackForAudition();
     takeReviewStatus = "idle";
     takeReviewFailure = null;
 
@@ -719,6 +759,7 @@ export function createMicrophoneRecordingSession({
     }
 
     const wasRecording = status === "recording";
+    const wasAuditioning = takeReviewStatus === "auditioning";
     captureActive = false;
     destroyed = true;
     unsubscribePlayback?.();
@@ -727,6 +768,8 @@ export function createMicrophoneRecordingSession({
 
     if (wasRecording) {
       stopSynchronizedPlayback();
+    } else if (wasAuditioning) {
+      stopProjectPlaybackForAudition();
     }
 
     try {
