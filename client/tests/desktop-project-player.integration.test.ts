@@ -80,6 +80,9 @@ tester.describe("desktop Project Player integration", () => {
     });
 
     tester.expect(contributorMarkup.includes('id="microphone-record-button"')).toBe(true);
+    tester.expect(contributorMarkup.includes('id="microphone-audition-button"')).toBe(true);
+    tester.expect(contributorMarkup.includes('id="microphone-retry-button"')).toBe(true);
+    tester.expect(contributorMarkup.includes('id="microphone-discard-button"')).toBe(true);
     tester.expect(viewerMarkup.includes('id="microphone-record-button"')).toBe(false);
     tester.expect(guestMarkup.includes('id="microphone-record-button"')).toBe(false);
   });

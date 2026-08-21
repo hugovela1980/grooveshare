@@ -36,6 +36,33 @@ export function renderMicrophoneRecordingControls(): string {
         >
           Stop Recording
         </button>
+        <button
+          id="microphone-audition-button"
+          class="button"
+          type="button"
+          disabled
+          hidden
+        >
+          Audition Take
+        </button>
+        <button
+          id="microphone-retry-button"
+          class="button button--secondary"
+          type="button"
+          disabled
+          hidden
+        >
+          Retry
+        </button>
+        <button
+          id="microphone-discard-button"
+          class="button button--danger"
+          type="button"
+          disabled
+          hidden
+        >
+          Discard
+        </button>
       </div>
 
       <p

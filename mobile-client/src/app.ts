@@ -18,6 +18,7 @@ import {
   buildBrowserInvitationShareLink,
   copyBrowserText,
   createBrowserMicrophoneRecordingAdapter,
+  createBrowserRecordedTakePlaybackAdapter,
   createBrowserGrooveShareApp,
   getBrowserInvitationSessionStore,
   getBrowserStorageProvider,
@@ -948,6 +949,18 @@ function initializeProjectPlayerPage({
     appElement,
     "#microphone-stop-button",
   );
+  const microphoneAuditionButton = getElement<HTMLButtonElement>(
+    appElement,
+    "#microphone-audition-button",
+  );
+  const microphoneRetryButton = getElement<HTMLButtonElement>(
+    appElement,
+    "#microphone-retry-button",
+  );
+  const microphoneDiscardButton = getElement<HTMLButtonElement>(
+    appElement,
+    "#microphone-discard-button",
+  );
   const microphoneStatusElement = getElement<HTMLParagraphElement>(
     appElement,
     "#microphone-recording-status",
@@ -958,10 +971,14 @@ function initializeProjectPlayerPage({
     microphoneArmButton &&
     microphoneRecordButton &&
     microphoneStopButton &&
+    microphoneAuditionButton &&
+    microphoneRetryButton &&
+    microphoneDiscardButton &&
     microphoneStatusElement
       ? createMicrophoneRecordingSession({
           role: recordingRole,
           recordingPort: createBrowserMicrophoneRecordingAdapter(),
+          takePlaybackPort: createBrowserRecordedTakePlaybackAdapter(),
           playbackEngine,
           musicalTimeline,
         })
@@ -970,12 +987,18 @@ function initializeProjectPlayerPage({
     microphoneArmButton &&
     microphoneRecordButton &&
     microphoneStopButton &&
+    microphoneAuditionButton &&
+    microphoneRetryButton &&
+    microphoneDiscardButton &&
     microphoneStatusElement
       ? createMicrophoneRecordingController({
           recordingSession,
           armButton: microphoneArmButton,
           recordButton: microphoneRecordButton,
           stopButton: microphoneStopButton,
+          auditionButton: microphoneAuditionButton,
+          retryButton: microphoneRetryButton,
+          discardButton: microphoneDiscardButton,
           statusElement: microphoneStatusElement,
         })
       : null;

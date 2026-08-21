@@ -3,6 +3,10 @@ export {
   type BrowserMicrophoneRecordingAdapterOptions,
 } from "./browser-microphone-recording-adapter.js";
 export {
+  createBrowserRecordedTakePlaybackAdapter,
+  type BrowserRecordedTakePlaybackAdapterOptions,
+} from "./browser-recorded-take-playback-adapter.js";
+export {
   createBrowserApiTransport,
   type AuthenticationRequiredHandler,
   type BrowserApiTransport,

@@ -7,6 +7,7 @@ import {
   type MicrophoneRecordingPort,
   type PlaybackEngine,
   type RecordedAudioCapture,
+  type RecordedTakePlaybackPort,
 } from "../src/index.js";
 import { tester } from "./test-runner/tester.js";
 
@@ -429,6 +430,206 @@ tester.describe("transport-synchronized microphone recording", () => {
     tester.expect(recordingHarness.stopCalls).toBe(1);
     tester.expect(session.getSnapshot().status).toBe("stopped");
     tester.expect(session.getSnapshot().take?.timing.transport.durationSeconds).toBe(1.5);
+
+    await session.destroy();
+    playbackHarness.engine.destroy?.();
+  });
+});
+
+type TakePlaybackHarness = {
+  port: RecordedTakePlaybackPort;
+  playCalls: number;
+  stopCalls: number;
+  releaseCalls: number;
+  lastCapture: RecordedAudioCapture | null;
+  end(): void;
+  fail(message: string): void;
+};
+
+function createTakePlaybackHarness(): TakePlaybackHarness {
+  let onEnded: (() => void) | undefined;
+  let onFailure: ((failure: { message: string }) => void) | undefined;
+  const harness: TakePlaybackHarness = {
+    playCalls: 0,
+    stopCalls: 0,
+    releaseCalls: 0,
+    lastCapture: null,
+    port: null as unknown as RecordedTakePlaybackPort,
+    end() {
+      onEnded?.();
+    },
+    fail(message) {
+      onFailure?.({ message });
+    },
+  };
+
+  harness.port = {
+    async play(capture, options) {
+      harness.playCalls += 1;
+      harness.lastCapture = {
+        bytes: new Uint8Array(capture.bytes),
+        mimeType: capture.mimeType,
+      };
+      onEnded = options?.onEnded;
+      onFailure = options?.onFailure;
+    },
+    async stop() {
+      harness.stopCalls += 1;
+      onEnded = undefined;
+      onFailure = undefined;
+    },
+    async release() {
+      harness.releaseCalls += 1;
+      onEnded = undefined;
+      onFailure = undefined;
+    },
+  };
+
+  return harness;
+}
+
+async function recordStoppedTakeForReview({
+  recordingHarness,
+  playbackHarness,
+  takePlaybackHarness,
+}: {
+  recordingHarness: RecordingPortHarness;
+  playbackHarness: PlaybackHarness;
+  takePlaybackHarness: TakePlaybackHarness;
+}) {
+  const session = createMicrophoneRecordingSession({
+    role: "contributor",
+    recordingPort: recordingHarness.port,
+    takePlaybackPort: takePlaybackHarness.port,
+    playbackEngine: playbackHarness.engine,
+    musicalTimeline: {
+      bpm: 120,
+      timeSignature: { numerator: 4, denominator: 4 },
+    },
+  });
+
+  await session.arm();
+  await session.start();
+  playbackHarness.setClockTime(102);
+  await session.stop();
+
+  return session;
+}
+
+tester.describe("local microphone take review", () => {
+  tester.it("auditions a stopped take and returns to review state when playback ends", async () => {
+    const recordingHarness = createRecordingPortHarness();
+    const playbackHarness = createPlaybackHarness({ startPositionSeconds: 2 });
+    const takePlaybackHarness = createTakePlaybackHarness();
+    const session = await recordStoppedTakeForReview({
+      recordingHarness,
+      playbackHarness,
+      takePlaybackHarness,
+    });
+
+    await session.audition();
+    tester.expect(session.getSnapshot().status).toBe("stopped");
+    tester.expect(session.getSnapshot().takeReviewStatus).toBe("auditioning");
+    tester.expect(takePlaybackHarness.playCalls).toBe(1);
+    tester.expect(Array.from(takePlaybackHarness.lastCapture?.bytes ?? [])).toEqual([1, 2, 3]);
+
+    takePlaybackHarness.end();
+    tester.expect(session.getSnapshot().takeReviewStatus).toBe("idle");
+    tester.expect(session.getSnapshot().take).toBeTruthy();
+
+    await session.destroy();
+    playbackHarness.engine.destroy?.();
+  });
+
+  tester.it("retries repeatedly without releasing the prepared microphone, then records a replacement take", async () => {
+    const recordingHarness = createRecordingPortHarness();
+    const playbackHarness = createPlaybackHarness({ startPositionSeconds: 1 });
+    const takePlaybackHarness = createTakePlaybackHarness();
+    const session = await recordStoppedTakeForReview({
+      recordingHarness,
+      playbackHarness,
+      takePlaybackHarness,
+    });
+
+    await session.audition();
+    await session.retry();
+
+    tester.expect(session.getSnapshot().status).toBe("ready");
+    tester.expect(session.getSnapshot().take).toBe(null);
+    tester.expect(session.getSnapshot().capture).toBe(null);
+    tester.expect(session.getSnapshot().takeReviewStatus).toBe("idle");
+    tester.expect(recordingHarness.releaseCalls).toBe(0);
+    tester.expect(takePlaybackHarness.releaseCalls).toBe(1);
+
+    playbackHarness.engine.seek(3);
+    playbackHarness.setClockTime(103);
+    await session.start();
+    playbackHarness.setClockTime(104.5);
+    await session.stop();
+
+    tester.expect(session.getSnapshot().status).toBe("stopped");
+    tester.expect(session.getSnapshot().take?.timing.transport.startProjectPositionSeconds).toBe(3);
+    tester.expect(session.getSnapshot().take?.timing.transport.durationSeconds).toBe(1.5);
+    tester.expect(recordingHarness.startCalls).toBe(2);
+    tester.expect(recordingHarness.stopCalls).toBe(2);
+
+    await session.audition();
+    tester.expect(takePlaybackHarness.playCalls).toBe(2);
+    takePlaybackHarness.end();
+    tester.expect(session.getSnapshot().takeReviewStatus).toBe("idle");
+
+    await session.destroy();
+    playbackHarness.engine.destroy?.();
+  });
+
+  tester.it("discards a stopped take, releases temporary playback and microphone resources, and returns to idle", async () => {
+    const recordingHarness = createRecordingPortHarness();
+    const playbackHarness = createPlaybackHarness();
+    const takePlaybackHarness = createTakePlaybackHarness();
+    const session = await recordStoppedTakeForReview({
+      recordingHarness,
+      playbackHarness,
+      takePlaybackHarness,
+    });
+
+    await session.audition();
+    await session.discard();
+
+    const discarded = session.getSnapshot();
+    tester.expect(discarded.status).toBe("idle");
+    tester.expect(discarded.take).toBe(null);
+    tester.expect(discarded.capture).toBe(null);
+    tester.expect(discarded.startPosition).toBe(null);
+    tester.expect(discarded.takeReviewStatus).toBe("idle");
+    tester.expect(takePlaybackHarness.releaseCalls).toBe(1);
+    tester.expect(recordingHarness.releaseCalls).toBe(1);
+
+    takePlaybackHarness.end();
+    tester.expect(session.getSnapshot().status).toBe("idle");
+
+    await session.destroy();
+    playbackHarness.engine.destroy?.();
+  });
+
+  tester.it("keeps the stopped take available when audition playback fails", async () => {
+    const recordingHarness = createRecordingPortHarness();
+    const playbackHarness = createPlaybackHarness();
+    const takePlaybackHarness = createTakePlaybackHarness();
+    const session = await recordStoppedTakeForReview({
+      recordingHarness,
+      playbackHarness,
+      takePlaybackHarness,
+    });
+
+    await session.audition();
+    takePlaybackHarness.fail("Temporary take could not be decoded.");
+
+    tester.expect(session.getSnapshot().status).toBe("stopped");
+    tester.expect(session.getSnapshot().takeReviewStatus).toBe("idle");
+    tester.expect(session.getSnapshot().takeReviewFailure?.message).toBe(
+      "Temporary take could not be decoded.",
+    );
+    tester.expect(session.getSnapshot().take).toBeTruthy();
 
     await session.destroy();
     playbackHarness.engine.destroy?.();

@@ -39,3 +39,7 @@
 .microphone-recording__status {
     min-height: 1.25rem;
 }
+
+.microphone-recording__actions .button[hidden] {
+    display: none;
+}

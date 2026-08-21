@@ -11,6 +11,10 @@ import {
   type RecordedAudioCapture,
   toMicrophoneRecordingFailure,
 } from "../platform/microphone-recording-port.js";
+import type {
+  RecordedTakePlaybackFailure,
+  RecordedTakePlaybackPort,
+} from "../platform/recorded-take-playback-port.js";
 import type { PlaybackEngine } from "../playback/playback-engine.js";
 import type {
   RecordingPositionMetadata,
@@ -29,6 +33,8 @@ export type MicrophoneRecordingStatus =
   | "recording"
   | "stopped"
   | "failed";
+
+export type MicrophoneTakeReviewStatus = "idle" | "auditioning";
 
 /**
  * Authoritative project position observed immediately after microphone capture
@@ -60,6 +66,8 @@ export type MicrophoneRecordingSnapshot = {
   startPosition: MicrophoneRecordingStartPosition | null;
   take: MicrophoneRecordedTake | null;
   failure: MicrophoneRecordingFailure | null;
+  takeReviewStatus: MicrophoneTakeReviewStatus;
+  takeReviewFailure: RecordedTakePlaybackFailure | null;
 };
 
 export type MicrophoneRecordingStateListener = (
@@ -70,6 +78,10 @@ export interface MicrophoneRecordingSession {
   arm(): Promise<MicrophoneRecordingSnapshot>;
   start(): Promise<MicrophoneRecordingSnapshot>;
   stop(): Promise<MicrophoneRecordingSnapshot>;
+  audition(): Promise<MicrophoneRecordingSnapshot>;
+  stopAudition(): Promise<MicrophoneRecordingSnapshot>;
+  retry(): Promise<MicrophoneRecordingSnapshot>;
+  discard(): Promise<MicrophoneRecordingSnapshot>;
   reset(): Promise<MicrophoneRecordingSnapshot>;
   getSnapshot(): MicrophoneRecordingSnapshot;
   subscribe(listener: MicrophoneRecordingStateListener): () => void;
@@ -117,26 +129,26 @@ function cloneTake(take: MicrophoneRecordedTake | null): MicrophoneRecordedTake 
 }
 
 /**
- * Shared microphone-recording state machine.
+ * Shared microphone-recording and local take-review state machine.
  *
  * Authorization and workflow state live here, while navigator.mediaDevices,
- * MediaRecorder, MediaStream, Blob, and other browser primitives remain behind
- * the injected recording port.
+ * MediaRecorder, MediaStream, Blob, object URLs, HTMLAudioElement, and other
+ * browser primitives remain behind injected platform ports.
  *
- * When playbackEngine + musicalTimeline are supplied, start()/stop() also own
- * the basic transport-synchronized recording pass used by Checkpoint 3B:
- * playback starts from the current project position, capture begins against
- * that authoritative clock, and the stopped take retains transport + musical
- * timing independently from encoded audio-file duration.
+ * Checkpoint 3B owns transport-synchronized capture. Checkpoint 3C adds a
+ * temporary local review loop: a stopped take can be auditioned, rejected for
+ * another pass, or discarded without any server persistence.
  */
 export function createMicrophoneRecordingSession({
   role,
   recordingPort,
+  takePlaybackPort,
   playbackEngine,
   musicalTimeline,
 }: {
   role: ProjectRole | null | undefined;
   recordingPort: MicrophoneRecordingPort;
+  takePlaybackPort?: RecordedTakePlaybackPort;
   playbackEngine?: PlaybackEngine;
   musicalTimeline?: MusicalTimeline;
 }): MicrophoneRecordingSession {
@@ -145,6 +157,9 @@ export function createMicrophoneRecordingSession({
   let startPosition: MicrophoneRecordingStartPosition | null = null;
   let take: MicrophoneRecordedTake | null = null;
   let failure: MicrophoneRecordingFailure | null = null;
+  let takeReviewStatus: MicrophoneTakeReviewStatus = "idle";
+  let takeReviewFailure: RecordedTakePlaybackFailure | null = null;
+  let takeReviewGeneration = 0;
   let destroyed = false;
   let captureActive = false;
   let stopInProgress = false;
@@ -161,6 +176,8 @@ export function createMicrophoneRecordingSession({
       startPosition: cloneStartPosition(startPosition),
       take: cloneTake(take),
       failure: failure ? { ...failure } : null,
+      takeReviewStatus,
+      takeReviewFailure: takeReviewFailure ? { ...takeReviewFailure } : null,
     };
   }
 
@@ -184,11 +201,19 @@ export function createMicrophoneRecordingSession({
     capture = null;
     startPosition = null;
     take = null;
+    takeReviewStatus = "idle";
+    takeReviewFailure = null;
   }
 
   function stopSynchronizedPlayback(): void {
     if (synchronizationRequested) {
       playbackEngine?.stop();
+    }
+  }
+
+  function pauseProjectPlaybackForAudition(): void {
+    if (playbackEngine?.getSnapshot().isPlaying) {
+      playbackEngine.pause();
     }
   }
 
@@ -247,6 +272,13 @@ export function createMicrophoneRecordingSession({
     };
   }
 
+  async function releaseTakePlayback(): Promise<void> {
+    takeReviewGeneration += 1;
+    takeReviewStatus = "idle";
+    takeReviewFailure = null;
+    await takePlaybackPort?.release();
+  }
+
   async function arm(): Promise<MicrophoneRecordingSnapshot> {
     ensureActive();
 
@@ -265,6 +297,14 @@ export function createMicrophoneRecordingSession({
           "Cannot prepare the microphone while recording is already active.",
         ),
       );
+    }
+
+    if (take || takeReviewStatus === "auditioning" || takeReviewFailure) {
+      try {
+        await releaseTakePlayback();
+      } catch (error) {
+        return setFailure(error);
+      }
     }
 
     clearTakeState();
@@ -430,6 +470,8 @@ export function createMicrophoneRecordingSession({
       capture = await capturePromise;
       captureActive = false;
       failure = null;
+      takeReviewStatus = "idle";
+      takeReviewFailure = null;
 
       if (synchronization) {
         if (!timingResult || !startPosition) {
@@ -469,6 +511,152 @@ export function createMicrophoneRecordingSession({
     }
   }
 
+  async function audition(): Promise<MicrophoneRecordingSnapshot> {
+    ensureActive();
+
+    if (!ensureAuthorized()) {
+      return getSnapshot();
+    }
+
+    if (status !== "stopped" || !take) {
+      takeReviewFailure = { message: "Record a take before auditioning it." };
+      return notify();
+    }
+
+    if (takeReviewStatus === "auditioning") {
+      return getSnapshot();
+    }
+
+    if (!takePlaybackPort) {
+      takeReviewFailure = {
+        message: "Take audition is unavailable in this environment.",
+      };
+      return notify();
+    }
+
+    pauseProjectPlaybackForAudition();
+    const generation = ++takeReviewGeneration;
+    takeReviewStatus = "auditioning";
+    takeReviewFailure = null;
+    notify();
+
+    try {
+      await takePlaybackPort.play(take.capture, {
+        onEnded() {
+          if (destroyed || generation !== takeReviewGeneration) {
+            return;
+          }
+          takeReviewStatus = "idle";
+          takeReviewFailure = null;
+          notify();
+        },
+        onFailure(nextFailure) {
+          if (destroyed || generation !== takeReviewGeneration) {
+            return;
+          }
+          takeReviewStatus = "idle";
+          takeReviewFailure = { ...nextFailure };
+          notify();
+        },
+      });
+      return getSnapshot();
+    } catch (error) {
+      if (generation === takeReviewGeneration) {
+        takeReviewStatus = "idle";
+        takeReviewFailure = {
+          message: error instanceof Error && error.message.trim()
+            ? error.message
+            : "Take audition failed.",
+        };
+        return notify();
+      }
+      return getSnapshot();
+    }
+  }
+
+  async function stopAudition(): Promise<MicrophoneRecordingSnapshot> {
+    ensureActive();
+
+    if (!ensureAuthorized()) {
+      return getSnapshot();
+    }
+
+    if (takeReviewStatus !== "auditioning") {
+      return getSnapshot();
+    }
+
+    takeReviewGeneration += 1;
+    takeReviewStatus = "idle";
+    takeReviewFailure = null;
+
+    try {
+      await takePlaybackPort?.stop();
+      return notify();
+    } catch (error) {
+      takeReviewFailure = {
+        message: error instanceof Error && error.message.trim()
+          ? error.message
+          : "Take audition could not be stopped cleanly.",
+      };
+      return notify();
+    }
+  }
+
+  async function retry(): Promise<MicrophoneRecordingSnapshot> {
+    ensureActive();
+
+    if (!ensureAuthorized()) {
+      return getSnapshot();
+    }
+
+    if (status !== "stopped" || !take) {
+      takeReviewFailure = { message: "There is no stopped take to retry." };
+      return notify();
+    }
+
+    try {
+      await releaseTakePlayback();
+    } catch (error) {
+      takeReviewFailure = {
+        message: error instanceof Error && error.message.trim()
+          ? error.message
+          : "Temporary take playback could not be cleaned up.",
+      };
+      return notify();
+    }
+
+    clearTakeState();
+    failure = null;
+    status = "ready";
+    return notify();
+  }
+
+  async function discard(): Promise<MicrophoneRecordingSnapshot> {
+    ensureActive();
+
+    if (!ensureAuthorized()) {
+      return getSnapshot();
+    }
+
+    if (status !== "stopped" || !take) {
+      takeReviewFailure = { message: "There is no stopped take to discard." };
+      return notify();
+    }
+
+    try {
+      await releaseTakePlayback();
+      await recordingPort.release();
+    } catch (error) {
+      return setFailure(error);
+    }
+
+    captureActive = false;
+    clearTakeState();
+    failure = null;
+    status = "idle";
+    return notify();
+  }
+
   async function reset(): Promise<MicrophoneRecordingSnapshot> {
     ensureActive();
 
@@ -481,6 +669,7 @@ export function createMicrophoneRecordingSession({
     captureActive = false;
 
     try {
+      await releaseTakePlayback();
       await recordingPort.release();
     } catch (error) {
       return setFailure(error);
@@ -534,9 +723,16 @@ export function createMicrophoneRecordingSession({
     destroyed = true;
     unsubscribePlayback?.();
     listeners.clear();
+    takeReviewGeneration += 1;
 
     if (wasRecording) {
       stopSynchronizedPlayback();
+    }
+
+    try {
+      await takePlaybackPort?.release();
+    } catch {
+      // Destruction is best-effort cleanup. Continue releasing the microphone.
     }
 
     try {
@@ -550,6 +746,10 @@ export function createMicrophoneRecordingSession({
     arm,
     start,
     stop,
+    audition,
+    stopAudition,
+    retry,
+    discard,
     reset,
     getSnapshot,
     subscribe,
