@@ -2,6 +2,7 @@ import type {
   MicrophoneRecordedTake,
   MicrophoneRecordingSession,
   MicrophoneRecordingSnapshot,
+  Track,
 } from "@hugovela/frontend-core";
 
 type ButtonElementLike = {
@@ -17,6 +18,12 @@ type ButtonElementLike = {
   ) => void;
 };
 
+type ValueInputLike = {
+  disabled: boolean;
+  hidden: boolean | string;
+  value: string;
+};
+
 type TextElementLike = {
   textContent: string | null;
 };
@@ -29,7 +36,10 @@ type MicrophoneRecordingControllerOptions = {
   auditionButton: ButtonElementLike;
   retryButton: ButtonElementLike;
   discardButton: ButtonElementLike;
+  keepButton: ButtonElementLike;
+  takeNameInput: ValueInputLike;
   statusElement: TextElementLike;
+  onTakeKept?: (track: Track) => void | Promise<void>;
 };
 
 function formatMusicalPosition(position: { bar: number; beat: number }): string {
@@ -50,7 +60,9 @@ function describeStoppedTake(take: MicrophoneRecordedTake | null): string {
 function getStatusMessage(snapshot: MicrophoneRecordingSnapshot): string {
   switch (snapshot.status) {
     case "idle":
-      return "Enable your microphone to prepare a take.";
+      return snapshot.savedTrack
+        ? `“${snapshot.savedTrack.name}” saved as a project track. Enable your microphone to record another take.`
+        : "Enable your microphone to prepare a take.";
     case "requesting-permission":
       return "Requesting microphone permission…";
     case "ready":
@@ -61,13 +73,19 @@ function getStatusMessage(snapshot: MicrophoneRecordingSnapshot): string {
         : "Recording…";
     case "stopped": {
       const description = describeStoppedTake(snapshot.take);
+      if (snapshot.takeSaveStatus === "saving") {
+        return `${description} Saving as a project track…`;
+      }
+      if (snapshot.takeSaveFailure) {
+        return `${description} ${snapshot.takeSaveFailure.message}`;
+      }
       if (snapshot.takeReviewStatus === "auditioning") {
         return `${description} Auditioning…`;
       }
       if (snapshot.takeReviewFailure) {
         return `${description} ${snapshot.takeReviewFailure.message}`;
       }
-      return `${description} Audition it, retry, or discard it.`;
+      return `${description} Audition it, retry, discard it, or keep it as a project track.`;
     }
     case "failed":
       return snapshot.failure?.message ?? "Microphone recording failed.";
@@ -82,12 +100,26 @@ export function createMicrophoneRecordingController({
   auditionButton,
   retryButton,
   discardButton,
+  keepButton,
+  takeNameInput,
   statusElement,
+  onTakeKept,
 }: MicrophoneRecordingControllerOptions) {
   let unsubscribe: (() => void) | null = null;
+  let takeNameInitialized = false;
 
   function render(snapshot: MicrophoneRecordingSnapshot): void {
     const hasStoppedTake = snapshot.status === "stopped" && Boolean(snapshot.take);
+    const isSaving = snapshot.takeSaveStatus === "saving";
+
+    if (hasStoppedTake && !takeNameInitialized) {
+      if (!takeNameInput.value.trim()) {
+        takeNameInput.value = "Recorded Take";
+      }
+      takeNameInitialized = true;
+    } else if (!hasStoppedTake) {
+      takeNameInitialized = false;
+    }
 
     armButton.disabled =
       snapshot.status === "requesting-permission" ||
@@ -100,9 +132,14 @@ export function createMicrophoneRecordingController({
     auditionButton.hidden = !hasStoppedTake;
     retryButton.hidden = !hasStoppedTake;
     discardButton.hidden = !hasStoppedTake;
-    auditionButton.disabled = !hasStoppedTake;
-    retryButton.disabled = !hasStoppedTake;
-    discardButton.disabled = !hasStoppedTake;
+    keepButton.hidden = !hasStoppedTake;
+    takeNameInput.hidden = !hasStoppedTake;
+
+    auditionButton.disabled = !hasStoppedTake || isSaving;
+    retryButton.disabled = !hasStoppedTake || isSaving;
+    discardButton.disabled = !hasStoppedTake || isSaving;
+    keepButton.disabled = !hasStoppedTake || isSaving;
+    takeNameInput.disabled = !hasStoppedTake || isSaving;
 
     armButton.textContent = snapshot.status === "requesting-permission"
       ? "Enabling…"
@@ -113,6 +150,7 @@ export function createMicrophoneRecordingController({
     auditionButton.textContent = snapshot.takeReviewStatus === "auditioning"
       ? "Stop Audition"
       : "Audition Take";
+    keepButton.textContent = isSaving ? "Saving…" : "Keep Take";
     statusElement.textContent = getStatusMessage(snapshot);
   }
 
@@ -145,6 +183,15 @@ export function createMicrophoneRecordingController({
 
     discardButton.addEventListener("click", async () => {
       await recordingSession.discard();
+    });
+
+    keepButton.addEventListener("click", async () => {
+      const result = await recordingSession.keep(takeNameInput.value);
+
+      if (result.savedTrack) {
+        takeNameInput.value = "";
+        await onTakeKept?.(result.savedTrack);
+      }
     });
   }
 

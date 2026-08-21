@@ -13,6 +13,7 @@ type MixChannelForPlayer = {
     audioUrl: string;
     volume: number;
     enabled?: boolean;
+    timelineOffsetSeconds?: number;
 };
 
 type ButtonElementLike = {
@@ -245,6 +246,9 @@ export function createAudioPlayerController({
             audioUrl: channel.audioUrl,
             volume: channel.volume,
             enabled: channel.enabled !== false,
+            ...(channel.timelineOffsetSeconds !== undefined
+                ? { timelineOffsetSeconds: channel.timelineOffsetSeconds }
+                : {}),
         }));
 
         playbackEngine.loadMix(playbackChannels);

@@ -91,6 +91,14 @@ function clampVolume(volume: number): number {
   return Math.max(0, Math.min(1, volume));
 }
 
+function getChannelTimelineOffsetSeconds(channel: PlaybackChannel): number {
+  const offsetSeconds = channel.timelineOffsetSeconds;
+
+  return Number.isFinite(offsetSeconds) && (offsetSeconds ?? 0) > 0
+    ? offsetSeconds as number
+    : 0;
+}
+
 function getBrowserAudioContext(): AudioContextLike | null {
   const browserGlobal = globalThis as typeof globalThis & {
     AudioContext?: new () => unknown;
@@ -182,11 +190,14 @@ export function createWebAudioPlaybackEngine(
   }
 
   function getMixDuration(): number {
-    return loadedChannels.reduce((longestDuration, { buffer }) => {
+    return loadedChannels.reduce((longestDuration, { channel, buffer }) => {
       const duration = buffer?.duration ?? 0;
 
       return Number.isFinite(duration) && duration > 0
-        ? Math.max(longestDuration, duration)
+        ? Math.max(
+            longestDuration,
+            getChannelTimelineOffsetSeconds(channel) + duration,
+          )
         : longestDuration;
     }, 0);
   }
@@ -306,16 +317,25 @@ export function createWebAudioPlaybackEngine(
     }
 
     const playbackPosition = instruction.projectPositionSeconds;
+    const instructionEndPosition = playbackPosition + instruction.durationSeconds;
     const sources: ActiveSource[] = [];
 
     for (const loadedChannel of loadedChannels) {
       const buffer = loadedChannel.buffer;
       const gainNode = loadedChannel.gainNode;
+      const trackStartPosition = getChannelTimelineOffsetSeconds(
+        loadedChannel.channel,
+      );
+      const trackEndPosition = trackStartPosition + (buffer?.duration ?? 0);
+      const sourceProjectStart = Math.max(playbackPosition, trackStartPosition);
+      const sourceOffset = sourceProjectStart - trackStartPosition;
 
       if (
         !buffer ||
         !gainNode ||
-        playbackPosition >= buffer.duration - END_EPSILON_SECONDS
+        sourceProjectStart >= instructionEndPosition - END_EPSILON_SECONDS ||
+        sourceProjectStart >= trackEndPosition - END_EPSILON_SECONDS ||
+        sourceOffset >= buffer.duration - END_EPSILON_SECONDS
       ) {
         continue;
       }
@@ -324,8 +344,8 @@ export function createWebAudioPlaybackEngine(
       source.buffer = buffer;
       source.connect(gainNode);
       source.start(
-        instruction.startAtClockTime,
-        instruction.projectPositionSeconds,
+        instruction.startAtClockTime + (sourceProjectStart - playbackPosition),
+        sourceOffset,
       );
       sources.push({
         channelNumber: loadedChannel.channel.channelNumber,

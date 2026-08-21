@@ -2,6 +2,7 @@ import type {
   MusicalPosition,
   MusicalTimeline,
   ProjectRole,
+  Track,
 } from "../domain/types.js";
 import { canRecord } from "../permissions/project-permissions.js";
 import {
@@ -15,6 +16,10 @@ import type {
   RecordedTakePlaybackFailure,
   RecordedTakePlaybackPort,
 } from "../platform/recorded-take-playback-port.js";
+import type {
+  RecordedTakeUploadFailure,
+  RecordedTakeUploadPort,
+} from "../platform/recorded-take-upload-port.js";
 import type { PlaybackEngine } from "../playback/playback-engine.js";
 import type {
   RecordingPositionMetadata,
@@ -35,6 +40,7 @@ export type MicrophoneRecordingStatus =
   | "failed";
 
 export type MicrophoneTakeReviewStatus = "idle" | "auditioning";
+export type MicrophoneTakeSaveStatus = "idle" | "saving";
 
 /**
  * Authoritative project position observed immediately after microphone capture
@@ -68,6 +74,9 @@ export type MicrophoneRecordingSnapshot = {
   failure: MicrophoneRecordingFailure | null;
   takeReviewStatus: MicrophoneTakeReviewStatus;
   takeReviewFailure: RecordedTakePlaybackFailure | null;
+  takeSaveStatus: MicrophoneTakeSaveStatus;
+  takeSaveFailure: RecordedTakeUploadFailure | null;
+  savedTrack: Track | null;
 };
 
 export type MicrophoneRecordingStateListener = (
@@ -82,6 +91,7 @@ export interface MicrophoneRecordingSession {
   stopAudition(): Promise<MicrophoneRecordingSnapshot>;
   retry(): Promise<MicrophoneRecordingSnapshot>;
   discard(): Promise<MicrophoneRecordingSnapshot>;
+  keep(trackName: string): Promise<MicrophoneRecordingSnapshot>;
   reset(): Promise<MicrophoneRecordingSnapshot>;
   getSnapshot(): MicrophoneRecordingSnapshot;
   subscribe(listener: MicrophoneRecordingStateListener): () => void;
@@ -138,18 +148,24 @@ function cloneTake(take: MicrophoneRecordedTake | null): MicrophoneRecordedTake 
  * Checkpoint 3B owns transport-synchronized capture. Checkpoint 3C adds a
  * temporary local review loop: a stopped take can be auditioned in context
  * with project playback from its stored transport position, rejected for
- * another pass, or discarded without any server persistence.
+ * another pass, or discarded without any server persistence. Checkpoint 3D
+ * keeps an approved take through the normal project-track upload path while
+ * preserving the musical placement captured by the authoritative transport.
  */
 export function createMicrophoneRecordingSession({
   role,
   recordingPort,
   takePlaybackPort,
+  takeUploadPort,
+  projectId,
   playbackEngine,
   musicalTimeline,
 }: {
   role: ProjectRole | null | undefined;
   recordingPort: MicrophoneRecordingPort;
   takePlaybackPort?: RecordedTakePlaybackPort;
+  takeUploadPort?: RecordedTakeUploadPort;
+  projectId?: string;
   playbackEngine?: PlaybackEngine;
   musicalTimeline?: MusicalTimeline;
 }): MicrophoneRecordingSession {
@@ -160,6 +176,9 @@ export function createMicrophoneRecordingSession({
   let failure: MicrophoneRecordingFailure | null = null;
   let takeReviewStatus: MicrophoneTakeReviewStatus = "idle";
   let takeReviewFailure: RecordedTakePlaybackFailure | null = null;
+  let takeSaveStatus: MicrophoneTakeSaveStatus = "idle";
+  let takeSaveFailure: RecordedTakeUploadFailure | null = null;
+  let savedTrack: Track | null = null;
   let takeReviewGeneration = 0;
   let destroyed = false;
   let captureActive = false;
@@ -179,6 +198,19 @@ export function createMicrophoneRecordingSession({
       failure: failure ? { ...failure } : null,
       takeReviewStatus,
       takeReviewFailure: takeReviewFailure ? { ...takeReviewFailure } : null,
+      takeSaveStatus,
+      takeSaveFailure: takeSaveFailure ? { ...takeSaveFailure } : null,
+      savedTrack: savedTrack
+        ? {
+            ...savedTrack,
+            musicalPlacement: savedTrack.musicalPlacement
+              ? {
+                  start: { ...savedTrack.musicalPlacement.start },
+                  spanBeats: savedTrack.musicalPlacement.spanBeats,
+                }
+              : undefined,
+          }
+        : null,
     };
   }
 
@@ -204,6 +236,9 @@ export function createMicrophoneRecordingSession({
     take = null;
     takeReviewStatus = "idle";
     takeReviewFailure = null;
+    takeSaveStatus = "idle";
+    takeSaveFailure = null;
+    savedTrack = null;
   }
 
   function stopSynchronizedPlayback(): void {
@@ -697,6 +732,85 @@ export function createMicrophoneRecordingSession({
     return notify();
   }
 
+  async function keep(trackName: string): Promise<MicrophoneRecordingSnapshot> {
+    ensureActive();
+
+    if (!ensureAuthorized()) {
+      return getSnapshot();
+    }
+
+    if (status !== "stopped" || !take) {
+      takeSaveFailure = { message: "There is no stopped take to keep." };
+      return notify();
+    }
+
+    if (takeSaveStatus === "saving") {
+      return getSnapshot();
+    }
+
+    const normalizedTrackName = trackName.trim().replace(/\s+/g, " ");
+
+    if (!normalizedTrackName) {
+      takeSaveFailure = { message: "Enter a track name before keeping this take." };
+      return notify();
+    }
+
+    if (!takeUploadPort || !projectId) {
+      takeSaveFailure = {
+        message: "Saving recorded takes is unavailable in this environment.",
+      };
+      return notify();
+    }
+
+    const takeToKeep = cloneTake(take) as MicrophoneRecordedTake;
+    takeSaveStatus = "saving";
+    takeSaveFailure = null;
+    notify();
+
+    try {
+      await releaseTakePlayback();
+
+      const uploadedTrack = await takeUploadPort.upload({
+        projectId,
+        trackName: normalizedTrackName,
+        capture: cloneCapture(takeToKeep.capture) as RecordedAudioCapture,
+        musicalPlacement: {
+          start: { ...takeToKeep.timing.musicalStart },
+          spanBeats: takeToKeep.timing.musicalSpanBeats,
+        },
+      });
+
+      try {
+        await recordingPort.release();
+      } catch {
+        // The track is already persisted. Treat post-upload microphone cleanup
+        // as best effort rather than reporting a false upload failure.
+      }
+
+      captureActive = false;
+      clearTakeState();
+      savedTrack = {
+        ...uploadedTrack,
+        musicalPlacement: uploadedTrack.musicalPlacement
+          ? {
+              start: { ...uploadedTrack.musicalPlacement.start },
+              spanBeats: uploadedTrack.musicalPlacement.spanBeats,
+            }
+          : undefined,
+      };
+      status = "idle";
+      return notify();
+    } catch (error) {
+      takeSaveStatus = "idle";
+      takeSaveFailure = {
+        message: error instanceof Error && error.message.trim()
+          ? error.message
+          : "Recorded take could not be saved.",
+      };
+      return notify();
+    }
+  }
+
   async function reset(): Promise<MicrophoneRecordingSnapshot> {
     ensureActive();
 
@@ -793,6 +907,7 @@ export function createMicrophoneRecordingSession({
     stopAudition,
     retry,
     discard,
+    keep,
     reset,
     getSnapshot,
     subscribe,

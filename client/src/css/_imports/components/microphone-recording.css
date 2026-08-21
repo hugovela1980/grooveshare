@@ -43,3 +43,11 @@
 .microphone-recording__actions .button[hidden] {
     display: none;
 }
+
+.microphone-recording__take-name {
+    min-width: min(100%, 14rem);
+}
+
+.microphone-recording__take-name[hidden] {
+    display: none;
+}

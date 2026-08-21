@@ -115,6 +115,11 @@ export {
   type RecordedAudioCapture,
 } from "./platform/microphone-recording-port.js";
 export type {
+  RecordedTakeUploadFailure,
+  RecordedTakeUploadInput,
+  RecordedTakeUploadPort,
+} from "./platform/recorded-take-upload-port.js";
+export type {
   RecordedTakePlaybackEndHandler,
   RecordedTakePlaybackFailure,
   RecordedTakePlaybackFailureHandler,
@@ -129,6 +134,7 @@ export {
   type MicrophoneRecordingStateListener,
   type MicrophoneRecordingStatus,
   type MicrophoneTakeReviewStatus,
+  type MicrophoneTakeSaveStatus,
 } from "./recording/microphone-recording-session.js";
 export type { SessionProvider } from "./platform/session-provider.js";
 export type { StorageProvider } from "./platform/storage-provider.js";

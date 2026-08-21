@@ -67,7 +67,7 @@ Owns shared domain types such as:
 - mix settings;
 - project/track/authentication service inputs.
 
-`Track.timelineOffsetSeconds` is reserved for tracks that begin at a non-zero project position. Existing uploaded stems omit it and therefore begin at project time zero. Database persistence for recording offsets is intentionally deferred until the recording workflow is implemented.
+Tracks can carry authoritative `musicalPlacement` metadata (start bar/beat plus optional span in project beat-grid units). `Track.timelineOffsetSeconds` remains a legacy/transport bridge, while normal playback derives a track's project-time start from musical placement when the project timeline is available. Reviewed microphone takes are persisted through the normal track upload service with that captured musical placement.
 
 ### `services/`
 

@@ -19,6 +19,7 @@ import {
   copyBrowserText,
   createBrowserMicrophoneRecordingAdapter,
   createBrowserRecordedTakePlaybackAdapter,
+  createBrowserRecordedTakeUploadAdapter,
   createBrowserGrooveShareApp,
   getBrowserInvitationSessionStore,
   getBrowserStorageProvider,
@@ -961,6 +962,14 @@ function initializeProjectPlayerPage({
     appElement,
     "#microphone-discard-button",
   );
+  const microphoneKeepButton = getElement<HTMLButtonElement>(
+    appElement,
+    "#microphone-keep-button",
+  );
+  const microphoneTakeNameInput = getElement<HTMLInputElement>(
+    appElement,
+    "#microphone-take-name-input",
+  );
   const microphoneStatusElement = getElement<HTMLParagraphElement>(
     appElement,
     "#microphone-recording-status",
@@ -974,15 +983,22 @@ function initializeProjectPlayerPage({
     microphoneAuditionButton &&
     microphoneRetryButton &&
     microphoneDiscardButton &&
+    microphoneKeepButton &&
+    microphoneTakeNameInput &&
     microphoneStatusElement
       ? createMicrophoneRecordingSession({
           role: recordingRole,
           recordingPort: createBrowserMicrophoneRecordingAdapter(),
           takePlaybackPort: createBrowserRecordedTakePlaybackAdapter(),
+          takeUploadPort: createBrowserRecordedTakeUploadAdapter({
+            tracksService: tracksApi,
+          }),
+          projectId: selectedProject.id,
           playbackEngine,
           musicalTimeline,
         })
       : null;
+  let refreshProjectTracks: (() => Promise<void>) | null = null;
   const microphoneRecordingController = recordingSession &&
     microphoneArmButton &&
     microphoneRecordButton &&
@@ -990,6 +1006,8 @@ function initializeProjectPlayerPage({
     microphoneAuditionButton &&
     microphoneRetryButton &&
     microphoneDiscardButton &&
+    microphoneKeepButton &&
+    microphoneTakeNameInput &&
     microphoneStatusElement
       ? createMicrophoneRecordingController({
           recordingSession,
@@ -999,7 +1017,12 @@ function initializeProjectPlayerPage({
           auditionButton: microphoneAuditionButton,
           retryButton: microphoneRetryButton,
           discardButton: microphoneDiscardButton,
+          keepButton: microphoneKeepButton,
+          takeNameInput: microphoneTakeNameInput,
           statusElement: microphoneStatusElement,
+          async onTakeKept() {
+            await refreshProjectTracks?.();
+          },
         })
       : null;
 
@@ -1069,6 +1092,7 @@ function initializeProjectPlayerPage({
     },
   });
 
+  refreshProjectTracks = controller.reloadTracks;
   void controller.init();
 
   async function stopActiveRecording(): Promise<void> {

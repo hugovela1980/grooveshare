@@ -102,6 +102,7 @@ function createEngineHarness() {
     ["/bass.wav", 60],
     ["/loop.wav", 10],
     ["/long-take.m4a", 60],
+    ["/recorded-take.webm", 2],
   ]);
 
   const engine = createWebAudioPlaybackEngine({
@@ -170,6 +171,42 @@ tester.describe("WebAudioPlaybackEngine", () => {
     tester.expect(audioContext.sources[1]?.startOffset).toBe(0);
     tester.expect(engine.getSnapshot().duration).toBe(60);
     tester.expect(engine.getSnapshot().isPlaying).toBe(true);
+
+    engine.destroy?.();
+  });
+
+  tester.it("schedules tracks at their saved project timeline offsets", async () => {
+    const { audioContext, engine } = createEngineHarness();
+
+    engine.loadMix([
+      twoChannelMix[0]!,
+      {
+        channelNumber: 2,
+        trackId: "recorded-take",
+        audioUrl: "/recorded-take.webm",
+        volume: 1,
+        enabled: true,
+        timelineOffsetSeconds: 3.5,
+      },
+    ]);
+    await engine.play();
+
+    tester.expect(audioContext.sources[0]?.startWhen).toBe(10.03);
+    tester.expect(audioContext.sources[0]?.startOffset).toBe(0);
+    tester.expect(audioContext.sources[1]?.startWhen).toBe(13.53);
+    tester.expect(audioContext.sources[1]?.startOffset).toBe(0);
+    tester.expect(engine.getSnapshot().duration).toBe(60);
+
+    engine.stop();
+    engine.seek(4);
+    audioContext.currentTime = 20;
+    await engine.play();
+
+    const resumedSources = audioContext.sources.slice(-2);
+    tester.expect(resumedSources[0]?.startWhen).toBe(20.03);
+    tester.expect(resumedSources[0]?.startOffset).toBe(4);
+    tester.expect(resumedSources[1]?.startWhen).toBe(20.03);
+    tester.expect(resumedSources[1]?.startOffset).toBe(0.5);
 
     engine.destroy?.();
   });

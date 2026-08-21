@@ -924,6 +924,7 @@ tester.describe("audio player controller", () => {
 tester.describe("audio player controller playback boundary", () => {
     tester.it("drives an injected PlaybackEngine without knowing HTML audio details", async () => {
         const calls: string[] = [];
+        let loadedTimelineOffsetSeconds: number | undefined;
         let listener: ((snapshot: ReturnType<PlaybackEngine["getSnapshot"]>) => void) | null = null;
         let snapshot = {
             currentTime: 0,
@@ -935,6 +936,7 @@ tester.describe("audio player controller playback boundary", () => {
         const playbackEngine: PlaybackEngine = {
             loadMix(channels) {
                 calls.push(`load:${channels.length}`);
+                loadedTimelineOffsetSeconds = channels[0]?.timelineOffsetSeconds;
                 snapshot = { ...snapshot, hasLoadedChannels: channels.length > 0 };
                 listener?.(snapshot);
             },
@@ -1013,6 +1015,7 @@ tester.describe("audio player controller playback boundary", () => {
             audioUrl: "/audio/guitar.wav",
             volume: 0.8,
             enabled: true,
+            timelineOffsetSeconds: 3.5,
         }]);
 
         await playPauseButton.click();
@@ -1021,6 +1024,7 @@ tester.describe("audio player controller playback boundary", () => {
         controller.setChannelEnabled(1, false);
         await stopButton.click();
 
+        tester.expect(loadedTimelineOffsetSeconds).toBe(3.5);
         tester.expect(calls).toEqual([
             "loop:false",
             "load:1",

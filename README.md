@@ -11,7 +11,7 @@ GrooveShare is intentionally narrower than a DAW. The goal is a focused band wor
 The current `develop` branch contains two major architectural milestones:
 
 - **Version 2.2 — Shared Frontend Application Layer** is complete. Desktop/tablet and phone presentations are separate, while shared product behavior lives in `@hugovela/frontend-core` and shared browser mechanics live in `@hugovela/frontend-browser`.
-- **Version 3 Milestone 1 — Recording-Capable Web Audio Engine and Transport** is complete through the pre-recording foundation. GrooveShare now has an explicit Web Audio transport, clock-scheduled multitrack playback/looping, and recording timeline markers. Microphone capture and recording UI have not been implemented yet.
+- **Version 3 Milestone 1 — Recording-Capable Web Audio Engine and Transport** is complete. Active Version 3 Milestone 2 work now adds project/track musical timing plus a basic microphone workflow: synchronized capture, local audition/retry/discard, and keeping a reviewed take through the normal project-track upload path.
 
 Current product capabilities include:
 
@@ -28,6 +28,7 @@ Current product capabilities include:
 - Synchronized multitrack Web Audio playback from one `AudioContext` clock.
 - A first-class project `Transport` for play, pause, stop, seek, relative seek, looping, and project position.
 - Recording timeline start/stop markers tied to the same authoritative audio clock.
+- Contributor/Owner microphone capture with in-context take audition, retry/discard, and normal track upload preserving musical placement.
 - Production and Labs deployments behind Caddy with HTTPS, PostgreSQL, persistent uploads, systemd, firewall rules, and backups.
 
 ## Deployment Environments
@@ -160,18 +161,18 @@ AudioBufferSourceNode → GainNode → destination
 Important properties:
 
 - `AudioContext.currentTime` is the authoritative running clock.
-- Project duration is currently the longest decoded track in the loaded mix.
-- Existing uploaded stems begin at project time zero.
-- All active sources in a playback generation receive the same absolute Web Audio start time and project offset.
+- Project duration is the latest decoded track end after accounting for each track's project-time start.
+- Persisted musical placement determines when a track begins; existing stems default to Bar 1, Beat 1.
+- All sources are scheduled from one authoritative project instruction, with later-starting tracks placed at their corresponding AudioContext clock time.
 - Pause/resume and seek recreate one-shot `AudioBufferSourceNode`s against a shared schedule.
 - Loop continuations are scheduled against absolute AudioContext times rather than started by a late `onended` callback.
 - UI snapshot timers observe transport state but do not advance audio time.
 - `RecordingTimeline` can mark recording start/stop positions against both project time and AudioContext time.
-- `Track.timelineOffsetSeconds` reserves the domain concept for future recorded tracks that start after project time zero; persistence for that field is not implemented yet.
+- Persisted `Track.musicalPlacement` is authoritative for normal playback; `timelineOffsetSeconds` remains a compatibility/transport bridge.
 
 An HTML-audio playback implementation remains as a fallback, but it intentionally does not claim recording-clock capability.
 
-Microphone capture, MediaRecorder/input plumbing, latency calibration, waveform editing, punch-in/out, comping, and other DAW-grade features remain future work.
+Basic microphone capture and reviewed-take persistence are now in place. Latency calibration/compensation, waveform editing, punch-in/out, comping, and other DAW-grade features remain intentionally deferred.
 
 ## Local Development
 

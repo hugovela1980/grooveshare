@@ -154,11 +154,19 @@ tester.describe("frontend-core shared frontend services", () => {
       projectId: "project-1",
       trackName: "Guitar",
       audioFile: "platform-file",
+      musicalPlacement: {
+        start: { bar: 3, beat: 2.5 },
+        spanBeats: 6,
+      },
     });
 
     tester.expect(multipartInput).toEqual({
       trackName: "Guitar",
       audioFile: "platform-file",
+      musicalPlacement: {
+        start: { bar: 3, beat: 2.5 },
+        spanBeats: 6,
+      },
     });
     tester.expect(calls[0]?.options).toEqual({
       method: "POST",

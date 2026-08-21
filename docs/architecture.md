@@ -381,9 +381,9 @@ Production and Labs use persistent upload directories outside their Git checkout
 
 A project includes identity, title/description, timestamps, role/access information on frontend representations, and optional mix settings.
 
-A track includes project identity, name/original filename, MIME/file size/path metadata, uploader identity where available, creation time, and the new optional `timelineOffsetSeconds` domain concept.
+A track includes project identity, name/original filename, MIME/file size/path metadata, uploader identity where available, creation time, and authoritative musical placement (`start` bar/beat plus optional `spanBeats`).
 
-`timelineOffsetSeconds` is currently a frontend/shared-domain preparation for recording. Existing stems omit it and therefore begin at project time zero; database persistence for non-zero recording offsets is not implemented yet.
+Persisted musical placement is the normal source of truth for where a track begins on the project timeline. `timelineOffsetSeconds` remains an optional shared-domain bridge for transport/legacy callers, but playback derives seconds placement from musical metadata whenever the project musical timeline is available.
 
 ## Mix Persistence
 
@@ -479,9 +479,9 @@ The 100 ms interval used by the engine/Transport is observational and maintenanc
 - `durationSeconds`;
 - `loopEnabled`.
 
-Every playable source in that generation is started using the same absolute clock time and project offset.
+Each track is scheduled against that same project instruction. Tracks beginning at project time zero start at the generation boundary; tracks with a later timeline offset are scheduled at the corresponding future AudioContext clock time. When playback begins after a track's start, its source offset is derived from the difference between the current project position and the track start.
 
-Pause/resume and seek discard/recreate one-shot source generations from a new shared instruction. Different track lengths do not alter project duration: the longest decoded track defines the current project timeline and shorter sources may end naturally.
+Pause/resume and seek discard/recreate one-shot source generations from a new shared instruction. Web Audio project duration is the latest musical track end (`track start + decoded duration`), so later-starting recordings remain aligned without padding their files with artificial leading silence.
 
 ### Loop scheduling
 
@@ -510,7 +510,7 @@ For a synchronized take, project playback begins from the current transport posi
 - project musical start/stop positions;
 - a musical span derived from authoritative clock elapsed time rather than raw encoded-file duration.
 
-This timing metadata is intentionally sufficient for later recorded-track creation without implementing that upload/persistence workflow yet.
+A reviewed take can then be kept through a shared `RecordedTakeUploadPort`. The browser adapter converts the browser-neutral capture bytes into a `File` and delegates to the existing track upload service/multipart path rather than creating a recording-only server endpoint. The stored track receives the take's captured musical start and transport-clock-derived musical span, then the project player reloads it as a normal track. Temporary take audio is discarded only after a successful upload; failed uploads leave the reviewed take available for retry.
 
 ### HTML-audio fallback
 

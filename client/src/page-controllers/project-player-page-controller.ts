@@ -4,6 +4,7 @@ import {
     canManageTrack,
     createMixPersistenceCoordinator,
     getProjectMusicalTimeline,
+    getTrackTimelineOffsetSeconds,
     getTrackMusicalPlacement,
     musicalSpanBarsToBeats,
     musicalSpanBeatsToBars,
@@ -46,6 +47,10 @@ type TracksApi = {
         projectId: string;
         trackName: string;
         audioFile: File;
+        musicalPlacement?: {
+            start: { bar: number; beat: number };
+            spanBeats: number | null;
+        };
     }) => Promise<Track>;
 };
 
@@ -83,6 +88,7 @@ type MixChannelForPlayer = {
     audioUrl: string;
     volume: number;
     enabled: boolean;
+    timelineOffsetSeconds?: number;
 };
 
 type AudioPlayerController = {
@@ -530,6 +536,11 @@ export function createProjectPlayerPageController({
                     return null;
                 }
 
+                const timelineOffsetSeconds = getTrackTimelineOffsetSeconds(
+                    track,
+                    getProjectMusicalTimeline(project),
+                );
+
                 return {
                     channelNumber: channel.channelNumber,
                     trackId: track.id,
@@ -540,6 +551,9 @@ export function createProjectPlayerPageController({
                     ),
                     volume: channel.volume,
                     enabled: channel.enabled,
+                    ...(timelineOffsetSeconds > 0
+                        ? { timelineOffsetSeconds }
+                        : {}),
                 };
             })
             .filter(
@@ -1610,6 +1624,7 @@ export function createProjectPlayerPageController({
 
     return {
         init,
+        reloadTracks: loadTracks,
         flushPendingMixSettings,
         openProjectEditor,
     };

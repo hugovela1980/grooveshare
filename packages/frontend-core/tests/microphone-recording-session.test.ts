@@ -8,6 +8,9 @@ import {
   type PlaybackEngine,
   type RecordedAudioCapture,
   type RecordedTakePlaybackPort,
+  type RecordedTakeUploadInput,
+  type RecordedTakeUploadPort,
+  type Track,
 } from "../src/index.js";
 import { tester } from "./test-runner/tester.js";
 
@@ -450,6 +453,60 @@ type TakePlaybackHarness = {
   fail(message: string): void;
 };
 
+type TakeUploadHarness = {
+  port: RecordedTakeUploadPort;
+  uploadCalls: RecordedTakeUploadInput[];
+  uploadError: Error | null;
+};
+
+function createTakeUploadHarness(): TakeUploadHarness {
+  const harness: TakeUploadHarness = {
+    uploadCalls: [],
+    uploadError: null,
+    port: null as unknown as RecordedTakeUploadPort,
+  };
+
+  harness.port = {
+    async upload(input) {
+      harness.uploadCalls.push({
+        projectId: input.projectId,
+        trackName: input.trackName,
+        capture: {
+          bytes: new Uint8Array(input.capture.bytes),
+          mimeType: input.capture.mimeType,
+        },
+        musicalPlacement: {
+          start: { ...input.musicalPlacement.start },
+          spanBeats: input.musicalPlacement.spanBeats,
+        },
+      });
+
+      if (harness.uploadError) {
+        throw harness.uploadError;
+      }
+
+      const track: Track = {
+        id: "recorded-track-1",
+        projectId: input.projectId,
+        name: input.trackName,
+        originalFilename: `${input.trackName}.webm`,
+        filePath: `/uploads/${input.trackName}.webm`,
+        mimeType: "audio/webm",
+        fileSize: input.capture.bytes.byteLength,
+        musicalPlacement: {
+          start: { ...input.musicalPlacement.start },
+          spanBeats: input.musicalPlacement.spanBeats,
+        },
+        createdAt: "2026-08-21T00:00:00.000Z",
+      };
+
+      return track;
+    },
+  };
+
+  return harness;
+}
+
 function createTakePlaybackHarness(): TakePlaybackHarness {
   let onEnded: (() => void) | undefined;
   let onFailure: ((failure: { message: string }) => void) | undefined;
@@ -496,15 +553,23 @@ async function recordStoppedTakeForReview({
   recordingHarness,
   playbackHarness,
   takePlaybackHarness,
+  takeUploadHarness,
 }: {
   recordingHarness: RecordingPortHarness;
   playbackHarness: PlaybackHarness;
   takePlaybackHarness: TakePlaybackHarness;
+  takeUploadHarness?: TakeUploadHarness;
 }) {
   const session = createMicrophoneRecordingSession({
     role: "contributor",
     recordingPort: recordingHarness.port,
     takePlaybackPort: takePlaybackHarness.port,
+    ...(takeUploadHarness
+      ? {
+          takeUploadPort: takeUploadHarness.port,
+          projectId: "project-1",
+        }
+      : {}),
     playbackEngine: playbackHarness.engine,
     musicalTimeline: {
       bpm: 120,
@@ -688,6 +753,104 @@ tester.describe("local microphone take review", () => {
     tester.expect(session.getSnapshot().take).toBeTruthy();
     tester.expect(playbackHarness.engine.getSnapshot().isPlaying).toBe(false);
     tester.expect(playbackHarness.engine.getSnapshot().currentTime).toBe(0);
+
+    await session.destroy();
+    playbackHarness.engine.destroy?.();
+  });
+});
+
+tester.describe("keep reviewed microphone take", () => {
+  tester.it("uploads an auditioned take through the normal track boundary with captured musical placement", async () => {
+    const recordingHarness = createRecordingPortHarness();
+    const playbackHarness = createPlaybackHarness({ startPositionSeconds: 3.5 });
+    const takePlaybackHarness = createTakePlaybackHarness();
+    const takeUploadHarness = createTakeUploadHarness();
+    const session = await recordStoppedTakeForReview({
+      recordingHarness,
+      playbackHarness,
+      takePlaybackHarness,
+      takeUploadHarness,
+    });
+
+    await session.audition();
+    const kept = await session.keep("  Harmony   Vocal  ");
+
+    tester.expect(takeUploadHarness.uploadCalls.length).toBe(1);
+    tester.expect(takeUploadHarness.uploadCalls[0]?.projectId).toBe("project-1");
+    tester.expect(takeUploadHarness.uploadCalls[0]?.trackName).toBe("Harmony Vocal");
+    tester.expect(Array.from(takeUploadHarness.uploadCalls[0]?.capture.bytes ?? [])).toEqual([1, 2, 3]);
+    tester.expect(takeUploadHarness.uploadCalls[0]?.musicalPlacement).toEqual({
+      start: { bar: 2, beat: 4 },
+      spanBeats: 4,
+    });
+    tester.expect(playbackHarness.engine.getSnapshot().isPlaying).toBe(false);
+    tester.expect(takePlaybackHarness.releaseCalls).toBe(1);
+    tester.expect(recordingHarness.releaseCalls).toBe(1);
+    tester.expect(kept.status).toBe("idle");
+    tester.expect(kept.take).toBe(null);
+    tester.expect(kept.capture).toBe(null);
+    tester.expect(kept.savedTrack?.id).toBe("recorded-track-1");
+    tester.expect(kept.savedTrack?.musicalPlacement).toEqual({
+      start: { bar: 2, beat: 4 },
+      spanBeats: 4,
+    });
+
+    await session.destroy();
+    playbackHarness.engine.destroy?.();
+  });
+
+  tester.it("keeps the reviewed take available when upload fails so the collaborator can retry saving", async () => {
+    const recordingHarness = createRecordingPortHarness();
+    const playbackHarness = createPlaybackHarness({ startPositionSeconds: 2 });
+    const takePlaybackHarness = createTakePlaybackHarness();
+    const takeUploadHarness = createTakeUploadHarness();
+    takeUploadHarness.uploadError = new Error("Upload connection failed.");
+    const session = await recordStoppedTakeForReview({
+      recordingHarness,
+      playbackHarness,
+      takePlaybackHarness,
+      takeUploadHarness,
+    });
+
+    const failed = await session.keep("Lead Vocal");
+
+    tester.expect(failed.status).toBe("stopped");
+    tester.expect(failed.take).toBeTruthy();
+    tester.expect(failed.takeSaveStatus).toBe("idle");
+    tester.expect(failed.takeSaveFailure?.message).toBe("Upload connection failed.");
+    tester.expect(failed.savedTrack).toBe(null);
+    tester.expect(recordingHarness.releaseCalls).toBe(0);
+
+    takeUploadHarness.uploadError = null;
+    const retried = await session.keep("Lead Vocal");
+    tester.expect(takeUploadHarness.uploadCalls.length).toBe(2);
+    tester.expect(retried.status).toBe("idle");
+    tester.expect(retried.savedTrack?.name).toBe("Lead Vocal");
+
+    await session.destroy();
+    playbackHarness.engine.destroy?.();
+  });
+
+  tester.it("requires a track name before uploading the reviewed take", async () => {
+    const recordingHarness = createRecordingPortHarness();
+    const playbackHarness = createPlaybackHarness();
+    const takePlaybackHarness = createTakePlaybackHarness();
+    const takeUploadHarness = createTakeUploadHarness();
+    const session = await recordStoppedTakeForReview({
+      recordingHarness,
+      playbackHarness,
+      takePlaybackHarness,
+      takeUploadHarness,
+    });
+
+    const result = await session.keep("   ");
+
+    tester.expect(takeUploadHarness.uploadCalls).toEqual([]);
+    tester.expect(result.status).toBe("stopped");
+    tester.expect(result.take).toBeTruthy();
+    tester.expect(result.takeSaveFailure?.message).toBe(
+      "Enter a track name before keeping this take.",
+    );
 
     await session.destroy();
     playbackHarness.engine.destroy?.();

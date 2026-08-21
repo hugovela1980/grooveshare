@@ -54,6 +54,25 @@ export function renderMicrophoneRecordingControls(): string {
         >
           Retry
         </button>
+        <input
+          id="microphone-take-name-input"
+          class="input microphone-recording__take-name"
+          type="text"
+          aria-label="Recorded take track name"
+          maxlength="120"
+          value=""
+          disabled
+          hidden
+        />
+        <button
+          id="microphone-keep-button"
+          class="button"
+          type="button"
+          disabled
+          hidden
+        >
+          Keep Take
+        </button>
         <button
           id="microphone-discard-button"
           class="button button--danger"

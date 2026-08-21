@@ -1,6 +1,7 @@
 import type {
   MicrophoneRecordingSession,
   MicrophoneRecordingSnapshot,
+  Track,
 } from "@hugovela/frontend-core";
 import { createMicrophoneRecordingController } from "../src/page-controllers/microphone-recording-controller.js";
 import { tester } from "./test-runner/tester.js";
@@ -26,6 +27,14 @@ function createButton() {
   };
 }
 
+function createInput() {
+  return {
+    disabled: false,
+    hidden: false,
+    value: "",
+  };
+}
+
 function createStoppedTake() {
   return {
     capture: {
@@ -48,6 +57,23 @@ function createStoppedTake() {
   };
 }
 
+function createSavedTrack(name: string): Track {
+  return {
+    id: "recorded-track-1",
+    projectId: "project-1",
+    name,
+    originalFilename: `${name}.webm`,
+    filePath: `/uploads/${name}.webm`,
+    mimeType: "audio/webm",
+    fileSize: 1,
+    musicalPlacement: {
+      start: { bar: 2, beat: 4 },
+      spanBeats: 4,
+    },
+    createdAt: "2026-08-21T00:00:00.000Z",
+  };
+}
+
 function createSessionHarness() {
   let snapshot: MicrophoneRecordingSnapshot = {
     status: "idle",
@@ -57,6 +83,9 @@ function createSessionHarness() {
     failure: null,
     takeReviewStatus: "idle",
     takeReviewFailure: null,
+    takeSaveStatus: "idle",
+    takeSaveFailure: null,
+    savedTrack: null,
   };
   let listener: ((next: MicrophoneRecordingSnapshot) => void) | null = null;
   const calls: string[] = [];
@@ -70,7 +99,7 @@ function createSessionHarness() {
   const session: MicrophoneRecordingSession = {
     arm() {
       calls.push("arm");
-      return publish({ ...snapshot, status: "ready", failure: null });
+      return publish({ ...snapshot, status: "ready", failure: null, savedTrack: null });
     },
     start() {
       calls.push("start");
@@ -81,6 +110,9 @@ function createSessionHarness() {
         capture: null,
         takeReviewStatus: "idle",
         takeReviewFailure: null,
+        takeSaveStatus: "idle",
+        takeSaveFailure: null,
+        savedTrack: null,
         startPosition: {
           transport: {
             kind: "recording-start",
@@ -102,6 +134,9 @@ function createSessionHarness() {
         take,
         takeReviewStatus: "idle",
         takeReviewFailure: null,
+        takeSaveStatus: "idle",
+        takeSaveFailure: null,
+        savedTrack: null,
       });
     },
     audition() {
@@ -130,6 +165,9 @@ function createSessionHarness() {
         take: null,
         takeReviewStatus: "idle",
         takeReviewFailure: null,
+        takeSaveStatus: "idle",
+        takeSaveFailure: null,
+        savedTrack: null,
       });
     },
     discard() {
@@ -142,6 +180,24 @@ function createSessionHarness() {
         failure: null,
         takeReviewStatus: "idle",
         takeReviewFailure: null,
+        takeSaveStatus: "idle",
+        takeSaveFailure: null,
+        savedTrack: null,
+      });
+    },
+    keep(trackName) {
+      calls.push(`keep:${trackName}`);
+      return publish({
+        status: "idle",
+        capture: null,
+        startPosition: null,
+        take: null,
+        failure: null,
+        takeReviewStatus: "idle",
+        takeReviewFailure: null,
+        takeSaveStatus: "idle",
+        takeSaveFailure: null,
+        savedTrack: createSavedTrack(trackName.trim()),
       });
     },
     reset() {
@@ -154,6 +210,9 @@ function createSessionHarness() {
         failure: null,
         takeReviewStatus: "idle",
         takeReviewFailure: null,
+        takeSaveStatus: "idle",
+        takeSaveFailure: null,
+        savedTrack: null,
       });
     },
     getSnapshot() {
@@ -172,68 +231,95 @@ function createSessionHarness() {
   return { session, calls };
 }
 
+function createControllerHarness(onTakeKept?: (track: Track) => void | Promise<void>) {
+  const sessionHarness = createSessionHarness();
+  const armButton = createButton();
+  const recordButton = createButton();
+  const stopButton = createButton();
+  const auditionButton = createButton();
+  const retryButton = createButton();
+  const discardButton = createButton();
+  const keepButton = createButton();
+  const takeNameInput = createInput();
+  const statusElement = { textContent: "" as string | null };
+  const controller = createMicrophoneRecordingController({
+    recordingSession: sessionHarness.session,
+    armButton,
+    recordButton,
+    stopButton,
+    auditionButton,
+    retryButton,
+    discardButton,
+    keepButton,
+    takeNameInput,
+    statusElement,
+    onTakeKept,
+  });
+
+  return {
+    ...sessionHarness,
+    controller,
+    armButton,
+    recordButton,
+    stopButton,
+    auditionButton,
+    retryButton,
+    discardButton,
+    keepButton,
+    takeNameInput,
+    statusElement,
+  };
+}
+
 tester.describe("microphone recording controller", () => {
   tester.it("drives record, audition, retry, and discard controls from shared state", async () => {
-    const harness = createSessionHarness();
-    const armButton = createButton();
-    const recordButton = createButton();
-    const stopButton = createButton();
-    const auditionButton = createButton();
-    const retryButton = createButton();
-    const discardButton = createButton();
-    const statusElement = { textContent: "" as string | null };
-    const controller = createMicrophoneRecordingController({
-      recordingSession: harness.session,
-      armButton,
-      recordButton,
-      stopButton,
-      auditionButton,
-      retryButton,
-      discardButton,
-      statusElement,
-    });
+    const harness = createControllerHarness();
+    harness.controller.init();
+    tester.expect(harness.armButton.disabled).toBe(false);
+    tester.expect(harness.recordButton.disabled).toBe(true);
+    tester.expect(harness.stopButton.disabled).toBe(true);
+    tester.expect(harness.auditionButton.hidden).toBe(true);
+    tester.expect(harness.keepButton.hidden).toBe(true);
+    tester.expect(harness.takeNameInput.hidden).toBe(true);
 
-    controller.init();
-    tester.expect(armButton.disabled).toBe(false);
-    tester.expect(recordButton.disabled).toBe(true);
-    tester.expect(stopButton.disabled).toBe(true);
-    tester.expect(auditionButton.hidden).toBe(true);
+    await harness.armButton.click();
+    tester.expect(harness.recordButton.disabled).toBe(false);
+    tester.expect(harness.statusElement.textContent?.includes("current project position")).toBe(true);
 
-    await armButton.click();
-    tester.expect(recordButton.disabled).toBe(false);
-    tester.expect(statusElement.textContent?.includes("current project position")).toBe(true);
+    await harness.recordButton.click();
+    tester.expect(harness.stopButton.disabled).toBe(false);
+    tester.expect(harness.statusElement.textContent).toBe("Recording from Bar 2, Beat 4…");
 
-    await recordButton.click();
-    tester.expect(stopButton.disabled).toBe(false);
-    tester.expect(statusElement.textContent).toBe("Recording from Bar 2, Beat 4…");
-
-    await stopButton.click();
-    tester.expect(stopButton.disabled).toBe(true);
-    tester.expect(auditionButton.hidden).toBe(false);
-    tester.expect(retryButton.hidden).toBe(false);
-    tester.expect(discardButton.hidden).toBe(false);
-    tester.expect(statusElement.textContent).toBe(
-      "Take captured from Bar 2, Beat 4 · 4 project beats. Audition it, retry, or discard it.",
+    await harness.stopButton.click();
+    tester.expect(harness.stopButton.disabled).toBe(true);
+    tester.expect(harness.auditionButton.hidden).toBe(false);
+    tester.expect(harness.retryButton.hidden).toBe(false);
+    tester.expect(harness.discardButton.hidden).toBe(false);
+    tester.expect(harness.keepButton.hidden).toBe(false);
+    tester.expect(harness.takeNameInput.hidden).toBe(false);
+    tester.expect(harness.takeNameInput.value).toBe("Recorded Take");
+    tester.expect(harness.statusElement.textContent).toBe(
+      "Take captured from Bar 2, Beat 4 · 4 project beats. Audition it, retry, discard it, or keep it as a project track.",
     );
 
-    await auditionButton.click();
-    tester.expect(auditionButton.textContent).toBe("Stop Audition");
-    tester.expect(statusElement.textContent?.endsWith("Auditioning…")).toBe(true);
+    await harness.auditionButton.click();
+    tester.expect(harness.auditionButton.textContent).toBe("Stop Audition");
+    tester.expect(harness.statusElement.textContent?.endsWith("Auditioning…")).toBe(true);
 
-    await auditionButton.click();
-    tester.expect(auditionButton.textContent).toBe("Audition Take");
+    await harness.auditionButton.click();
+    tester.expect(harness.auditionButton.textContent).toBe("Audition Take");
 
-    await retryButton.click();
-    tester.expect(recordButton.disabled).toBe(false);
-    tester.expect(auditionButton.hidden).toBe(true);
+    await harness.retryButton.click();
+    tester.expect(harness.recordButton.disabled).toBe(false);
+    tester.expect(harness.auditionButton.hidden).toBe(true);
 
-    await recordButton.click();
-    await stopButton.click();
-    await discardButton.click();
-    tester.expect(armButton.disabled).toBe(false);
-    tester.expect(recordButton.disabled).toBe(true);
-    tester.expect(auditionButton.hidden).toBe(true);
-    tester.expect(statusElement.textContent).toBe("Enable your microphone to prepare a take.");
+    await harness.recordButton.click();
+    await harness.stopButton.click();
+    await harness.discardButton.click();
+    tester.expect(harness.armButton.disabled).toBe(false);
+    tester.expect(harness.recordButton.disabled).toBe(true);
+    tester.expect(harness.auditionButton.hidden).toBe(true);
+    tester.expect(harness.statusElement.textContent).toBe("Enable your microphone to prepare a take.");
 
     tester.expect(harness.calls).toEqual([
       "arm",
@@ -247,6 +333,31 @@ tester.describe("microphone recording controller", () => {
       "discard",
     ]);
 
-    controller.destroy();
+    harness.controller.destroy();
+  });
+
+  tester.it("keeps a named reviewed take and reports the saved track for project refresh", async () => {
+    const refreshedTracks: string[] = [];
+    const harness = createControllerHarness((track) => {
+      refreshedTracks.push(track.id);
+    });
+    harness.controller.init();
+
+    await harness.armButton.click();
+    await harness.recordButton.click();
+    await harness.stopButton.click();
+    harness.takeNameInput.value = "Harmony Vocal";
+    await harness.keepButton.click();
+
+    tester.expect(harness.calls.at(-1)).toBe("keep:Harmony Vocal");
+    tester.expect(refreshedTracks).toEqual(["recorded-track-1"]);
+    tester.expect(harness.keepButton.hidden).toBe(true);
+    tester.expect(harness.takeNameInput.hidden).toBe(true);
+    tester.expect(harness.takeNameInput.value).toBe("");
+    tester.expect(harness.statusElement.textContent).toBe(
+      "“Harmony Vocal” saved as a project track. Enable your microphone to record another take.",
+    );
+
+    harness.controller.destroy();
   });
 });

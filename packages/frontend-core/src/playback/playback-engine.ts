@@ -9,6 +9,8 @@ export type PlaybackChannel = {
   audioUrl: string;
   volume: number;
   enabled: boolean;
+  /** Project-time position where this track begins. Omitted tracks begin at 0. */
+  timelineOffsetSeconds?: number;
 };
 
 export type PlaybackSnapshot = {

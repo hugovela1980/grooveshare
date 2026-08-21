@@ -1150,6 +1150,10 @@ tester.describe("project player page controller", () => {
         name: "Bass",
         originalFilename: "bass.wav",
         filePath: "server/uploads/projects/project-1/bass.wav",
+        musicalPlacement: {
+          start: { bar: 2, beat: 1 },
+          spanBeats: 4,
+        },
       }),
     ];
 
@@ -1178,6 +1182,7 @@ tester.describe("project player page controller", () => {
       audioUrl: string;
       volume: number;
       enabled: boolean;
+      timelineOffsetSeconds?: number;
     }> = [];
 
     const controller = createProjectPlayerPageController({
@@ -1219,6 +1224,7 @@ tester.describe("project player page controller", () => {
           "http://localhost:3000/api/projects/project-1/tracks/track-2/audio",
         volume: 0.25,
         enabled: false,
+        timelineOffsetSeconds: 2,
       },
     ]);
 
