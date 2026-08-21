@@ -1,4 +1,4 @@
-import type { MusicalTimeline, Track } from "../domain/types.js";
+import type { MusicalPosition, MusicalTimeline, Track } from "../domain/types.js";
 import { getTrackMusicalStartSeconds } from "../timeline/track-musical-placement.js";
 import type {
   Transport,
@@ -16,6 +16,7 @@ import type {
 export type RecordingStartMarker = {
   kind: "recording-start";
   projectPositionSeconds: number;
+  musicalPosition: MusicalPosition;
   audioContextTimeSeconds: number;
   playbackState: TransportPlaybackState;
 };
@@ -24,17 +25,17 @@ export type RecordingStartMarker = {
 export type RecordingStopMarker = {
   kind: "recording-stop";
   projectPositionSeconds: number;
+  musicalPosition: MusicalPosition;
   audioContextTimeSeconds: number;
   playbackState: TransportPlaybackState;
 };
 
 /**
- * Timing metadata that a future recorded track can persist alongside its audio.
+ * Exact transport-clock metadata retained with a stopped recording.
  *
- * `timelineOffsetSeconds` is the transport-time position captured by the
- * recording engine. Checkpoint 2 also models persisted musical placement on
- * Track; later recording work can translate this marker into that shared
- * project musical timeline without discarding the precise clock observation.
+ * `timelineOffsetSeconds` preserves the captured project-time start as the
+ * seconds-based compatibility bridge. The start/stop markers also carry the
+ * corresponding musical position from the same authoritative Transport.
  */
 export type RecordingPositionMetadata = {
   startProjectPositionSeconds: number;
@@ -89,6 +90,7 @@ function toStartMarker(
   return {
     kind: "recording-start",
     projectPositionSeconds: marker.projectPositionSeconds,
+    musicalPosition: { ...marker.musicalPosition },
     audioContextTimeSeconds: marker.clockTimeSeconds,
     playbackState: marker.playbackState,
   };
@@ -100,6 +102,7 @@ function toStopMarker(
   return {
     kind: "recording-stop",
     projectPositionSeconds: marker.projectPositionSeconds,
+    musicalPosition: { ...marker.musicalPosition },
     audioContextTimeSeconds: marker.clockTimeSeconds,
     playbackState: marker.playbackState,
   };
@@ -107,8 +110,8 @@ function toStopMarker(
 
 /**
  * Presentation-neutral recording timeline primitives backed by one Transport.
- * Microphone capture is intentionally outside this object; it only records the
- * timing relationship that capture will use in the next milestone.
+ * Microphone capture remains outside this object; this layer only records the
+ * authoritative timing relationship used by the shared recording workflow.
  */
 export function createRecordingTimeline(
   transport: Transport,

@@ -39,6 +39,83 @@ function createTransportHarness() {
 }
 
 tester.describe("Transport", () => {
+  tester.it("exposes the current musical position from the authoritative transport clock", () => {
+    let clockTime = 10;
+    const transport = createTransport({
+      getClockTime: () => clockTime,
+      musicalTimeline: {
+        bpm: 120,
+        timeSignature: { numerator: 6, denominator: 8 },
+      },
+    });
+
+    transport.setDuration(30);
+
+    tester.expect(transport.getSnapshot().musicalPosition).toEqual({
+      bar: 1,
+      beat: 1,
+    });
+
+    transport.play();
+    clockTime = 10.625;
+
+    tester.expect(transport.getPosition()).toBe(0.625);
+    tester.expect(transport.getMusicalPosition()).toEqual({
+      bar: 1,
+      beat: 3.5,
+    });
+    tester.expect(transport.getSnapshot().musicalPosition).toEqual({
+      bar: 1,
+      beat: 3.5,
+    });
+
+    clockTime = 11.5;
+    const marker = transport.markTimelinePosition();
+    tester.expect(marker.projectPositionSeconds).toBe(1.5);
+    tester.expect(marker.musicalPosition).toEqual({ bar: 2, beat: 1 });
+
+    transport.destroy();
+  });
+
+  tester.it("seeks to musical positions through the project timeline while stopped and playing", () => {
+    let clockTime = 10;
+    const transport = createTransport({
+      getClockTime: () => clockTime,
+      musicalTimeline: {
+        bpm: 120,
+        timeSignature: { numerator: 6, denominator: 8 },
+      },
+    });
+
+    transport.setDuration(30);
+    transport.seekToMusicalPosition({ bar: 2, beat: 3 });
+    tester.expect(transport.getPosition()).toBe(2);
+    tester.expect(transport.getSnapshot().musicalPosition).toEqual({
+      bar: 2,
+      beat: 3,
+    });
+    tester.expect(transport.getSnapshot().playbackState).toBe("stopped");
+
+    transport.play();
+    clockTime = 11;
+    transport.seekToMusicalPosition({ bar: 3, beat: 1 });
+    tester.expect(transport.getPosition()).toBe(3);
+    tester.expect(transport.getSnapshot().musicalPosition).toEqual({
+      bar: 3,
+      beat: 1,
+    });
+    tester.expect(transport.getSnapshot().playbackState).toBe("playing");
+
+    transport.seekToMusicalPosition({ bar: 2, beat: 3 });
+    tester.expect(transport.getPosition()).toBe(2);
+    tester.expect(transport.getSnapshot().musicalPosition).toEqual({
+      bar: 2,
+      beat: 3,
+    });
+
+    transport.destroy();
+  });
+
   tester.it("uses the supplied audio clock as the authoritative running timeline", () => {
     const harness = createTransportHarness();
     const { transport } = harness;
@@ -118,6 +195,7 @@ tester.describe("Transport", () => {
 
     tester.expect(transport.getSnapshot()).toEqual({
       positionSeconds: 14.25,
+      musicalPosition: { bar: 8, beat: 1.5 },
       durationSeconds: 90,
       playbackState: "paused",
       loopEnabled: false,
@@ -129,6 +207,7 @@ tester.describe("Transport", () => {
     transport.stop();
     tester.expect(transport.getSnapshot()).toEqual({
       positionSeconds: 0,
+      musicalPosition: { bar: 1, beat: 1 },
       durationSeconds: 90,
       playbackState: "stopped",
       loopEnabled: false,
@@ -201,6 +280,7 @@ tester.describe("Transport", () => {
 
     tester.expect(transport.getSnapshot()).toEqual({
       positionSeconds: 45,
+      musicalPosition: { bar: 23, beat: 3 },
       durationSeconds: 45,
       playbackState: "ended",
       loopEnabled: false,
@@ -209,6 +289,7 @@ tester.describe("Transport", () => {
     transport.setDuration(0);
     tester.expect(transport.getSnapshot()).toEqual({
       positionSeconds: 0,
+      musicalPosition: { bar: 1, beat: 1 },
       durationSeconds: 0,
       playbackState: "stopped",
       loopEnabled: false,
@@ -254,6 +335,7 @@ tester.describe("Transport", () => {
 
     tester.expect(transport.getSnapshot()).toEqual({
       positionSeconds: 12,
+      musicalPosition: { bar: 7, beat: 1 },
       durationSeconds: 30,
       playbackState: "stopped",
       loopEnabled: true,
@@ -272,6 +354,7 @@ tester.describe("Transport", () => {
 
     tester.expect(transport.getSnapshot()).toEqual({
       positionSeconds: 60,
+      musicalPosition: { bar: 31, beat: 1 },
       durationSeconds: 60,
       playbackState: "ended",
       loopEnabled: false,
@@ -396,6 +479,7 @@ tester.describe("Transport", () => {
     tester.expect(transport.markTimelinePosition()).toEqual({
       clockTimeSeconds: 27.53,
       projectPositionSeconds: 19.5,
+      musicalPosition: { bar: 10, beat: 4 },
       playbackState: "playing",
     });
 
@@ -404,6 +488,7 @@ tester.describe("Transport", () => {
     tester.expect(transport.markTimelinePosition()).toEqual({
       clockTimeSeconds: 40,
       projectPositionSeconds: 19.5,
+      musicalPosition: { bar: 10, beat: 4 },
       playbackState: "paused",
     });
 

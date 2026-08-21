@@ -28,7 +28,6 @@ import type {
 import {
   getSecondsPerMusicalBeat,
   normalizeMusicalTimeline,
-  transportSecondsToMusicalPosition,
 } from "../timeline/musical-timeline.js";
 
 export type MicrophoneRecordingStatus =
@@ -485,10 +484,7 @@ export function createMicrophoneRecordingSession({
 
         startPosition = {
           transport: marker,
-          musical: transportSecondsToMusicalPosition(
-            synchronization.timeline,
-            marker.projectPositionSeconds,
-          ),
+          musical: { ...marker.musicalPosition },
         };
       }
 
@@ -556,17 +552,12 @@ export function createMicrophoneRecordingSession({
         const secondsPerBeat = getSecondsPerMusicalBeat(
           synchronization.timeline,
         );
-        const musicalStop = transportSecondsToMusicalPosition(
-          synchronization.timeline,
-          timingResult.stop.projectPositionSeconds,
-        );
-
         take = {
           capture: cloneCapture(capture) as RecordedAudioCapture,
           timing: {
             transport: { ...timingResult.metadata },
             musicalStart: { ...startPosition.musical },
-            musicalStop,
+            musicalStop: { ...timingResult.stop.musicalPosition },
             musicalSpanBeats: timingResult.metadata.durationSeconds / secondsPerBeat,
           },
         };

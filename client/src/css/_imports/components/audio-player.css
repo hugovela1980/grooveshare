@@ -187,3 +187,26 @@
         height: 4.15rem;
     }
 }
+
+.audio-player__musical-timeline {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: 0.75rem;
+}
+
+.audio-player__musical-position {
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+}
+
+.audio-player__bar-jump {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.audio-player__bar-input {
+    width: 5rem;
+}

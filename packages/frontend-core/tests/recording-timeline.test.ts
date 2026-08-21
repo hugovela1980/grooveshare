@@ -38,6 +38,7 @@ tester.describe("recording timeline", () => {
     tester.expect(start).toEqual({
       kind: "recording-start",
       projectPositionSeconds: 25,
+      musicalPosition: { bar: 13, beat: 3 },
       audioContextTimeSeconds: 105,
       playbackState: "playing",
     });
@@ -48,6 +49,7 @@ tester.describe("recording timeline", () => {
     tester.expect(result.stop).toEqual({
       kind: "recording-stop",
       projectPositionSeconds: 32.25,
+      musicalPosition: { bar: 17, beat: 1.5 },
       audioContextTimeSeconds: 112.25,
       playbackState: "playing",
     });

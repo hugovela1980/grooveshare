@@ -27,9 +27,9 @@ The current `develop` branch contains:
 - separate desktop/tablet and phone presentation clients;
 - shared browser adapters in `@hugovela/frontend-browser`;
 - the completed pre-recording work for **Version 3 Milestone 1 — Recording-Capable Web Audio Engine and Transport**;
-- the current **Version 3 Milestone 2** musical-timeline/recording foundation, including project/track musical placement, browser microphone capture, and transport-synchronized in-memory takes.
+- the current **Version 3 Milestone 2** musical-timeline/recording foundation, including project/track musical placement, browser microphone capture, local take review/normal-track upload, and timeline-aware playback/seeking.
 
-The current recording work intentionally stops before take review, permanent recorded-track upload, waveform editing, or latency calibration.
+Milestone 2 intentionally stops before waveform editing, automatic latency calibration/compensation, punch recording, comping, warping/time stretching, and advanced monitoring/routing.
 
 ## Architectural Principles
 
@@ -37,7 +37,7 @@ The current recording work intentionally stops before take review, permanent rec
 - **Shared product behavior has one implementation.** Desktop and mobile should not independently implement the same application workflow.
 - **Presentation is allowed to diverge.** Desktop/tablet and phone layouts/interactions are intentionally separate.
 - **Browser mechanics are not product logic.** `fetch`, browser storage, history, `FormData`, clipboard, and similar capabilities live in browser adapters.
-- **One project timeline drives audio.** Web Audio playback and future recording must use the same authoritative clock.
+- **One project timeline drives audio.** Playback, musical seeking, track placement, and recording markers use the same authoritative transport/timeline model.
 - **Metadata and audio bytes are separate concerns.** PostgreSQL stores structured data; the filesystem stores uploaded audio.
 - **One API contract should survive infrastructure changes.** A future move from VPS hosting to a home server should primarily be a deployment change.
 - **Production and Labs data remain isolated.** Integration testing must not modify production data or uploads.
@@ -424,9 +424,10 @@ Current operations include:
 - pause;
 - stop;
 - seek / relative seek;
+- musical seek by project bar/beat;
 - loop enable/disable;
 - channel volume/enable changes;
-- snapshots/subscriptions;
+- snapshots/subscriptions that expose both elapsed seconds and musical bar/beat position;
 - optional recording timeline markers on recording-capable engines.
 
 ### Primary Web Audio engine
@@ -460,10 +461,13 @@ Transport state includes:
 
 ```txt
 positionSeconds
+musicalPosition: { bar, beat }
 durationSeconds
 playbackState: stopped | paused | playing | ended
 loopEnabled
 ```
+
+The musical position is derived from the same transport position using the project's BPM and time signature. It is not maintained as a second clock. Fractional beats are preserved, while tiny floating-point noise at exact beat/bar boundaries is normalized so exact musical boundaries remain exact.
 
 While playback is running, elapsed position is derived exclusively from the supplied clock (`AudioContext.currentTime` in the Web Audio implementation).
 
@@ -479,7 +483,7 @@ The 100 ms interval used by the engine/Transport is observational and maintenanc
 - `durationSeconds`;
 - `loopEnabled`.
 
-Each track is scheduled against that same project instruction. Tracks beginning at project time zero start at the generation boundary; tracks with a later timeline offset are scheduled at the corresponding future AudioContext clock time. When playback begins after a track's start, its source offset is derived from the difference between the current project position and the track start.
+Each track is scheduled against that same project instruction. Persisted `musicalPlacement.start` is authoritative when present and is converted to project seconds inside `frontend-core`; legacy `timelineOffsetSeconds` remains a compatibility fallback. Tracks beginning at project time zero start at the generation boundary; tracks with a later musical start are scheduled at the corresponding future AudioContext clock time. When playback begins after a track's start, its source offset is derived from the difference between the current project position and the track start.
 
 Pause/resume and seek discard/recreate one-shot source generations from a new shared instruction. Web Audio project duration is the latest musical track end (`track start + decoded duration`), so later-starting recordings remain aligned without padding their files with artificial leading silence.
 
@@ -496,6 +500,7 @@ When looping is enabled, the Web Audio engine uses Transport to create the next 
 ```txt
 AudioContext clock time
 project position derived from that same clock read
+musical bar/beat derived from that project position
 playback state
 ```
 
@@ -514,7 +519,7 @@ A reviewed take can then be kept through a shared `RecordedTakeUploadPort`. The 
 
 ### HTML-audio fallback
 
-`HtmlAudioPlaybackEngine` remains available as a fallback implementation. It supports the basic `PlaybackEngine` interface but intentionally does not expose recording timeline markers because independent media-element timing is not treated as a recording-grade authoritative clock.
+`HtmlAudioPlaybackEngine` remains available as a fallback implementation. It honors the same musical seek contract and track musical placement, including mapping a project seek into the correct local position inside a later-starting track. It still intentionally does not expose recording timeline markers because independent media-element timing is not treated as a recording-grade authoritative clock.
 
 ## Testing Architecture
 

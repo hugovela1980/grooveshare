@@ -4,6 +4,7 @@ import {
 } from "@hugovela/frontend-core";
 import {
     createAudioPlayerController,
+    formatMusicalPosition,
     formatTimestamp,
 } from "../src/page-controllers/audio-player-controller.js";
 import { tester } from "./test-runner/tester.js";
@@ -135,6 +136,13 @@ function createFakeTextElement() {
     };
 }
 
+function createFakeNumberInput() {
+    return {
+        disabled: true,
+        value: "1",
+    };
+}
+
 type AudioPlayerControllerInput = Parameters<typeof createAudioPlayerController>[0];
 
 function createControllerTestSetup(options: {
@@ -151,12 +159,18 @@ function createControllerTestSetup(options: {
     const progressInput = createFakeRangeInput();
     const timestampElement = createFakeTextElement();
     const durationElement = createFakeTextElement();
+    const musicalPositionElement = createFakeTextElement();
+    const seekBarInput = createFakeNumberInput();
+    const seekBarButton = createFakeButton();
     const trackNameElement = createFakeTextElement();
 
     const playbackEngine = createHtmlAudioPlaybackEngine({
         primaryAudioElement: audioElement,
         createAudioElement:
             options.createAudioElement ?? (() => createFakeAudioElement()),
+        ...(options.musicalTimeline
+            ? { musicalTimeline: options.musicalTimeline }
+            : {}),
     });
 
     const controller = createAudioPlayerController({
@@ -172,6 +186,9 @@ function createControllerTestSetup(options: {
         progressInput,
         timestampElement,
         durationElement,
+        musicalPositionElement,
+        seekBarInput,
+        seekBarButton,
         trackNameElement,
         loopCheckbox,
     });
@@ -184,6 +201,9 @@ function createControllerTestSetup(options: {
         progressInput,
         timestampElement,
         durationElement,
+        musicalPositionElement,
+        seekBarInput,
+        seekBarButton,
         trackNameElement,
         loopCheckbox,
         controller,
@@ -196,6 +216,9 @@ tester.describe("audio player controller", () => {
         tester.expect(formatTimestamp(5)).toBe("00:05");
         tester.expect(formatTimestamp(65)).toBe("01:05");
         tester.expect(formatTimestamp(600)).toBe("10:00");
+        tester.expect(formatMusicalPosition({ bar: 3, beat: 2.5 })).toBe(
+            "Bar 3 · Beat 2.5",
+        );
     });
 
     tester.it("disables controls before a track is loaded", () => {
@@ -253,6 +276,48 @@ tester.describe("audio player controller", () => {
         tester.expect(durationElement.textContent).toBe("00:00");
         tester.expect(trackNameElement.textContent).toBe("Guitar Take");
         tester.expect(playPauseButton.textContent).toBe("▶");
+    });
+
+    tester.it("shows the shared musical position and jumps to a requested bar", async () => {
+        const {
+            controller,
+            audioElement,
+            musicalPositionElement,
+            seekBarInput,
+            seekBarButton,
+        } = createControllerTestSetup({
+            musicalTimeline: {
+                bpm: 120,
+                timeSignature: { numerator: 6, denominator: 8 },
+            },
+        });
+
+        controller.init();
+        controller.loadMix([{
+            channelNumber: 1,
+            trackId: "track-1",
+            name: "Guitar Take",
+            audioUrl: "/guitar.wav",
+            volume: 1,
+        }]);
+
+        tester.expect(musicalPositionElement.textContent).toBe(
+            "Bar 1 · Beat 1",
+        );
+
+        audioElement.currentTime = 0.625;
+        await audioElement.trigger("timeupdate");
+        tester.expect(musicalPositionElement.textContent).toBe(
+            "Bar 1 · Beat 3.5",
+        );
+
+        seekBarInput.value = "3";
+        await seekBarButton.click();
+
+        tester.expect(audioElement.currentTime).toBe(3);
+        tester.expect(musicalPositionElement.textContent).toBe(
+            "Bar 3 · Beat 1",
+        );
     });
 
     tester.it("plays and pauses the loaded audio track", async () => {
@@ -928,6 +993,7 @@ tester.describe("audio player controller playback boundary", () => {
         let listener: ((snapshot: ReturnType<PlaybackEngine["getSnapshot"]>) => void) | null = null;
         let snapshot = {
             currentTime: 0,
+            musicalPosition: { bar: 1, beat: 1 },
             duration: 120,
             isPlaying: false,
             hasLoadedChannels: false,
@@ -963,6 +1029,11 @@ tester.describe("audio player controller playback boundary", () => {
             seekBy(seconds) {
                 calls.push(`seekBy:${seconds}`);
             },
+            seekToMusicalPosition(position) {
+                calls.push(`seekMusical:${position.bar}:${position.beat}`);
+                snapshot = { ...snapshot, musicalPosition: { ...position } };
+                listener?.(snapshot);
+            },
             setLoopEnabled(enabled) {
                 calls.push(`loop:${enabled}`);
             },
@@ -992,6 +1063,9 @@ tester.describe("audio player controller playback boundary", () => {
         const progressInput = createFakeRangeInput();
         const timestampElement = createFakeTextElement();
         const durationElement = createFakeTextElement();
+        const musicalPositionElement = createFakeTextElement();
+        const seekBarInput = createFakeNumberInput();
+        const seekBarButton = createFakeButton();
         const trackNameElement = createFakeTextElement();
         const loopCheckbox = createFakeCheckbox();
 
@@ -1003,6 +1077,9 @@ tester.describe("audio player controller playback boundary", () => {
             progressInput,
             timestampElement,
             durationElement,
+            musicalPositionElement,
+            seekBarInput,
+            seekBarButton,
             trackNameElement,
             loopCheckbox,
         });

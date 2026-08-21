@@ -69,6 +69,20 @@ tester.describe("musical timeline", () => {
     });
   });
 
+  tester.it("snaps floating-point noise at exact musical boundaries", () => {
+    const timeline = {
+      bpm: 120,
+      timeSignature: { numerator: 4, denominator: 4 },
+    };
+
+    tester.expect(
+      transportSecondsToMusicalPosition(timeline, 12.000000000000002),
+    ).toEqual({ bar: 7, beat: 1 });
+    tester.expect(
+      transportSecondsToMusicalPosition(timeline, 1.9999999999999998),
+    ).toEqual({ bar: 2, beat: 1 });
+  });
+
   tester.it("rejects positions outside a bar", () => {
     let errorMessage = "";
 

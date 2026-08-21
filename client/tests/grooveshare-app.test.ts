@@ -161,6 +161,14 @@ function createProjectPlayerIntegrationElements() {
     const durationElement = {
         textContent: null as string | null,
     };
+    const musicalPositionElement = {
+        textContent: null as string | null,
+    };
+    const seekBarInput = {
+        disabled: false,
+        value: "1",
+    };
+    const seekBarButton = createButton();
     const trackNameElement = {
         textContent: null as string | null,
     };
@@ -255,6 +263,9 @@ function createProjectPlayerIntegrationElements() {
                 ["#audio-progress", progressInput],
                 ["#audio-timestamp", timestampElement],
                 ["#audio-duration", durationElement],
+                ["#audio-musical-position", musicalPositionElement],
+                ["#audio-seek-bar-input", seekBarInput],
+                ["#audio-seek-bar-button", seekBarButton],
                 ["#audio-track-name", trackNameElement],
             ]);
 

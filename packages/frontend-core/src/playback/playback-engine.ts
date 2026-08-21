@@ -1,4 +1,8 @@
 import type {
+  MusicalPosition,
+  TrackMusicalPlacement,
+} from "../domain/types.js";
+import type {
   RecordingStartMarker,
   RecordingTimelineResult,
 } from "./recording-timeline.js";
@@ -11,10 +15,13 @@ export type PlaybackChannel = {
   enabled: boolean;
   /** Project-time position where this track begins. Omitted tracks begin at 0. */
   timelineOffsetSeconds?: number;
+  /** Persisted musical placement. Authoritative when the project timeline is available. */
+  musicalPlacement?: TrackMusicalPlacement;
 };
 
 export type PlaybackSnapshot = {
   currentTime: number;
+  musicalPosition: MusicalPosition;
   duration: number;
   isPlaying: boolean;
   hasLoadedChannels: boolean;
@@ -37,6 +44,7 @@ export interface PlaybackEngine {
   stop(): void;
   seek(seconds: number): void;
   seekBy(seconds: number): void;
+  seekToMusicalPosition(position: MusicalPosition): void;
   setLoopEnabled(enabled: boolean): void;
   setChannelVolume(channelNumber: number, volume: number): boolean;
   setChannelEnabled(channelNumber: number, enabled: boolean): boolean;

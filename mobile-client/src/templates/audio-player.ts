@@ -70,6 +70,34 @@ export function renderAudioPlayer(): string {
           </span>
         </label>
 
+        <div class="audio-player__musical-timeline" aria-label="Musical timeline position">
+          <span id="audio-musical-position" class="audio-player__musical-position">
+            Bar 1 · Beat 1
+          </span>
+
+          <div class="audio-player__bar-jump">
+            <label for="audio-seek-bar-input">Bar</label>
+            <input
+              id="audio-seek-bar-input"
+              class="audio-player__bar-input"
+              type="number"
+              min="1"
+              step="1"
+              value="1"
+              inputmode="numeric"
+              disabled
+            />
+            <button
+              id="audio-seek-bar-button"
+              class="button button--secondary audio-player__bar-jump-button"
+              type="button"
+              disabled
+            >
+              Go
+            </button>
+          </div>
+        </div>
+
         <div class="audio-player__timeline">
           <span id="audio-timestamp" class="audio-player__timestamp">
             00:00

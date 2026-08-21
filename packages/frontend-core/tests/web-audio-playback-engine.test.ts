@@ -93,7 +93,12 @@ function createFakeAudioContext() {
   };
 }
 
-function createEngineHarness() {
+function createEngineHarness(
+  musicalTimeline = {
+    bpm: 120,
+    timeSignature: { numerator: 4, denominator: 4 },
+  },
+) {
   const audioContext = createFakeAudioContext();
   const fetchedUrls: string[] = [];
   let intervalHandler: (() => void) | null = null;
@@ -107,6 +112,7 @@ function createEngineHarness() {
 
   const engine = createWebAudioPlaybackEngine({
     audioContext,
+    musicalTimeline,
     async fetchAudioData(audioUrl) {
       fetchedUrls.push(audioUrl);
       const duration = durationsByUrl.get(audioUrl) ?? 60;
@@ -175,6 +181,41 @@ tester.describe("WebAudioPlaybackEngine", () => {
     engine.destroy?.();
   });
 
+  tester.it("seeks to a bar through the shared musical timeline without client-side time math", async () => {
+    const { audioContext, engine } = createEngineHarness({
+      bpm: 120,
+      timeSignature: { numerator: 6, denominator: 8 },
+    });
+
+    engine.loadMix(twoChannelMix);
+    await engine.play();
+    engine.stop();
+
+    engine.seekToMusicalPosition({ bar: 2, beat: 3 });
+    tester.expect(engine.getSnapshot().currentTime).toBe(2);
+    tester.expect(engine.getSnapshot().musicalPosition).toEqual({
+      bar: 2,
+      beat: 3,
+    });
+
+    audioContext.currentTime = 30;
+    await engine.play();
+    const generation = audioContext.sources.slice(-2);
+    tester.expect(generation[0]?.startOffset).toBe(2);
+    tester.expect(generation[1]?.startOffset).toBe(2);
+
+    engine.seekToMusicalPosition({ bar: 3, beat: 1 });
+    const playingSeekGeneration = audioContext.sources.slice(-2);
+    tester.expect(playingSeekGeneration[0]?.startOffset).toBe(3);
+    tester.expect(playingSeekGeneration[1]?.startOffset).toBe(3);
+    tester.expect(engine.getSnapshot().musicalPosition).toEqual({
+      bar: 3,
+      beat: 1,
+    });
+
+    engine.destroy?.();
+  });
+
   tester.it("schedules tracks at their saved project timeline offsets", async () => {
     const { audioContext, engine } = createEngineHarness();
 
@@ -207,6 +248,91 @@ tester.describe("WebAudioPlaybackEngine", () => {
     tester.expect(resumedSources[0]?.startOffset).toBe(4);
     tester.expect(resumedSources[1]?.startWhen).toBe(20.03);
     tester.expect(resumedSources[1]?.startOffset).toBe(0.5);
+
+    engine.destroy?.();
+  });
+
+  tester.it("keeps Bar 1 tracks at the musical origin even when legacy seconds are stale", async () => {
+    const { audioContext, engine } = createEngineHarness({
+      bpm: 120,
+      timeSignature: { numerator: 4, denominator: 4 },
+    });
+
+    engine.loadMix([
+      {
+        channelNumber: 1,
+        trackId: "legacy-seeded-track",
+        audioUrl: "/legacy-seeded-track.wav",
+        volume: 1,
+        enabled: true,
+        timelineOffsetSeconds: 3.5,
+        musicalPlacement: {
+          start: { bar: 1, beat: 1 },
+          spanBeats: null,
+        },
+      },
+    ]);
+
+    await engine.play();
+
+    tester.expect(audioContext.sources[0]?.startWhen).toBe(10.03);
+    tester.expect(audioContext.sources[0]?.startOffset).toBe(0);
+
+    engine.destroy?.();
+  });
+
+  tester.it("uses persisted musical placement as authoritative for later-starting tracks", async () => {
+    const { audioContext, engine } = createEngineHarness({
+      bpm: 120,
+      timeSignature: { numerator: 4, denominator: 4 },
+    });
+
+    engine.loadMix([
+      {
+        channelNumber: 1,
+        trackId: "legacy-default",
+        audioUrl: "/drums.wav",
+        volume: 1,
+        enabled: true,
+      },
+      {
+        channelNumber: 2,
+        trackId: "later-track",
+        audioUrl: "/recorded-take.webm",
+        volume: 1,
+        enabled: true,
+        timelineOffsetSeconds: 99,
+        musicalPlacement: {
+          start: { bar: 2, beat: 1 },
+          spanBeats: 4,
+        },
+      },
+    ]);
+    await engine.play();
+
+    tester.expect(audioContext.sources[0]?.startWhen).toBe(10.03);
+    tester.expect(audioContext.sources[0]?.startOffset).toBe(0);
+    tester.expect(audioContext.sources[1]?.startWhen).toBe(12.03);
+    tester.expect(audioContext.sources[1]?.startOffset).toBe(0);
+    tester.expect(engine.getSnapshot().duration).toBe(60);
+
+    engine.stop();
+    engine.seekToMusicalPosition({ bar: 2, beat: 2 });
+    audioContext.currentTime = 20;
+    await engine.play();
+
+    const resumed = audioContext.sources.slice(-2);
+    tester.expect(resumed[0]?.startWhen).toBe(20.03);
+    tester.expect(resumed[0]?.startOffset).toBe(2.5);
+    tester.expect(resumed[1]?.startWhen).toBe(20.03);
+    tester.expect(resumed[1]?.startOffset).toBe(0.5);
+
+    engine.stop();
+    await engine.play();
+    const restarted = audioContext.sources.slice(-2);
+    tester.expect(restarted[0]?.startOffset).toBe(0);
+    tester.expect(restarted[1]?.startWhen).toBe(22.03);
+    tester.expect(restarted[1]?.startOffset).toBe(0);
 
     engine.destroy?.();
   });
@@ -597,6 +723,7 @@ tester.describe("WebAudioPlaybackEngine", () => {
     tester.expect(
       Math.abs(start.projectPositionSeconds - 12) < 0.000001,
     ).toBe(true);
+    tester.expect(start.musicalPosition).toEqual({ bar: 7, beat: 1 });
     tester.expect(
       Math.abs(start.audioContextTimeSeconds - (sharedStartTime + 12)) <
         0.000001,
@@ -608,6 +735,7 @@ tester.describe("WebAudioPlaybackEngine", () => {
     tester.expect(
       Math.abs(result.stop.projectPositionSeconds - 18.5) < 0.000001,
     ).toBe(true);
+    tester.expect(result.stop.musicalPosition).toEqual({ bar: 10, beat: 2 });
     tester.expect(
       Math.abs(
         result.stop.audioContextTimeSeconds - (sharedStartTime + 18.5),

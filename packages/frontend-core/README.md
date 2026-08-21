@@ -131,6 +131,7 @@ interface PlaybackEngine {
   stop(): void;
   seek(seconds: number): void;
   seekBy(seconds: number): void;
+  seekToMusicalPosition(position: MusicalPosition): void;
   setLoopEnabled(enabled: boolean): void;
   // ...
 }
@@ -144,13 +145,14 @@ The primary implementation is `WebAudioPlaybackEngine`.
 
 It owns:
 
-- project position and duration;
+- project position in seconds plus derived musical bar/beat position;
+- project duration;
 - `stopped`, `paused`, `playing`, and `ended` state;
 - loop state;
-- play, pause, stop, seek, and relative-seek transitions;
+- play, pause, stop, seconds-based seek, relative seek, and musical-position seek transitions;
 - observable transport snapshots;
 - exact playback scheduling instructions;
-- exact timeline markers for future recording.
+- exact timeline markers for recording, including the musical position from the same clock observation.
 
 The Web Audio engine supplies:
 
@@ -172,7 +174,7 @@ While playback is running, `AudioContext.currentTime` is therefore the authorita
 
 Every active `AudioBufferSourceNode` in that playback generation receives the same instruction. Pause/resume and seek recreate one-shot source nodes against a new shared instruction rather than allowing individual media clocks to drift.
 
-Project duration is currently the longest decoded source. Shorter tracks may end naturally without ending the shared Transport.
+Project duration is the latest playable track end (`musical start + decoded duration`). Shorter or earlier tracks may end naturally without ending the shared Transport. Persisted musical placement is converted inside `frontend-core`, so presentation clients do not calculate playback offsets or musical seeks independently.
 
 ### Looping
 
@@ -190,6 +192,7 @@ The package contains `recording-timeline.ts`, which provides presentation-neutra
 {
   clockTimeSeconds,
   projectPositionSeconds,
+  musicalPosition,
   playbackState,
 }
 ```
@@ -213,16 +216,16 @@ When the session receives a recording-capable `PlaybackEngine` and the project `
 
 `WebAudioPlaybackEngine` exposes `markRecordingStart()` / `markRecordingStop()` through `PlaybackEngine`. The HTML-audio fallback intentionally does not claim recording-grade clock capability and therefore cannot start synchronized capture.
 
-Not implemented yet:
+The current recording workflow also supports local audition/retry/discard and keeping a reviewed take through the normal track-upload service. The saved track carries the captured musical placement and re-enters playback through the same timeline-aware scheduling path as any other project track.
 
-- audition/retry/discard take review;
-- permanent recording upload or recorded-track creation;
-- persistence of recorded-track offsets from a take;
-- input-latency compensation;
-- device calibration;
+Still intentionally deferred:
+
+- input-latency compensation or automatic device calibration;
 - manual nudge;
 - waveform editing;
-- punch-in/out or comping.
+- punch-in/out or comping;
+- warping/time stretching;
+- advanced monitoring/routing.
 
 ## What does not belong here
 

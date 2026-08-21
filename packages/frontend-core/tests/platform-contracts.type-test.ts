@@ -43,6 +43,7 @@ const playbackEngine = {
   stop() {},
   seek() {},
   seekBy() {},
+  seekToMusicalPosition() {},
   setLoopEnabled() {},
   setChannelVolume() {
     return true;
@@ -53,6 +54,7 @@ const playbackEngine = {
   getSnapshot() {
     return {
       currentTime: 0,
+      musicalPosition: { bar: 1, beat: 1 },
       duration: 0,
       isPlaying: false,
       hasLoadedChannels: false,

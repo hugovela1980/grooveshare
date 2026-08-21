@@ -1,3 +1,10 @@
+import type { MusicalPosition, MusicalTimeline } from "../domain/types.js";
+import {
+  musicalPositionToTransportSeconds,
+  normalizeMusicalTimeline,
+  transportSecondsToMusicalPosition,
+} from "../timeline/musical-timeline.js";
+
 export type TransportPlaybackState =
   | "stopped"
   | "paused"
@@ -6,6 +13,7 @@ export type TransportPlaybackState =
 
 export type TransportSnapshot = {
   positionSeconds: number;
+  musicalPosition: MusicalPosition;
   durationSeconds: number;
   playbackState: TransportPlaybackState;
   loopEnabled: boolean;
@@ -36,6 +44,7 @@ export type PlaybackScheduleInstruction = {
 export type TransportTimelineMarker = {
   clockTimeSeconds: number;
   projectPositionSeconds: number;
+  musicalPosition: MusicalPosition;
   playbackState: TransportPlaybackState;
 };
 
@@ -59,6 +68,7 @@ export type TransportOptions = {
   scheduleInterval?: ScheduleTransportInterval;
   clearScheduledInterval?: ClearTransportInterval;
   snapshotIntervalMs?: number;
+  musicalTimeline?: MusicalTimeline;
 };
 
 export interface Transport {
@@ -71,10 +81,12 @@ export interface Transport {
   stop(): void;
   seek(seconds: number): void;
   seekBy(seconds: number): void;
+  seekToMusicalPosition(position: MusicalPosition): void;
   setLoopEnabled(enabled: boolean): void;
   complete(): void;
   markTimelinePosition(): TransportTimelineMarker;
   getPosition(): number;
+  getMusicalPosition(): MusicalPosition;
   getSnapshot(): TransportSnapshot;
   subscribe(listener: TransportStateListener): () => void;
   destroy(): void;
@@ -115,12 +127,13 @@ function normalizeLeadTime(leadTimeSeconds: number | undefined): number {
 /**
  * Shared GrooveShare project transport.
  *
- * Timeline semantics for Version 3 Milestone 1:
- * - Project time zero is 0 seconds.
- * - Project duration is supplied by the audio engine and represents the
- *   longest playable source in the current mix.
- * - Shorter sources may end before the transport; they do not shorten or stop
- *   the shared project timeline.
+ * Timeline semantics for Version 3:
+ * - Project time zero is both 0 seconds and Bar 1 / Beat 1.
+ * - Musical position is derived from seconds through one project BPM/time-signature
+ *   timeline rather than maintained as an independent clock.
+ * - Project duration is supplied by the audio engine and represents the latest
+ *   playable track end in the current mix.
+ * - Earlier-ending sources do not shorten or stop the shared project timeline.
  * - While playing, elapsed time is derived exclusively from getClockTime().
  *   UI timers only request/observe snapshots and never advance the transport.
  * - With looping enabled, project position wraps on the same authoritative
@@ -131,6 +144,7 @@ export function createTransport({
   scheduleInterval = scheduleDefaultInterval,
   clearScheduledInterval = clearDefaultInterval,
   snapshotIntervalMs = DEFAULT_SNAPSHOT_INTERVAL_MS,
+  musicalTimeline,
 }: TransportOptions): Transport {
   let durationSeconds = 0;
   let positionSeconds = 0;
@@ -140,6 +154,7 @@ export function createTransport({
   let playbackStartPosition = 0;
   let intervalHandle: unknown = null;
   let destroyed = false;
+  const normalizedMusicalTimeline = normalizeMusicalTimeline(musicalTimeline);
   const listeners = new Set<TransportStateListener>();
 
   function clampPosition(seconds: number): number {
@@ -213,6 +228,13 @@ export function createTransport({
     return getRunningPositionAt(clockTime);
   }
 
+  function getMusicalPosition(): MusicalPosition {
+    return transportSecondsToMusicalPosition(
+      normalizedMusicalTimeline,
+      getPosition(),
+    );
+  }
+
   function markTimelinePosition(): TransportTimelineMarker {
     const clockTimeSeconds = getClockTime();
 
@@ -227,13 +249,23 @@ export function createTransport({
     return {
       clockTimeSeconds,
       projectPositionSeconds,
+      musicalPosition: transportSecondsToMusicalPosition(
+        normalizedMusicalTimeline,
+        projectPositionSeconds,
+      ),
       playbackState,
     };
   }
 
   function getSnapshot(): TransportSnapshot {
+    const currentPositionSeconds = getPosition();
+
     return {
-      positionSeconds: getPosition(),
+      positionSeconds: currentPositionSeconds,
+      musicalPosition: transportSecondsToMusicalPosition(
+        normalizedMusicalTimeline,
+        currentPositionSeconds,
+      ),
       durationSeconds,
       playbackState,
       loopEnabled,
@@ -443,6 +475,15 @@ export function createTransport({
     seek(getPosition() + seconds);
   }
 
+  function seekToMusicalPosition(position: MusicalPosition): void {
+    seek(
+      musicalPositionToTransportSeconds(
+        normalizedMusicalTimeline,
+        position,
+      ),
+    );
+  }
+
   function setLoopEnabled(enabled: boolean): void {
     if (destroyed || loopEnabled === enabled) {
       return;
@@ -508,10 +549,12 @@ export function createTransport({
     stop,
     seek,
     seekBy,
+    seekToMusicalPosition,
     setLoopEnabled,
     complete,
     markTimelinePosition,
     getPosition,
+    getMusicalPosition,
     getSnapshot,
     subscribe,
     destroy,

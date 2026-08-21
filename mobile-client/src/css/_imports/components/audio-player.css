@@ -186,3 +186,26 @@
         justify-self: center;
     }
 }
+
+.audio-player__musical-timeline {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-top: 0.75rem;
+}
+
+.audio-player__musical-position {
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+}
+
+.audio-player__bar-jump {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.audio-player__bar-input {
+    width: 4.5rem;
+}

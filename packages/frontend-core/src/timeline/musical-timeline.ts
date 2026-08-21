@@ -25,6 +25,7 @@ export const PROJECT_MUSICAL_ORIGIN_TRANSPORT_SECONDS = 0;
 const MAX_BPM = 999;
 const MAX_TIME_SIGNATURE_VALUE = 32;
 const VALID_TIME_SIGNATURE_DENOMINATORS = new Set([1, 2, 4, 8, 16, 32]);
+const MUSICAL_BOUNDARY_EPSILON_BEATS = 1e-9;
 
 export function isValidMusicalTimeline(
   timeline: MusicalTimeline,
@@ -122,7 +123,12 @@ export function transportSecondsToMusicalPosition(
   }
 
   const normalized = normalizeMusicalTimeline(timeline);
-  const totalBeats = transportSeconds / getSecondsPerMusicalBeat(normalized);
+  const rawTotalBeats = transportSeconds / getSecondsPerMusicalBeat(normalized);
+  const nearestWholeBeat = Math.round(rawTotalBeats);
+  const totalBeats =
+    Math.abs(rawTotalBeats - nearestWholeBeat) <= MUSICAL_BOUNDARY_EPSILON_BEATS
+      ? nearestWholeBeat
+      : rawTotalBeats;
   const zeroBasedBar = Math.floor(
     totalBeats / normalized.timeSignature.numerator,
   );

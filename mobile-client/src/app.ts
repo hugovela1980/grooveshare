@@ -887,6 +887,21 @@ function initializeProjectPlayerPage({
     "#audio-duration",
   );
 
+  const musicalPositionElement = getElement<HTMLElement>(
+    appElement,
+    "#audio-musical-position",
+  );
+
+  const seekBarInput = getElement<HTMLInputElement>(
+    appElement,
+    "#audio-seek-bar-input",
+  );
+
+  const seekBarButton = getElement<HTMLButtonElement>(
+    appElement,
+    "#audio-seek-bar-button",
+  );
+
   const trackNameElement = getElement<HTMLElement>(
     appElement,
     "#audio-track-name",
@@ -900,13 +915,18 @@ function initializeProjectPlayerPage({
     !progressInput ||
     !timestampElement ||
     !durationElement ||
+    !musicalPositionElement ||
+    !seekBarInput ||
+    !seekBarButton ||
     !trackNameElement ||
     !loopCheckbox
   ) {
     throw new Error("Project Player audio elements were not found.");
   }
 
+  const musicalTimeline = getProjectMusicalTimeline(selectedProject);
   const playbackEngine = createWebAudioPlaybackEngine({
+    musicalTimeline,
     ...(invitationForProject
       ? {
           fetchAudioData: createInvitationAudioDataFetcher(
@@ -917,10 +937,10 @@ function initializeProjectPlayerPage({
     createFallbackEngine: () => createHtmlAudioPlaybackEngine({
       primaryAudioElement: audioElement,
       createAudioElement: () => document.createElement("audio"),
+      musicalTimeline,
     }),
   });
 
-  const musicalTimeline = getProjectMusicalTimeline(selectedProject);
   const audioPlayerController = createAudioPlayerController({
     playbackEngine,
     musicalTimeline,
@@ -932,6 +952,9 @@ function initializeProjectPlayerPage({
     progressInput,
     timestampElement,
     durationElement,
+    musicalPositionElement,
+    seekBarInput,
+    seekBarButton,
     trackNameElement,
     loopCheckbox,
   });

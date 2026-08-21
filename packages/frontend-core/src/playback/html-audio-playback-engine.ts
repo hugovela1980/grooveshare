@@ -1,3 +1,10 @@
+import type { MusicalPosition, MusicalTimeline } from "../domain/types.js";
+import {
+  musicalPositionToTransportSeconds,
+  normalizeMusicalTimeline,
+  transportSecondsToMusicalPosition,
+} from "../timeline/musical-timeline.js";
+import { getTrackTimelineOffsetSeconds } from "./recording-timeline.js";
 import type {
   PlaybackChannel,
   PlaybackEngine,
@@ -29,6 +36,7 @@ type LoadedPlaybackChannel = {
 type HtmlAudioPlaybackEngineOptions = {
   primaryAudioElement: HtmlAudioElementLike;
   createAudioElement: () => HtmlAudioElementLike;
+  musicalTimeline?: MusicalTimeline;
 };
 
 const END_EPSILON_SECONDS = 0.01;
@@ -52,9 +60,13 @@ function clampVolume(volume: number): number {
 export function createHtmlAudioPlaybackEngine({
   primaryAudioElement,
   createAudioElement,
+  musicalTimeline,
 }: HtmlAudioPlaybackEngineOptions): PlaybackEngine {
+  const normalizedMusicalTimeline = normalizeMusicalTimeline(musicalTimeline);
   let loadedChannels: LoadedPlaybackChannel[] = [];
   let loopEnabled = false;
+  let playbackRequested = false;
+  const delayedStartTimeouts = new Set<ReturnType<typeof globalThis.setTimeout>>();
   const listeners = new Set<PlaybackStateListener>();
   const wiredAudioElements = new WeakSet<object>();
 
@@ -62,20 +74,37 @@ export function createHtmlAudioPlaybackEngine({
     return loadedChannels.map(({ audioElement }) => audioElement);
   }
 
+  function getChannelOffset(channel: PlaybackChannel): number {
+    return getTrackTimelineOffsetSeconds(channel, normalizedMusicalTimeline);
+  }
+
   function getMixDuration(): number {
-    return getLoadedAudioElements().reduce((longestDuration, audioElement) => {
-      return isUsableDuration(audioElement.duration)
-        ? Math.max(longestDuration, audioElement.duration)
+    return loadedChannels.reduce((longestDuration, loadedChannel) => {
+      const duration = loadedChannel.audioElement.duration;
+
+      return isUsableDuration(duration)
+        ? Math.max(
+            longestDuration,
+            getChannelOffset(loadedChannel.channel) + duration,
+          )
         : longestDuration;
     }, 0);
   }
 
   function getTransportCurrentTime(): number {
     const longestDuration = getMixDuration();
-    const furthestCurrentTime = getLoadedAudioElements().reduce(
-      (furthestTime, audioElement) => {
+    const activeOrAdvancedChannels = loadedChannels.filter(({ channel, audioElement }) => {
+      return !audioElement.paused ||
+        audioElement.currentTime > 0 ||
+        getChannelOffset(channel) === 0;
+    });
+    const furthestCurrentTime = activeOrAdvancedChannels.reduce(
+      (furthestTime, { channel, audioElement }) => {
         return isUsableCurrentTime(audioElement.currentTime)
-          ? Math.max(furthestTime, audioElement.currentTime)
+          ? Math.max(
+              furthestTime,
+              getChannelOffset(channel) + audioElement.currentTime,
+            )
           : furthestTime;
       },
       0,
@@ -95,9 +124,37 @@ export function createHtmlAudioPlaybackEngine({
       : currentTime;
   }
 
-  function setAllCurrentTimes(currentTime: number): void {
-    for (const audioElement of getLoadedAudioElements()) {
-      setAudioElementCurrentTime(audioElement, currentTime);
+  function setAllCurrentTimes(projectTime: number): void {
+    for (const { channel, audioElement } of loadedChannels) {
+      const localTime = Math.max(0, projectTime - getChannelOffset(channel));
+      setAudioElementCurrentTime(audioElement, localTime);
+    }
+  }
+
+  function clearDelayedStarts(): void {
+    for (const timeout of delayedStartTimeouts) {
+      globalThis.clearTimeout(timeout);
+    }
+    delayedStartTimeouts.clear();
+  }
+
+  function scheduleFutureChannels(projectTime: number): void {
+    for (const { channel, audioElement } of loadedChannels) {
+      const channelStart = getChannelOffset(channel);
+      if (channelStart <= projectTime || !audioElement.paused) {
+        continue;
+      }
+
+      const delayMs = Math.max(0, (channelStart - projectTime) * 1000);
+      const timeout = globalThis.setTimeout(() => {
+        delayedStartTimeouts.delete(timeout);
+        if (!playbackRequested) {
+          return;
+        }
+        audioElement.currentTime = 0;
+        void audioElement.play().then(notify);
+      }, delayMs);
+      delayedStartTimeouts.add(timeout);
     }
   }
 
@@ -116,12 +173,19 @@ export function createHtmlAudioPlaybackEngine({
     const hasLoadedChannels = loadedChannels.length > 0;
     const duration = hasLoadedChannels ? getMixDuration() : 0;
 
+    const currentTime = hasLoadedChannels ? getTransportCurrentTime() : 0;
+
     return {
-      currentTime: hasLoadedChannels ? getTransportCurrentTime() : 0,
+      currentTime,
+      musicalPosition: transportSecondsToMusicalPosition(
+        normalizedMusicalTimeline,
+        currentTime,
+      ),
       duration,
       isPlaying:
         hasLoadedChannels &&
-        getLoadedAudioElements().some((audioElement) => !audioElement.paused),
+        (playbackRequested ||
+          getLoadedAudioElements().some((audioElement) => !audioElement.paused)),
       hasLoadedChannels,
     };
   }
@@ -139,21 +203,27 @@ export function createHtmlAudioPlaybackEngine({
       return;
     }
 
-    const playableAudioElements = getLoadedAudioElements().filter(
-      (audioElement) => {
-        return !isUsableDuration(audioElement.duration) ||
-          audioElement.currentTime <
-            audioElement.duration - END_EPSILON_SECONDS;
-      },
-    );
+    const projectTime = getTransportCurrentTime();
+    playbackRequested = true;
+    clearDelayedStarts();
+
+    const playableNow = loadedChannels.filter(({ channel, audioElement }) => {
+      const channelStart = getChannelOffset(channel);
+      return channelStart <= projectTime + END_EPSILON_SECONDS &&
+        (!isUsableDuration(audioElement.duration) ||
+          audioElement.currentTime < audioElement.duration - END_EPSILON_SECONDS);
+    });
 
     await Promise.all(
-      playableAudioElements.map((audioElement) => audioElement.play()),
+      playableNow.map(({ audioElement }) => audioElement.play()),
     );
+    scheduleFutureChannels(projectTime);
     notify();
   }
 
   function pause(): void {
+    playbackRequested = false;
+    clearDelayedStarts();
     for (const audioElement of getLoadedAudioElements()) {
       audioElement.pause();
     }
@@ -162,6 +232,8 @@ export function createHtmlAudioPlaybackEngine({
   }
 
   function stop(): void {
+    playbackRequested = false;
+    clearDelayedStarts();
     for (const audioElement of getLoadedAudioElements()) {
       audioElement.pause();
       audioElement.currentTime = 0;
@@ -179,8 +251,34 @@ export function createHtmlAudioPlaybackEngine({
     const nextTime = mixDuration > 0
       ? Math.max(0, Math.min(mixDuration, seconds))
       : Math.max(0, seconds);
+    const shouldResumePlayback = playbackRequested;
+
+    if (shouldResumePlayback) {
+      clearDelayedStarts();
+      for (const audioElement of getLoadedAudioElements()) {
+        audioElement.pause();
+      }
+    }
 
     setAllCurrentTimes(nextTime);
+
+    if (shouldResumePlayback) {
+      for (const { channel, audioElement } of loadedChannels) {
+        const channelStart = getChannelOffset(channel);
+        const canPlayNow =
+          channelStart <= nextTime + END_EPSILON_SECONDS &&
+          (!isUsableDuration(audioElement.duration) ||
+            audioElement.currentTime <
+              audioElement.duration - END_EPSILON_SECONDS);
+
+        if (canPlayNow) {
+          void audioElement.play().then(notify);
+        }
+      }
+
+      scheduleFutureChannels(nextTime);
+    }
+
     notify();
   }
 
@@ -190,6 +288,15 @@ export function createHtmlAudioPlaybackEngine({
     }
 
     seek(getTransportCurrentTime() + seconds);
+  }
+
+  function seekToMusicalPosition(position: MusicalPosition): void {
+    seek(
+      musicalPositionToTransportSeconds(
+        normalizedMusicalTimeline,
+        position,
+      ),
+    );
   }
 
   function setChannelVolume(channelNumber: number, volume: number): boolean {
@@ -239,7 +346,6 @@ export function createHtmlAudioPlaybackEngine({
     }
 
     seek(0);
-    await play();
   }
 
   function wireAudioElement(audioElement: HtmlAudioElementLike): void {
@@ -287,6 +393,7 @@ export function createHtmlAudioPlaybackEngine({
     stop,
     seek,
     seekBy,
+    seekToMusicalPosition,
     setLoopEnabled(enabled) {
       loopEnabled = enabled;
     },

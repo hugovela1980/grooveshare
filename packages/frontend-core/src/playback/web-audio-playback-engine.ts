@@ -1,3 +1,9 @@
+import type { MusicalPosition, MusicalTimeline } from "../domain/types.js";
+import {
+  normalizeMusicalTimeline,
+  musicalPositionToTransportSeconds,
+} from "../timeline/musical-timeline.js";
+import { getTrackTimelineOffsetSeconds } from "./recording-timeline.js";
 import type {
   PlaybackChannel,
   PlaybackEngine,
@@ -76,6 +82,7 @@ type WebAudioPlaybackEngineOptions = {
   scheduleInterval?: ScheduleInterval;
   clearScheduledInterval?: ClearScheduledInterval;
   onLoadError?: (error: unknown) => void;
+  musicalTimeline?: MusicalTimeline;
 };
 
 const END_EPSILON_SECONDS = 0.01;
@@ -89,14 +96,6 @@ function clampVolume(volume: number): number {
   }
 
   return Math.max(0, Math.min(1, volume));
-}
-
-function getChannelTimelineOffsetSeconds(channel: PlaybackChannel): number {
-  const offsetSeconds = channel.timelineOffsetSeconds;
-
-  return Number.isFinite(offsetSeconds) && (offsetSeconds ?? 0) > 0
-    ? offsetSeconds as number
-    : 0;
 }
 
 function getBrowserAudioContext(): AudioContextLike | null {
@@ -161,6 +160,7 @@ export function createWebAudioPlaybackEngine(
     options.scheduleInterval ?? scheduleBrowserInterval;
   const clearScheduledInterval =
     options.clearScheduledInterval ?? clearBrowserInterval;
+  const normalizedMusicalTimeline = normalizeMusicalTimeline(options.musicalTimeline);
   const onLoadError = options.onLoadError ?? ((error: unknown) => {
     console.error("Could not prepare GrooveShare audio playback.", error);
   });
@@ -177,6 +177,7 @@ export function createWebAudioPlaybackEngine(
     scheduleInterval,
     clearScheduledInterval,
     snapshotIntervalMs: SNAPSHOT_INTERVAL_MS,
+    musicalTimeline: normalizedMusicalTimeline,
   });
   const recordingTimeline = createRecordingTimeline(transport);
 
@@ -196,7 +197,7 @@ export function createWebAudioPlaybackEngine(
       return Number.isFinite(duration) && duration > 0
         ? Math.max(
             longestDuration,
-            getChannelTimelineOffsetSeconds(channel) + duration,
+            getTrackTimelineOffsetSeconds(channel, normalizedMusicalTimeline) + duration,
           )
         : longestDuration;
     }, 0);
@@ -210,6 +211,7 @@ export function createWebAudioPlaybackEngine(
       currentTime: hasLoadedChannels
         ? transportSnapshot.positionSeconds
         : 0,
+      musicalPosition: transportSnapshot.musicalPosition,
       duration: hasLoadedChannels
         ? transportSnapshot.durationSeconds
         : 0,
@@ -323,8 +325,9 @@ export function createWebAudioPlaybackEngine(
     for (const loadedChannel of loadedChannels) {
       const buffer = loadedChannel.buffer;
       const gainNode = loadedChannel.gainNode;
-      const trackStartPosition = getChannelTimelineOffsetSeconds(
+      const trackStartPosition = getTrackTimelineOffsetSeconds(
         loadedChannel.channel,
+        normalizedMusicalTimeline,
       );
       const trackEndPosition = trackStartPosition + (buffer?.duration ?? 0);
       const sourceProjectStart = Math.max(playbackPosition, trackStartPosition);
@@ -544,6 +547,15 @@ export function createWebAudioPlaybackEngine(
     seek(transport.getPosition() + seconds);
   }
 
+  function seekToMusicalPosition(position: MusicalPosition): void {
+    seek(
+      musicalPositionToTransportSeconds(
+        normalizedMusicalTimeline,
+        position,
+      ),
+    );
+  }
+
   function getChannel(channelNumber: number): LoadedWebAudioChannel | null {
     return loadedChannels.find(({ channel }) => {
       return channel.channelNumber === channelNumber;
@@ -673,6 +685,7 @@ export function createWebAudioPlaybackEngine(
     stop,
     seek,
     seekBy,
+    seekToMusicalPosition,
     setLoopEnabled(enabled) {
       const transportSnapshot = transport.getSnapshot();
 

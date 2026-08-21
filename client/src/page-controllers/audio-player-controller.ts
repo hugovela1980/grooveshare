@@ -1,5 +1,4 @@
 import {
-    transportSecondsToMusicalPosition,
     type MusicalTimeline,
     type PlaybackChannel,
     type PlaybackEngine,
@@ -14,6 +13,10 @@ type MixChannelForPlayer = {
     volume: number;
     enabled?: boolean;
     timelineOffsetSeconds?: number;
+    musicalPlacement?: {
+        start: { bar: number; beat: number };
+        spanBeats: number | null;
+    };
 };
 
 type ButtonElementLike = {
@@ -46,6 +49,11 @@ type TextElementLike = {
     textContent: string | null;
 };
 
+type NumberInputElementLike = {
+    disabled: boolean;
+    value: string;
+};
+
 type PlaybackMusicalTimelineDebugDetails = {
     projectId?: string;
     bpm: number;
@@ -73,6 +81,9 @@ type AudioPlayerControllerOptions = {
     progressInput: RangeInputElementLike;
     timestampElement: TextElementLike;
     durationElement: TextElementLike;
+    musicalPositionElement: TextElementLike;
+    seekBarInput: NumberInputElementLike;
+    seekBarButton: ButtonElementLike;
     trackNameElement: TextElementLike;
     loopCheckbox: CheckboxElementLike;
 };
@@ -92,6 +103,15 @@ export function formatTimestamp(totalSeconds: number): string {
     return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
+function formatMusicalBeat(beat: number): string {
+    const rounded = Number(beat.toFixed(3));
+    return String(rounded);
+}
+
+export function formatMusicalPosition(position: { bar: number; beat: number }): string {
+    return `Bar ${position.bar} · Beat ${formatMusicalBeat(position.beat)}`;
+}
+
 export function createAudioPlayerController({
     playbackEngine,
     musicalTimeline,
@@ -103,6 +123,9 @@ export function createAudioPlayerController({
     progressInput,
     timestampElement,
     durationElement,
+    musicalPositionElement,
+    seekBarInput,
+    seekBarButton,
     trackNameElement,
     loopCheckbox,
 }: AudioPlayerControllerOptions) {
@@ -114,6 +137,8 @@ export function createAudioPlayerController({
         playPauseButton.disabled = !isEnabled;
         stopButton.disabled = !isEnabled;
         progressInput.disabled = !isEnabled;
+        seekBarInput.disabled = !isEnabled;
+        seekBarButton.disabled = !isEnabled;
     }
 
     function setPlayPauseButtonIcon(snapshot: PlaybackSnapshot): void {
@@ -127,6 +152,9 @@ export function createAudioPlayerController({
         durationElement.textContent = snapshot.duration > 0
             ? formatTimestamp(snapshot.duration)
             : "00:00";
+        musicalPositionElement.textContent = formatMusicalPosition(
+            snapshot.musicalPosition,
+        );
     }
 
     function updateProgress(snapshot: PlaybackSnapshot): void {
@@ -170,10 +198,7 @@ export function createAudioPlayerController({
             return;
         }
 
-        const musicalPosition = transportSecondsToMusicalPosition(
-            musicalTimeline,
-            snapshot.currentTime,
-        );
+        const musicalPosition = snapshot.musicalPosition;
 
         debugLogger("[GrooveShare] Playback musical timeline", {
             ...(projectId ? { projectId } : {}),
@@ -237,6 +262,17 @@ export function createAudioPlayerController({
         updateProgress(playbackEngine.getSnapshot());
     }
 
+    function seekToBar(): void {
+        const bar = Number(seekBarInput.value);
+
+        if (!Number.isInteger(bar) || bar < 1) {
+            return;
+        }
+
+        playbackEngine.seekToMusicalPosition({ bar, beat: 1 });
+        updateProgress(playbackEngine.getSnapshot());
+    }
+
     function loadMix(channels: MixChannelForPlayer[]): void {
         loadedMixChannels = channels.map((channel) => ({ ...channel }));
 
@@ -249,6 +285,14 @@ export function createAudioPlayerController({
             ...(channel.timelineOffsetSeconds !== undefined
                 ? { timelineOffsetSeconds: channel.timelineOffsetSeconds }
                 : {}),
+            ...(channel.musicalPlacement
+                ? {
+                    musicalPlacement: {
+                        start: { ...channel.musicalPlacement.start },
+                        spanBeats: channel.musicalPlacement.spanBeats,
+                    },
+                }
+                : {}),
         }));
 
         playbackEngine.loadMix(playbackChannels);
@@ -258,6 +302,10 @@ export function createAudioPlayerController({
         progressInput.value = "0";
         timestampElement.textContent = "00:00";
         durationElement.textContent = "00:00";
+        musicalPositionElement.textContent = formatMusicalPosition(
+            snapshot.musicalPosition,
+        );
+        seekBarInput.value = "1";
         setPlayPauseButtonIcon(snapshot);
         setControlsEnabled(snapshot.hasLoadedChannels);
     }
@@ -343,6 +391,7 @@ export function createAudioPlayerController({
         });
 
         stopButton.addEventListener("click", stop);
+        seekBarButton.addEventListener("click", seekToBar);
         progressInput.addEventListener("input", beginSeeking);
         progressInput.addEventListener("change", finishSeeking);
 

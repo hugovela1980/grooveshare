@@ -11,7 +11,7 @@ GrooveShare is intentionally narrower than a DAW. The goal is a focused band wor
 The current `develop` branch contains two major architectural milestones:
 
 - **Version 2.2 — Shared Frontend Application Layer** is complete. Desktop/tablet and phone presentations are separate, while shared product behavior lives in `@hugovela/frontend-core` and shared browser mechanics live in `@hugovela/frontend-browser`.
-- **Version 3 Milestone 1 — Recording-Capable Web Audio Engine and Transport** is complete. Active Version 3 Milestone 2 work now adds project/track musical timing plus a basic microphone workflow: synchronized capture, local audition/retry/discard, and keeping a reviewed take through the normal project-track upload path.
+- **Version 3 Milestone 1 — Recording-Capable Web Audio Engine and Transport** is complete. Active Version 3 Milestone 2 work adds one project musical timeline across track placement, synchronized microphone capture/review/keep, musical transport readout, musical seeking, and timeline-aware playback scheduling.
 
 Current product capabilities include:
 
@@ -26,9 +26,10 @@ Current product capabilities include:
 - Explicit Guest → authenticated → Contributor conversion.
 - Four-channel project mixing with server persistence for Contributors/Owners and browser-local mixes for Viewers/Guests.
 - Synchronized multitrack Web Audio playback from one `AudioContext` clock.
-- A first-class project `Transport` for play, pause, stop, seek, relative seek, looping, and project position.
+- A first-class project `Transport` for play, pause, stop, seconds/musical seeking, looping, and synchronized seconds + bar/beat position.
 - Recording timeline start/stop markers tied to the same authoritative audio clock.
 - Contributor/Owner microphone capture with in-context take audition, retry/discard, and normal track upload preserving musical placement.
+- Timeline-aware playback where later-starting tracks enter at their persisted musical position and bar jumps use the shared project timeline on desktop and mobile.
 - Production and Labs deployments behind Caddy with HTTPS, PostgreSQL, persistent uploads, systemd, firewall rules, and backups.
 
 ## Deployment Environments

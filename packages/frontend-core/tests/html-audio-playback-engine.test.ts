@@ -103,6 +103,98 @@ tester.describe("HtmlAudioPlaybackEngine", () => {
     tester.expect(second.currentTime).toBe(0);
   });
 
+  tester.it("maps musical seeks into each track's persisted musical placement", () => {
+    const first = createFakeAudioElement();
+    const second = createFakeAudioElement();
+    const engine = createHtmlAudioPlaybackEngine({
+      primaryAudioElement: first,
+      createAudioElement: () => second,
+      musicalTimeline: {
+        bpm: 120,
+        timeSignature: { numerator: 4, denominator: 4 },
+      },
+    });
+
+    engine.loadMix([
+      {
+        channelNumber: 1,
+        trackId: "track-1",
+        audioUrl: "/rhythm.wav",
+        volume: 1,
+        enabled: true,
+      },
+      {
+        channelNumber: 2,
+        trackId: "track-2",
+        audioUrl: "/late-take.wav",
+        volume: 1,
+        enabled: true,
+        musicalPlacement: {
+          start: { bar: 2, beat: 1 },
+          spanBeats: 4,
+        },
+      },
+    ]);
+
+    engine.seekToMusicalPosition({ bar: 2, beat: 2 });
+
+    tester.expect(first.currentTime).toBe(2.5);
+    tester.expect(second.currentTime).toBe(0.5);
+    tester.expect(engine.getSnapshot().currentTime).toBe(2.5);
+    tester.expect(engine.getSnapshot().musicalPosition).toEqual({
+      bar: 2,
+      beat: 2,
+    });
+  });
+
+  tester.it("keeps placed tracks aligned when seeking during fallback playback", async () => {
+    const first = createFakeAudioElement();
+    const second = createFakeAudioElement();
+    const engine = createHtmlAudioPlaybackEngine({
+      primaryAudioElement: first,
+      createAudioElement: () => second,
+      musicalTimeline: {
+        bpm: 120,
+        timeSignature: { numerator: 4, denominator: 4 },
+      },
+    });
+
+    engine.loadMix([
+      {
+        channelNumber: 1,
+        trackId: "track-1",
+        audioUrl: "/rhythm.wav",
+        volume: 1,
+        enabled: true,
+      },
+      {
+        channelNumber: 2,
+        trackId: "track-2",
+        audioUrl: "/late-take.wav",
+        volume: 1,
+        enabled: true,
+        musicalPlacement: {
+          start: { bar: 2, beat: 1 },
+          spanBeats: 4,
+        },
+      },
+    ]);
+
+    await engine.play();
+    tester.expect(first.playCallCount).toBe(1);
+    tester.expect(second.playCallCount).toBe(0);
+
+    engine.seekToMusicalPosition({ bar: 2, beat: 2 });
+    tester.expect(first.currentTime).toBe(2.5);
+    tester.expect(second.currentTime).toBe(0.5);
+    tester.expect(first.playCallCount).toBe(2);
+    tester.expect(second.playCallCount).toBe(1);
+    tester.expect(second.paused).toBe(false);
+
+    engine.stop();
+    engine.destroy?.();
+  });
+
   tester.it("uses the longest loaded track as the transport duration", async () => {
     const first = createFakeAudioElement();
     const second = createFakeAudioElement();
@@ -226,6 +318,7 @@ tester.describe("HtmlAudioPlaybackEngine", () => {
 
     tester.expect(snapshots[snapshots.length - 1]).toEqual({
       currentTime: 30,
+      musicalPosition: { bar: 16, beat: 1 },
       duration: 120,
       isPlaying: false,
       hasLoadedChannels: true,

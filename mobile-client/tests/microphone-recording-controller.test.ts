@@ -117,6 +117,7 @@ function createSessionHarness() {
           transport: {
             kind: "recording-start",
             projectPositionSeconds: 3.5,
+            musicalPosition: { bar: 2, beat: 4 },
             audioContextTimeSeconds: 20,
             playbackState: "playing",
           },

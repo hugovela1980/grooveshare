@@ -1183,6 +1183,10 @@ tester.describe("project player page controller", () => {
       volume: number;
       enabled: boolean;
       timelineOffsetSeconds?: number;
+      musicalPlacement?: {
+        start: { bar: number; beat: number };
+        spanBeats: number | null;
+      };
     }> = [];
 
     const controller = createProjectPlayerPageController({
@@ -1224,7 +1228,10 @@ tester.describe("project player page controller", () => {
           "http://localhost:3000/api/projects/project-1/tracks/track-2/audio",
         volume: 0.25,
         enabled: false,
-        timelineOffsetSeconds: 2,
+        musicalPlacement: {
+          start: { bar: 2, beat: 1 },
+          spanBeats: 4,
+        },
       },
     ]);
 

@@ -203,10 +203,18 @@ function createPlaybackHarness({
   startPositionSeconds = 0,
   durationSeconds = 60,
   recordingMarkers = true,
+  musicalTimeline = {
+    bpm: 120,
+    timeSignature: { numerator: 4, denominator: 4 },
+  },
 }: {
   startPositionSeconds?: number;
   durationSeconds?: number;
   recordingMarkers?: boolean;
+  musicalTimeline?: {
+    bpm: number;
+    timeSignature: { numerator: number; denominator: number };
+  };
 } = {}): PlaybackHarness {
   let clockTime = 100;
   const events: string[] = [];
@@ -217,6 +225,7 @@ function createPlaybackHarness({
       return { fakeInterval: true };
     },
     clearScheduledInterval() {},
+    musicalTimeline,
   });
   const recordingTimeline = createRecordingTimeline(transport);
   transport.setDuration(durationSeconds);
@@ -243,6 +252,9 @@ function createPlaybackHarness({
     seekBy(seconds) {
       transport.seekBy(seconds);
     },
+    seekToMusicalPosition(position) {
+      transport.seekToMusicalPosition(position);
+    },
     setLoopEnabled(enabled) {
       transport.setLoopEnabled(enabled);
     },
@@ -256,6 +268,7 @@ function createPlaybackHarness({
       const snapshot = transport.getSnapshot();
       return {
         currentTime: snapshot.positionSeconds,
+        musicalPosition: snapshot.musicalPosition,
         duration: snapshot.durationSeconds,
         isPlaying: snapshot.playbackState === "playing",
         hasLoadedChannels: snapshot.durationSeconds > 0,
@@ -265,6 +278,7 @@ function createPlaybackHarness({
       return transport.subscribe((snapshot) => {
         listener({
           currentTime: snapshot.positionSeconds,
+          musicalPosition: snapshot.musicalPosition,
           duration: snapshot.durationSeconds,
           isPlaying: snapshot.playbackState === "playing",
           hasLoadedChannels: snapshot.durationSeconds > 0,
@@ -306,6 +320,10 @@ tester.describe("transport-synchronized microphone recording", () => {
     const recordingHarness = createRecordingPortHarness();
     const playbackHarness = createPlaybackHarness({
       startPositionSeconds: 1.25,
+      musicalTimeline: {
+        bpm: 120,
+        timeSignature: { numerator: 6, denominator: 8 },
+      },
     });
     const originalStart = recordingHarness.port.start.bind(recordingHarness.port);
     recordingHarness.port.start = async (options) => {
