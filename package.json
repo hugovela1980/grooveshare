@@ -12,6 +12,7 @@
         "dev-client": "npm run dev -w client",
         "dev-mobile": "npm run dev -w mobile-client",
         "dev-mobile-usb": "npm run dev -w mobile-client -- --host 127.0.0.1",
+        "dev-mobile-lan": "npm run dev -w mobile-client -- --host 0.0.0.0",        
         "start-server": "npm start -w server",
         "test-server": "npm test -w server && npm run typecheck -w server",
         "test-client": "npm test -w client && npm run typecheck -w client",
