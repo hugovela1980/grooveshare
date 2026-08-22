@@ -1,7 +1,9 @@
 import type { MusicalPosition, MusicalTimeline } from "../domain/types.js";
+import type { RecordingAlignmentDiagnosticsPort } from "../recording/recording-alignment-diagnostics.js";
 import {
   normalizeMusicalTimeline,
   musicalPositionToTransportSeconds,
+  transportSecondsToMusicalPosition,
 } from "../timeline/musical-timeline.js";
 import { getTrackTimelineOffsetSeconds } from "./recording-timeline.js";
 import type {
@@ -43,6 +45,8 @@ type AudioBufferSourceNodeLike = {
 type AudioContextLike = {
   currentTime: number;
   state: string;
+  baseLatency?: number;
+  outputLatency?: number;
   destination: unknown;
   createGain: () => GainNodeLike;
   createBufferSource: () => AudioBufferSourceNodeLike;
@@ -83,6 +87,7 @@ type WebAudioPlaybackEngineOptions = {
   clearScheduledInterval?: ClearScheduledInterval;
   onLoadError?: (error: unknown) => void;
   musicalTimeline?: MusicalTimeline;
+  recordingAlignmentDiagnostics?: RecordingAlignmentDiagnosticsPort;
 };
 
 const END_EPSILON_SECONDS = 0.01;
@@ -161,6 +166,7 @@ export function createWebAudioPlaybackEngine(
   const clearScheduledInterval =
     options.clearScheduledInterval ?? clearBrowserInterval;
   const normalizedMusicalTimeline = normalizeMusicalTimeline(options.musicalTimeline);
+  const recordingAlignmentDiagnostics = options.recordingAlignmentDiagnostics;
   const onLoadError = options.onLoadError ?? ((error: unknown) => {
     console.error("Could not prepare GrooveShare audio playback.", error);
   });
@@ -458,6 +464,32 @@ export function createWebAudioPlaybackEngine(
     if (!instruction) {
       return;
     }
+
+    recordingAlignmentDiagnostics?.observe({
+      stage: "project-playback-scheduled",
+      source: "playback-engine",
+      audioContextTimeSeconds: audioContext.currentTime,
+      scheduledAudioContextTimeSeconds: instruction.startAtClockTime,
+      projectPositionSeconds: instruction.projectPositionSeconds,
+      musicalPosition: transportSecondsToMusicalPosition(
+        normalizedMusicalTimeline,
+        instruction.projectPositionSeconds,
+      ),
+      playbackState: transport.getSnapshot().playbackState,
+      detail: {
+        schedulingLeadMilliseconds:
+          (instruction.startAtClockTime - audioContext.currentTime) * 1000,
+        audioContextBaseLatencyMilliseconds:
+          typeof audioContext.baseLatency === "number"
+            ? audioContext.baseLatency * 1000
+            : null,
+        audioContextOutputLatencyMilliseconds:
+          typeof audioContext.outputLatency === "number"
+            ? audioContext.outputLatency * 1000
+            : null,
+        audioContextState: audioContext.state,
+      },
+    });
 
     const generation = startSources(instruction);
 

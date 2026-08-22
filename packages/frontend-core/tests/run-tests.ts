@@ -6,6 +6,7 @@ import "./project-permissions.test.js";
 import "./html-audio-playback-engine.test.js";
 import "./transport.test.js";
 import "./recording-timeline.test.js";
+import "./recording-alignment-diagnostics.test.js";
 import "./microphone-recording-session.test.js";
 import "./musical-timeline.test.js";
 import "./track-musical-placement.test.js";

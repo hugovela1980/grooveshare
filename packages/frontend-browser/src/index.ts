@@ -1,4 +1,10 @@
 export {
+  createBrowserRecordingAlignmentDiagnostics,
+  type BrowserRecordingAlignmentDiagnosticLogger,
+  type BrowserRecordingAlignmentDiagnostics,
+  type BrowserRecordingAlignmentDiagnosticsOptions,
+} from "./browser-recording-alignment-diagnostics.js";
+export {
   createBrowserMicrophoneRecordingAdapter,
   type BrowserMicrophoneRecordingAdapterOptions,
 } from "./browser-microphone-recording-adapter.js";

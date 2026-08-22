@@ -1,5 +1,7 @@
 import {
   createWebAudioPlaybackEngine,
+  type RecordingAlignmentDiagnosticObservation,
+  type RecordingAlignmentDiagnosticsPort,
 } from "../src/index.js";
 import { tester } from "./test-runner/tester.js";
 
@@ -790,6 +792,44 @@ tester.describe("WebAudioPlaybackEngine", () => {
     tester.expect(
       Math.abs(result.metadata.timelineOffsetSeconds - 59) < 0.000001,
     ).toBe(true);
+
+    engine.destroy?.();
+  });
+
+  tester.it("reports the authoritative Web Audio playback schedule to recording diagnostics", async () => {
+    const audioContext = createFakeAudioContext();
+    const observations: RecordingAlignmentDiagnosticObservation[] = [];
+    const diagnostics: RecordingAlignmentDiagnosticsPort = {
+      beginAttempt() { return "recording-1"; },
+      observe(observation) { observations.push(observation); },
+      completeAttempt() {},
+      getActiveAttemptId() { return "recording-1"; },
+    };
+    const engine = createWebAudioPlaybackEngine({
+      audioContext,
+      musicalTimeline: {
+        bpm: 120,
+        timeSignature: { numerator: 4, denominator: 4 },
+      },
+      recordingAlignmentDiagnostics: diagnostics,
+      async fetchAudioData() {
+        return new Uint8Array([60]).buffer;
+      },
+      scheduleInterval() { return { fakeInterval: true }; },
+      clearScheduledInterval() {},
+      onLoadError(error) { throw error; },
+    });
+
+    engine.loadMix([twoChannelMix[0]!]);
+    await engine.play();
+
+    const scheduled = observations.find((observation) =>
+      observation.stage === "project-playback-scheduled"
+    );
+    tester.expect(scheduled?.audioContextTimeSeconds).toBe(10);
+    tester.expect(scheduled?.scheduledAudioContextTimeSeconds).toBe(10.03);
+    tester.expect(scheduled?.projectPositionSeconds).toBe(0);
+    tester.expect(scheduled?.musicalPosition).toEqual({ bar: 1, beat: 1 });
 
     engine.destroy?.();
   });

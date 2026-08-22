@@ -51,3 +51,23 @@
 .microphone-recording__take-name[hidden] {
     display: none;
 }
+
+.microphone-recording__diagnostic-option {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: fit-content;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.microphone-recording__diagnostic-option input {
+    margin: 0;
+}
+
+.microphone-recording__diagnostic-hint {
+    margin: -0.5rem 0 0;
+    color: var(--color-text-muted-cool);
+    font-size: 0.82rem;
+    line-height: 1.4;
+}

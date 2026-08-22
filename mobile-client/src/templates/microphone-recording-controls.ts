@@ -12,6 +12,18 @@ export function renderMicrophoneRecordingControls(): string {
         </p>
       </div>
 
+      <label class="microphone-recording__diagnostic-option">
+        <input
+          id="microphone-raw-diagnostic-checkbox"
+          type="checkbox"
+        />
+        <span>Raw mic (diagnostic)</span>
+      </label>
+      <p class="microphone-recording__diagnostic-hint">
+        When checked before enabling the microphone, GrooveShare asks the browser
+        to disable echo cancellation, noise suppression, and automatic gain control.
+      </p>
+
       <div class="microphone-recording__actions">
         <button
           id="microphone-arm-button"

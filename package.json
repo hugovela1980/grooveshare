@@ -29,6 +29,7 @@
         "build": "npm run build -w server && npm run build -w client && npm run build -w mobile-client",
         "verify:code": "npm run test-all && npm run build",
         "frontend:boundaries": "node scripts/check-frontend-boundaries.mjs",
-        "verify": "node scripts/verify.mjs"
+        "verify": "node scripts/verify.mjs",
+        "diagnostic:alignment-click": "node scripts/generate-recording-alignment-click.mjs"
     }
 }

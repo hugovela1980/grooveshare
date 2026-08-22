@@ -1,6 +1,8 @@
 import {
   MicrophoneRecordingError,
   type MicrophoneRecordingFailure,
+  type RecordingAlignmentDiagnosticObservation,
+  type RecordingAlignmentDiagnosticsPort,
 } from "@hugovela/frontend-core";
 import { createBrowserMicrophoneRecordingAdapter } from "../src/index.js";
 import { tester } from "./test-runner/tester.js";
@@ -31,6 +33,7 @@ class FakeMediaRecorder {
   state: RecordingState = "inactive";
   ondataavailable: ((event: BlobEvent) => void) | null = null;
   onerror: ((event: Event) => void) | null = null;
+  onstart: ((event: Event) => void) | null = null;
   onstop: ((event: Event) => void) | null = null;
 
   constructor(
@@ -43,6 +46,7 @@ class FakeMediaRecorder {
 
   start(): void {
     this.state = "recording";
+    this.onstart?.(new Event("start"));
   }
 
   stop(): void {
@@ -60,10 +64,13 @@ class FakeMediaRecorder {
   }
 }
 
-function createMediaDevices(stream: FakeMediaStream) {
+function createMediaDevices(
+  stream: FakeMediaStream,
+  expectedAudioConstraints: boolean | MediaTrackConstraints = true,
+) {
   return {
     async getUserMedia(constraints: MediaStreamConstraints): Promise<MediaStream> {
-      tester.expect(constraints).toEqual({ audio: true });
+      tester.expect(constraints).toEqual({ audio: expectedAudioConstraints });
       return stream as unknown as MediaStream;
     },
   };
@@ -92,6 +99,26 @@ tester.describe("browser microphone recording adapter", () => {
     tester.expect(capture.mimeType).toBe("audio/webm;codecs=opus");
 
     await adapter.release();
+    tester.expect(stream.track.stopCalls).toBe(1);
+  });
+
+
+  tester.it("can request unprocessed microphone audio for alignment diagnostics", async () => {
+    const stream = new FakeMediaStream();
+    const rawConstraints: MediaTrackConstraints = {
+      echoCancellation: false,
+      noiseSuppression: false,
+      autoGainControl: false,
+    };
+    const adapter = createBrowserMicrophoneRecordingAdapter({
+      mediaDevices: createMediaDevices(stream, rawConstraints),
+      MediaRecorderConstructor: FakeMediaRecorder,
+      getAudioConstraints: () => rawConstraints,
+    });
+
+    await adapter.prepare();
+    await adapter.release();
+
     tester.expect(stream.track.stopCalls).toBe(1);
   });
 
@@ -175,4 +202,33 @@ tester.describe("browser microphone recording adapter", () => {
     tester.expect(failures[0]?.message).toBe("capture device disconnected");
     await adapter.release();
   });
+  tester.it("reports MediaRecorder start/stop events to shared alignment diagnostics", async () => {
+    const stream = new FakeMediaStream();
+    const observations: RecordingAlignmentDiagnosticObservation[] = [];
+    const diagnostics: RecordingAlignmentDiagnosticsPort = {
+      beginAttempt() { return "recording-1"; },
+      observe(observation) { observations.push(observation); },
+      completeAttempt() {},
+      getActiveAttemptId() { return "recording-1"; },
+    };
+    const adapter = createBrowserMicrophoneRecordingAdapter({
+      mediaDevices: createMediaDevices(stream),
+      MediaRecorderConstructor: FakeMediaRecorder,
+      recordingAlignmentDiagnostics: diagnostics,
+    });
+
+    await adapter.prepare();
+    await adapter.start();
+    await adapter.stop();
+
+    tester.expect(observations.map((observation) => observation.stage)).toEqual([
+      "microphone-prepared",
+      "media-recorder-start-called",
+      "media-recorder-start-event",
+      "media-recorder-stop-called",
+      "media-recorder-stop-event",
+      "recorded-capture-ready",
+    ]);
+  });
+
 });

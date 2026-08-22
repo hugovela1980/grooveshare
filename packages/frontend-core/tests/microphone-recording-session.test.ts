@@ -10,6 +10,8 @@ import {
   type RecordedTakePlaybackPort,
   type RecordedTakeUploadInput,
   type RecordedTakeUploadPort,
+  type RecordingAlignmentDiagnosticObservation,
+  type RecordingAlignmentDiagnosticsPort,
   type Track,
 } from "../src/index.js";
 import { tester } from "./test-runner/tester.js";
@@ -873,4 +875,63 @@ tester.describe("keep reviewed microphone take", () => {
     await session.destroy();
     playbackHarness.engine.destroy?.();
   });
+  tester.it("correlates synchronized recording start, stop, and take placement through diagnostics", async () => {
+    const recordingHarness = createRecordingPortHarness();
+    const playbackHarness = createPlaybackHarness({
+      musicalTimeline: {
+        bpm: 90,
+        timeSignature: { numerator: 6, denominator: 8 },
+      },
+    });
+    const observations: RecordingAlignmentDiagnosticObservation[] = [];
+    const outcomes: string[] = [];
+    let activeAttemptId: string | null = null;
+    const diagnostics: RecordingAlignmentDiagnosticsPort = {
+      beginAttempt() {
+        activeAttemptId = "recording-1";
+        return activeAttemptId;
+      },
+      observe(observation) {
+        if (activeAttemptId) observations.push(observation);
+      },
+      completeAttempt(outcome) {
+        outcomes.push(outcome);
+        activeAttemptId = null;
+      },
+      getActiveAttemptId() { return activeAttemptId; },
+    };
+    const session = createMicrophoneRecordingSession({
+      role: "contributor",
+      recordingPort: recordingHarness.port,
+      playbackEngine: playbackHarness.engine,
+      musicalTimeline: {
+        bpm: 90,
+        timeSignature: { numerator: 6, denominator: 8 },
+      },
+      projectId: "project-1",
+      recordingAlignmentDiagnostics: diagnostics,
+    });
+
+    await session.arm();
+    await session.start();
+    playbackHarness.setClockTime(102);
+    await session.stop();
+
+    tester.expect(observations.map((observation) => observation.stage)).toEqual([
+      "project-playback-start-requested",
+      "microphone-capture-start-requested",
+      "microphone-capture-start-returned",
+      "recording-start-marker-captured",
+      "recording-stop-requested",
+      "recording-stop-marker-captured",
+      "take-placement-created",
+    ]);
+    tester.expect(outcomes).toEqual(["completed"]);
+    tester.expect(
+      observations.find((observation) =>
+        observation.stage === "take-placement-created"
+      )?.musicalPosition,
+    ).toEqual({ bar: 1, beat: 1 });
+  });
+
 });

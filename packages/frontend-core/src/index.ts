@@ -126,6 +126,19 @@ export type {
   RecordedTakePlaybackPort,
 } from "./platform/recorded-take-playback-port.js";
 export {
+  analyzeRecordingAlignmentTrace,
+  cloneRecordingAlignmentTrace,
+  type RecordingAlignmentAnalysis,
+  type RecordingAlignmentAttemptContext,
+  type RecordingAlignmentAttemptOutcome,
+  type RecordingAlignmentDiagnosticEvent,
+  type RecordingAlignmentDiagnosticObservation,
+  type RecordingAlignmentDiagnosticSource,
+  type RecordingAlignmentDiagnosticStage,
+  type RecordingAlignmentDiagnosticsPort,
+  type RecordingAlignmentDiagnosticTrace,
+} from "./recording/recording-alignment-diagnostics.js";
+export {
   createMicrophoneRecordingSession,
   type MicrophoneRecordedTake,
   type MicrophoneRecordingSession,

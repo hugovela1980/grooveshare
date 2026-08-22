@@ -18,6 +18,7 @@ import {
   buildBrowserInvitationShareLink,
   copyBrowserText,
   createBrowserMicrophoneRecordingAdapter,
+  createBrowserRecordingAlignmentDiagnostics,
   createBrowserRecordedTakePlaybackAdapter,
   createBrowserRecordedTakeUploadAdapter,
   createBrowserGrooveShareApp,
@@ -925,8 +926,11 @@ function initializeProjectPlayerPage({
   }
 
   const musicalTimeline = getProjectMusicalTimeline(selectedProject);
+  const recordingAlignmentDiagnostics =
+    createBrowserRecordingAlignmentDiagnostics();
   const playbackEngine = createWebAudioPlaybackEngine({
     musicalTimeline,
+    recordingAlignmentDiagnostics,
     ...(invitationForProject
       ? {
           fetchAudioData: createInvitationAudioDataFetcher(
@@ -997,6 +1001,10 @@ function initializeProjectPlayerPage({
     appElement,
     "#microphone-recording-status",
   );
+  const microphoneRawDiagnosticCheckbox = getElement<HTMLInputElement>(
+    appElement,
+    "#microphone-raw-diagnostic-checkbox",
+  );
   const recordingRole = selectedProject.role ?? null;
   const recordingSession =
     (recordingRole === "owner" || recordingRole === "contributor") &&
@@ -1011,7 +1019,17 @@ function initializeProjectPlayerPage({
     microphoneStatusElement
       ? createMicrophoneRecordingSession({
           role: recordingRole,
-          recordingPort: createBrowserMicrophoneRecordingAdapter(),
+          recordingPort: createBrowserMicrophoneRecordingAdapter({
+            recordingAlignmentDiagnostics,
+            getAudioConstraints: () =>
+              microphoneRawDiagnosticCheckbox?.checked
+                ? {
+                    echoCancellation: false,
+                    noiseSuppression: false,
+                    autoGainControl: false,
+                  }
+                : true,
+          }),
           takePlaybackPort: createBrowserRecordedTakePlaybackAdapter(),
           takeUploadPort: createBrowserRecordedTakeUploadAdapter({
             tracksService: tracksApi,
@@ -1019,6 +1037,7 @@ function initializeProjectPlayerPage({
           projectId: selectedProject.id,
           playbackEngine,
           musicalTimeline,
+          recordingAlignmentDiagnostics,
         })
       : null;
   let refreshProjectTracks: (() => Promise<void>) | null = null;

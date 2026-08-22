@@ -20,6 +20,10 @@ import type {
   RecordedTakeUploadFailure,
   RecordedTakeUploadPort,
 } from "../platform/recorded-take-upload-port.js";
+import type {
+  RecordingAlignmentDiagnosticObservation,
+  RecordingAlignmentDiagnosticsPort,
+} from "./recording-alignment-diagnostics.js";
 import type { PlaybackEngine } from "../playback/playback-engine.js";
 import type {
   RecordingPositionMetadata,
@@ -159,6 +163,7 @@ export function createMicrophoneRecordingSession({
   projectId,
   playbackEngine,
   musicalTimeline,
+  recordingAlignmentDiagnostics,
 }: {
   role: ProjectRole | null | undefined;
   recordingPort: MicrophoneRecordingPort;
@@ -167,6 +172,7 @@ export function createMicrophoneRecordingSession({
   projectId?: string;
   playbackEngine?: PlaybackEngine;
   musicalTimeline?: MusicalTimeline;
+  recordingAlignmentDiagnostics?: RecordingAlignmentDiagnosticsPort;
 }): MicrophoneRecordingSession {
   let status: MicrophoneRecordingStatus = "idle";
   let capture: RecordedAudioCapture | null = null;
@@ -187,6 +193,18 @@ export function createMicrophoneRecordingSession({
   const normalizedMusicalTimeline = musicalTimeline
     ? normalizeMusicalTimeline(musicalTimeline)
     : null;
+
+  function observeRecordingAlignment(
+    observation: RecordingAlignmentDiagnosticObservation,
+  ): void {
+    recordingAlignmentDiagnostics?.observe(observation);
+  }
+
+  function completeRecordingAlignment(
+    outcome: "completed" | "failed" | "aborted",
+  ): void {
+    recordingAlignmentDiagnostics?.completeAttempt(outcome);
+  }
 
   function getSnapshot(): MicrophoneRecordingSnapshot {
     return {
@@ -285,6 +303,15 @@ export function createMicrophoneRecordingSession({
 
   function setFailure(error: unknown): MicrophoneRecordingSnapshot {
     failure = toMicrophoneRecordingFailure(error);
+    observeRecordingAlignment({
+      stage: "attempt-failed",
+      source: "recording-session",
+      detail: {
+        failureCode: failure.code,
+        failureMessage: failure.message,
+      },
+    });
+    completeRecordingAlignment("failed");
     clearTakeState();
     status = "failed";
     return notify();
@@ -409,6 +436,11 @@ export function createMicrophoneRecordingSession({
     clearTakeState();
     failure = null;
 
+    recordingAlignmentDiagnostics?.beginAttempt({
+      projectId,
+      musicalTimeline: normalizedMusicalTimeline ?? undefined,
+    });
+
     let synchronization: ReturnType<typeof getSynchronizationDependencies>;
 
     try {
@@ -416,6 +448,16 @@ export function createMicrophoneRecordingSession({
 
       if (synchronization) {
         const beforePlayback = synchronization.engine.getSnapshot();
+        observeRecordingAlignment({
+          stage: "project-playback-start-requested",
+          source: "recording-session",
+          projectPositionSeconds: beforePlayback.currentTime,
+          musicalPosition: { ...beforePlayback.musicalPosition },
+          playbackState: beforePlayback.isPlaying ? "playing" : "stopped",
+          detail: {
+            alreadyPlaying: beforePlayback.isPlaying,
+          },
+        });
 
         if (!beforePlayback.hasLoadedChannels) {
           return setFailure(
@@ -428,6 +470,14 @@ export function createMicrophoneRecordingSession({
 
         if (!beforePlayback.isPlaying) {
           await synchronization.engine.play();
+        } else {
+          observeRecordingAlignment({
+            stage: "project-playback-already-running",
+            source: "recording-session",
+            projectPositionSeconds: beforePlayback.currentTime,
+            musicalPosition: { ...beforePlayback.musicalPosition },
+            playbackState: "playing",
+          });
         }
 
         if (!synchronization.engine.getSnapshot().isPlaying) {
@@ -442,6 +492,10 @@ export function createMicrophoneRecordingSession({
 
       let startFailureReported = false;
       captureActive = true;
+      observeRecordingAlignment({
+        stage: "microphone-capture-start-requested",
+        source: "recording-session",
+      });
       await recordingPort.start({
         onFailure(nextFailure) {
           if (destroyed || !captureActive) {
@@ -454,8 +508,21 @@ export function createMicrophoneRecordingSession({
           clearTakeState();
           status = "failed";
           stopSynchronizedPlayback();
+          observeRecordingAlignment({
+            stage: "attempt-failed",
+            source: "recording-session",
+            detail: {
+              failureCode: nextFailure.code,
+              failureMessage: nextFailure.message,
+            },
+          });
+          completeRecordingAlignment("failed");
           notify();
         },
+      });
+      observeRecordingAlignment({
+        stage: "microphone-capture-start-returned",
+        source: "recording-session",
       });
 
       if (startFailureReported) {
@@ -481,6 +548,15 @@ export function createMicrophoneRecordingSession({
             ),
           );
         }
+
+        observeRecordingAlignment({
+          stage: "recording-start-marker-captured",
+          source: "recording-session",
+          audioContextTimeSeconds: marker.audioContextTimeSeconds,
+          projectPositionSeconds: marker.projectPositionSeconds,
+          musicalPosition: { ...marker.musicalPosition },
+          playbackState: marker.playbackState,
+        });
 
         startPosition = {
           transport: marker,
@@ -522,11 +598,38 @@ export function createMicrophoneRecordingSession({
 
     stopInProgress = true;
 
+    const beforeStop = playbackEngine?.getSnapshot();
+    observeRecordingAlignment({
+      stage: "recording-stop-requested",
+      source: "recording-session",
+      projectPositionSeconds: beforeStop?.currentTime,
+      musicalPosition: beforeStop?.musicalPosition
+        ? { ...beforeStop.musicalPosition }
+        : undefined,
+      playbackState: beforeStop?.isPlaying ? "playing" : undefined,
+    });
+
     try {
       const synchronization = getSynchronizationDependencies();
       const timingResult = synchronization && startPosition
         ? synchronization.engine.markRecordingStop?.(startPosition.transport) ?? null
         : null;
+
+      if (timingResult) {
+        observeRecordingAlignment({
+          stage: "recording-stop-marker-captured",
+          source: "recording-session",
+          audioContextTimeSeconds: timingResult.stop.audioContextTimeSeconds,
+          projectPositionSeconds: timingResult.stop.projectPositionSeconds,
+          musicalPosition: { ...timingResult.stop.musicalPosition },
+          playbackState: timingResult.stop.playbackState,
+          detail: {
+            transportDurationMilliseconds:
+              timingResult.metadata.durationSeconds * 1000,
+          },
+        });
+      }
+
       const capturePromise = recordingPort.stop();
 
       if (synchronization) {
@@ -561,8 +664,23 @@ export function createMicrophoneRecordingSession({
             musicalSpanBeats: timingResult.metadata.durationSeconds / secondsPerBeat,
           },
         };
+        observeRecordingAlignment({
+          stage: "take-placement-created",
+          source: "recording-session",
+          audioContextTimeSeconds:
+            timingResult.metadata.startAudioContextTimeSeconds,
+          projectPositionSeconds:
+            timingResult.metadata.startProjectPositionSeconds,
+          musicalPosition: { ...startPosition.musical },
+          detail: {
+            musicalSpanBeats: take.timing.musicalSpanBeats,
+            timelineOffsetSeconds:
+              timingResult.metadata.timelineOffsetSeconds,
+          },
+        });
       }
 
+      completeRecordingAlignment("completed");
       status = "stopped";
       return notify();
     } catch (error) {
@@ -806,6 +924,9 @@ export function createMicrophoneRecordingSession({
     ensureActive();
 
     const wasRecording = status === "recording";
+    if (recordingAlignmentDiagnostics?.getActiveAttemptId()) {
+      completeRecordingAlignment("aborted");
+    }
     if (wasRecording) {
       stopInProgress = true;
       stopSynchronizedPlayback();
@@ -865,6 +986,9 @@ export function createMicrophoneRecordingSession({
 
     const wasRecording = status === "recording";
     const wasAuditioning = takeReviewStatus === "auditioning";
+    if (recordingAlignmentDiagnostics?.getActiveAttemptId()) {
+      completeRecordingAlignment("aborted");
+    }
     captureActive = false;
     destroyed = true;
     unsubscribePlayback?.();

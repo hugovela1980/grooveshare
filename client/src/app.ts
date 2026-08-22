@@ -18,6 +18,7 @@ import {
   buildBrowserInvitationShareLink,
   copyBrowserText,
   createBrowserMicrophoneRecordingAdapter,
+  createBrowserRecordingAlignmentDiagnostics,
   createBrowserRecordedTakePlaybackAdapter,
   createBrowserRecordedTakeUploadAdapter,
   createBrowserGrooveShareApp,
@@ -572,8 +573,11 @@ function initializeProjectPlayerPage({
   if (!audioElement || !seekBackwardButton || !playPauseButton || !stopButton || !progressInput || !timestampElement || !durationElement || !musicalPositionElement || !seekBarInput || !seekBarButton || !trackNameElement || !loopCheckbox) throw new Error("Project Player audio elements were not found.");
 
   const musicalTimeline = getProjectMusicalTimeline(selectedProject);
+  const recordingAlignmentDiagnostics =
+    createBrowserRecordingAlignmentDiagnostics();
   const playbackEngine = createWebAudioPlaybackEngine({
     musicalTimeline,
+    recordingAlignmentDiagnostics,
     ...(invitationForProject ? { fetchAudioData: createInvitationAudioDataFetcher(invitationForProject.token) } : {}),
     createFallbackEngine: () => createHtmlAudioPlaybackEngine({ primaryAudioElement: audioElement, createAudioElement: () => document.createElement("audio"), musicalTimeline }),
   });
@@ -632,6 +636,10 @@ function initializeProjectPlayerPage({
     appElement,
     "#microphone-recording-status",
   );
+  const microphoneRawDiagnosticCheckbox = getElement<HTMLInputElement>(
+    appElement,
+    "#microphone-raw-diagnostic-checkbox",
+  );
   const recordingRole = selectedProject.role ?? null;
   const recordingSession =
     (recordingRole === "owner" || recordingRole === "contributor") &&
@@ -646,7 +654,17 @@ function initializeProjectPlayerPage({
     microphoneStatusElement
       ? createMicrophoneRecordingSession({
           role: recordingRole,
-          recordingPort: createBrowserMicrophoneRecordingAdapter(),
+          recordingPort: createBrowserMicrophoneRecordingAdapter({
+            recordingAlignmentDiagnostics,
+            getAudioConstraints: () =>
+              microphoneRawDiagnosticCheckbox?.checked
+                ? {
+                    echoCancellation: false,
+                    noiseSuppression: false,
+                    autoGainControl: false,
+                  }
+                : true,
+          }),
           takePlaybackPort: createBrowserRecordedTakePlaybackAdapter(),
           takeUploadPort: createBrowserRecordedTakeUploadAdapter({
             tracksService: tracksApi,
@@ -654,6 +672,7 @@ function initializeProjectPlayerPage({
           projectId: selectedProject.id,
           playbackEngine,
           musicalTimeline,
+          recordingAlignmentDiagnostics,
         })
       : null;
   let refreshProjectTracks: (() => Promise<void>) | null = null;
