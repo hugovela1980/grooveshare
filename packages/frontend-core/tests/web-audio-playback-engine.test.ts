@@ -65,6 +65,10 @@ function createFakeAudioContext() {
   return {
     currentTime: 10,
     state: "suspended",
+    sampleRate: 48000,
+    sinkId: "default",
+    baseLatency: 0.004,
+    outputLatency: 0.023,
     destination: { name: "destination" },
     resumeCallCount: 0,
     closeCallCount: 0,
@@ -797,7 +801,20 @@ tester.describe("WebAudioPlaybackEngine", () => {
   });
 
   tester.it("reports the authoritative Web Audio playback schedule to recording diagnostics", async () => {
-    const audioContext = createFakeAudioContext();
+    const audioContext = Object.assign(createFakeAudioContext(), {
+      getOutputTimestamp() {
+        return { contextTime: 9.99, performanceTime: 5000 };
+      },
+      playbackStats: {
+        averageLatency: 0.024,
+        minimumLatency: 0.02,
+        maximumLatency: 0.03,
+        totalDuration: 1.5,
+        underrunDuration: 0,
+        underrunEvents: 0,
+      },
+    });
+    let intervalHandler: (() => void) | null = null;
     const observations: RecordingAlignmentDiagnosticObservation[] = [];
     const diagnostics: RecordingAlignmentDiagnosticsPort = {
       beginAttempt() { return "recording-1"; },
@@ -815,7 +832,10 @@ tester.describe("WebAudioPlaybackEngine", () => {
       async fetchAudioData() {
         return new Uint8Array([60]).buffer;
       },
-      scheduleInterval() { return { fakeInterval: true }; },
+      scheduleInterval(handler) {
+        intervalHandler = handler;
+        return { fakeInterval: true };
+      },
       clearScheduledInterval() {},
       onLoadError(error) { throw error; },
     });
@@ -830,6 +850,22 @@ tester.describe("WebAudioPlaybackEngine", () => {
     tester.expect(scheduled?.scheduledAudioContextTimeSeconds).toBe(10.03);
     tester.expect(scheduled?.projectPositionSeconds).toBe(0);
     tester.expect(scheduled?.musicalPosition).toEqual({ bar: 1, beat: 1 });
+    tester.expect(scheduled?.detail?.outputTimestampSupported).toBe(true);
+    tester.expect(
+      Math.round(Number(scheduled?.detail?.estimatedScheduledOutputPerformanceTimeMilliseconds ?? -1)),
+    ).toBe(5040);
+    tester.expect(scheduled?.detail?.audioContextOutputLatencyMilliseconds).toBe(23);
+    tester.expect(scheduled?.detail?.audioPlaybackAverageLatencyMilliseconds).toBe(24);
+
+    audioContext.currentTime = 10.3;
+    (intervalHandler as (() => void) | null)?.();
+    const outputSample = observations.find((observation) =>
+      observation.stage === "project-output-clock-sample"
+    );
+    tester.expect(outputSample?.detail?.sampleOffsetFromPlaybackStartMilliseconds).toBe(250);
+    tester.expect(
+      Math.round(Number(outputSample?.detail?.outputTimestampCurrentTimeGapMilliseconds ?? -1)),
+    ).toBe(310);
 
     engine.destroy?.();
   });

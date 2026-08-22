@@ -6,7 +6,10 @@ export type RecordingAlignmentDiagnosticStage =
   | "project-playback-start-requested"
   | "project-playback-already-running"
   | "project-playback-scheduled"
+  | "project-output-clock-sample"
   | "microphone-prepared"
+  | "microphone-pcm-clock-anchor"
+  | "microphone-pcm-transient-detected"
   | "microphone-capture-start-requested"
   | "media-recorder-start-called"
   | "media-recorder-start-event"
@@ -25,7 +28,8 @@ export type RecordingAlignmentDiagnosticStage =
 export type RecordingAlignmentDiagnosticSource =
   | "recording-session"
   | "playback-engine"
-  | "microphone-adapter";
+  | "microphone-adapter"
+  | "microphone-pcm-monitor";
 
 export type RecordingAlignmentAttemptContext = {
   projectId?: string;
@@ -71,6 +75,40 @@ export type RecordingAlignmentAnalysis = {
   markerRelativeToMediaRecorderStartEventMilliseconds: number | null;
   mediaRecorderStopSignalDelayMilliseconds: number | null;
   placementDeltaFromStartMarkerMilliseconds: number | null;
+  /**
+   * Estimated delay from the scheduled project-playback start to the first
+   * transient observed in the live microphone PCM stream. This uses a
+   * diagnostic clock anchor to bridge the microphone monitor's audio clock
+   * to the monotonic browser observation clock. It is intentionally a
+   * diagnostic estimate, not an automatic latency-compensation value.
+   */
+  firstPcmTransientRelativeToScheduledPlaybackMilliseconds: number | null;
+  /** Estimated delay from MediaRecorder's start event to that PCM transient. */
+  firstPcmTransientRelativeToMediaRecorderStartEventMilliseconds: number | null;
+  /**
+   * Browser estimate of when the scheduled project start reached the output
+   * device, using AudioContext.getOutputTimestamp() when available.
+   */
+  estimatedScheduledOutputDevicePerformanceTimeMilliseconds: number | null;
+  /** Difference between the output-device estimate and the simpler currentTime/observation mapping. */
+  estimatedOutputDeviceRenderRelativeToScheduledPlaybackMilliseconds: number | null;
+  /**
+   * Estimated delay from the browser's output-device render timestamp to the
+   * first transient seen in live microphone PCM. This is the most useful
+   * browser-observable approximation of the platform input/capture path.
+   */
+  firstPcmTransientRelativeToEstimatedOutputDeviceRenderMilliseconds: number | null;
+  /** Browser-reported output latency at playback scheduling time. */
+  reportedOutputLatencyMilliseconds: number | null;
+  /** Browser-reported microphone input latency at capture preparation time. */
+  reportedInputLatencyMilliseconds: number | null;
+  /** Sum of the two browser-reported endpoint latency estimates when both exist. */
+  reportedEndpointRoundTripLatencyMilliseconds: number | null;
+  /**
+   * Portion of the measured output-device-to-live-PCM delay not explained by
+   * the microphone track's reported input latency. Diagnostic only.
+   */
+  unaccountedInputPathMilliseconds: number | null;
 };
 
 /**
@@ -130,6 +168,14 @@ function findEvent(
   return trace.events.find((event) => event.stage === stage) ?? null;
 }
 
+function readNumericDetail(
+  event: RecordingAlignmentDiagnosticEvent | null,
+  key: string,
+): number | null {
+  const value = event?.detail?.[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
 function millisecondsBetween(
   earlier: RecordingAlignmentDiagnosticEvent | null,
   later: RecordingAlignmentDiagnosticEvent | null,
@@ -151,6 +197,9 @@ export function analyzeRecordingAlignmentTrace(
   trace: RecordingAlignmentDiagnosticTrace,
 ): RecordingAlignmentAnalysis {
   const playbackScheduled = findEvent(trace, "project-playback-scheduled");
+  const pcmClockAnchor = findEvent(trace, "microphone-pcm-clock-anchor");
+  const firstPcmTransient = findEvent(trace, "microphone-pcm-transient-detected");
+  const microphonePrepared = findEvent(trace, "microphone-prepared");
   const captureRequested = findEvent(trace, "microphone-capture-start-requested");
   const mediaRecorderStarted = findEvent(trace, "media-recorder-start-event");
   const startMarker = findEvent(trace, "recording-start-marker-captured");
@@ -185,6 +234,79 @@ export function analyzeRecordingAlignmentTrace(
         ) * 1000
       : null;
 
+  const scheduledPlaybackObservedMilliseconds =
+    playbackScheduled?.audioContextTimeSeconds !== undefined &&
+    playbackScheduled.scheduledAudioContextTimeSeconds !== undefined
+      ? playbackScheduled.observedAtMilliseconds +
+        (
+          playbackScheduled.scheduledAudioContextTimeSeconds -
+          playbackScheduled.audioContextTimeSeconds
+        ) * 1000
+      : null;
+
+  const firstPcmTransientObservedMilliseconds =
+    pcmClockAnchor?.audioContextTimeSeconds !== undefined &&
+    firstPcmTransient?.audioContextTimeSeconds !== undefined
+      ? pcmClockAnchor.observedAtMilliseconds +
+        (
+          firstPcmTransient.audioContextTimeSeconds -
+          pcmClockAnchor.audioContextTimeSeconds
+        ) * 1000
+      : null;
+
+  const firstPcmTransientRelativeToScheduledPlaybackMilliseconds =
+    scheduledPlaybackObservedMilliseconds !== null &&
+    firstPcmTransientObservedMilliseconds !== null
+      ? firstPcmTransientObservedMilliseconds -
+        scheduledPlaybackObservedMilliseconds
+      : null;
+
+  const firstPcmTransientRelativeToMediaRecorderStartEventMilliseconds =
+    firstPcmTransientObservedMilliseconds !== null && mediaRecorderStarted
+      ? firstPcmTransientObservedMilliseconds -
+        mediaRecorderStarted.observedAtMilliseconds
+      : null;
+
+  const estimatedScheduledOutputDevicePerformanceTimeMilliseconds =
+    readNumericDetail(
+      playbackScheduled,
+      "estimatedScheduledOutputPerformanceTimeMilliseconds",
+    );
+
+  const estimatedOutputDeviceRenderRelativeToScheduledPlaybackMilliseconds =
+    estimatedScheduledOutputDevicePerformanceTimeMilliseconds !== null &&
+    scheduledPlaybackObservedMilliseconds !== null
+      ? estimatedScheduledOutputDevicePerformanceTimeMilliseconds -
+        scheduledPlaybackObservedMilliseconds
+      : null;
+
+  const firstPcmTransientRelativeToEstimatedOutputDeviceRenderMilliseconds =
+    firstPcmTransientObservedMilliseconds !== null &&
+    estimatedScheduledOutputDevicePerformanceTimeMilliseconds !== null
+      ? firstPcmTransientObservedMilliseconds -
+        estimatedScheduledOutputDevicePerformanceTimeMilliseconds
+      : null;
+
+  const reportedOutputLatencyMilliseconds = readNumericDetail(
+    playbackScheduled,
+    "audioContextOutputLatencyMilliseconds",
+  );
+  const reportedInputLatencyMilliseconds = readNumericDetail(
+    microphonePrepared,
+    "inputLatencyMilliseconds",
+  );
+  const reportedEndpointRoundTripLatencyMilliseconds =
+    reportedOutputLatencyMilliseconds !== null &&
+    reportedInputLatencyMilliseconds !== null
+      ? reportedOutputLatencyMilliseconds + reportedInputLatencyMilliseconds
+      : null;
+  const unaccountedInputPathMilliseconds =
+    firstPcmTransientRelativeToEstimatedOutputDeviceRenderMilliseconds !== null &&
+    reportedInputLatencyMilliseconds !== null
+      ? firstPcmTransientRelativeToEstimatedOutputDeviceRenderMilliseconds -
+        reportedInputLatencyMilliseconds
+      : null;
+
   return {
     playbackScheduleLeadMilliseconds,
     markerRelativeToScheduledPlaybackMilliseconds,
@@ -201,5 +323,14 @@ export function analyzeRecordingAlignmentTrace(
       stopEvent,
     ),
     placementDeltaFromStartMarkerMilliseconds,
+    firstPcmTransientRelativeToScheduledPlaybackMilliseconds,
+    firstPcmTransientRelativeToMediaRecorderStartEventMilliseconds,
+    estimatedScheduledOutputDevicePerformanceTimeMilliseconds,
+    estimatedOutputDeviceRenderRelativeToScheduledPlaybackMilliseconds,
+    firstPcmTransientRelativeToEstimatedOutputDeviceRenderMilliseconds,
+    reportedOutputLatencyMilliseconds,
+    reportedInputLatencyMilliseconds,
+    reportedEndpointRoundTripLatencyMilliseconds,
+    unaccountedInputPathMilliseconds,
   };
 }

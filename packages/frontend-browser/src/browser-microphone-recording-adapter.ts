@@ -5,6 +5,11 @@ import {
   type RecordedAudioCapture,
   type RecordingAlignmentDiagnosticsPort,
 } from "@hugovela/frontend-core";
+import {
+  createBrowserMicrophonePcmAlignmentMonitor,
+  type BrowserMicrophonePcmAlignmentMonitor,
+  type BrowserMicrophonePcmAlignmentMonitorOptions,
+} from "./browser-microphone-pcm-alignment-monitor.js";
 
 const PREFERRED_AUDIO_MIME_TYPES = [
   "audio/webm;codecs=opus",
@@ -14,6 +19,7 @@ const PREFERRED_AUDIO_MIME_TYPES = [
 
 type MediaDevicesLike = {
   getUserMedia(constraints: MediaStreamConstraints): Promise<MediaStream>;
+  getSupportedConstraints?: () => MediaTrackSupportedConstraints;
 };
 
 type MediaRecorderLike = {
@@ -32,10 +38,17 @@ type MediaRecorderConstructorLike = {
   isTypeSupported?: (mimeType: string) => boolean;
 };
 
+export type BrowserMicrophonePcmAlignmentMonitorFactory = (
+  options: BrowserMicrophonePcmAlignmentMonitorOptions,
+) => Promise<BrowserMicrophonePcmAlignmentMonitor | null>;
+
 export type BrowserMicrophoneRecordingAdapterOptions = {
   mediaDevices?: MediaDevicesLike | null;
   MediaRecorderConstructor?: MediaRecorderConstructorLike | null;
   recordingAlignmentDiagnostics?: RecordingAlignmentDiagnosticsPort;
+  /** Enable the temporary AudioWorklet PCM tap for this acquired stream. */
+  getPcmAlignmentDiagnosticsEnabled?: () => boolean;
+  createPcmAlignmentMonitor?: BrowserMicrophonePcmAlignmentMonitorFactory;
   /**
    * Resolve browser microphone constraints at prepare-time. This is kept in
    * frontend-browser so diagnostic capture choices never leak into the shared
@@ -102,6 +115,38 @@ function selectMimeType(
   );
 }
 
+function readRangeMinimumMilliseconds(
+  range: { min?: number } | undefined,
+): number | null {
+  return typeof range?.min === "number" && Number.isFinite(range.min)
+    ? range.min * 1000
+    : null;
+}
+
+function readRangeMaximumMilliseconds(
+  range: { max?: number } | undefined,
+): number | null {
+  return typeof range?.max === "number" && Number.isFinite(range.max)
+    ? range.max * 1000
+    : null;
+}
+
+function readRangeMinimum(
+  range: { min?: number } | undefined,
+): number | null {
+  return typeof range?.min === "number" && Number.isFinite(range.min)
+    ? range.min
+    : null;
+}
+
+function readRangeMaximum(
+  range: { max?: number } | undefined,
+): number | null {
+  return typeof range?.max === "number" && Number.isFinite(range.max)
+    ? range.max
+    : null;
+}
+
 function createUnsupportedError(): MicrophoneRecordingError {
   return new MicrophoneRecordingError(
     "unsupported",
@@ -120,6 +165,8 @@ export function createBrowserMicrophoneRecordingAdapter({
   MediaRecorderConstructor = getDefaultMediaRecorderConstructor(),
   recordingAlignmentDiagnostics,
   getAudioConstraints = () => true,
+  getPcmAlignmentDiagnosticsEnabled = () => false,
+  createPcmAlignmentMonitor = createBrowserMicrophonePcmAlignmentMonitor,
 }: BrowserMicrophoneRecordingAdapterOptions = {}): MicrophoneRecordingPort {
   let stream: MediaStream | null = null;
   let recorder: MediaRecorderLike | null = null;
@@ -134,6 +181,7 @@ export function createBrowserMicrophoneRecordingAdapter({
     string,
     string | number | boolean | null
   > | null = null;
+  let pcmAlignmentMonitor: BrowserMicrophonePcmAlignmentMonitor | null = null;
 
   function requireSupported(): {
     mediaDevices: MediaDevicesLike;
@@ -190,6 +238,19 @@ export function createBrowserMicrophoneRecordingAdapter({
       const settings = audioTrack?.getSettings?.() as
         | (MediaTrackSettings & { latency?: number })
         | undefined;
+      const capabilities = audioTrack?.getCapabilities?.() as
+        | (MediaTrackCapabilities & {
+            latency?: { min?: number; max?: number };
+            sampleRate?: { min?: number; max?: number };
+            channelCount?: { min?: number; max?: number };
+          })
+        | undefined;
+      const appliedTrackConstraints = audioTrack?.getConstraints?.() as
+        | (MediaTrackConstraints & { latency?: ConstrainDouble })
+        | undefined;
+      const supportedConstraints = supported.mediaDevices.getSupportedConstraints?.() as
+        | (MediaTrackSupportedConstraints & { latency?: boolean })
+        | undefined;
       const requestedConstraints =
         typeof audioConstraints === "object" ? audioConstraints : null;
       const rawDiagnosticRequested = Boolean(
@@ -198,6 +259,70 @@ export function createBrowserMicrophoneRecordingAdapter({
         requestedConstraints.noiseSuppression === false &&
         requestedConstraints.autoGainControl === false
       );
+      const requestedLatencyConstraint = (requestedConstraints as
+        | (MediaTrackConstraints & { latency?: ConstrainDouble })
+        | null)?.latency;
+      const requestedLatencyConstraintValue =
+        typeof requestedLatencyConstraint === "number"
+          ? requestedLatencyConstraint
+          : null;
+      const requestedLatencyConstraintIdeal =
+        typeof requestedLatencyConstraint === "object" &&
+        requestedLatencyConstraint !== null &&
+        "ideal" in requestedLatencyConstraint &&
+        typeof requestedLatencyConstraint.ideal === "number"
+          ? requestedLatencyConstraint.ideal
+          : null;
+      const requestedLatencyConstraintExact =
+        typeof requestedLatencyConstraint === "object" &&
+        requestedLatencyConstraint !== null &&
+        "exact" in requestedLatencyConstraint &&
+        typeof requestedLatencyConstraint.exact === "number"
+          ? requestedLatencyConstraint.exact
+          : null;
+      const appliedLatencyConstraint = appliedTrackConstraints?.latency;
+      const appliedLatencyConstraintValue =
+        typeof appliedLatencyConstraint === "number"
+          ? appliedLatencyConstraint
+          : null;
+      const appliedLatencyConstraintIdeal =
+        typeof appliedLatencyConstraint === "object" &&
+        appliedLatencyConstraint !== null &&
+        "ideal" in appliedLatencyConstraint &&
+        typeof appliedLatencyConstraint.ideal === "number"
+          ? appliedLatencyConstraint.ideal
+          : null;
+      const appliedLatencyConstraintExact =
+        typeof appliedLatencyConstraint === "object" &&
+        appliedLatencyConstraint !== null &&
+        "exact" in appliedLatencyConstraint &&
+        typeof appliedLatencyConstraint.exact === "number"
+          ? appliedLatencyConstraint.exact
+          : null;
+      let pcmAlignmentMonitorStatus = "disabled";
+      let pcmAlignmentMonitorError: string | null = null;
+
+      if (
+        recordingAlignmentDiagnostics &&
+        getPcmAlignmentDiagnosticsEnabled()
+      ) {
+        try {
+          pcmAlignmentMonitor = await createPcmAlignmentMonitor({
+            stream,
+            recordingAlignmentDiagnostics,
+          });
+          pcmAlignmentMonitorStatus = pcmAlignmentMonitor
+            ? "ready"
+            : "unsupported";
+        } catch (error) {
+          pcmAlignmentMonitor = null;
+          pcmAlignmentMonitorStatus = "failed";
+          pcmAlignmentMonitorError = error instanceof Error
+            ? error.message
+            : String(error);
+        }
+      }
+
       preparedDiagnosticDetail = {
         captureProcessingMode: rawDiagnosticRequested
           ? "raw-diagnostic"
@@ -214,9 +339,47 @@ export function createBrowserMicrophoneRecordingAdapter({
           typeof requestedConstraints?.autoGainControl === "boolean"
             ? requestedConstraints.autoGainControl
             : null,
+        pcmAlignmentMonitorStatus,
+        pcmAlignmentMonitorError,
+        inputDeviceLabel:
+          typeof audioTrack?.label === "string" && audioTrack.label
+            ? audioTrack.label
+            : null,
         inputLatencyMilliseconds:
           typeof settings?.latency === "number"
             ? settings.latency * 1000
+            : null,
+        latencyConstraintSupported:
+          typeof supportedConstraints?.latency === "boolean"
+            ? supportedConstraints.latency
+            : null,
+        inputLatencyCapabilityMinimumMilliseconds:
+          readRangeMinimumMilliseconds(capabilities?.latency),
+        inputLatencyCapabilityMaximumMilliseconds:
+          readRangeMaximumMilliseconds(capabilities?.latency),
+        requestedLatencyConstraintMilliseconds:
+          requestedLatencyConstraintValue !== null
+            ? requestedLatencyConstraintValue * 1000
+            : null,
+        requestedLatencyConstraintIdealMilliseconds:
+          requestedLatencyConstraintIdeal !== null
+            ? requestedLatencyConstraintIdeal * 1000
+            : null,
+        requestedLatencyConstraintExactMilliseconds:
+          requestedLatencyConstraintExact !== null
+            ? requestedLatencyConstraintExact * 1000
+            : null,
+        appliedLatencyConstraintMilliseconds:
+          appliedLatencyConstraintValue !== null
+            ? appliedLatencyConstraintValue * 1000
+            : null,
+        appliedLatencyConstraintIdealMilliseconds:
+          appliedLatencyConstraintIdeal !== null
+            ? appliedLatencyConstraintIdeal * 1000
+            : null,
+        appliedLatencyConstraintExactMilliseconds:
+          appliedLatencyConstraintExact !== null
+            ? appliedLatencyConstraintExact * 1000
             : null,
         sampleRate:
           typeof settings?.sampleRate === "number"
@@ -226,6 +389,10 @@ export function createBrowserMicrophoneRecordingAdapter({
           typeof settings?.channelCount === "number"
             ? settings.channelCount
             : null,
+        sampleRateCapabilityMinimum: readRangeMinimum(capabilities?.sampleRate),
+        sampleRateCapabilityMaximum: readRangeMaximum(capabilities?.sampleRate),
+        channelCountCapabilityMinimum: readRangeMinimum(capabilities?.channelCount),
+        channelCountCapabilityMaximum: readRangeMaximum(capabilities?.channelCount),
         echoCancellation:
           typeof settings?.echoCancellation === "boolean"
             ? settings.echoCancellation
@@ -276,6 +443,7 @@ export function createBrowserMicrophoneRecordingAdapter({
         ? { ...preparedDiagnosticDetail }
         : undefined,
     });
+    pcmAlignmentMonitor?.markAttemptClockAnchor();
 
     try {
       const mimeType = selectMimeType(supported.MediaRecorderConstructor);
@@ -424,6 +592,8 @@ export function createBrowserMicrophoneRecordingAdapter({
     chunks = [];
     recorderFailure = null;
     preparedDiagnosticDetail = null;
+    await pcmAlignmentMonitor?.release();
+    pcmAlignmentMonitor = null;
     stopStreamTracks();
   }
 

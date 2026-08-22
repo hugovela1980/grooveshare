@@ -42,11 +42,29 @@ type AudioBufferSourceNodeLike = {
   stop: (when?: number) => void;
 };
 
+type AudioOutputTimestampLike = {
+  contextTime: number;
+  performanceTime: number;
+};
+
+type AudioPlaybackStatsLike = {
+  averageLatency?: number;
+  minimumLatency?: number;
+  maximumLatency?: number;
+  totalDuration?: number;
+  underrunDuration?: number;
+  underrunEvents?: number;
+};
+
 type AudioContextLike = {
   currentTime: number;
   state: string;
+  sampleRate?: number;
+  sinkId?: string;
   baseLatency?: number;
   outputLatency?: number;
+  playbackStats?: AudioPlaybackStatsLike;
+  getOutputTimestamp?: () => AudioOutputTimestampLike;
   destination: unknown;
   createGain: () => GainNodeLike;
   createBufferSource: () => AudioBufferSourceNodeLike;
@@ -94,6 +112,7 @@ const END_EPSILON_SECONDS = 0.01;
 const PLAYBACK_START_LEAD_SECONDS = 0.03;
 const LOOP_SCHEDULE_LOOKAHEAD_SECONDS = 1;
 const SNAPSHOT_INTERVAL_MS = 100;
+const OUTPUT_CLOCK_SAMPLE_OFFSETS_SECONDS = [0.25, 1, 2, 4, 8, 12, 15] as const;
 
 function clampVolume(volume: number): number {
   if (!Number.isFinite(volume)) {
@@ -178,6 +197,9 @@ export function createWebAudioPlaybackEngine(
   let loadGeneration = 0;
   let loadingPromise: Promise<void> = Promise.resolve();
   let destroyed = false;
+  let outputDiagnosticAttemptId: string | null = null;
+  let outputDiagnosticReferenceContextTimeSeconds: number | null = null;
+  let nextOutputClockSampleIndex = 0;
   const transport = createTransport({
     getClockTime: () => audioContext.currentTime,
     scheduleInterval,
@@ -241,10 +263,140 @@ export function createWebAudioPlaybackEngine(
   }
 
   const unsubscribeTransport = transport.subscribe(() => {
+    observePeriodicOutputClockSample();
     pruneCompletedSourceGenerations();
     maintainLoopSchedule();
     notify();
   });
+
+  function finiteMilliseconds(value: number | undefined): number | null {
+    return typeof value === "number" && Number.isFinite(value)
+      ? value * 1000
+      : null;
+  }
+
+  function getOutputClockDiagnosticDetail(
+    targetContextTimeSeconds?: number,
+  ): Record<string, string | number | boolean | null> {
+    let outputTimestamp: AudioOutputTimestampLike | null = null;
+
+    try {
+      outputTimestamp = audioContext.getOutputTimestamp?.() ?? null;
+    } catch {
+      outputTimestamp = null;
+    }
+
+    const timestampContextTime =
+      outputTimestamp && Number.isFinite(outputTimestamp.contextTime)
+        ? outputTimestamp.contextTime
+        : null;
+    const timestampPerformanceTime =
+      outputTimestamp && Number.isFinite(outputTimestamp.performanceTime)
+        ? outputTimestamp.performanceTime
+        : null;
+    const estimatedScheduledOutputPerformanceTimeMilliseconds =
+      targetContextTimeSeconds !== undefined &&
+      timestampContextTime !== null &&
+      timestampPerformanceTime !== null
+        ? timestampPerformanceTime +
+          (targetContextTimeSeconds - timestampContextTime) * 1000
+        : null;
+    const playbackStats = audioContext.playbackStats;
+
+    return {
+      outputTimestampSupported: Boolean(audioContext.getOutputTimestamp),
+      outputTimestampContextTimeSeconds: timestampContextTime,
+      outputTimestampPerformanceTimeMilliseconds: timestampPerformanceTime,
+      outputTimestampCurrentTimeGapMilliseconds:
+        timestampContextTime !== null
+          ? (audioContext.currentTime - timestampContextTime) * 1000
+          : null,
+      estimatedScheduledOutputPerformanceTimeMilliseconds,
+      audioContextBaseLatencyMilliseconds: finiteMilliseconds(
+        audioContext.baseLatency,
+      ),
+      audioContextOutputLatencyMilliseconds: finiteMilliseconds(
+        audioContext.outputLatency,
+      ),
+      audioPlaybackStatsSupported: Boolean(playbackStats),
+      audioPlaybackAverageLatencyMilliseconds: finiteMilliseconds(
+        playbackStats?.averageLatency,
+      ),
+      audioPlaybackMinimumLatencyMilliseconds: finiteMilliseconds(
+        playbackStats?.minimumLatency,
+      ),
+      audioPlaybackMaximumLatencyMilliseconds: finiteMilliseconds(
+        playbackStats?.maximumLatency,
+      ),
+      audioPlaybackTotalDurationMilliseconds: finiteMilliseconds(
+        playbackStats?.totalDuration,
+      ),
+      audioPlaybackUnderrunDurationMilliseconds: finiteMilliseconds(
+        playbackStats?.underrunDuration,
+      ),
+      audioPlaybackUnderrunEvents:
+        typeof playbackStats?.underrunEvents === "number"
+          ? playbackStats.underrunEvents
+          : null,
+      audioContextState: audioContext.state,
+      audioContextSampleRate:
+        typeof audioContext.sampleRate === "number" ? audioContext.sampleRate : null,
+      audioContextSinkId:
+        typeof audioContext.sinkId === "string" ? audioContext.sinkId : null,
+    };
+  }
+
+  function resetOutputClockSamplingForAttempt(
+    attemptId: string,
+    referenceContextTimeSeconds: number,
+  ): void {
+    outputDiagnosticAttemptId = attemptId;
+    outputDiagnosticReferenceContextTimeSeconds = referenceContextTimeSeconds;
+    nextOutputClockSampleIndex = 0;
+  }
+
+  function observePeriodicOutputClockSample(): void {
+    const attemptId = recordingAlignmentDiagnostics?.getActiveAttemptId() ?? null;
+
+    if (!attemptId) {
+      outputDiagnosticAttemptId = null;
+      outputDiagnosticReferenceContextTimeSeconds = null;
+      nextOutputClockSampleIndex = 0;
+      return;
+    }
+
+    if (outputDiagnosticAttemptId !== attemptId) {
+      resetOutputClockSamplingForAttempt(attemptId, audioContext.currentTime);
+    }
+
+    const referenceContextTimeSeconds = outputDiagnosticReferenceContextTimeSeconds;
+    const sampleOffsetSeconds =
+      OUTPUT_CLOCK_SAMPLE_OFFSETS_SECONDS[nextOutputClockSampleIndex];
+    const transportSnapshot = transport.getSnapshot();
+
+    if (
+      referenceContextTimeSeconds === null ||
+      sampleOffsetSeconds === undefined ||
+      transportSnapshot.playbackState !== "playing" ||
+      audioContext.currentTime - referenceContextTimeSeconds < sampleOffsetSeconds
+    ) {
+      return;
+    }
+
+    nextOutputClockSampleIndex += 1;
+    recordingAlignmentDiagnostics?.observe({
+      stage: "project-output-clock-sample",
+      source: "playback-engine",
+      audioContextTimeSeconds: audioContext.currentTime,
+      projectPositionSeconds: transportSnapshot.positionSeconds,
+      musicalPosition: transportSnapshot.musicalPosition,
+      playbackState: transportSnapshot.playbackState,
+      detail: {
+        sampleOffsetFromPlaybackStartMilliseconds: sampleOffsetSeconds * 1000,
+        ...getOutputClockDiagnosticDetail(),
+      },
+    });
+  }
 
   function setGainValue(
     gainNode: GainNodeLike,
@@ -465,6 +617,15 @@ export function createWebAudioPlaybackEngine(
       return;
     }
 
+    const activeDiagnosticAttemptId =
+      recordingAlignmentDiagnostics?.getActiveAttemptId() ?? null;
+    if (activeDiagnosticAttemptId) {
+      resetOutputClockSamplingForAttempt(
+        activeDiagnosticAttemptId,
+        instruction.startAtClockTime,
+      );
+    }
+
     recordingAlignmentDiagnostics?.observe({
       stage: "project-playback-scheduled",
       source: "playback-engine",
@@ -479,15 +640,7 @@ export function createWebAudioPlaybackEngine(
       detail: {
         schedulingLeadMilliseconds:
           (instruction.startAtClockTime - audioContext.currentTime) * 1000,
-        audioContextBaseLatencyMilliseconds:
-          typeof audioContext.baseLatency === "number"
-            ? audioContext.baseLatency * 1000
-            : null,
-        audioContextOutputLatencyMilliseconds:
-          typeof audioContext.outputLatency === "number"
-            ? audioContext.outputLatency * 1000
-            : null,
-        audioContextState: audioContext.state,
+        ...getOutputClockDiagnosticDetail(instruction.startAtClockTime),
       },
     });
 

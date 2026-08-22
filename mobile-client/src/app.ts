@@ -1021,13 +1021,16 @@ function initializeProjectPlayerPage({
           role: recordingRole,
           recordingPort: createBrowserMicrophoneRecordingAdapter({
             recordingAlignmentDiagnostics,
+            getPcmAlignmentDiagnosticsEnabled: () =>
+              microphoneRawDiagnosticCheckbox?.checked ?? false,
             getAudioConstraints: () =>
               microphoneRawDiagnosticCheckbox?.checked
-                ? {
+                ? ({
                     echoCancellation: false,
                     noiseSuppression: false,
                     autoGainControl: false,
-                  }
+                    latency: { exact: 0.02 },
+                  } as MediaTrackConstraints & { latency: { exact: number } })
                 : true,
           }),
           takePlaybackPort: createBrowserRecordedTakePlaybackAdapter(),

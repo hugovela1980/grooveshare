@@ -29,24 +29,44 @@ const trace: RecordingAlignmentDiagnosticTrace = {
       projectPositionSeconds: 4,
       musicalPosition: { bar: 3, beat: 1 },
       playbackState: "playing",
+      detail: {
+        estimatedScheduledOutputPerformanceTimeMilliseconds: 1050,
+        audioContextOutputLatencyMilliseconds: 20,
+      },
     },
     {
       attemptId: "recording-1",
       sequence: 2,
+      observedAtMilliseconds: 1003,
+      stage: "microphone-prepared",
+      source: "microphone-adapter",
+      detail: { inputLatencyMilliseconds: 40 },
+    },
+    {
+      attemptId: "recording-1",
+      sequence: 3,
       observedAtMilliseconds: 1004,
       stage: "microphone-capture-start-requested",
       source: "recording-session",
     },
     {
       attemptId: "recording-1",
-      sequence: 3,
+      sequence: 4,
+      observedAtMilliseconds: 1005,
+      stage: "microphone-pcm-clock-anchor",
+      source: "microphone-pcm-monitor",
+      audioContextTimeSeconds: 20,
+    },
+    {
+      attemptId: "recording-1",
+      sequence: 5,
       observedAtMilliseconds: 1015,
       stage: "media-recorder-start-event",
       source: "microphone-adapter",
     },
     {
       attemptId: "recording-1",
-      sequence: 4,
+      sequence: 6,
       observedAtMilliseconds: 1017,
       stage: "recording-start-marker-captured",
       source: "recording-session",
@@ -57,21 +77,30 @@ const trace: RecordingAlignmentDiagnosticTrace = {
     },
     {
       attemptId: "recording-1",
-      sequence: 5,
+      sequence: 7,
+      observedAtMilliseconds: 1434,
+      stage: "microphone-pcm-transient-detected",
+      source: "microphone-pcm-monitor",
+      audioContextTimeSeconds: 20.425,
+      detail: { transientIndex: 1, peakAmplitude: 0.7 },
+    },
+    {
+      attemptId: "recording-1",
+      sequence: 8,
       observedAtMilliseconds: 2500,
       stage: "media-recorder-stop-called",
       source: "microphone-adapter",
     },
     {
       attemptId: "recording-1",
-      sequence: 6,
+      sequence: 9,
       observedAtMilliseconds: 2510,
       stage: "media-recorder-stop-event",
       source: "microphone-adapter",
     },
     {
       attemptId: "recording-1",
-      sequence: 7,
+      sequence: 10,
       observedAtMilliseconds: 2520,
       stage: "take-placement-created",
       source: "recording-session",
@@ -91,6 +120,23 @@ tester.describe("recording alignment diagnostics", () => {
     tester.expect(analysis.markerRelativeToMediaRecorderStartEventMilliseconds).toBe(2);
     tester.expect(analysis.mediaRecorderStopSignalDelayMilliseconds).toBe(10);
     tester.expect(analysis.placementDeltaFromStartMarkerMilliseconds).toBe(0);
+    tester.expect(
+      Math.round(analysis.firstPcmTransientRelativeToScheduledPlaybackMilliseconds ?? -1),
+    ).toBe(400);
+    tester.expect(
+      Math.round(analysis.firstPcmTransientRelativeToMediaRecorderStartEventMilliseconds ?? -1),
+    ).toBe(415);
+    tester.expect(analysis.estimatedScheduledOutputDevicePerformanceTimeMilliseconds).toBe(1050);
+    tester.expect(
+      Math.round(analysis.estimatedOutputDeviceRenderRelativeToScheduledPlaybackMilliseconds ?? -1),
+    ).toBe(20);
+    tester.expect(
+      Math.round(analysis.firstPcmTransientRelativeToEstimatedOutputDeviceRenderMilliseconds ?? -1),
+    ).toBe(380);
+    tester.expect(analysis.reportedOutputLatencyMilliseconds).toBe(20);
+    tester.expect(analysis.reportedInputLatencyMilliseconds).toBe(40);
+    tester.expect(analysis.reportedEndpointRoundTripLatencyMilliseconds).toBe(60);
+    tester.expect(Math.round(analysis.unaccountedInputPathMilliseconds ?? -1)).toBe(340);
   });
 
   tester.it("clones traces deeply enough for diagnostic consumers", () => {

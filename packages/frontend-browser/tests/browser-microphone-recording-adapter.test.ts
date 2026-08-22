@@ -9,6 +9,26 @@ import { tester } from "./test-runner/tester.js";
 
 class FakeMediaStreamTrack {
   stopCalls = 0;
+  getSettings(): MediaTrackSettings {
+    return {
+      latency: 0.04,
+      sampleRate: 48000,
+      channelCount: 1,
+      echoCancellation: false,
+      noiseSuppression: false,
+      autoGainControl: false,
+    } as unknown as MediaTrackSettings;
+  }
+  getCapabilities(): MediaTrackCapabilities {
+    return {
+      latency: { min: 0.01, max: 0.2 },
+      sampleRate: { min: 16000, max: 48000 },
+      channelCount: { min: 1, max: 2 },
+    } as MediaTrackCapabilities;
+  }
+  getConstraints(): MediaTrackConstraints {
+    return {};
+  }
   stop(): void {
     this.stopCalls += 1;
   }
@@ -73,6 +93,9 @@ function createMediaDevices(
       tester.expect(constraints).toEqual({ audio: expectedAudioConstraints });
       return stream as unknown as MediaStream;
     },
+    getSupportedConstraints(): MediaTrackSupportedConstraints {
+      return { latency: true } as MediaTrackSupportedConstraints;
+    },
   };
 }
 
@@ -120,6 +143,69 @@ tester.describe("browser microphone recording adapter", () => {
     await adapter.release();
 
     tester.expect(stream.track.stopCalls).toBe(1);
+  });
+
+
+  tester.it("runs the AudioWorklet PCM alignment monitor alongside raw diagnostic capture", async () => {
+    const stream = new FakeMediaStream();
+    const rawConstraints = {
+      echoCancellation: false,
+      noiseSuppression: false,
+      autoGainControl: false,
+      latency: { exact: 0.02 },
+    } as MediaTrackConstraints & { latency: { exact: number } };
+    const observations: RecordingAlignmentDiagnosticObservation[] = [];
+    const diagnostics: RecordingAlignmentDiagnosticsPort = {
+      beginAttempt() { return "recording-1"; },
+      observe(observation) { observations.push(observation); },
+      completeAttempt() {},
+      getActiveAttemptId() { return "recording-1"; },
+    };
+    let createMonitorCalls = 0;
+    let anchorCalls = 0;
+    let releaseCalls = 0;
+    const adapter = createBrowserMicrophoneRecordingAdapter({
+      mediaDevices: createMediaDevices(stream, rawConstraints),
+      MediaRecorderConstructor: FakeMediaRecorder,
+      recordingAlignmentDiagnostics: diagnostics,
+      getAudioConstraints: () => rawConstraints,
+      getPcmAlignmentDiagnosticsEnabled: () => true,
+      async createPcmAlignmentMonitor(options) {
+        createMonitorCalls += 1;
+        tester.expect(options.stream).toBe(stream as unknown as MediaStream);
+        tester.expect(options.recordingAlignmentDiagnostics).toBe(diagnostics);
+        return {
+          markAttemptClockAnchor() {
+            anchorCalls += 1;
+          },
+          async release() {
+            releaseCalls += 1;
+          },
+        };
+      },
+    });
+
+    await adapter.prepare();
+    await adapter.start();
+    await adapter.stop();
+    await adapter.release();
+
+    tester.expect(createMonitorCalls).toBe(1);
+    tester.expect(anchorCalls).toBe(1);
+    tester.expect(releaseCalls).toBe(1);
+    const prepared = observations.find(
+      (observation) => observation.stage === "microphone-prepared",
+    );
+    tester.expect(prepared?.detail?.pcmAlignmentMonitorStatus).toBe("ready");
+    tester.expect(prepared?.detail?.inputLatencyMilliseconds).toBe(40);
+    tester.expect(prepared?.detail?.latencyConstraintSupported).toBe(true);
+    tester.expect(prepared?.detail?.inputLatencyCapabilityMinimumMilliseconds).toBe(10);
+    tester.expect(prepared?.detail?.inputLatencyCapabilityMaximumMilliseconds).toBe(200);
+    tester.expect(prepared?.detail?.requestedLatencyConstraintMilliseconds).toBe(null);
+    tester.expect(prepared?.detail?.requestedLatencyConstraintIdealMilliseconds).toBe(null);
+    tester.expect(prepared?.detail?.requestedLatencyConstraintExactMilliseconds).toBe(20);
+    tester.expect(prepared?.detail?.sampleRateCapabilityMaximum).toBe(48000);
+    tester.expect(prepared?.detail?.channelCountCapabilityMaximum).toBe(2);
   });
 
   tester.it("reports unsupported browser recording APIs", async () => {
