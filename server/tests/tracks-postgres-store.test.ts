@@ -379,6 +379,72 @@ tester.describe("tracks PostgreSQL store", () => {
     );
 
     tester.it(
+        "serializes track deletion behind project-scoped writes",
+        async () => {
+            const store =
+                createTracksPostgresStore(postgresTestPool);
+
+            const projectId = await createTestProject();
+            const track = await store.createTrack({
+                projectId,
+                name: "Guitar",
+                originalFilename: "guitar.wav",
+                filePath: "uploads/guitar.wav",
+                mimeType: "audio/wav",
+                fileSize: 100,
+                uploadedByUserId: null,
+            });
+
+            const projectLockClient =
+                await postgresTestPool.connect();
+
+            let transactionOpen = false;
+
+            try {
+                await projectLockClient.query("BEGIN");
+                transactionOpen = true;
+
+                await projectLockClient.query(
+                    `
+              SELECT id
+              FROM projects
+              WHERE id = $1
+              FOR UPDATE
+            `,
+                    [projectId],
+                );
+
+                let deletionSettled = false;
+                const deletionPromise = store
+                    .deleteTrackById(projectId, track.id)
+                    .then((result) => {
+                        deletionSettled = true;
+                        return result;
+                    });
+
+                await new Promise<void>((resolve) => {
+                    setTimeout(resolve, 75);
+                });
+
+                tester.expect(deletionSettled).toBe(false);
+
+                await projectLockClient.query("COMMIT");
+                transactionOpen = false;
+
+                const result = await deletionPromise;
+
+                tester.expect(result.ok).toBe(true);
+            } finally {
+                if (transactionOpen) {
+                    await projectLockClient.query("ROLLBACK");
+                }
+
+                projectLockClient.release();
+            }
+        },
+    );
+
+    tester.it(
         "returns project-not-found when deleting from a missing project",
         async () => {
             const store =

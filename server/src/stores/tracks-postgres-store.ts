@@ -285,26 +285,38 @@ export function createTracksPostgresStore(
         projectId: string,
         trackId: string,
     ): Promise<DeleteTrackResult> {
-        const projectResult =
-            await pool.query(
-                `
+        const client = await pool.connect();
+
+        try {
+            await client.query("BEGIN");
+
+            // Serialize project-scoped writes through the same project row lock
+            // used by mix-settings persistence. This prevents track deletion
+            // from taking track/mix-channel locks in the opposite order and
+            // deadlocking with a concurrent mix save.
+            const projectResult =
+                await client.query(
+                    `
           SELECT id
           FROM projects
           WHERE id = $1
+          FOR UPDATE
         `,
-                [projectId],
-            );
+                    [projectId],
+                );
 
-        if (!projectResult.rows[0]) {
-            return {
-                ok: false,
-                reason: "project-not-found",
-            };
-        }
+            if (!projectResult.rows[0]) {
+                await client.query("ROLLBACK");
 
-        const result =
-            await pool.query<TrackRow>(
-                `
+                return {
+                    ok: false,
+                    reason: "project-not-found",
+                };
+            }
+
+            const result =
+                await client.query<TrackRow>(
+                    `
           DELETE FROM tracks
           WHERE project_id = $1
             AND id = $2
@@ -322,25 +334,35 @@ export function createTracksPostgresStore(
             musical_span_beats,
             created_at
         `,
-                [
-                    projectId,
-                    trackId,
-                ],
-            );
+                    [
+                        projectId,
+                        trackId,
+                    ],
+                );
 
-        const row = result.rows[0];
+            const row = result.rows[0];
 
-        if (!row) {
+            if (!row) {
+                await client.query("ROLLBACK");
+
+                return {
+                    ok: false,
+                    reason: "track-not-found",
+                };
+            }
+
+            await client.query("COMMIT");
+
             return {
-                ok: false,
-                reason: "track-not-found",
+                ok: true,
+                deletedTrack: trackRowToTrack(row),
             };
+        } catch (error) {
+            await client.query("ROLLBACK");
+            throw error;
+        } finally {
+            client.release();
         }
-
-        return {
-            ok: true,
-            deletedTrack: trackRowToTrack(row),
-        };
     }
 
     return {
