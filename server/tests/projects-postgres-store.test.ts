@@ -267,6 +267,61 @@ tester.describe("projects PostgreSQL store", () => {
         });
     });
 
+    tester.it(
+        "drops stale mix channels for tracks that no longer exist",
+        async () => {
+            const store = createProjectsPostgresStore(postgresTestPool);
+
+            const project = await store.createProject({
+                title: "Stale Mix Project",
+                description: "Testing a pending mix after track deletion",
+            });
+
+            const deletedTrackId = await createTestTrack(project.id);
+            const currentTrackId = await createTestTrack(project.id);
+
+            await postgresTestPool.query(
+                `
+          DELETE FROM tracks
+          WHERE project_id = $1
+            AND id = $2
+        `,
+                [project.id, deletedTrackId],
+            );
+
+            const updatedProject = await store.updateProjectMixSettings(
+                project.id,
+                {
+                    channels: [
+                        {
+                            channelNumber: 1,
+                            trackId: deletedTrackId,
+                            enabled: true,
+                            volume: 0.8,
+                        },
+                        {
+                            channelNumber: 2,
+                            trackId: currentTrackId,
+                            enabled: true,
+                            volume: 0.6,
+                        },
+                    ],
+                },
+            );
+
+            tester.expect(updatedProject?.mixSettings).toEqual({
+                channels: [
+                    {
+                        channelNumber: 2,
+                        trackId: currentTrackId,
+                        enabled: true,
+                        volume: 0.6,
+                    },
+                ],
+            });
+        },
+    );
+
     tester.it("replaces existing project mix settings", async () => {
         const store = createProjectsPostgresStore(postgresTestPool);
 

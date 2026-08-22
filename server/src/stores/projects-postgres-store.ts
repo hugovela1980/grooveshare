@@ -341,6 +341,28 @@ export function createProjectsPostgresStore(
                 return null;
             }
 
+            // The project lock above serializes this write with track deletion.
+            // A client may still have a pending mix snapshot that references a
+            // track deleted immediately before this transaction acquired the
+            // lock. Normalize the submitted channels against the tracks that
+            // currently exist so that stale client state cannot violate the
+            // project_mix_channels -> tracks foreign key.
+            const currentTrackResult = await client.query<{ id: string }>(
+                `
+          SELECT id
+          FROM tracks
+          WHERE project_id = $1
+        `,
+                [projectId],
+            );
+
+            const currentTrackIds = new Set(
+                currentTrackResult.rows.map((row) => row.id),
+            );
+            const currentChannels = mixSettings.channels.filter((channel) =>
+                currentTrackIds.has(channel.trackId),
+            );
+
             await client.query(
                 `
           DELETE FROM project_mix_channels
@@ -349,7 +371,7 @@ export function createProjectsPostgresStore(
                 [projectId],
             );
 
-            for (const channel of mixSettings.channels) {
+            for (const channel of currentChannels) {
                 await client.query(
                     `
             INSERT INTO project_mix_channels (
