@@ -13,6 +13,7 @@ Current responsibilities include:
 - browser invitation-link URL construction and clipboard copying;
 - browser hash/history routing;
 - construction of the shared frontend service bundle;
+- browser/device output-route keepalive compatibility for mobile USB audio adapters that auto-mute sparse Web Audio output;
 - the shared browser application shell that connects browser history/page lifecycle to `GrooveShareApplicationController`.
 
 The browser application shell receives presentation callbacks rather than rendering HTML. Markup, CSS, DOM page controllers, editing interactions, navigation controls, and device-specific layouts remain in `client/` and `mobile-client/`.

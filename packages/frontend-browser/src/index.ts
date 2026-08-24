@@ -57,3 +57,12 @@ export {
   type BrowserGrooveShareAppOptions,
   type BrowserGrooveSharePageContext,
 } from "./browser-grooveshare-app.js";
+
+export {
+  BROWSER_OUTPUT_KEEPALIVE_FREQUENCY_HZ,
+  BROWSER_OUTPUT_KEEPALIVE_LEVEL_DB,
+  BROWSER_OUTPUT_KEEPALIVE_RECENTLY_ACTIVE_MS,
+  BROWSER_OUTPUT_KEEPALIVE_WARMUP_MS,
+  createBrowserOutputKeepalivePlaybackEngine,
+  type BrowserOutputKeepalivePlaybackEngineOptions,
+} from "./browser-output-keepalive-playback-engine.js";

@@ -20,6 +20,7 @@ import {
   buildBrowserInvitationShareLink,
   copyBrowserText,
   createBrowserMicrophoneRecordingAdapter,
+  createBrowserOutputKeepalivePlaybackEngine,
   createBrowserRecordingAlignmentDiagnostics,
   createBrowserRecordedTakePlaybackAdapter,
   createBrowserRecordedTakeUploadAdapter,
@@ -930,7 +931,7 @@ function initializeProjectPlayerPage({
   const musicalTimeline = getProjectMusicalTimeline(selectedProject);
   const recordingAlignmentDiagnostics =
     createBrowserRecordingAlignmentDiagnostics();
-  const playbackEngine = createWebAudioPlaybackEngine({
+  const basePlaybackEngine = createWebAudioPlaybackEngine({
     musicalTimeline,
     recordingAlignmentDiagnostics,
     ...(invitationForProject
@@ -945,6 +946,9 @@ function initializeProjectPlayerPage({
       createAudioElement: () => document.createElement("audio"),
       musicalTimeline,
     }),
+  });
+  const playbackEngine = createBrowserOutputKeepalivePlaybackEngine({
+    playbackEngine: basePlaybackEngine,
   });
 
   const audioPlayerController = createAudioPlayerController({
