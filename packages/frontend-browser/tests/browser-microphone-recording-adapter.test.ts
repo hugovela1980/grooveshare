@@ -9,6 +9,7 @@ import { tester } from "./test-runner/tester.js";
 
 class FakeMediaStreamTrack {
   stopCalls = 0;
+  readyState: MediaStreamTrackState = "live";
   getSettings(): MediaTrackSettings {
     return {
       latency: 0.04,
@@ -31,6 +32,11 @@ class FakeMediaStreamTrack {
   }
   stop(): void {
     this.stopCalls += 1;
+    this.readyState = "ended";
+  }
+
+  endUnexpectedly(): void {
+    this.readyState = "ended";
   }
 }
 
@@ -84,9 +90,40 @@ class FakeMediaRecorder {
   }
 }
 
+const MUSIC_AUDIO_CONSTRAINTS: MediaTrackConstraints = {
+  echoCancellation: false,
+  noiseSuppression: false,
+  autoGainControl: false,
+  channelCount: { ideal: 1 },
+};
+
+
+class DelayedStartMediaRecorder extends FakeMediaRecorder {
+  static delayedInstances: DelayedStartMediaRecorder[] = [];
+
+  constructor(stream: MediaStream, options?: MediaRecorderOptions) {
+    super(stream, options);
+    DelayedStartMediaRecorder.delayedInstances.push(this);
+  }
+
+  override start(): void {
+    this.state = "recording";
+  }
+
+  emitStart(): void {
+    this.onstart?.(new Event("start"));
+  }
+}
+
+class DelayedStopMediaRecorder extends FakeMediaRecorder {
+  override stop(): void {
+    this.state = "inactive";
+  }
+}
+
 function createMediaDevices(
   stream: FakeMediaStream,
-  expectedAudioConstraints: boolean | MediaTrackConstraints = true,
+  expectedAudioConstraints: boolean | MediaTrackConstraints = MUSIC_AUDIO_CONSTRAINTS,
 ) {
   return {
     async getUserMedia(constraints: MediaStreamConstraints): Promise<MediaStream> {
@@ -126,17 +163,17 @@ tester.describe("browser microphone recording adapter", () => {
   });
 
 
-  tester.it("can request unprocessed microphone audio for alignment diagnostics", async () => {
+  tester.it("requests music-oriented unprocessed microphone audio by default", async () => {
     const stream = new FakeMediaStream();
     const rawConstraints: MediaTrackConstraints = {
       echoCancellation: false,
       noiseSuppression: false,
       autoGainControl: false,
+      channelCount: { ideal: 1 },
     };
     const adapter = createBrowserMicrophoneRecordingAdapter({
       mediaDevices: createMediaDevices(stream, rawConstraints),
       MediaRecorderConstructor: FakeMediaRecorder,
-      getAudioConstraints: () => rawConstraints,
     });
 
     await adapter.prepare();
@@ -145,6 +182,41 @@ tester.describe("browser microphone recording adapter", () => {
     tester.expect(stream.track.stopCalls).toBe(1);
   });
 
+
+  tester.it("reacquires a fresh music-oriented stream when the prepared input has ended", async () => {
+    const firstStream = new FakeMediaStream();
+    const secondStream = new FakeMediaStream();
+    const requestedConstraints: MediaStreamConstraints[] = [];
+    let getUserMediaCalls = 0;
+    const adapter = createBrowserMicrophoneRecordingAdapter({
+      mediaDevices: {
+        async getUserMedia(constraints) {
+          requestedConstraints.push(constraints);
+          getUserMediaCalls += 1;
+          return (getUserMediaCalls === 1 ? firstStream : secondStream) as unknown as MediaStream;
+        },
+      },
+      MediaRecorderConstructor: FakeMediaRecorder,
+    });
+
+    await adapter.prepare();
+    firstStream.track.endUnexpectedly();
+    await adapter.start();
+
+    tester.expect(getUserMediaCalls).toBe(2);
+    tester.expect(requestedConstraints).toEqual([
+      { audio: MUSIC_AUDIO_CONSTRAINTS },
+      { audio: MUSIC_AUDIO_CONSTRAINTS },
+    ]);
+    tester.expect(firstStream.track.stopCalls).toBe(1);
+
+    tester.expect(FakeMediaRecorder.instances[0]?.stream).toBe(
+      secondStream as unknown as MediaStream,
+    );
+    await adapter.stop();
+    await adapter.release();
+    tester.expect(secondStream.track.stopCalls).toBe(1);
+  });
 
   tester.it("runs the AudioWorklet PCM alignment monitor alongside raw diagnostic capture", async () => {
     const stream = new FakeMediaStream();
@@ -208,6 +280,32 @@ tester.describe("browser microphone recording adapter", () => {
     tester.expect(prepared?.detail?.channelCountCapabilityMaximum).toBe(2);
   });
 
+  tester.it("does not resolve start until MediaRecorder reports that capture is active", async () => {
+    const stream = new FakeMediaStream();
+    DelayedStartMediaRecorder.delayedInstances = [];
+    const adapter = createBrowserMicrophoneRecordingAdapter({
+      mediaDevices: createMediaDevices(stream),
+      MediaRecorderConstructor: DelayedStartMediaRecorder,
+    });
+
+    await adapter.prepare();
+    let startResolved = false;
+    const startPromise = adapter.start().then(() => {
+      startResolved = true;
+    });
+    await Promise.resolve();
+
+    tester.expect(startResolved).toBe(false);
+    tester.expect(DelayedStartMediaRecorder.delayedInstances.length).toBe(1);
+
+    DelayedStartMediaRecorder.delayedInstances[0]?.emitStart();
+    await startPromise;
+    tester.expect(startResolved).toBe(true);
+
+    await adapter.stop();
+    await adapter.release();
+  });
+
   tester.it("reports unsupported browser recording APIs", async () => {
     const adapter = createBrowserMicrophoneRecordingAdapter({
       mediaDevices: null,
@@ -266,6 +364,76 @@ tester.describe("browser microphone recording adapter", () => {
     }
 
     tester.expect(failure?.code).toBe("microphone-unavailable");
+  });
+
+  tester.it("maps an unreadable audio route to a recoverable microphone-unavailable failure", async () => {
+    const adapter = createBrowserMicrophoneRecordingAdapter({
+      mediaDevices: {
+        async getUserMedia() {
+          const error = new Error("device busy");
+          error.name = "NotReadableError";
+          throw error;
+        },
+      },
+      MediaRecorderConstructor: FakeMediaRecorder,
+    });
+
+    let failure: MicrophoneRecordingError | null = null;
+    try {
+      await adapter.prepare();
+    } catch (error) {
+      failure = error as MicrophoneRecordingError;
+    }
+
+    tester.expect(failure?.code).toBe("microphone-unavailable");
+    tester.expect(failure?.message).toBe(
+      "The microphone could not be opened. Check the audio device or route and try again.",
+    );
+  });
+
+  tester.it("rejects a pending recorder start and releases the stream when the session is torn down", async () => {
+    const stream = new FakeMediaStream();
+    DelayedStartMediaRecorder.delayedInstances = [];
+    const adapter = createBrowserMicrophoneRecordingAdapter({
+      mediaDevices: createMediaDevices(stream),
+      MediaRecorderConstructor: DelayedStartMediaRecorder,
+    });
+
+    await adapter.prepare();
+    let failure: MicrophoneRecordingError | null = null;
+    const startPromise = adapter.start().catch((error) => {
+      failure = error as MicrophoneRecordingError;
+    });
+    await Promise.resolve();
+
+    await adapter.release();
+    await startPromise;
+
+    tester.expect((failure as MicrophoneRecordingError | null)?.code).toBe("recording-failed");
+    tester.expect(stream.track.stopCalls).toBe(1);
+  });
+
+  tester.it("rejects a pending recorder stop rather than leaving a cleanup promise hanging", async () => {
+    const stream = new FakeMediaStream();
+    const adapter = createBrowserMicrophoneRecordingAdapter({
+      mediaDevices: createMediaDevices(stream),
+      MediaRecorderConstructor: DelayedStopMediaRecorder,
+    });
+
+    await adapter.prepare();
+    await adapter.start();
+    let failure: MicrophoneRecordingError | null = null;
+    const stopPromise = adapter.stop().catch((error) => {
+      failure = error as MicrophoneRecordingError;
+      return null;
+    });
+    await Promise.resolve();
+
+    await adapter.release();
+    await stopPromise;
+
+    tester.expect((failure as MicrophoneRecordingError | null)?.code).toBe("recording-failed");
+    tester.expect(stream.track.stopCalls).toBe(1);
   });
 
   tester.it("reports asynchronous MediaRecorder failures through the shared callback", async () => {

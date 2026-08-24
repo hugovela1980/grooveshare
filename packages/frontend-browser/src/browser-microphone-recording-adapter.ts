@@ -17,6 +17,16 @@ const PREFERRED_AUDIO_MIME_TYPES = [
   "audio/mp4",
 ] as const;
 
+const MUSIC_RECORDING_AUDIO_CONSTRAINTS: MediaTrackConstraints = {
+  echoCancellation: false,
+  noiseSuppression: false,
+  autoGainControl: false,
+  // Prefer a single captured channel. Browser destinations up-mix mono to both
+  // output channels, which avoids interface input 1 appearing only in the left
+  // headphone channel while keeping the recorded media genuinely mono.
+  channelCount: { ideal: 1 },
+};
+
 type MediaDevicesLike = {
   getUserMedia(constraints: MediaStreamConstraints): Promise<MediaStream>;
   getSupportedConstraints?: () => MediaTrackSupportedConstraints;
@@ -96,6 +106,17 @@ function classifyBrowserMicrophoneError(error: unknown): MicrophoneRecordingErro
     );
   }
 
+  if (
+    name === "NotReadableError" ||
+    name === "TrackStartError" ||
+    name === "AbortError"
+  ) {
+    return new MicrophoneRecordingError(
+      "microphone-unavailable",
+      "The microphone could not be opened. Check the audio device or route and try again.",
+    );
+  }
+
   const message = error instanceof Error && error.message.trim()
     ? error.message
     : "Browser microphone recording failed.";
@@ -164,7 +185,7 @@ export function createBrowserMicrophoneRecordingAdapter({
   mediaDevices = getDefaultMediaDevices(),
   MediaRecorderConstructor = getDefaultMediaRecorderConstructor(),
   recordingAlignmentDiagnostics,
-  getAudioConstraints = () => true,
+  getAudioConstraints = () => ({ ...MUSIC_RECORDING_AUDIO_CONSTRAINTS }),
   getPcmAlignmentDiagnosticsEnabled = () => false,
   createPcmAlignmentMonitor = createBrowserMicrophonePcmAlignmentMonitor,
 }: BrowserMicrophoneRecordingAdapterOptions = {}): MicrophoneRecordingPort {
@@ -172,6 +193,10 @@ export function createBrowserMicrophoneRecordingAdapter({
   let recorder: MediaRecorderLike | null = null;
   let chunks: Blob[] = [];
   let activeFailureHandler: ((failure: MicrophoneRecordingFailure) => void) | null = null;
+  let pendingStart: {
+    resolve: () => void;
+    reject: (error: MicrophoneRecordingError) => void;
+  } | null = null;
   let pendingStop: {
     resolve: (capture: RecordedAudioCapture) => void;
     reject: (error: MicrophoneRecordingError) => void;
@@ -197,6 +222,15 @@ export function createBrowserMicrophoneRecordingAdapter({
     };
   }
 
+  function hasUsablePreparedStream(): boolean {
+    if (!stream) {
+      return false;
+    }
+
+    const tracks = stream.getTracks();
+    return tracks.length > 0 && tracks.some((track) => track.readyState !== "ended");
+  }
+
   function stopStreamTracks(): void {
     if (!stream) {
       return;
@@ -207,6 +241,18 @@ export function createBrowserMicrophoneRecordingAdapter({
     }
 
     stream = null;
+  }
+
+  async function releasePreparedStream(): Promise<void> {
+    const activeMonitor = pcmAlignmentMonitor;
+    pcmAlignmentMonitor = null;
+    preparedDiagnosticDetail = null;
+
+    try {
+      await activeMonitor?.release();
+    } finally {
+      stopStreamTracks();
+    }
   }
 
   function detachRecorder(): void {
@@ -225,8 +271,20 @@ export function createBrowserMicrophoneRecordingAdapter({
   async function prepare(): Promise<void> {
     const supported = requireSupported();
 
-    if (stream) {
+    if (hasUsablePreparedStream()) {
       return;
+    }
+
+    if (stream) {
+      // A browser/device route can disappear without the application asking for
+      // it (USB unplug, Bluetooth route change, OS device switch). Never reuse
+      // an ended stream as though the microphone were still armed.
+      try {
+        await releasePreparedStream();
+      } catch {
+        // Re-acquisition is more useful than failing solely because diagnostic
+        // cleanup for a stale stream did not complete cleanly.
+      }
     }
 
     try {
@@ -253,7 +311,7 @@ export function createBrowserMicrophoneRecordingAdapter({
         | undefined;
       const requestedConstraints =
         typeof audioConstraints === "object" ? audioConstraints : null;
-      const rawDiagnosticRequested = Boolean(
+      const musicCaptureRequested = Boolean(
         requestedConstraints &&
         requestedConstraints.echoCancellation === false &&
         requestedConstraints.noiseSuppression === false &&
@@ -324,8 +382,8 @@ export function createBrowserMicrophoneRecordingAdapter({
       }
 
       preparedDiagnosticDetail = {
-        captureProcessingMode: rawDiagnosticRequested
-          ? "raw-diagnostic"
+        captureProcessingMode: musicCaptureRequested
+          ? "music-unprocessed"
           : "browser-default",
         requestedEchoCancellation:
           typeof requestedConstraints?.echoCancellation === "boolean"
@@ -407,6 +465,11 @@ export function createBrowserMicrophoneRecordingAdapter({
             : null,
       };
     } catch (error) {
+      try {
+        await releasePreparedStream();
+      } catch {
+        // Preserve the original acquisition/configuration failure.
+      }
       throw classifyBrowserMicrophoneError(error);
     }
   }
@@ -418,6 +481,14 @@ export function createBrowserMicrophoneRecordingAdapter({
   } = {}): Promise<void> {
     const supported = requireSupported();
 
+    if (stream && !hasUsablePreparedStream()) {
+      // The route may have ended while the musician was reviewing a take.
+      // Reacquire at the last responsible moment so Retry/Record remains
+      // reliable without forcing a fresh permission/device request when the
+      // existing stream is still healthy.
+      await prepare();
+    }
+
     if (!stream) {
       throw new MicrophoneRecordingError(
         "recording-failed",
@@ -425,12 +496,14 @@ export function createBrowserMicrophoneRecordingAdapter({
       );
     }
 
-    if (recorder?.state === "recording") {
+    if (recorder?.state === "recording" || pendingStart) {
       throw new MicrophoneRecordingError(
         "recording-failed",
         "Microphone recording is already active.",
       );
     }
+
+    const activeStream = stream;
 
     chunks = [];
     recorderFailure = null;
@@ -445,105 +518,122 @@ export function createBrowserMicrophoneRecordingAdapter({
     });
     pcmAlignmentMonitor?.markAttemptClockAnchor();
 
-    try {
-      const mimeType = selectMimeType(supported.MediaRecorderConstructor);
-      recorder = mimeType
-        ? new supported.MediaRecorderConstructor(stream, { mimeType })
-        : new supported.MediaRecorderConstructor(stream);
+    return new Promise<void>((resolve, reject) => {
+      pendingStart = { resolve, reject };
 
-      recorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          chunks.push(event.data);
-        }
-      };
+      try {
+        const mimeType = selectMimeType(supported.MediaRecorderConstructor);
+        recorder = mimeType
+          ? new supported.MediaRecorderConstructor(activeStream, { mimeType })
+          : new supported.MediaRecorderConstructor(activeStream);
 
-      recorder.onstart = () => {
-        recordingAlignmentDiagnostics?.observe({
-          stage: "media-recorder-start-event",
-          source: "microphone-adapter",
-          detail: {
-            recorderState: recorder?.state ?? "unknown",
-          },
-        });
-      };
+        recorder.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            chunks.push(event.data);
+          }
+        };
 
-      recorder.onerror = (event) => {
-        const eventError = "error" in event
-          ? (event as Event & { error?: unknown }).error
-          : event;
-        recorderFailure = classifyBrowserMicrophoneError(eventError);
-        activeFailureHandler?.({
-          code: recorderFailure.code,
-          message: recorderFailure.message,
-        });
-      };
-
-      recorder.onstop = async () => {
-        recordingAlignmentDiagnostics?.observe({
-          stage: "media-recorder-stop-event",
-          source: "microphone-adapter",
-          detail: {
-            chunkCount: chunks.length,
-          },
-        });
-        const activeStop = pendingStop;
-
-        if (!activeStop) {
-          detachRecorder();
-          chunks = [];
-          recorderFailure = null;
-          return;
-        }
-
-        pendingStop = null;
-
-        if (recorderFailure) {
-          const failure = recorderFailure;
-          detachRecorder();
-          chunks = [];
-          recorderFailure = null;
-          activeStop.reject(failure);
-          return;
-        }
-
-        try {
-          const blob = new Blob(chunks, {
-            type: recorder?.mimeType || chunks[0]?.type || "application/octet-stream",
-          });
-          const bytes = new Uint8Array(await blob.arrayBuffer());
-          const capture: RecordedAudioCapture = {
-            bytes,
-            mimeType: blob.type || "application/octet-stream",
-          };
+        recorder.onstart = () => {
           recordingAlignmentDiagnostics?.observe({
-            stage: "recorded-capture-ready",
+            stage: "media-recorder-start-event",
             source: "microphone-adapter",
             detail: {
-              byteLength: capture.bytes.byteLength,
-              mimeType: capture.mimeType,
+              recorderState: recorder?.state ?? "unknown",
             },
           });
-          detachRecorder();
-          chunks = [];
-          activeStop.resolve(capture);
-        } catch (error) {
-          detachRecorder();
-          chunks = [];
-          activeStop.reject(classifyBrowserMicrophoneError(error));
-        }
-      };
+          const activeStart = pendingStart;
+          pendingStart = null;
+          activeStart?.resolve();
+        };
 
-      recordingAlignmentDiagnostics?.observe({
-        stage: "media-recorder-start-called",
-        source: "microphone-adapter",
-      });
-      recorder.start();
-    } catch (error) {
-      detachRecorder();
-      chunks = [];
-      recorderFailure = null;
-      throw classifyBrowserMicrophoneError(error);
-    }
+        recorder.onerror = (event) => {
+          const eventError = "error" in event
+            ? (event as Event & { error?: unknown }).error
+            : event;
+          recorderFailure = classifyBrowserMicrophoneError(eventError);
+
+          if (pendingStart) {
+            const activeStart = pendingStart;
+            pendingStart = null;
+            activeStart.reject(recorderFailure);
+            return;
+          }
+
+          activeFailureHandler?.({
+            code: recorderFailure.code,
+            message: recorderFailure.message,
+          });
+        };
+
+        recorder.onstop = async () => {
+          recordingAlignmentDiagnostics?.observe({
+            stage: "media-recorder-stop-event",
+            source: "microphone-adapter",
+            detail: {
+              chunkCount: chunks.length,
+            },
+          });
+          const activeStop = pendingStop;
+
+          if (!activeStop) {
+            detachRecorder();
+            chunks = [];
+            recorderFailure = null;
+            return;
+          }
+
+          pendingStop = null;
+
+          if (recorderFailure) {
+            const failure = recorderFailure;
+            detachRecorder();
+            chunks = [];
+            recorderFailure = null;
+            activeStop.reject(failure);
+            return;
+          }
+
+          try {
+            const blob = new Blob(chunks, {
+              type: recorder?.mimeType || chunks[0]?.type || "application/octet-stream",
+            });
+            const bytes = new Uint8Array(await blob.arrayBuffer());
+            const capture: RecordedAudioCapture = {
+              bytes,
+              mimeType: blob.type || "application/octet-stream",
+            };
+            recordingAlignmentDiagnostics?.observe({
+              stage: "recorded-capture-ready",
+              source: "microphone-adapter",
+              detail: {
+                byteLength: capture.bytes.byteLength,
+                mimeType: capture.mimeType,
+              },
+            });
+            detachRecorder();
+            chunks = [];
+            activeStop.resolve(capture);
+          } catch (error) {
+            detachRecorder();
+            chunks = [];
+            activeStop.reject(classifyBrowserMicrophoneError(error));
+          }
+        };
+
+        recordingAlignmentDiagnostics?.observe({
+          stage: "media-recorder-start-called",
+          source: "microphone-adapter",
+        });
+        recorder.start();
+      } catch (error) {
+        const failure = classifyBrowserMicrophoneError(error);
+        pendingStart = null;
+        detachRecorder();
+        chunks = [];
+        recorderFailure = null;
+        reject(failure);
+      }
+    });
   }
 
   async function stop(): Promise<RecordedAudioCapture> {
@@ -578,7 +668,27 @@ export function createBrowserMicrophoneRecordingAdapter({
   }
 
   async function release(): Promise<void> {
-    pendingStop = null;
+    if (pendingStart) {
+      const activeStart = pendingStart;
+      pendingStart = null;
+      activeStart.reject(
+        new MicrophoneRecordingError(
+          "recording-failed",
+          "Microphone recording was released before capture started.",
+        ),
+      );
+    }
+
+    if (pendingStop) {
+      const activeStop = pendingStop;
+      pendingStop = null;
+      activeStop.reject(
+        new MicrophoneRecordingError(
+          "recording-failed",
+          "Microphone recording was released before capture finished.",
+        ),
+      );
+    }
 
     if (recorder?.state === "recording") {
       try {
@@ -591,10 +701,7 @@ export function createBrowserMicrophoneRecordingAdapter({
     detachRecorder();
     chunks = [];
     recorderFailure = null;
-    preparedDiagnosticDetail = null;
-    await pcmAlignmentMonitor?.release();
-    pcmAlignmentMonitor = null;
-    stopStreamTracks();
+    await releasePreparedStream();
   }
 
   return {

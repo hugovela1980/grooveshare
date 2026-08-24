@@ -81,6 +81,13 @@ export type Track = {
   timelineOffsetSeconds?: number;
   /** Musical placement is authoritative when present; legacy tracks default to bar 1, beat 1. */
   musicalPlacement?: TrackMusicalPlacement;
+  /**
+   * Signed source-to-project alignment correction in seconds.
+   * Positive values advance captured content by skipping that much source audio
+   * at the track's musical start. Negative values delay the source without
+   * changing its declared musical placement.
+   */
+  alignmentOffsetSeconds?: number;
   createdAt: string;
 };
 
@@ -94,11 +101,13 @@ export type UploadTrackInput<TAudioFile = unknown> = {
   trackName: string;
   audioFile: TAudioFile;
   musicalPlacement?: TrackMusicalPlacement;
+  alignmentOffsetSeconds?: number;
 };
 
 export type UpdateTrackDetailsInput = {
   name?: string;
   musicalPlacement?: TrackMusicalPlacement;
+  alignmentOffsetSeconds?: number;
 };
 
 export type User = {

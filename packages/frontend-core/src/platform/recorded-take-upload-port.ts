@@ -9,6 +9,7 @@ export type RecordedTakeUploadInput = {
   trackName: string;
   capture: RecordedAudioCapture;
   musicalPlacement: TrackMusicalPlacement;
+  alignmentOffsetSeconds: number;
 };
 
 export type RecordedTakeUploadFailure = {

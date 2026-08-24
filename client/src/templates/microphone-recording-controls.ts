@@ -8,21 +8,33 @@ export function renderMicrophoneRecordingControls(): string {
         <p class="eyebrow">Microphone Take</p>
         <h2 id="microphone-recording-heading">Record against the project timeline</h2>
         <p class="microphone-recording__hint">
-          Recording starts from the current project position while the existing mix plays.
+          GrooveShare requests music-oriented microphone capture with browser speech processing disabled when supported. For the cleanest recording, use wired headphones so project playback stays out of the microphone.
         </p>
       </div>
 
-      <label class="microphone-recording__diagnostic-option">
-        <input
-          id="microphone-raw-diagnostic-checkbox"
-          type="checkbox"
-        />
-        <span>Raw mic (diagnostic)</span>
-      </label>
-      <p class="microphone-recording__diagnostic-hint">
-        When checked before enabling the microphone, GrooveShare asks the browser
-        to disable echo cancellation, noise suppression, and automatic gain control.
-      </p>
+      <div
+        class="microphone-recording__alignment"
+        aria-labelledby="microphone-alignment-heading"
+      >
+        <div class="microphone-recording__alignment-header">
+          <strong id="microphone-alignment-heading">Recording alignment</strong>
+          <span id="microphone-alignment-value">0 ms</span>
+        </div>
+        <p class="microphone-recording__alignment-hint">
+          Nudge a reviewed take earlier or later. Small and coarse steps use the same saved local compensation.
+        </p>
+        <div class="microphone-recording__alignment-actions">
+          <span class="microphone-recording__alignment-label">Earlier</span>
+          <button id="microphone-alignment-earlier-100" class="button button--secondary" type="button">100 ms</button>
+          <button id="microphone-alignment-earlier-10" class="button button--secondary" type="button">10 ms</button>
+          <button id="microphone-alignment-earlier-1" class="button button--secondary" type="button">1 ms</button>
+          <button id="microphone-alignment-reset" class="button button--secondary" type="button">Reset</button>
+          <span class="microphone-recording__alignment-label">Later</span>
+          <button id="microphone-alignment-later-1" class="button button--secondary" type="button">1 ms</button>
+          <button id="microphone-alignment-later-10" class="button button--secondary" type="button">10 ms</button>
+          <button id="microphone-alignment-later-100" class="button button--secondary" type="button">100 ms</button>
+        </div>
+      </div>
 
       <div class="microphone-recording__actions">
         <button

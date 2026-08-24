@@ -33,6 +33,7 @@ export function createTracksJsonStore(
           start: { bar: 1, beat: 1 },
           spanBeats: null,
         },
+        alignmentOffsetSeconds: track.alignmentOffsetSeconds ?? 0,
       }));
   }
 
@@ -53,6 +54,7 @@ export function createTracksJsonStore(
         start: { bar: 1, beat: 1 },
         spanBeats: null,
       },
+      alignmentOffsetSeconds: trackInput.alignmentOffsetSeconds ?? 0,
       createdAt: now,
     };
 
@@ -101,6 +103,10 @@ export function createTracksJsonStore(
           start: { bar: 1, beat: 1 },
           spanBeats: null,
         },
+      alignmentOffsetSeconds:
+        trackInput.alignmentOffsetSeconds ??
+        existingTrack.alignmentOffsetSeconds ??
+        0,
     };
 
     database.tracks[trackIndex] = updatedTrack;

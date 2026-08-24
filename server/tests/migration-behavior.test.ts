@@ -144,6 +144,7 @@ tester.describe("database migration behavior", () => {
         start: { bar: 1, beat: 1 },
         spanBeats: null,
       });
+      tester.expect(track?.alignmentOffsetSeconds).toBe(0);
     },
   );
 

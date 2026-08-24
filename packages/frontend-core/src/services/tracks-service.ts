@@ -63,7 +63,13 @@ export function createTracksService<TAudioFile>(input: {
       return parseApiResponse<Track[]>(response);
     },
 
-    async uploadTrack({ projectId, trackName, audioFile, musicalPlacement }) {
+    async uploadTrack({
+      projectId,
+      trackName,
+      audioFile,
+      musicalPlacement,
+      alignmentOffsetSeconds,
+    }) {
       const response = await transport.request(
         `${apiBaseUrl}/api/projects/${projectId}/tracks`,
         {
@@ -72,6 +78,7 @@ export function createTracksService<TAudioFile>(input: {
             trackName,
             audioFile,
             musicalPlacement,
+            alignmentOffsetSeconds,
           }),
         },
       );

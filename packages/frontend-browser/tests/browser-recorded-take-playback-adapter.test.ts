@@ -101,6 +101,63 @@ tester.describe("browser recorded-take playback adapter", () => {
     tester.expect(harness.audioElements[0]?.removeAttributeCalls).toEqual(["src"]);
   });
 
+  tester.it("advances a late take by seeking its temporary source before audition", async () => {
+    const harness = createHarness();
+
+    await harness.adapter.play(capture, { alignmentOffsetSeconds: 0.163 });
+
+    tester.expect(harness.audioElements[0]?.currentTime).toBe(0.163);
+    tester.expect(harness.audioElements[0]?.playCalls).toBe(1);
+  });
+
+  tester.it("delays an early take by the signed negative alignment amount", async () => {
+    const audioElements: FakeAudioElement[] = [];
+    const scheduledDelays: number[] = [];
+    const scheduledHandlers: Array<() => void> = [];
+    const adapter = createBrowserRecordedTakePlaybackAdapter({
+      createAudioElement() {
+        const audio = new FakeAudioElement();
+        audioElements.push(audio);
+        return audio;
+      },
+      objectUrlApi: {
+        createObjectURL() { return "blob:delayed-take"; },
+        revokeObjectURL() {},
+      },
+      scheduleTimeout(handler, milliseconds) {
+        scheduledHandlers.push(handler);
+        scheduledDelays.push(milliseconds);
+        return scheduledHandlers.length;
+      },
+      clearScheduledTimeout() {},
+    });
+
+    await adapter.play(capture, { alignmentOffsetSeconds: -0.032 });
+
+    tester.expect(scheduledDelays).toEqual([32]);
+    tester.expect(audioElements[0]?.playCalls).toBe(0);
+    scheduledHandlers[0]?.();
+    await Promise.resolve();
+    tester.expect(audioElements[0]?.playCalls).toBe(1);
+  });
+
+  tester.it("replaces an existing audition without leaking its audio element or object URL", async () => {
+    const harness = createHarness();
+
+    await harness.adapter.play(capture);
+    const firstAudio = harness.audioElements[0];
+    await harness.adapter.play(capture);
+
+    tester.expect(harness.audioElements.length).toBe(2);
+    tester.expect(firstAudio?.pauseCalls).toBe(1);
+    tester.expect(firstAudio?.loadCalls).toBe(1);
+    tester.expect(harness.revokedUrls).toEqual(["blob:take-1"]);
+    tester.expect(harness.audioElements[1]?.playCalls).toBe(1);
+
+    await harness.adapter.release();
+    tester.expect(harness.revokedUrls).toEqual(["blob:take-1", "blob:take-2"]);
+  });
+
   tester.it("stops an audition and cleans up its temporary browser resources", async () => {
     const harness = createHarness();
 

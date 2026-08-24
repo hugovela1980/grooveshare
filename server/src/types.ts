@@ -49,6 +49,7 @@ export type Track = {
     fileSize: number;
     uploadedByUserId: string | null;
     musicalPlacement?: TrackMusicalPlacement;
+    alignmentOffsetSeconds?: number;
     createdAt: string;
 };
 
@@ -72,6 +73,7 @@ export type UpdateProjectDetailsInput = {
 export type UpdateTrackDetailsInput = {
     name?: string;
     musicalPlacement?: TrackMusicalPlacement;
+    alignmentOffsetSeconds?: number;
 };
 
 export type UpdateTrackNameInput = {
@@ -87,4 +89,5 @@ export type CreateTrackInput = {
     fileSize: number;
     uploadedByUserId: string | null;
     musicalPlacement?: TrackMusicalPlacement;
+    alignmentOffsetSeconds?: number;
 };

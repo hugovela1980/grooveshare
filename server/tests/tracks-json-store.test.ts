@@ -78,6 +78,7 @@ tester.describe("tracks JSON store", () => {
       mimeType: "audio/wav",
       fileSize: 123456,
       uploadedByUserId: null,
+      alignmentOffsetSeconds: 0.163,
     });
 
     tester.expect(typeof track.id).toBe("string");
@@ -89,6 +90,7 @@ tester.describe("tracks JSON store", () => {
     );
     tester.expect(track.mimeType).toBe("audio/wav");
     tester.expect(track.fileSize).toBe(123456);
+    tester.expect(track.alignmentOffsetSeconds).toBe(0.163);
     tester.expect(typeof track.createdAt).toBe("string");
   });
 
@@ -109,6 +111,7 @@ tester.describe("tracks JSON store", () => {
       start: { bar: 1, beat: 1 },
       spanBeats: null,
     });
+    tester.expect(track.alignmentOffsetSeconds).toBe(0);
   });
 
   tester.it("persists explicit track musical placement updates", async () => {
@@ -125,6 +128,7 @@ tester.describe("tracks JSON store", () => {
         start: { bar: 5, beat: 2.5 },
         spanBeats: 12,
       },
+      alignmentOffsetSeconds: -0.032,
     });
 
     tester.expect(result.ok).toBe(true);
@@ -137,6 +141,7 @@ tester.describe("tracks JSON store", () => {
       start: { bar: 5, beat: 2.5 },
       spanBeats: 12,
     });
+    tester.expect(result.updatedTrack.alignmentOffsetSeconds).toBe(-0.032);
 
     const database = await readTestDatabase();
 
@@ -144,6 +149,7 @@ tester.describe("tracks JSON store", () => {
       start: { bar: 5, beat: 2.5 },
       spanBeats: 12,
     });
+    tester.expect(database.tracks[0]?.alignmentOffsetSeconds).toBe(-0.032);
   });
 
   tester.it("writes created tracks to the JSON database file", async () => {

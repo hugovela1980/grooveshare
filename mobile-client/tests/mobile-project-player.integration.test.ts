@@ -283,6 +283,7 @@ tester.describe("mobile Project Player integration", () => {
     });
 
     tester.expect(ownerMarkup.includes('id="microphone-arm-button"')).toBe(true);
+    tester.expect(ownerMarkup.includes("For the cleanest recording, use wired headphones")).toBe(true);
     tester.expect(ownerMarkup.includes('id="microphone-audition-button"')).toBe(true);
     tester.expect(contributorMarkup.includes('id="microphone-record-button"')).toBe(true);
     tester.expect(contributorMarkup.includes('id="microphone-retry-button"')).toBe(true);

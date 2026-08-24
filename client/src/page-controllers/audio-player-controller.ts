@@ -13,6 +13,7 @@ type MixChannelForPlayer = {
     volume: number;
     enabled?: boolean;
     timelineOffsetSeconds?: number;
+    alignmentOffsetSeconds?: number;
     musicalPlacement?: {
         start: { bar: number; beat: number };
         spanBeats: number | null;
@@ -285,6 +286,9 @@ export function createAudioPlayerController({
             ...(channel.timelineOffsetSeconds !== undefined
                 ? { timelineOffsetSeconds: channel.timelineOffsetSeconds }
                 : {}),
+            ...(channel.alignmentOffsetSeconds !== undefined
+                ? { alignmentOffsetSeconds: channel.alignmentOffsetSeconds }
+                : {}),
             ...(channel.musicalPlacement
                 ? {
                     musicalPlacement: {
@@ -305,7 +309,9 @@ export function createAudioPlayerController({
         musicalPositionElement.textContent = formatMusicalPosition(
             snapshot.musicalPosition,
         );
-        seekBarInput.value = "1";
+        // Preserve the collaborator's current navigation target across mix
+        // reloads (for example after keeping a recorded take). The initial
+        // markup already defaults this field to Bar 1.
         setPlayPauseButtonIcon(snapshot);
         setControlsEnabled(snapshot.hasLoadedChannels);
     }

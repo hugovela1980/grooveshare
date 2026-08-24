@@ -7,9 +7,6 @@ import type {
 
 type ButtonElementLike = {
   disabled: boolean;
-  // Modern DOM typings allow the `until-found` string in addition to booleans.
-  // The controller only writes booleans, but accepting string keeps real
-  // HTMLButtonElement instances structurally compatible with this UI boundary.
   hidden: boolean | string;
   textContent: string | null;
   addEventListener: (
@@ -28,6 +25,11 @@ type TextElementLike = {
   textContent: string | null;
 };
 
+type AlignmentNudgeControl = {
+  button: ButtonElementLike;
+  deltaMilliseconds: number;
+};
+
 type MicrophoneRecordingControllerOptions = {
   recordingSession: MicrophoneRecordingSession;
   armButton: ButtonElementLike;
@@ -39,12 +41,25 @@ type MicrophoneRecordingControllerOptions = {
   keepButton: ButtonElementLike;
   takeNameInput: ValueInputLike;
   statusElement: TextElementLike;
+  alignmentValueElement?: TextElementLike;
+  alignmentNudgeControls?: AlignmentNudgeControl[];
+  alignmentResetButton?: ButtonElementLike;
   onTakeKept?: (track: Track) => void | Promise<void>;
 };
 
 function formatMusicalPosition(position: { bar: number; beat: number }): string {
   const beat = Number(position.beat.toFixed(3));
   return `Bar ${position.bar}, Beat ${beat}`;
+}
+
+function formatAlignmentCompensation(milliseconds: number): string {
+  if (milliseconds === 0) {
+    return "0 ms";
+  }
+
+  return milliseconds > 0
+    ? `${milliseconds} ms earlier`
+    : `${Math.abs(milliseconds)} ms later`;
 }
 
 function describeStoppedTake(take: MicrophoneRecordedTake | null): string {
@@ -66,7 +81,7 @@ function getStatusMessage(snapshot: MicrophoneRecordingSnapshot): string {
     case "requesting-permission":
       return "Requesting microphone permission…";
     case "ready":
-      return "Microphone ready. Recording will begin from the current project position.";
+      return "Microphone ready. Capture will become active before project playback starts.";
     case "recording":
       return snapshot.startPosition
         ? `Recording from ${formatMusicalPosition(snapshot.startPosition.musical)}…`
@@ -85,7 +100,7 @@ function getStatusMessage(snapshot: MicrophoneRecordingSnapshot): string {
       if (snapshot.takeReviewFailure) {
         return `${description} ${snapshot.takeReviewFailure.message}`;
       }
-      return `${description} Audition it, retry, discard it, or keep it as a project track.`;
+      return `${description} Audition it, adjust alignment if needed, retry, discard it, or keep it as a project track.`;
     }
     case "failed":
       return snapshot.failure?.message ?? "Microphone recording failed.";
@@ -103,6 +118,9 @@ export function createMicrophoneRecordingController({
   keepButton,
   takeNameInput,
   statusElement,
+  alignmentValueElement,
+  alignmentNudgeControls = [],
+  alignmentResetButton,
   onTakeKept,
 }: MicrophoneRecordingControllerOptions) {
   let unsubscribe: (() => void) | null = null;
@@ -111,6 +129,10 @@ export function createMicrophoneRecordingController({
   function render(snapshot: MicrophoneRecordingSnapshot): void {
     const hasStoppedTake = snapshot.status === "stopped" && Boolean(snapshot.take);
     const isSaving = snapshot.takeSaveStatus === "saving";
+    const alignmentControlsDisabled =
+      snapshot.status === "requesting-permission" ||
+      snapshot.status === "recording" ||
+      isSaving;
 
     if (hasStoppedTake && !takeNameInitialized) {
       if (!takeNameInput.value.trim()) {
@@ -123,7 +145,6 @@ export function createMicrophoneRecordingController({
 
     armButton.disabled =
       snapshot.status === "requesting-permission" ||
-      snapshot.status === "ready" ||
       snapshot.status === "recording" ||
       snapshot.status === "stopped";
     recordButton.disabled = snapshot.status !== "ready";
@@ -141,9 +162,24 @@ export function createMicrophoneRecordingController({
     keepButton.disabled = !hasStoppedTake || isSaving;
     takeNameInput.disabled = !hasStoppedTake || isSaving;
 
+    for (const { button } of alignmentNudgeControls) {
+      button.disabled = alignmentControlsDisabled;
+    }
+    if (alignmentResetButton) {
+      alignmentResetButton.disabled =
+        alignmentControlsDisabled || snapshot.alignmentCompensationMilliseconds === 0;
+    }
+    if (alignmentValueElement) {
+      alignmentValueElement.textContent = formatAlignmentCompensation(
+        snapshot.alignmentCompensationMilliseconds,
+      );
+    }
+
     armButton.textContent = snapshot.status === "requesting-permission"
       ? "Enabling…"
-      : "Enable Microphone";
+      : snapshot.status === "ready"
+        ? "Disable Microphone"
+        : "Enable Microphone";
     recordButton.textContent = snapshot.status === "recording"
       ? "Recording…"
       : "Record";
@@ -154,10 +190,45 @@ export function createMicrophoneRecordingController({
     statusElement.textContent = getStatusMessage(snapshot);
   }
 
+  async function adjustAlignment(deltaMilliseconds: number): Promise<void> {
+    const wasAuditioning =
+      recordingSession.getSnapshot().takeReviewStatus === "auditioning";
+
+    if (wasAuditioning) {
+      await recordingSession.stopAudition();
+    }
+
+    recordingSession.adjustAlignmentCompensationMilliseconds(deltaMilliseconds);
+
+    if (wasAuditioning) {
+      await recordingSession.audition();
+    }
+  }
+
+  async function resetAlignment(): Promise<void> {
+    const wasAuditioning =
+      recordingSession.getSnapshot().takeReviewStatus === "auditioning";
+
+    if (wasAuditioning) {
+      await recordingSession.stopAudition();
+    }
+
+    recordingSession.resetAlignmentCompensation();
+
+    if (wasAuditioning) {
+      await recordingSession.audition();
+    }
+  }
+
   function init(): void {
     unsubscribe = recordingSession.subscribe(render);
 
     armButton.addEventListener("click", async () => {
+      if (recordingSession.getSnapshot().status === "ready") {
+        await recordingSession.disarm();
+        return;
+      }
+
       await recordingSession.arm();
     });
 
@@ -193,6 +264,14 @@ export function createMicrophoneRecordingController({
         await onTakeKept?.(result.savedTrack);
       }
     });
+
+    for (const { button, deltaMilliseconds } of alignmentNudgeControls) {
+      button.addEventListener("click", async () => {
+        await adjustAlignment(deltaMilliseconds);
+      });
+    }
+
+    alignmentResetButton?.addEventListener("click", resetAlignment);
   }
 
   function destroy(): void {

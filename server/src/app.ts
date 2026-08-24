@@ -217,6 +217,16 @@ function isUpdateProjectDetailsInput(
   return true;
 }
 
+const MAX_TRACK_ALIGNMENT_OFFSET_SECONDS = 2;
+
+function isValidTrackAlignmentOffsetSeconds(value: unknown): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isFinite(value) &&
+    Math.abs(value) <= MAX_TRACK_ALIGNMENT_OFFSET_SECONDS
+  );
+}
+
 function isTrackMusicalPlacement(
   data: unknown,
   timeline: MusicalTimeline,
@@ -260,12 +270,20 @@ function isUpdateTrackDetailsInput(
   const input = data as Record<string, unknown>;
   const hasName = Object.hasOwn(input, "name");
   const hasPlacement = Object.hasOwn(input, "musicalPlacement");
+  const hasAlignmentOffset = Object.hasOwn(input, "alignmentOffsetSeconds");
 
-  if (!hasName && !hasPlacement) {
+  if (!hasName && !hasPlacement && !hasAlignmentOffset) {
     return false;
   }
 
   if (hasName && (typeof input.name !== "string" || input.name.trim().length === 0)) {
+    return false;
+  }
+
+  if (
+    hasAlignmentOffset &&
+    !isValidTrackAlignmentOffsetSeconds(input.alignmentOffsetSeconds)
+  ) {
     return false;
   }
 
@@ -297,6 +315,20 @@ function parseUploadTrackMusicalPlacement(
   return isValidTrackMusicalPlacement(timeline, placement)
     ? placement
     : undefined;
+}
+
+function parseUploadTrackAlignmentOffsetSeconds(
+  fields: Record<string, string>,
+): number | undefined | null {
+  const rawValue = fields.alignmentOffsetSeconds;
+
+  if (rawValue === undefined) {
+    return undefined;
+  }
+
+  const value = Number(rawValue);
+
+  return isValidTrackAlignmentOffsetSeconds(value) ? value : null;
 }
 
 function isMixSettings(data: unknown): data is MixSettings {
@@ -922,12 +954,24 @@ export function createAppServer({
         timeSignature: { numerator: 4, denominator: 4 },
       },
     );
+    const alignmentOffsetSeconds =
+      parseUploadTrackAlignmentOffsetSeconds(parsedForm.fields);
 
     if (hasMusicalPlacementFields && !musicalPlacement) {
       sendJson(
         res,
         400,
         { ok: false, error: "Invalid track musical placement." },
+        clientOrigin,
+      );
+      return;
+    }
+
+    if (alignmentOffsetSeconds === null) {
+      sendJson(
+        res,
+        400,
+        { ok: false, error: "Invalid track alignment offset." },
         clientOrigin,
       );
       return;
@@ -953,6 +997,7 @@ export function createAppServer({
       fileSize: audioFile.size,
       uploadedByUserId,
       musicalPlacement,
+      alignmentOffsetSeconds: alignmentOffsetSeconds ?? 0,
     });
 
     sendJson(
@@ -1155,7 +1200,9 @@ export function createAppServer({
         ? "Invalid track name."
         : Object.hasOwn(input, "musicalPlacement")
           ? "Invalid track musical placement."
-          : "Invalid track details.";
+          : Object.hasOwn(input, "alignmentOffsetSeconds")
+            ? "Invalid track alignment offset."
+            : "Invalid track details.";
       sendJson(res, 400, { ok: false, error }, clientOrigin);
       return;
     }
@@ -1169,6 +1216,9 @@ export function createAppServer({
           : {}),
         ...(parsedBody.musicalPlacement !== undefined
           ? { musicalPlacement: parsedBody.musicalPlacement }
+          : {}),
+        ...(parsedBody.alignmentOffsetSeconds !== undefined
+          ? { alignmentOffsetSeconds: parsedBody.alignmentOffsetSeconds }
           : {}),
       },
     );

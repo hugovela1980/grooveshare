@@ -343,6 +343,61 @@ tester.describe("WebAudioPlaybackEngine", () => {
     engine.destroy?.();
   });
 
+  tester.it("applies signed source alignment without changing authoritative musical placement", async () => {
+    const positiveHarness = createEngineHarness();
+    positiveHarness.engine.loadMix([{
+      channelNumber: 1,
+      trackId: "late-take",
+      audioUrl: "/recorded-take.webm",
+      volume: 1,
+      enabled: true,
+      musicalPlacement: { start: { bar: 2, beat: 1 }, spanBeats: 4 },
+      alignmentOffsetSeconds: 0.16,
+    }]);
+    await positiveHarness.engine.play();
+
+    tester.expect(positiveHarness.audioContext.sources[0]?.startWhen).toBe(12.03);
+    tester.expect(positiveHarness.audioContext.sources[0]?.startOffset).toBe(0.16);
+    tester.expect(positiveHarness.engine.getSnapshot().duration).toBe(3.84);
+    positiveHarness.engine.destroy?.();
+
+    const negativeHarness = createEngineHarness();
+    negativeHarness.engine.loadMix([{
+      channelNumber: 1,
+      trackId: "early-take",
+      audioUrl: "/recorded-take.webm",
+      volume: 1,
+      enabled: true,
+      musicalPlacement: { start: { bar: 2, beat: 1 }, spanBeats: 4 },
+      alignmentOffsetSeconds: -0.032,
+    }]);
+    await negativeHarness.engine.play();
+
+    tester.expect(negativeHarness.audioContext.sources[0]?.startWhen).toBe(12.062);
+    tester.expect(
+      Math.abs(negativeHarness.audioContext.sources[0]?.startOffset ?? 0) < 0.000001,
+    ).toBe(true);
+    tester.expect(negativeHarness.engine.getSnapshot().duration).toBe(4.032);
+    negativeHarness.engine.destroy?.();
+  });
+
+  tester.it("starts capture-safe recording playback without the normal playback scheduling lead", async () => {
+    const { audioContext, engine } = createEngineHarness();
+    engine.loadMix(twoChannelMix);
+    audioContext.currentTime = 20;
+
+    const marker = await engine.startSynchronizedRecordingPlayback?.();
+
+    tester.expect(marker?.audioContextTimeSeconds).toBe(20);
+    tester.expect(marker?.projectPositionSeconds).toBe(0);
+    tester.expect(marker?.musicalPosition).toEqual({ bar: 1, beat: 1 });
+    tester.expect(audioContext.sources[0]?.startWhen).toBe(20);
+    tester.expect(audioContext.sources[1]?.startWhen).toBe(20);
+    tester.expect(engine.getSnapshot().isPlaying).toBe(true);
+
+    engine.destroy?.();
+  });
+
   tester.it("pauses and resumes all tracks from the same transport position", async () => {
     const { audioContext, engine } = createEngineHarness();
 

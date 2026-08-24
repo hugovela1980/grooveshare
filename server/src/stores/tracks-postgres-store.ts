@@ -23,6 +23,7 @@ type TrackRow = {
     musical_start_bar: number;
     musical_start_beat: number;
     musical_span_beats: number | null;
+    alignment_offset_seconds: number;
     created_at: Date;
 };
 
@@ -45,6 +46,7 @@ function trackRowToTrack(
             },
             spanBeats: row.musical_span_beats,
         },
+        alignmentOffsetSeconds: row.alignment_offset_seconds,
         createdAt: row.created_at.toISOString(),
     };
 }
@@ -70,6 +72,7 @@ export function createTracksPostgresStore(
             musical_start_bar,
             musical_start_beat,
             musical_span_beats,
+            alignment_offset_seconds,
             created_at
           FROM tracks
           WHERE project_id = $1
@@ -100,6 +103,7 @@ export function createTracksPostgresStore(
             musical_start_bar,
             musical_start_beat,
             musical_span_beats,
+            alignment_offset_seconds,
             created_at
           FROM tracks
           WHERE project_id = $1
@@ -138,6 +142,7 @@ export function createTracksPostgresStore(
             musical_start_bar,
             musical_start_beat,
             musical_span_beats,
+            alignment_offset_seconds,
             created_at
           )
           VALUES (
@@ -152,6 +157,7 @@ export function createTracksPostgresStore(
             $9,
             $10,
             $11,
+            $12,
             NOW()
           )
           RETURNING
@@ -166,6 +172,7 @@ export function createTracksPostgresStore(
             musical_start_bar,
             musical_start_beat,
             musical_span_beats,
+            alignment_offset_seconds,
             created_at
         `,
                 [
@@ -180,6 +187,7 @@ export function createTracksPostgresStore(
                     trackInput.musicalPlacement?.start.bar ?? 1,
                     trackInput.musicalPlacement?.start.beat ?? 1,
                     trackInput.musicalPlacement?.spanBeats ?? null,
+                    trackInput.alignmentOffsetSeconds ?? 0,
                 ],
             );
 
@@ -228,7 +236,8 @@ export function createTracksPostgresStore(
             musical_span_beats = CASE
               WHEN $6::boolean THEN $7
               ELSE musical_span_beats
-            END
+            END,
+            alignment_offset_seconds = COALESCE($8, alignment_offset_seconds)
           WHERE project_id = $1
             AND id = $2
           RETURNING
@@ -243,6 +252,7 @@ export function createTracksPostgresStore(
             musical_start_bar,
             musical_start_beat,
             musical_span_beats,
+            alignment_offset_seconds,
             created_at
         `,
                 [
@@ -253,6 +263,7 @@ export function createTracksPostgresStore(
                     placement?.start.beat ?? null,
                     placement !== undefined,
                     placement?.spanBeats ?? null,
+                    trackInput.alignmentOffsetSeconds ?? null,
                 ],
             );
 
@@ -332,6 +343,7 @@ export function createTracksPostgresStore(
             musical_start_bar,
             musical_start_beat,
             musical_span_beats,
+            alignment_offset_seconds,
             created_at
         `,
                     [

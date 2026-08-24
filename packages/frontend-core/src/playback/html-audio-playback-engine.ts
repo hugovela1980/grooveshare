@@ -5,6 +5,11 @@ import {
   transportSecondsToMusicalPosition,
 } from "../timeline/musical-timeline.js";
 import { getTrackTimelineOffsetSeconds } from "./recording-timeline.js";
+import {
+  getAlignedSourceOffsetSeconds,
+  getTrackSourceAlignmentWindow,
+  normalizeTrackAlignmentOffsetSeconds,
+} from "./track-source-alignment.js";
 import type {
   PlaybackChannel,
   PlaybackEngine,
@@ -78,14 +83,27 @@ export function createHtmlAudioPlaybackEngine({
     return getTrackTimelineOffsetSeconds(channel, normalizedMusicalTimeline);
   }
 
+  function getChannelAlignmentWindow(
+    channel: PlaybackChannel,
+    audioElement: HtmlAudioElementLike,
+  ) {
+    return getTrackSourceAlignmentWindow({
+      trackStartSeconds: getChannelOffset(channel),
+      sourceDurationSeconds: isUsableDuration(audioElement.duration)
+        ? audioElement.duration
+        : 0,
+      alignmentOffsetSeconds: channel.alignmentOffsetSeconds,
+    });
+  }
+
   function getMixDuration(): number {
-    return loadedChannels.reduce((longestDuration, loadedChannel) => {
-      const duration = loadedChannel.audioElement.duration;
+    return loadedChannels.reduce((longestDuration, { channel, audioElement }) => {
+      const duration = audioElement.duration;
 
       return isUsableDuration(duration)
         ? Math.max(
             longestDuration,
-            getChannelOffset(loadedChannel.channel) + duration,
+            getChannelAlignmentWindow(channel, audioElement).projectEndSeconds,
           )
         : longestDuration;
     }, 0);
@@ -94,18 +112,23 @@ export function createHtmlAudioPlaybackEngine({
   function getTransportCurrentTime(): number {
     const longestDuration = getMixDuration();
     const activeOrAdvancedChannels = loadedChannels.filter(({ channel, audioElement }) => {
+      const alignmentWindow = getChannelAlignmentWindow(channel, audioElement);
       return !audioElement.paused ||
         audioElement.currentTime > 0 ||
-        getChannelOffset(channel) === 0;
+        alignmentWindow.projectStartSeconds === 0;
     });
     const furthestCurrentTime = activeOrAdvancedChannels.reduce(
       (furthestTime, { channel, audioElement }) => {
-        return isUsableCurrentTime(audioElement.currentTime)
-          ? Math.max(
-              furthestTime,
-              getChannelOffset(channel) + audioElement.currentTime,
-            )
-          : furthestTime;
+        if (!isUsableCurrentTime(audioElement.currentTime)) {
+          return furthestTime;
+        }
+
+        const projectTime =
+          getChannelOffset(channel) +
+          audioElement.currentTime -
+          normalizeTrackAlignmentOffsetSeconds(channel.alignmentOffsetSeconds);
+
+        return Math.max(furthestTime, Math.max(0, projectTime));
       },
       0,
     );
@@ -119,14 +142,31 @@ export function createHtmlAudioPlaybackEngine({
     audioElement: HtmlAudioElementLike,
     currentTime: number,
   ): void {
-    audioElement.currentTime = isUsableDuration(audioElement.duration)
+    const nextCurrentTime = isUsableDuration(audioElement.duration)
       ? Math.min(audioElement.duration, currentTime)
       : currentTime;
+
+    if (
+      isUsableCurrentTime(audioElement.currentTime) &&
+      Math.abs(audioElement.currentTime - nextCurrentTime) < END_EPSILON_SECONDS
+    ) {
+      return;
+    }
+
+    audioElement.currentTime = nextCurrentTime;
   }
 
   function setAllCurrentTimes(projectTime: number): void {
     for (const { channel, audioElement } of loadedChannels) {
-      const localTime = Math.max(0, projectTime - getChannelOffset(channel));
+      const alignmentWindow = getChannelAlignmentWindow(channel, audioElement);
+      const localTime =
+        projectTime < alignmentWindow.projectStartSeconds
+          ? 0
+          : getAlignedSourceOffsetSeconds({
+              projectTimeSeconds: projectTime,
+              trackStartSeconds: getChannelOffset(channel),
+              alignmentOffsetSeconds: channel.alignmentOffsetSeconds,
+            });
       setAudioElementCurrentTime(audioElement, localTime);
     }
   }
@@ -140,7 +180,8 @@ export function createHtmlAudioPlaybackEngine({
 
   function scheduleFutureChannels(projectTime: number): void {
     for (const { channel, audioElement } of loadedChannels) {
-      const channelStart = getChannelOffset(channel);
+      const alignmentWindow = getChannelAlignmentWindow(channel, audioElement);
+      const channelStart = alignmentWindow.projectStartSeconds;
       if (channelStart <= projectTime || !audioElement.paused) {
         continue;
       }
@@ -151,7 +192,8 @@ export function createHtmlAudioPlaybackEngine({
         if (!playbackRequested) {
           return;
         }
-        audioElement.currentTime = 0;
+        audioElement.currentTime =
+          alignmentWindow.sourceOffsetAtProjectStartSeconds;
         void audioElement.play().then(notify);
       }, delayMs);
       delayedStartTimeouts.add(timeout);
@@ -206,9 +248,11 @@ export function createHtmlAudioPlaybackEngine({
     const projectTime = getTransportCurrentTime();
     playbackRequested = true;
     clearDelayedStarts();
+    setAllCurrentTimes(projectTime);
 
     const playableNow = loadedChannels.filter(({ channel, audioElement }) => {
-      const channelStart = getChannelOffset(channel);
+      const channelStart =
+        getChannelAlignmentWindow(channel, audioElement).projectStartSeconds;
       return channelStart <= projectTime + END_EPSILON_SECONDS &&
         (!isUsableDuration(audioElement.duration) ||
           audioElement.currentTime < audioElement.duration - END_EPSILON_SECONDS);
@@ -264,7 +308,8 @@ export function createHtmlAudioPlaybackEngine({
 
     if (shouldResumePlayback) {
       for (const { channel, audioElement } of loadedChannels) {
-        const channelStart = getChannelOffset(channel);
+        const channelStart =
+          getChannelAlignmentWindow(channel, audioElement).projectStartSeconds;
         const canPlayNow =
           channelStart <= nextTime + END_EPSILON_SECONDS &&
           (!isUsableDuration(audioElement.duration) ||

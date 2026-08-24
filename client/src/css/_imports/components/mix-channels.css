@@ -13,7 +13,7 @@
 }
 
 .mix-channel-slots {
-    --channel-width: 8rem;
+    --channel-width: 12rem;
 
     display: grid;
     grid-template-columns: repeat(auto-fit, var(--channel-width));
@@ -139,10 +139,26 @@
     display: flex;
     width: 100%;
     min-width: 0;
-    justify-content: center;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
     padding: 0.25rem 0.35rem;
     border: 1px solid transparent;
     border-radius: var(--radius-sm);
+}
+
+.mix-channel-slot__editable-name label {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    min-width: 0;
+    gap: 0.25rem;
+}
+
+.mix-channel-slot__editable-name label input {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
 }
 
 .mix-channel-slot__editable-name--enabled:hover,
@@ -267,6 +283,7 @@
 }
 
 @media (max-width: 34rem) {
+
     .mix-channel-slot,
     .mix-channel-slot--empty .mix-channel-slot__channel-cell {
         min-height: 20rem;

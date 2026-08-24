@@ -12,7 +12,8 @@
 .microphone-recording__details .eyebrow,
 .microphone-recording__details h2,
 .microphone-recording__hint,
-.microphone-recording__status {
+.microphone-recording__status,
+.microphone-recording__alignment-hint {
     margin: 0;
 }
 
@@ -20,17 +21,54 @@
     font-size: 1.05rem;
 }
 
-.microphone-recording__hint {
+.microphone-recording__hint,
+.microphone-recording__alignment-hint {
     color: var(--color-text-muted-cool);
     line-height: 1.45;
 }
 
+.microphone-recording__alignment {
+    display: grid;
+    gap: 0.55rem;
+    padding: 0.75rem;
+    border: 1px solid var(--color-border);
+    border-radius: 0.65rem;
+}
+
+.microphone-recording__alignment-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.microphone-recording__alignment-header span {
+    font-variant-numeric: tabular-nums;
+}
+
+.microphone-recording__alignment-hint {
+    font-size: 0.82rem;
+}
+
+.microphone-recording__alignment-actions,
 .microphone-recording__actions {
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
     gap: 0.65rem;
 }
 
+.microphone-recording__alignment-actions .button {
+    padding-inline: 0.7rem;
+}
+
+.microphone-recording__alignment-label {
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.microphone-recording__alignment-actions .button:disabled,
 .microphone-recording__actions .button:disabled {
     cursor: not-allowed;
     opacity: 0.5;
@@ -50,24 +88,4 @@
 
 .microphone-recording__take-name[hidden] {
     display: none;
-}
-
-.microphone-recording__diagnostic-option {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    width: fit-content;
-    font-size: 0.9rem;
-    font-weight: 600;
-}
-
-.microphone-recording__diagnostic-option input {
-    margin: 0;
-}
-
-.microphone-recording__diagnostic-hint {
-    margin: -0.5rem 0 0;
-    color: var(--color-text-muted-cool);
-    font-size: 0.82rem;
-    line-height: 1.4;
 }

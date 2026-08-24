@@ -465,6 +465,125 @@ tester.describe("project API routes", () => {
     }
   });
 
+  tester.it("uploads recorded-take musical placement with a signed alignment offset", async () => {
+    const { baseUrl, server, request } = await createTestServer();
+    const boundary = "----GrooveShareRecordedTakeAlignmentBoundary";
+    const fileData = Buffer.from("recorded take", "utf-8");
+
+    try {
+      const createProjectResponse = await request(`${baseUrl}/api/projects`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: "Recorded Take Alignment",
+          description: "Alignment persistence test",
+          musicalTimeline: {
+            bpm: 120,
+            timeSignature: { numerator: 4, denominator: 4 },
+          },
+        }),
+      });
+      const createProjectBody =
+        (await createProjectResponse.json()) as ApiResponse<Project>;
+      const projectId = createProjectBody.data?.id;
+      if (!projectId) throw new Error("Created project did not include an ID.");
+
+      const multipartBody = createMultipartBody({
+        boundary,
+        parts: [
+          createTextPart({ boundary, name: "trackName", value: "Aligned Take" }),
+          createTextPart({ boundary, name: "musicalStartBar", value: "3" }),
+          createTextPart({ boundary, name: "musicalStartBeat", value: "2.5" }),
+          createTextPart({ boundary, name: "musicalSpanBeats", value: "8" }),
+          createTextPart({ boundary, name: "alignmentOffsetSeconds", value: "0.163" }),
+          createFilePart({
+            boundary,
+            fieldName: "audioFile",
+            filename: "aligned-take.webm",
+            mimeType: "audio/webm",
+            data: fileData,
+          }),
+        ],
+      });
+
+      const uploadResponse = await request(
+        `${baseUrl}/api/projects/${projectId}/tracks`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": `multipart/form-data; boundary=${boundary}`,
+          },
+          body: bufferToArrayBuffer(multipartBody),
+        },
+      );
+      const uploadBody = (await uploadResponse.json()) as ApiResponse<Track>;
+
+      tester.expect(uploadResponse.status).toBe(201);
+      tester.expect(uploadBody.data?.musicalPlacement).toEqual({
+        start: { bar: 3, beat: 2.5 },
+        spanBeats: 8,
+      });
+      tester.expect(uploadBody.data?.alignmentOffsetSeconds).toBe(0.163);
+
+      const tracksResponse = await request(
+        `${baseUrl}/api/projects/${projectId}/tracks`,
+      );
+      const tracksBody = (await tracksResponse.json()) as ApiResponse<Track[]>;
+      tester.expect(tracksBody.data?.[0]?.alignmentOffsetSeconds).toBe(0.163);
+    } finally {
+      await closeServer(server);
+    }
+  });
+
+  tester.it("rejects an uploaded alignment offset outside the Version 3 manual range", async () => {
+    const { baseUrl, server, request } = await createTestServer();
+    const boundary = "----GrooveShareInvalidAlignmentBoundary";
+
+    try {
+      const createProjectResponse = await request(`${baseUrl}/api/projects`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: "Invalid Alignment",
+          description: "Validation test",
+        }),
+      });
+      const createProjectBody =
+        (await createProjectResponse.json()) as ApiResponse<Project>;
+      const projectId = createProjectBody.data?.id;
+      if (!projectId) throw new Error("Created project did not include an ID.");
+
+      const multipartBody = createMultipartBody({
+        boundary,
+        parts: [
+          createTextPart({ boundary, name: "trackName", value: "Too Far" }),
+          createTextPart({ boundary, name: "alignmentOffsetSeconds", value: "2.5" }),
+          createFilePart({
+            boundary,
+            fieldName: "audioFile",
+            filename: "too-far.webm",
+            mimeType: "audio/webm",
+            data: Buffer.from("audio", "utf-8"),
+          }),
+        ],
+      });
+
+      const response = await request(`${baseUrl}/api/projects/${projectId}/tracks`, {
+        method: "POST",
+        headers: {
+          "Content-Type": `multipart/form-data; boundary=${boundary}`,
+        },
+        body: bufferToArrayBuffer(multipartBody),
+      });
+      const body = (await response.json()) as ApiResponse<unknown>;
+
+      tester.expect(response.status).toBe(400);
+      tester.expect(body.error).toBe("Invalid track alignment offset.");
+    } finally {
+      await closeServer(server);
+    }
+  });
+
   tester.it("returns 404 when uploading a track for a missing project", async () => {
     const { baseUrl, server, request } = await createTestServer();
     const boundary = "----GrooveShareBoundary";
@@ -1864,6 +1983,7 @@ tester.describe("project API routes", () => {
               start: { bar: 7, beat: 2.5 },
               spanBeats: 12,
             },
+            alignmentOffsetSeconds: 0.163,
           }),
         },
       );
@@ -1875,6 +1995,7 @@ tester.describe("project API routes", () => {
         start: { bar: 7, beat: 2.5 },
         spanBeats: 12,
       });
+      tester.expect(body.data?.alignmentOffsetSeconds).toBe(0.163);
 
       const tracksResponse = await request(
         `${baseUrl}/api/projects/project-1/tracks`,
@@ -1885,6 +2006,7 @@ tester.describe("project API routes", () => {
         start: { bar: 7, beat: 2.5 },
         spanBeats: 12,
       });
+      tester.expect(tracksBody.data?.[0]?.alignmentOffsetSeconds).toBe(0.163);
     } finally {
       await closeServer(server);
     }

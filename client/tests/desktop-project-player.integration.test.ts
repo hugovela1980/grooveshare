@@ -59,6 +59,7 @@ tester.describe("desktop Project Player integration", () => {
     tester.expect(pageMarkup.includes("Collaboration Link")).toBe(true);
     tester.expect(pageMarkup.includes("project-edit-modal")).toBe(false);
     tester.expect(pageMarkup.includes('id="microphone-arm-button"')).toBe(true);
+    tester.expect(pageMarkup.includes("For the cleanest recording, use wired headphones")).toBe(true);
     tester.expect(mixerMarkup.includes("data-track-name-editor")).toBe(true);
     tester.expect(mixerMarkup.includes('contenteditable="true"')).toBe(true);
     tester.expect(mixerMarkup.includes("data-track-edit-button")).toBe(false);

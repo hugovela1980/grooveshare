@@ -91,6 +91,7 @@ type MixChannelForPlayer = {
     volume: number;
     enabled: boolean;
     timelineOffsetSeconds?: number;
+    alignmentOffsetSeconds?: number;
     musicalPlacement?: {
         start: { bar: number; beat: number };
         spanBeats: number | null;
@@ -507,6 +508,9 @@ export function createProjectPlayerPageController({
                     enabled: channel.enabled,
                     ...(track.timelineOffsetSeconds !== undefined
                         ? { timelineOffsetSeconds: track.timelineOffsetSeconds }
+                        : {}),
+                    ...(track.alignmentOffsetSeconds !== undefined
+                        ? { alignmentOffsetSeconds: track.alignmentOffsetSeconds }
                         : {}),
                     ...(track.musicalPlacement
                         ? {

@@ -139,6 +139,15 @@ export {
   type RecordingAlignmentDiagnosticTrace,
 } from "./recording/recording-alignment-diagnostics.js";
 export {
+  MAX_RECORDING_ALIGNMENT_COMPENSATION_MILLISECONDS,
+  MIN_RECORDING_ALIGNMENT_COMPENSATION_MILLISECONDS,
+  RECORDING_ALIGNMENT_COMPENSATION_STORAGE_KEY,
+  loadRecordingAlignmentCompensationMilliseconds,
+  normalizeRecordingAlignmentCompensationMilliseconds,
+  recordingAlignmentCompensationMillisecondsToSeconds,
+  saveRecordingAlignmentCompensationMilliseconds,
+} from "./recording/recording-alignment-compensation.js";
+export {
   createMicrophoneRecordingSession,
   type MicrophoneRecordedTake,
   type MicrophoneRecordingSession,
@@ -170,6 +179,12 @@ export {
   type TransportStateListener,
   type TransportTimelineMarker,
 } from "./playback/transport.js";
+export {
+  getAlignedSourceOffsetSeconds,
+  getTrackSourceAlignmentWindow,
+  normalizeTrackAlignmentOffsetSeconds,
+  type TrackSourceAlignmentWindow,
+} from "./playback/track-source-alignment.js";
 export {
   DEFAULT_TRACK_TIMELINE_OFFSET_SECONDS,
   createRecordingTimeline,

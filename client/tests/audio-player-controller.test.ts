@@ -278,6 +278,38 @@ tester.describe("audio player controller", () => {
         tester.expect(playPauseButton.textContent).toBe("▶");
     });
 
+    tester.it("preserves the go-to-bar value when the mix reloads after recording changes", () => {
+        const { controller, seekBarInput } = createControllerTestSetup();
+
+        controller.init();
+        seekBarInput.value = "12";
+        controller.loadMix([{
+            channelNumber: 1,
+            trackId: "track-1",
+            name: "Guitar Take",
+            audioUrl: "/guitar.wav",
+            volume: 1,
+        }]);
+
+        tester.expect(seekBarInput.value).toBe("12");
+
+        controller.loadMix([{
+            channelNumber: 1,
+            trackId: "track-1",
+            name: "Guitar Take",
+            audioUrl: "/guitar.wav",
+            volume: 1,
+        }, {
+            channelNumber: 2,
+            trackId: "recorded-track",
+            name: "Recorded Take",
+            audioUrl: "/recorded.webm",
+            volume: 1,
+        }]);
+
+        tester.expect(seekBarInput.value).toBe("12");
+    });
+
     tester.it("shows the shared musical position and jumps to a requested bar", async () => {
         const {
             controller,

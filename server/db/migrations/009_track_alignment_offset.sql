@@ -1,0 +1,2 @@
+ALTER TABLE tracks
+ADD COLUMN alignment_offset_seconds DOUBLE PRECISION NOT NULL DEFAULT 0;

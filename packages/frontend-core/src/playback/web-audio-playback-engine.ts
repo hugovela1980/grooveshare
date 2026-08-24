@@ -6,6 +6,10 @@ import {
   transportSecondsToMusicalPosition,
 } from "../timeline/musical-timeline.js";
 import { getTrackTimelineOffsetSeconds } from "./recording-timeline.js";
+import {
+  getAlignedSourceOffsetSeconds,
+  getTrackSourceAlignmentWindow,
+} from "./track-source-alignment.js";
 import type {
   PlaybackChannel,
   PlaybackEngine,
@@ -16,7 +20,10 @@ import {
   createTransport,
   type PlaybackScheduleInstruction,
 } from "./transport.js";
-import { createRecordingTimeline } from "./recording-timeline.js";
+import {
+  createRecordingTimeline,
+  type RecordingStartMarker,
+} from "./recording-timeline.js";
 
 type AudioBufferLike = {
   duration: number;
@@ -222,12 +229,21 @@ export function createWebAudioPlaybackEngine(
     return loadedChannels.reduce((longestDuration, { channel, buffer }) => {
       const duration = buffer?.duration ?? 0;
 
-      return Number.isFinite(duration) && duration > 0
-        ? Math.max(
-            longestDuration,
-            getTrackTimelineOffsetSeconds(channel, normalizedMusicalTimeline) + duration,
-          )
-        : longestDuration;
+      if (!Number.isFinite(duration) || duration <= 0) {
+        return longestDuration;
+      }
+
+      const trackStartPosition = getTrackTimelineOffsetSeconds(
+        channel,
+        normalizedMusicalTimeline,
+      );
+      const alignmentWindow = getTrackSourceAlignmentWindow({
+        trackStartSeconds: trackStartPosition,
+        sourceDurationSeconds: duration,
+        alignmentOffsetSeconds: channel.alignmentOffsetSeconds,
+      });
+
+      return Math.max(longestDuration, alignmentWindow.projectEndSeconds);
     }, 0);
   }
 
@@ -487,15 +503,29 @@ export function createWebAudioPlaybackEngine(
         loadedChannel.channel,
         normalizedMusicalTimeline,
       );
-      const trackEndPosition = trackStartPosition + (buffer?.duration ?? 0);
-      const sourceProjectStart = Math.max(playbackPosition, trackStartPosition);
-      const sourceOffset = sourceProjectStart - trackStartPosition;
+
+      if (!buffer || !gainNode) {
+        continue;
+      }
+
+      const alignmentWindow = getTrackSourceAlignmentWindow({
+        trackStartSeconds: trackStartPosition,
+        sourceDurationSeconds: buffer.duration,
+        alignmentOffsetSeconds: loadedChannel.channel.alignmentOffsetSeconds,
+      });
+      const sourceProjectStart = Math.max(
+        playbackPosition,
+        alignmentWindow.projectStartSeconds,
+      );
+      const sourceOffset = getAlignedSourceOffsetSeconds({
+        projectTimeSeconds: sourceProjectStart,
+        trackStartSeconds: trackStartPosition,
+        alignmentOffsetSeconds: loadedChannel.channel.alignmentOffsetSeconds,
+      });
 
       if (
-        !buffer ||
-        !gainNode ||
         sourceProjectStart >= instructionEndPosition - END_EPSILON_SECONDS ||
-        sourceProjectStart >= trackEndPosition - END_EPSILON_SECONDS ||
+        sourceProjectStart >= alignmentWindow.projectEndSeconds - END_EPSILON_SECONDS ||
         sourceOffset >= buffer.duration - END_EPSILON_SECONDS
       ) {
         continue;
@@ -606,15 +636,17 @@ export function createWebAudioPlaybackEngine(
     }
   }
 
-  function scheduleAndStartSources(leadTimeSeconds: number): void {
+  function scheduleAndStartSources(
+    leadTimeSeconds: number,
+  ): PlaybackScheduleInstruction | null {
     if (!hasReadyChannels()) {
-      return;
+      return null;
     }
 
     const instruction = transport.play({ leadTimeSeconds });
 
     if (!instruction) {
-      return;
+      return null;
     }
 
     const activeDiagnosticAttemptId =
@@ -648,7 +680,7 @@ export function createWebAudioPlaybackEngine(
 
     if (!generation) {
       transport.complete();
-      return;
+      return null;
     }
 
     lastScheduledLoopInstruction = instruction;
@@ -656,6 +688,8 @@ export function createWebAudioPlaybackEngine(
     if (instruction.loopEnabled) {
       maintainLoopSchedule(true);
     }
+
+    return instruction;
   }
 
   async function play(): Promise<void> {
@@ -677,6 +711,48 @@ export function createWebAudioPlaybackEngine(
     }
 
     scheduleAndStartSources(PLAYBACK_START_LEAD_SECONDS);
+  }
+
+  async function startSynchronizedRecordingPlayback(): Promise<RecordingStartMarker> {
+    if (destroyed) {
+      throw new Error("Playback engine has been destroyed.");
+    }
+
+    await loadingPromise;
+
+    if (!hasReadyChannels()) {
+      throw new Error(
+        "Load at least one project track before starting synchronized recording.",
+      );
+    }
+
+    if (transport.getSnapshot().playbackState === "playing") {
+      return recordingTimeline.markStart();
+    }
+
+    if (audioContext.state !== "running") {
+      await audioContext.resume();
+    }
+
+    // Recording capture is already active before this method is called. A zero
+    // scheduling lead avoids adding GrooveShare's normal 30 ms playback lead
+    // to the recorded source as artificial pre-roll.
+    const instruction = scheduleAndStartSources(0);
+
+    if (!instruction) {
+      throw new Error("Project playback could not start for synchronized recording.");
+    }
+
+    return {
+      kind: "recording-start",
+      projectPositionSeconds: instruction.projectPositionSeconds,
+      musicalPosition: transportSecondsToMusicalPosition(
+        normalizedMusicalTimeline,
+        instruction.projectPositionSeconds,
+      ),
+      audioContextTimeSeconds: instruction.startAtClockTime,
+      playbackState: "playing",
+    };
   }
 
   function pause(): void {
@@ -866,6 +942,7 @@ export function createWebAudioPlaybackEngine(
   return {
     loadMix,
     play,
+    startSynchronizedRecordingPlayback,
     pause,
     stop,
     seek,

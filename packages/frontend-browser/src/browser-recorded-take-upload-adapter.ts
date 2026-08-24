@@ -60,7 +60,13 @@ export function createBrowserRecordedTakeUploadAdapter({
   FileConstructor = getDefaultFileConstructor(),
 }: BrowserRecordedTakeUploadAdapterOptions): RecordedTakeUploadPort {
   return {
-    async upload({ projectId, trackName, capture, musicalPlacement }) {
+    async upload({
+      projectId,
+      trackName,
+      capture,
+      musicalPlacement,
+      alignmentOffsetSeconds,
+    }) {
       if (!FileConstructor) {
         throw new Error("Browser file uploads are unavailable in this environment.");
       }
@@ -79,6 +85,7 @@ export function createBrowserRecordedTakeUploadAdapter({
           start: { ...musicalPlacement.start },
           spanBeats: musicalPlacement.spanBeats,
         },
+        alignmentOffsetSeconds,
       });
     },
   };

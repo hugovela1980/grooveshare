@@ -52,6 +52,7 @@ tester.describe("browser recorded-take upload adapter", () => {
         start: { bar: 3, beat: 2.5 },
         spanBeats: 6.25,
       },
+      alignmentOffsetSeconds: 0.032,
     });
 
     const uploadInput = uploadInputs[0];
@@ -62,6 +63,7 @@ tester.describe("browser recorded-take upload adapter", () => {
       start: { bar: 3, beat: 2.5 },
       spanBeats: 6.25,
     });
+    tester.expect(uploadInput?.alignmentOffsetSeconds).toBe(0.032);
     tester.expect(audioFile?.name).toBe("Lead - Harmony.webm");
     tester.expect(audioFile?.type).toBe("audio/webm");
     tester.expect(audioFile?.bits.length).toBe(1);
@@ -97,6 +99,7 @@ tester.describe("browser recorded-take upload adapter", () => {
           start: { bar: 1, beat: 1 },
           spanBeats: 1,
         },
+        alignmentOffsetSeconds: 0,
       });
     } catch (error) {
       message = error instanceof Error ? error.message : String(error);

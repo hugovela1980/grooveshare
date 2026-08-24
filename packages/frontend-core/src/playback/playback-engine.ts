@@ -17,6 +17,8 @@ export type PlaybackChannel = {
   timelineOffsetSeconds?: number;
   /** Persisted musical placement. Authoritative when the project timeline is available. */
   musicalPlacement?: TrackMusicalPlacement;
+  /** Signed source-to-project alignment correction in seconds. */
+  alignmentOffsetSeconds?: number;
 };
 
 export type PlaybackSnapshot = {
@@ -54,6 +56,13 @@ export interface PlaybackEngine {
    * Available on recording-capable engines backed by an authoritative audio
    * clock. The HTML fallback intentionally leaves these undefined.
    */
+  /**
+   * Start project playback for a new stopped-transport recording pass and
+   * return the exact scheduled project/audio-clock marker. Recording sessions
+   * use this only after microphone capture has actually entered its recording
+   * state so the first project transient cannot outrun MediaRecorder startup.
+   */
+  startSynchronizedRecordingPlayback?(): Promise<RecordingStartMarker>;
   markRecordingStart?(): RecordingStartMarker;
   markRecordingStop?(start: RecordingStartMarker): RecordingTimelineResult;
   destroy?(): void;

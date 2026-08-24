@@ -5,6 +5,8 @@ import {
   createProjectDraftState,
   createWebAudioPlaybackEngine,
   getProjectMusicalTimeline,
+  loadRecordingAlignmentCompensationMilliseconds,
+  saveRecordingAlignmentCompensationMilliseconds,
   type ApplicationNavigationOptions,
   type ApplicationPresentationPort,
   type InvitationSessionState,
@@ -636,9 +638,37 @@ function initializeProjectPlayerPage({
     appElement,
     "#microphone-recording-status",
   );
-  const microphoneRawDiagnosticCheckbox = getElement<HTMLInputElement>(
+  const microphoneAlignmentValueElement = getElement<HTMLElement>(
     appElement,
-    "#microphone-raw-diagnostic-checkbox",
+    "#microphone-alignment-value",
+  );
+  const microphoneAlignmentEarlier100Button = getElement<HTMLButtonElement>(
+    appElement,
+    "#microphone-alignment-earlier-100",
+  );
+  const microphoneAlignmentEarlier10Button = getElement<HTMLButtonElement>(
+    appElement,
+    "#microphone-alignment-earlier-10",
+  );
+  const microphoneAlignmentEarlier1Button = getElement<HTMLButtonElement>(
+    appElement,
+    "#microphone-alignment-earlier-1",
+  );
+  const microphoneAlignmentResetButton = getElement<HTMLButtonElement>(
+    appElement,
+    "#microphone-alignment-reset",
+  );
+  const microphoneAlignmentLater1Button = getElement<HTMLButtonElement>(
+    appElement,
+    "#microphone-alignment-later-1",
+  );
+  const microphoneAlignmentLater10Button = getElement<HTMLButtonElement>(
+    appElement,
+    "#microphone-alignment-later-10",
+  );
+  const microphoneAlignmentLater100Button = getElement<HTMLButtonElement>(
+    appElement,
+    "#microphone-alignment-later-100",
   );
   const recordingRole = selectedProject.role ?? null;
   const recordingSession =
@@ -656,17 +686,6 @@ function initializeProjectPlayerPage({
           role: recordingRole,
           recordingPort: createBrowserMicrophoneRecordingAdapter({
             recordingAlignmentDiagnostics,
-            getPcmAlignmentDiagnosticsEnabled: () =>
-              microphoneRawDiagnosticCheckbox?.checked ?? false,
-            getAudioConstraints: () =>
-              microphoneRawDiagnosticCheckbox?.checked
-                ? ({
-                    echoCancellation: false,
-                    noiseSuppression: false,
-                    autoGainControl: false,
-                    latency: { exact: 0.02 },
-                  } as MediaTrackConstraints & { latency: { exact: number } })
-                : true,
           }),
           takePlaybackPort: createBrowserRecordedTakePlaybackAdapter(),
           takeUploadPort: createBrowserRecordedTakeUploadAdapter({
@@ -676,6 +695,14 @@ function initializeProjectPlayerPage({
           playbackEngine,
           musicalTimeline,
           recordingAlignmentDiagnostics,
+          initialAlignmentCompensationMilliseconds:
+            loadRecordingAlignmentCompensationMilliseconds(storageProvider),
+          onAlignmentCompensationChanged(value) {
+            saveRecordingAlignmentCompensationMilliseconds(
+              value,
+              storageProvider,
+            );
+          },
         })
       : null;
   let refreshProjectTracks: (() => Promise<void>) | null = null;
@@ -700,6 +727,28 @@ function initializeProjectPlayerPage({
           keepButton: microphoneKeepButton,
           takeNameInput: microphoneTakeNameInput,
           statusElement: microphoneStatusElement,
+          alignmentValueElement: microphoneAlignmentValueElement ?? undefined,
+          alignmentNudgeControls: [
+            ...(microphoneAlignmentEarlier100Button
+              ? [{ button: microphoneAlignmentEarlier100Button, deltaMilliseconds: 100 }]
+              : []),
+            ...(microphoneAlignmentEarlier10Button
+              ? [{ button: microphoneAlignmentEarlier10Button, deltaMilliseconds: 10 }]
+              : []),
+            ...(microphoneAlignmentEarlier1Button
+              ? [{ button: microphoneAlignmentEarlier1Button, deltaMilliseconds: 1 }]
+              : []),
+            ...(microphoneAlignmentLater1Button
+              ? [{ button: microphoneAlignmentLater1Button, deltaMilliseconds: -1 }]
+              : []),
+            ...(microphoneAlignmentLater10Button
+              ? [{ button: microphoneAlignmentLater10Button, deltaMilliseconds: -10 }]
+              : []),
+            ...(microphoneAlignmentLater100Button
+              ? [{ button: microphoneAlignmentLater100Button, deltaMilliseconds: -100 }]
+              : []),
+          ],
+          alignmentResetButton: microphoneAlignmentResetButton ?? undefined,
           async onTakeKept() {
             await refreshProjectTracks?.();
           },

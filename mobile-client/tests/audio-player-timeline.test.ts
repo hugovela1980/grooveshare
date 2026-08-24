@@ -124,6 +124,37 @@ tester.describe("mobile musical timeline playback", () => {
     tester.expect(html.includes('id="audio-seek-bar-button"')).toBe(true);
   });
 
+  tester.it("preserves the go-to-bar value across mix reloads", () => {
+    const playback = createPlaybackHarness();
+    const seekBarInput = { disabled: true, value: "9" };
+    const controller = createAudioPlayerController({
+      playbackEngine: playback.engine,
+      seekBackwardButton: createButton(),
+      playPauseButton: createButton(),
+      stopButton: createButton(),
+      progressInput: createRangeInput(),
+      timestampElement: { textContent: null as string | null },
+      durationElement: { textContent: null as string | null },
+      musicalPositionElement: { textContent: null as string | null },
+      seekBarInput,
+      seekBarButton: createButton(),
+      trackNameElement: { textContent: null as string | null },
+      loopCheckbox: { checked: false },
+    });
+
+    controller.init();
+    controller.loadMix([{
+      channelNumber: 1,
+      trackId: "track-1",
+      name: "Guitar",
+      audioUrl: "/track-1.wav",
+      volume: 1,
+      enabled: true,
+    }]);
+
+    tester.expect(seekBarInput.value).toBe("9");
+  });
+
   tester.it("displays shared musical state and delegates bar jumps to the playback engine", async () => {
     const playback = createPlaybackHarness();
     const seekBackwardButton = createButton();

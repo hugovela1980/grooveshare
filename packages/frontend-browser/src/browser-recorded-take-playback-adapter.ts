@@ -23,6 +23,8 @@ type ObjectUrlApiLike = {
 export type BrowserRecordedTakePlaybackAdapterOptions = {
   createAudioElement?: (() => AudioElementLike) | null;
   objectUrlApi?: ObjectUrlApiLike | null;
+  scheduleTimeout?: (handler: () => void, milliseconds: number) => unknown;
+  clearScheduledTimeout?: (handle: unknown) => void;
 };
 
 function getDefaultAudioElementFactory(): (() => AudioElementLike) | null {
@@ -58,9 +60,14 @@ function toPlaybackFailure(error: unknown): RecordedTakePlaybackFailure {
 export function createBrowserRecordedTakePlaybackAdapter({
   createAudioElement = getDefaultAudioElementFactory(),
   objectUrlApi = getDefaultObjectUrlApi(),
+  scheduleTimeout = (handler, milliseconds) =>
+    globalThis.setTimeout(handler, milliseconds),
+  clearScheduledTimeout = (handle) =>
+    globalThis.clearTimeout(handle as ReturnType<typeof globalThis.setTimeout>),
 }: BrowserRecordedTakePlaybackAdapterOptions = {}): RecordedTakePlaybackPort {
   let audioElement: AudioElementLike | null = null;
   let objectUrl: string | null = null;
+  let delayedPlayHandle: unknown = null;
 
   function requireSupported(): {
     createAudioElement: () => AudioElementLike;
@@ -74,6 +81,11 @@ export function createBrowserRecordedTakePlaybackAdapter({
   }
 
   function cleanupCurrentPlayback(): void {
+    if (delayedPlayHandle !== null) {
+      clearScheduledTimeout(delayedPlayHandle);
+      delayedPlayHandle = null;
+    }
+
     const currentAudioElement = audioElement;
     const currentObjectUrl = objectUrl;
 
@@ -105,9 +117,11 @@ export function createBrowserRecordedTakePlaybackAdapter({
   async function play(
     capture: RecordedAudioCapture,
     {
+      alignmentOffsetSeconds = 0,
       onEnded,
       onFailure,
     }: {
+      alignmentOffsetSeconds?: number;
       onEnded?: () => void;
       onFailure?: (failure: RecordedTakePlaybackFailure) => void;
     } = {},
@@ -149,6 +163,44 @@ export function createBrowserRecordedTakePlaybackAdapter({
       cleanupCurrentPlayback();
       onFailure?.(failure);
     };
+
+    const normalizedAlignmentOffset = Number.isFinite(alignmentOffsetSeconds)
+      ? alignmentOffsetSeconds
+      : 0;
+    const sourceOffsetSeconds = Math.max(0, normalizedAlignmentOffset);
+    const delayMilliseconds = Math.max(0, -normalizedAlignmentOffset * 1000);
+
+    if (sourceOffsetSeconds > 0) {
+      try {
+        nextAudioElement.currentTime = sourceOffsetSeconds;
+      } catch {
+        // Browsers may defer a seek until media metadata is available. The
+        // audition remains usable; persisted Web Audio playback is authoritative.
+      }
+    }
+
+    const startPlayback = async (): Promise<void> => {
+      try {
+        await nextAudioElement.play();
+      } catch (error) {
+        if (audioElement === nextAudioElement) {
+          const failure = toPlaybackFailure(error);
+          cleanupCurrentPlayback();
+          onFailure?.(failure);
+        }
+      }
+    };
+
+    if (delayMilliseconds > 0) {
+      delayedPlayHandle = scheduleTimeout(() => {
+        delayedPlayHandle = null;
+        if (audioElement !== nextAudioElement) {
+          return;
+        }
+        void startPlayback();
+      }, delayMilliseconds);
+      return;
+    }
 
     try {
       await nextAudioElement.play();

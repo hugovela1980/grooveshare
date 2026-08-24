@@ -1,5 +1,7 @@
 # Recording Alignment Diagnostics
 
+> **Checkpoint 5A record:** This document preserves the diagnostic procedure and findings that led into 5B. Checkpoint 5B removes the temporary `Raw mic (diagnostic)` UI toggle and makes music-oriented unprocessed capture the normal browser request. The PCM/platform probes remain diagnostic infrastructure rather than musician-facing controls.
+
 Checkpoint 5A investigates where the audible recording offset enters the GrooveShare recording path. It intentionally does **not** compensate for latency or change take placement.
 
 ## What GrooveShare now records
@@ -249,9 +251,9 @@ reported input-latency setting from that remainder. It is diagnostic evidence,
 not a safe automatic compensation value. Browser latency properties are
 estimates and do not necessarily describe every platform buffer.
 
-### Exact-minimum input-constraint experiment
+### Exact-minimum input-constraint experiment (5A historical test)
 
-The temporary `Raw mic (diagnostic)` path now requests:
+During 5A, the temporary `Raw mic (diagnostic)` path requested:
 
 ```text
 latency: { exact: 0.02 }
@@ -291,7 +293,7 @@ Interpretation:
 This remains a Checkpoint 5A experiment. Do not turn 20 ms into a permanent
 platform assumption or compensation value from this test.
 
-### One-run Android procedure
+### One-run Android procedure used during 5A
 
 Use the phone for **both playback and recording** so the project schedule,
 output timestamp, microphone PCM, and MediaRecorder observations are all tied to
@@ -310,3 +312,16 @@ Do not compare an absolute transient offset from a phone recording a different
 computer's playback against this same-device trace. Those devices have
 independent clocks and independent start actions, so that recording is useful
 for stability/drift observations but not for absolute round-trip latency.
+
+## 5A conclusion and 5B handoff
+
+The controlled 5A tests support the following conclusions:
+
+- GrooveShare's authoritative musical timeline and take placement remained stable; no meaningful tempo-relative or progressive drift was found.
+- On Windows Edge with the tested Focusrite path, browser-default speech processing produced roughly 337 ms of click offset, while disabling echo cancellation, noise suppression, and automatic gain control reduced the measured offset to roughly 32 ms.
+- On Android Chrome, raw capture successfully disabled those three speech-processing features, but the same-device multi-level probe still measured roughly 160–200 ms between estimated output-device rendering and live microphone PCM reaching the AudioWorklet.
+- MediaRecorder was not the source of that large Android delay: the transient was already late in the pre-MediaRecorder AudioWorklet PCM stream, and the encoded WebM remained stable with no progressive drift.
+- Chrome reported about 40 ms of microphone input latency on the tested phone even though the measured output-to-PCM path was much larger. Both `ideal: 0.02` and `exact: 0.02` latency experiments failed to move the acquired track's reported setting below 40 ms. Browser-reported input/output latency is therefore diagnostic information, not a safe automatic compensation value.
+- An external-device test in which the laptop produced playback and the phone independently recorded it was useful for observing stable click spacing, but its absolute offset is not a valid round-trip latency measurement because the two devices do not share a clock or synchronized start action.
+
+Checkpoint 5B therefore treats residual platform latency as a source-alignment problem rather than a musical-timeline problem. GrooveShare requests music-oriented unprocessed capture by default, confirms recorder startup before starting a stopped project transport, and provides a signed manual compensation that can be adjusted in 1 ms, 10 ms, or 100 ms steps. The compensation remains separate from the track's musical start and is persisted onto kept recorded tracks as `alignmentOffsetSeconds`. Automatic latency calibration remains out of scope for Version 3.

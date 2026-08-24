@@ -198,8 +198,8 @@
     margin: 0;
 }
 
-.guest-access-banner > div,
-.contributor-invitation-card > div {
+.guest-access-banner>div,
+.contributor-invitation-card>div {
     display: grid;
     gap: 0.35rem;
 }
@@ -432,7 +432,7 @@
         align-items: stretch;
     }
 
-    .project-player-header__actions > .button {
+    .project-player-header__actions>.button {
         flex: 1 1 auto;
     }
 
@@ -468,47 +468,48 @@
 
 /* V3 M2: musical track placement */
 .mix-channel-slot__timing {
-  display: block;
-  margin-top: 0.2rem;
-  font-size: 0.78rem;
-  opacity: 0.72;
+    display: block;
+    margin-top: 0.2rem;
+    font-size: 0.78rem;
+    opacity: 0.72;
 }
 
 .mix-channel-slot__timing-editor {
-  margin-top: 0.2rem;
+    margin-top: 0.2rem;
 }
 
-.mix-channel-slot__timing-editor > summary {
-  width: fit-content;
-  cursor: pointer;
-  user-select: none;
+.mix-channel-slot__timing-editor>summary {
+    width: fit-content;
+    cursor: pointer;
+    user-select: none;
 }
 
-.mix-channel-slot__timing-editor[open] > summary {
-  margin-bottom: 0.5rem;
+.mix-channel-slot__timing-editor[open]>summary {
+    margin-bottom: 0.5rem;
 }
 
 .mix-channel-slot__timing-fields {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(5rem, 1fr));
-  gap: 0.45rem;
-  max-width: 24rem;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.45rem;
+    width: 100%;
+    max-width: 100%;
 }
 
 .mix-channel-slot__timing-fields label {
-  display: grid;
-  gap: 0.2rem;
-  font-size: 0.72rem;
+    display: grid;
+    gap: 0.2rem;
+    font-size: 0.72rem;
 }
 
 .mix-channel-slot__timing-fields input {
-  width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
 }
 
 @media (max-width: 42rem) {
-  .mix-channel-slot__timing-fields {
-    grid-template-columns: 1fr;
-  }
+    .mix-channel-slot__timing-fields {
+        grid-template-columns: 1fr;
+    }
 }
