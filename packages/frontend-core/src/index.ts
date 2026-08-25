@@ -148,6 +148,11 @@ export {
   saveRecordingAlignmentCompensationMilliseconds,
 } from "./recording/recording-alignment-compensation.js";
 export {
+  createRecordingWorkspaceState,
+  getRecordingWorkspaceAnchorStorageKey,
+  type RecordingWorkspaceState,
+} from "./recording/recording-workspace-state.js";
+export {
   createMicrophoneRecordingSession,
   type MicrophoneRecordedTake,
   type MicrophoneRecordingSession,
@@ -161,10 +166,15 @@ export {
 export type { SessionProvider } from "./platform/session-provider.js";
 export type { StorageProvider } from "./platform/storage-provider.js";
 export type {
+  RecordedTakeDraft,
+  RecordedTakeDraftPort,
+} from "./platform/recorded-take-draft-port.js";
+export type {
   PlaybackChannel,
   PlaybackEngine,
   PlaybackSnapshot,
   PlaybackStateListener,
+  RecordedTakeAuditionOptions,
   SynchronizedRecordingPlaybackStart,
 } from "./playback/playback-engine.js";
 export {

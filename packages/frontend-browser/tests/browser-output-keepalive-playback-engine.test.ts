@@ -3,6 +3,7 @@ import type {
   PlaybackEngine,
   PlaybackSnapshot,
   PlaybackStateListener,
+  RecordedTakeAuditionOptions,
   RecordingStartMarker,
   SynchronizedRecordingPlaybackStart,
 } from "@hugovela/frontend-core";
@@ -98,6 +99,9 @@ class FakePlaybackEngine implements PlaybackEngine {
   pauseCalls = 0;
   stopCalls = 0;
   synchronizedPlayCalls = 0;
+  auditionCalls = 0;
+  stopAuditionCalls = 0;
+  lastAuditionOptions: RecordedTakeAuditionOptions | null = null;
   metronomeValues: boolean[] = [];
   destroyCalls = 0;
   snapshot: PlaybackSnapshot = {
@@ -173,6 +177,16 @@ class FakePlaybackEngine implements PlaybackEngine {
       mediaLeadInSeconds: 2.03,
       countIn: { bars: 1, beats: 4, durationSeconds: 2 },
     };
+  }
+
+  async auditionRecordedTake(options: RecordedTakeAuditionOptions): Promise<void> {
+    this.auditionCalls += 1;
+    this.lastAuditionOptions = options;
+    this.setPlaying(true);
+  }
+
+  stopRecordedTakeAudition(): void {
+    this.stopAuditionCalls += 1;
   }
 
   markRecordingStart(): RecordingStartMarker {
@@ -315,6 +329,27 @@ tester.describe("browser output keepalive playback engine", () => {
     tester.expect(result.marker.audioContextTimeSeconds).toBe(12.5);
     tester.expect(Math.abs(result.mediaLeadInSeconds - 2.43) < 1e-9).toBe(true);
     tester.expect(result.countIn).toEqual({ bars: 1, beats: 4, durationSeconds: 2 });
+    tester.expect(FakeAudioContext.instances[0]?.closeCalls).toBe(0);
+  });
+
+  tester.it("warms the Android route before sample-accurate recorded-take audition", async () => {
+    const harness = createHarness();
+    const auditionPromise = harness.engine.auditionRecordedTake!({
+      capture: { bytes: new Uint8Array([1, 2, 3]), mimeType: "audio/webm" },
+      projectStartSeconds: 8,
+      alignmentOffsetSeconds: 0.26,
+      mediaLeadInSeconds: 2.43,
+    });
+    await flushMicrotasks();
+
+    tester.expect(harness.playbackEngine.auditionCalls).toBe(0);
+    tester.expect(harness.scheduled[0]?.milliseconds).toBe(400);
+
+    harness.runNextTimer();
+    await auditionPromise;
+
+    tester.expect(harness.playbackEngine.auditionCalls).toBe(1);
+    tester.expect(harness.playbackEngine.lastAuditionOptions?.alignmentOffsetSeconds).toBe(0.26);
     tester.expect(FakeAudioContext.instances[0]?.closeCalls).toBe(0);
   });
 

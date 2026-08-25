@@ -7,6 +7,8 @@ export {
 export {
   createBrowserMicrophoneRecordingAdapter,
   type BrowserMicrophoneRecordingAdapterOptions,
+  type BrowserMonoRecordingStream,
+  type BrowserMonoRecordingStreamFactory,
 } from "./browser-microphone-recording-adapter.js";
 export {
   createBrowserRecordedTakeUploadAdapter,
@@ -16,6 +18,10 @@ export {
   createBrowserRecordedTakePlaybackAdapter,
   type BrowserRecordedTakePlaybackAdapterOptions,
 } from "./browser-recorded-take-playback-adapter.js";
+export {
+  createBrowserRecordedTakeDraftPort,
+  type BrowserRecordedTakeDraftPortOptions,
+} from "./browser-recorded-take-draft-port.js";
 export {
   createBrowserApiTransport,
   type AuthenticationRequiredHandler,

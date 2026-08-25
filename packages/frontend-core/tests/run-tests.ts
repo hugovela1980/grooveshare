@@ -8,6 +8,7 @@ import "./transport.test.js";
 import "./recording-timeline.test.js";
 import "./recording-alignment-diagnostics.test.js";
 import "./recording-alignment-compensation.test.js";
+import "./recording-workspace-state.test.js";
 import "./track-source-alignment.test.js";
 import "./microphone-recording-session.test.js";
 import "./musical-timeline.test.js";

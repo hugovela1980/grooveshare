@@ -103,6 +103,45 @@ tester.describe("HtmlAudioPlaybackEngine", () => {
     tester.expect(second.currentTime).toBe(0);
   });
 
+  tester.it("preserves the working position when a refreshed mix replaces the loaded channels", () => {
+    const first = createFakeAudioElement();
+    const second = createFakeAudioElement();
+    const engine = createHtmlAudioPlaybackEngine({
+      primaryAudioElement: first,
+      createAudioElement: () => second,
+    });
+
+    engine.loadMix([{
+      channelNumber: 1,
+      trackId: "track-1",
+      audioUrl: "/first.wav",
+      volume: 1,
+      enabled: true,
+    }]);
+    engine.seek(22);
+
+    engine.loadMix([
+      {
+        channelNumber: 1,
+        trackId: "track-1",
+        audioUrl: "/first.wav",
+        volume: 1,
+        enabled: true,
+      },
+      {
+        channelNumber: 2,
+        trackId: "track-2",
+        audioUrl: "/second.wav",
+        volume: 1,
+        enabled: true,
+      },
+    ]);
+
+    tester.expect(engine.getSnapshot().currentTime).toBe(22);
+    tester.expect(first.currentTime).toBe(22);
+    tester.expect(second.currentTime).toBe(22);
+  });
+
   tester.it("maps musical seeks into each track's persisted musical placement", () => {
     const first = createFakeAudioElement();
     const second = createFakeAudioElement();

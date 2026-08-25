@@ -6,6 +6,7 @@ import type {
   RecordingStartMarker,
   RecordingTimelineResult,
 } from "./recording-timeline.js";
+import type { RecordedAudioCapture } from "../platform/microphone-recording-port.js";
 
 export type PlaybackChannel = {
   channelNumber: number;
@@ -34,6 +35,17 @@ export type PlaybackSnapshot = {
 export type PlaybackStateListener = (
   snapshot: PlaybackSnapshot,
 ) => void;
+
+
+export type RecordedTakeAuditionOptions = {
+  capture: RecordedAudioCapture;
+  projectStartSeconds: number;
+  /** Signed source-to-project correction, using the same semantics as saved tracks. */
+  alignmentOffsetSeconds?: number;
+  /** Encoded media before the take's declared musical origin. */
+  mediaLeadInSeconds?: number;
+  onEnded?: () => void;
+};
 
 export type SynchronizedRecordingPlaybackStart = {
   marker: RecordingStartMarker;
@@ -77,6 +89,13 @@ export interface PlaybackEngine {
    * state so the first project transient cannot outrun MediaRecorder startup.
    */
   startSynchronizedRecordingPlayback?(options?: { countInBars?: number }): Promise<SynchronizedRecordingPlaybackStart>;
+  /**
+   * Audition one temporary recorded take on the same authoritative audio clock
+   * and source-alignment path used by saved project tracks. Web Audio engines
+   * provide this so review timing cannot differ from post-Keep playback.
+   */
+  auditionRecordedTake?(options: RecordedTakeAuditionOptions): Promise<void>;
+  stopRecordedTakeAudition?(): void;
   markRecordingStart?(): RecordingStartMarker;
   markRecordingStop?(start: RecordingStartMarker): RecordingTimelineResult;
   destroy?(): void;

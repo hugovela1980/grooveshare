@@ -223,6 +223,62 @@ tester.describe("WebAudioPlaybackEngine", () => {
     engine.destroy?.();
   });
 
+  tester.it("auditions a temporary recorded take on the exact saved-track Web Audio clock and alignment path", async () => {
+    const { audioContext, engine } = createEngineHarness();
+
+    engine.loadMix(twoChannelMix);
+    await engine.auditionRecordedTake!({
+      capture: {
+        bytes: new Uint8Array([10]),
+        mimeType: "audio/webm",
+      },
+      projectStartSeconds: 30,
+      alignmentOffsetSeconds: 0.26,
+      mediaLeadInSeconds: 2.43,
+    });
+
+    tester.expect(audioContext.sources.length).toBe(3);
+    const projectSource = audioContext.sources[0];
+    const takeSource = audioContext.sources[2];
+    tester.expect(projectSource?.startWhen).toBe(10.03);
+    tester.expect(takeSource?.startWhen).toBe(projectSource?.startWhen);
+    tester.expect(projectSource?.startOffset).toBe(30);
+    tester.expect(Math.abs((takeSource?.startOffset ?? 0) - 2.69) < 1e-9).toBe(true);
+    tester.expect(engine.getSnapshot().currentTime).toBe(30);
+    tester.expect(engine.getSnapshot().isPlaying).toBe(true);
+
+    engine.stop();
+    tester.expect(takeSource?.stopCallCount).toBe(1);
+  });
+
+  tester.it("preserves the working transport position when the project mix reloads", async () => {
+    const { audioContext, engine } = createEngineHarness();
+
+    engine.loadMix(twoChannelMix);
+    await engine.play();
+    engine.pause();
+    engine.seek(22);
+    tester.expect(engine.getSnapshot().currentTime).toBe(22);
+
+    const sourceCountBeforeReload = audioContext.sources.length;
+    engine.loadMix([...twoChannelMix, {
+      channelNumber: 3,
+      trackId: "track-3",
+      audioUrl: "/long-take.m4a",
+      volume: 1,
+      enabled: true,
+    }]);
+    await engine.play();
+
+    tester.expect(engine.getSnapshot().currentTime).toBe(22);
+    const reloadedSources = audioContext.sources.slice(sourceCountBeforeReload);
+    tester.expect(reloadedSources[0]?.startOffset).toBe(22);
+    tester.expect(reloadedSources[1]?.startOffset).toBe(22);
+    tester.expect(reloadedSources[2]?.startOffset).toBe(22);
+
+    engine.destroy?.();
+  });
+
   tester.it("seeks to a bar through the shared musical timeline without client-side time math", async () => {
     const { audioContext, engine } = createEngineHarness({
       bpm: 120,

@@ -3,6 +3,7 @@ import {
     type PlaybackChannel,
     type PlaybackEngine,
     type PlaybackSnapshot,
+    type RecordingWorkspaceState,
 } from "@hugovela/frontend-core";
 
 type MixChannelForPlayer = {
@@ -89,6 +90,7 @@ type AudioPlayerControllerOptions = {
     trackNameElement: TextElementLike;
     loopCheckbox: CheckboxElementLike;
     metronomeCheckbox: CheckboxElementLike;
+    recordingWorkspaceState?: RecordingWorkspaceState | null;
 };
 
 const PLAY_ICON = "▶";
@@ -132,6 +134,7 @@ export function createAudioPlayerController({
     trackNameElement,
     loopCheckbox,
     metronomeCheckbox,
+    recordingWorkspaceState,
 }: AudioPlayerControllerOptions) {
     let isSeeking = false;
     let loadedMixChannels: MixChannelForPlayer[] = [];
@@ -232,8 +235,12 @@ export function createAudioPlayerController({
         await playbackEngine.play();
     }
 
-    function stop(): void {
+    function stop({ resetWorkspaceAnchor = true }: { resetWorkspaceAnchor?: boolean } = {}): void {
         playbackEngine.stop();
+        if (resetWorkspaceAnchor) {
+            recordingWorkspaceState?.clearAnchor();
+            seekBarInput.value = "1";
+        }
     }
 
     function seek(): void {
@@ -273,7 +280,9 @@ export function createAudioPlayerController({
             return;
         }
 
-        playbackEngine.seekToMusicalPosition({ bar, beat: 1 });
+        const anchor = { bar, beat: 1 };
+        recordingWorkspaceState?.setAnchor(anchor);
+        playbackEngine.seekToMusicalPosition(anchor);
         updateProgress(playbackEngine.getSnapshot());
     }
 
@@ -306,6 +315,11 @@ export function createAudioPlayerController({
         }));
 
         playbackEngine.loadMix(playbackChannels);
+        const workspaceAnchor = recordingWorkspaceState?.getAnchor() ?? null;
+        if (workspaceAnchor) {
+            seekBarInput.value = String(workspaceAnchor.bar);
+            playbackEngine.seekToMusicalPosition(workspaceAnchor);
+        }
         updateLoadedMixPresentation();
 
         const snapshot = playbackEngine.getSnapshot();
@@ -387,6 +401,11 @@ export function createAudioPlayerController({
     }
 
     function init(): void {
+        const workspaceAnchor = recordingWorkspaceState?.getAnchor() ?? null;
+        if (workspaceAnchor) {
+            seekBarInput.value = String(workspaceAnchor.bar);
+        }
+
         playbackEngine.setLoopEnabled(loopCheckbox.checked);
         playbackEngine.setMetronomeEnabled?.(metronomeCheckbox.checked);
         playbackEngine.subscribe((snapshot) => {
@@ -403,7 +422,7 @@ export function createAudioPlayerController({
             return handlePlayPauseClick();
         });
 
-        stopButton.addEventListener("click", stop);
+        stopButton.addEventListener("click", () => stop());
         seekBarButton.addEventListener("click", seekToBar);
         progressInput.addEventListener("input", beginSeeking);
         progressInput.addEventListener("change", finishSeeking);

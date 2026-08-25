@@ -1,6 +1,7 @@
 import type {
   PlaybackEngine,
   PlaybackStateListener,
+  RecordedTakeAuditionOptions,
   RecordingStartMarker,
   SynchronizedRecordingPlaybackStart,
 } from "@hugovela/frontend-core";
@@ -340,6 +341,42 @@ export function createBrowserOutputKeepalivePlaybackEngine({
     }
   }
 
+  async function auditionRecordedTake(
+    options: RecordedTakeAuditionOptions,
+  ): Promise<void> {
+    if (!playbackEngine.auditionRecordedTake) {
+      throw new Error("Sample-accurate recorded-take audition is unavailable.");
+    }
+
+    keepaliveDesired = true;
+    const generation = ++playbackOperationGeneration;
+    await prepareOutputRoute();
+
+    if (destroyed || generation !== playbackOperationGeneration) {
+      if (!keepaliveDesired) {
+        await stopKeepalive();
+      }
+      return;
+    }
+
+    try {
+      await playbackEngine.auditionRecordedTake(options);
+    } catch (error) {
+      keepaliveDesired = false;
+      await stopKeepalive();
+      throw error;
+    }
+
+    if (!playbackEngine.getSnapshot().isPlaying) {
+      keepaliveDesired = false;
+      await stopKeepalive();
+    }
+  }
+
+  function stopRecordedTakeAudition(): void {
+    playbackEngine.stopRecordedTakeAudition?.();
+  }
+
   function pause(): void {
     keepaliveDesired = false;
     playbackOperationGeneration += 1;
@@ -397,6 +434,9 @@ export function createBrowserOutputKeepalivePlaybackEngine({
       playbackEngine.subscribe(listener),
     ...(playbackEngine.startSynchronizedRecordingPlayback
       ? { startSynchronizedRecordingPlayback }
+      : {}),
+    ...(playbackEngine.auditionRecordedTake
+      ? { auditionRecordedTake, stopRecordedTakeAudition }
       : {}),
     ...(playbackEngine.markRecordingStart
       ? { markRecordingStart: () => playbackEngine.markRecordingStart!() }

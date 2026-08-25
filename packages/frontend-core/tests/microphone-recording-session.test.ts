@@ -10,6 +10,8 @@ import {
   type PlaybackEngine,
   type RecordedAudioCapture,
   type RecordedTakePlaybackPort,
+  type RecordedTakeDraft,
+  type RecordedTakeDraftPort,
   type RecordedTakeUploadInput,
   type RecordedTakeUploadPort,
   type RecordingAlignmentDiagnosticObservation,
@@ -655,6 +657,56 @@ type TakePlaybackHarness = {
   fail(message: string): void;
 };
 
+type TakeDraftHarness = {
+  port: RecordedTakeDraftPort;
+  drafts: Map<string, RecordedTakeDraft>;
+  saveCalls: number;
+  removeCalls: number;
+};
+
+function cloneDraft(draft: RecordedTakeDraft): RecordedTakeDraft {
+  return {
+    capture: {
+      bytes: new Uint8Array(draft.capture.bytes),
+      mimeType: draft.capture.mimeType,
+    },
+    timing: {
+      transport: { ...draft.timing.transport },
+      musicalStart: { ...draft.timing.musicalStart },
+      musicalStop: { ...draft.timing.musicalStop },
+      musicalSpanBeats: draft.timing.musicalSpanBeats,
+      mediaLeadInSeconds: draft.timing.mediaLeadInSeconds,
+    },
+    alignmentCompensationMilliseconds: draft.alignmentCompensationMilliseconds,
+  };
+}
+
+function createTakeDraftHarness(): TakeDraftHarness {
+  const harness: TakeDraftHarness = {
+    drafts: new Map(),
+    saveCalls: 0,
+    removeCalls: 0,
+    port: null as unknown as RecordedTakeDraftPort,
+  };
+
+  harness.port = {
+    async load(projectId) {
+      const draft = harness.drafts.get(projectId);
+      return draft ? cloneDraft(draft) : null;
+    },
+    async save(projectId, draft) {
+      harness.saveCalls += 1;
+      harness.drafts.set(projectId, cloneDraft(draft));
+    },
+    async remove(projectId) {
+      harness.removeCalls += 1;
+      harness.drafts.delete(projectId);
+    },
+  };
+
+  return harness;
+}
+
 type TakeUploadHarness = {
   port: RecordedTakeUploadPort;
   uploadCalls: RecordedTakeUploadInput[];
@@ -815,7 +867,212 @@ tester.describe("recording alignment compensation", () => {
   });
 });
 
+tester.describe("durable pending recording workflow", () => {
+  tester.it("does not let a slow draft restore overwrite a newer microphone action", async () => {
+    let resolveLoad: ((draft: RecordedTakeDraft | null) => void) | null = null;
+    const draftPort: RecordedTakeDraftPort = {
+      load() {
+        return new Promise<RecordedTakeDraft | null>((resolve) => {
+          resolveLoad = resolve;
+        });
+      },
+      async save() {},
+      async remove() {},
+    };
+    const recording = createRecordingPortHarness();
+    const session = createMicrophoneRecordingSession({
+      role: "contributor",
+      recordingPort: recording.port,
+      takeDraftPort: draftPort,
+      projectId: "project-1",
+    });
+
+    const restorePromise = session.restorePendingTake();
+    await session.arm();
+    tester.expect(session.getSnapshot().status).toBe("ready");
+
+    const deferredLoad = resolveLoad as unknown as (draft: RecordedTakeDraft | null) => void;
+    deferredLoad({
+      capture: { bytes: new Uint8Array([7]), mimeType: "audio/webm" },
+      timing: {
+        transport: {
+          startProjectPositionSeconds: 30,
+          stopProjectPositionSeconds: 31,
+          startAudioContextTimeSeconds: 100,
+          stopAudioContextTimeSeconds: 101,
+          durationSeconds: 1,
+          timelineOffsetSeconds: 30,
+        },
+        musicalStart: { bar: 16, beat: 1 },
+        musicalStop: { bar: 16, beat: 3 },
+        musicalSpanBeats: 2,
+        mediaLeadInSeconds: 2.43,
+      },
+      alignmentCompensationMilliseconds: 260,
+    });
+    await restorePromise;
+
+    tester.expect(session.getSnapshot().status).toBe("ready");
+    tester.expect(session.getSnapshot().take).toBe(null);
+    tester.expect(recording.prepareCalls).toBe(1);
+    await session.destroy();
+  });
+
+  tester.it("restores a stopped take after reload and keeps its exact reviewed alignment", async () => {
+    const drafts = createTakeDraftHarness();
+    const firstRecording = createRecordingPortHarness();
+    const firstPlayback = createPlaybackHarness({ startPositionSeconds: 30 });
+    const firstTakePlayback = createTakePlaybackHarness();
+    const firstSession = createMicrophoneRecordingSession({
+      role: "contributor",
+      recordingPort: firstRecording.port,
+      takePlaybackPort: firstTakePlayback.port,
+      takeDraftPort: drafts.port,
+      projectId: "project-1",
+      playbackEngine: firstPlayback.engine,
+      musicalTimeline: {
+        bpm: 120,
+        timeSignature: { numerator: 4, denominator: 4 },
+      },
+    });
+
+    await firstSession.arm();
+    await firstSession.start();
+    firstPlayback.setClockTime(102);
+    await firstSession.stop();
+    firstSession.setAlignmentCompensationMilliseconds(260);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    tester.expect(firstSession.getSnapshot().take?.timing.musicalStart).toEqual({
+      bar: 16,
+      beat: 1,
+    });
+    tester.expect(
+      firstSession.getSnapshot().take?.alignmentCompensationMilliseconds,
+    ).toBe(260);
+    tester.expect(drafts.drafts.get("project-1")?.alignmentCompensationMilliseconds).toBe(260);
+
+    await firstSession.destroy();
+
+    const restoredRecording = createRecordingPortHarness();
+    const restoredPlayback = createPlaybackHarness();
+    const restoredTakePlayback = createTakePlaybackHarness();
+    const uploads = createTakeUploadHarness();
+    const restoredSession = createMicrophoneRecordingSession({
+      role: "contributor",
+      recordingPort: restoredRecording.port,
+      takePlaybackPort: restoredTakePlayback.port,
+      takeUploadPort: uploads.port,
+      takeDraftPort: drafts.port,
+      projectId: "project-1",
+      playbackEngine: restoredPlayback.engine,
+      musicalTimeline: {
+        bpm: 120,
+        timeSignature: { numerator: 4, denominator: 4 },
+      },
+    });
+
+    const restored = await restoredSession.restorePendingTake();
+    tester.expect(restored.status).toBe("stopped");
+    tester.expect(restored.take?.timing.musicalStart).toEqual({ bar: 16, beat: 1 });
+    tester.expect(restored.alignmentCompensationMilliseconds).toBe(260);
+    tester.expect(restored.take?.alignmentCompensationMilliseconds).toBe(260);
+    tester.expect(Array.from(restored.take?.capture.bytes ?? [])).toEqual([1, 2, 3]);
+    tester.expect(restoredRecording.prepareCalls).toBe(0);
+
+    await restoredSession.audition();
+    tester.expect(restoredPlayback.seekCalls.at(-1)).toBe(30);
+    tester.expect(restoredTakePlayback.lastAlignmentOffsetSeconds).toBe(0.26);
+
+    const kept = await restoredSession.keep("Recovered Take");
+    tester.expect(uploads.uploadCalls[0]?.alignmentOffsetSeconds).toBe(0.26);
+    tester.expect(kept.savedTrack?.alignmentOffsetSeconds).toBe(0.26);
+    tester.expect(drafts.drafts.has("project-1")).toBe(false);
+
+    await restoredSession.destroy();
+    restoredPlayback.engine.destroy?.();
+    firstPlayback.engine.destroy?.();
+  });
+
+  tester.it("reacquires the microphone before retrying a take restored after reload", async () => {
+    const drafts = createTakeDraftHarness();
+    const seedRecording = createRecordingPortHarness();
+    const seedPlayback = createPlaybackHarness({ startPositionSeconds: 8 });
+    const seedSession = createMicrophoneRecordingSession({
+      role: "owner",
+      recordingPort: seedRecording.port,
+      takeDraftPort: drafts.port,
+      projectId: "project-1",
+      playbackEngine: seedPlayback.engine,
+      musicalTimeline: { bpm: 120, timeSignature: { numerator: 4, denominator: 4 } },
+    });
+    await seedSession.arm();
+    await seedSession.start();
+    seedPlayback.setClockTime(101);
+    await seedSession.stop();
+    await seedSession.destroy();
+
+    const retryRecording = createRecordingPortHarness();
+    const restored = createMicrophoneRecordingSession({
+      role: "owner",
+      recordingPort: retryRecording.port,
+      takeDraftPort: drafts.port,
+      projectId: "project-1",
+      playbackEngine: createPlaybackHarness().engine,
+      musicalTimeline: { bpm: 120, timeSignature: { numerator: 4, denominator: 4 } },
+    });
+
+    await restored.restorePendingTake();
+    tester.expect(restored.getSnapshot().status).toBe("stopped");
+    const retried = await restored.retry();
+    tester.expect(retried.status).toBe("ready");
+    tester.expect(retryRecording.prepareCalls).toBe(1);
+    tester.expect(drafts.drafts.has("project-1")).toBe(false);
+
+    await restored.destroy();
+    seedPlayback.engine.destroy?.();
+  });
+});
+
 tester.describe("local microphone take review", () => {
+  tester.it("uses the same reviewed alignment for sample-accurate audition and Keep", async () => {
+    const recordingHarness = createRecordingPortHarness();
+    const playbackHarness = createPlaybackHarness({ startPositionSeconds: 6 });
+    const takePlaybackHarness = createTakePlaybackHarness();
+    const takeUploadHarness = createTakeUploadHarness();
+    const session = await recordStoppedTakeForReview({
+      recordingHarness,
+      playbackHarness,
+      takePlaybackHarness,
+      takeUploadHarness,
+    });
+    let auditionOptions: Parameters<NonNullable<PlaybackEngine["auditionRecordedTake"]>>[0] | null = null;
+
+    playbackHarness.engine.auditionRecordedTake = async (options) => {
+      auditionOptions = options;
+      playbackHarness.engine.seek(options.projectStartSeconds);
+      await playbackHarness.engine.play();
+    };
+    playbackHarness.engine.stopRecordedTakeAudition = () => {};
+
+    session.setAlignmentCompensationMilliseconds(260);
+    await session.audition();
+
+    const scheduledAudition = auditionOptions as
+      | Parameters<NonNullable<PlaybackEngine["auditionRecordedTake"]>>[0]
+      | null;
+    tester.expect(scheduledAudition?.alignmentOffsetSeconds).toBe(0.26);
+    tester.expect(scheduledAudition?.mediaLeadInSeconds).toBe(2.03);
+    tester.expect(takePlaybackHarness.playCalls).toBe(0);
+
+    await session.keep("Aligned Take");
+    tester.expect(takeUploadHarness.uploadCalls[0]?.alignmentOffsetSeconds).toBe(0.26);
+
+    await session.destroy();
+    playbackHarness.engine.destroy?.();
+  });
+
   tester.it("auditions a stopped take in context from its stored project position and stops both when the take ends", async () => {
     const recordingHarness = createRecordingPortHarness();
     const playbackHarness = createPlaybackHarness({ startPositionSeconds: 2 });

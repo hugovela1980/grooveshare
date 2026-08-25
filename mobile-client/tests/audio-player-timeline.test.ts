@@ -1,9 +1,11 @@
-import type {
-  MusicalPosition,
-  PlaybackChannel,
-  PlaybackEngine,
-  PlaybackSnapshot,
-  PlaybackStateListener,
+import {
+  createRecordingWorkspaceState,
+  type MusicalPosition,
+  type PlaybackChannel,
+  type PlaybackEngine,
+  type PlaybackSnapshot,
+  type PlaybackStateListener,
+  type StorageProvider,
 } from "@hugovela/frontend-core";
 import { createAudioPlayerController } from "../src/page-controllers/audio-player-controller.js";
 import { renderAudioPlayer } from "../src/templates/audio-player.js";
@@ -114,6 +116,15 @@ function createPlaybackHarness() {
   };
 }
 
+function createMemoryStorage(): StorageProvider {
+  const values = new Map<string, string>();
+  return {
+    getItem(key) { return values.get(key) ?? null; },
+    setItem(key, value) { values.set(key, value); },
+    removeItem(key) { values.delete(key); },
+  };
+}
+
 tester.describe("mobile musical timeline playback", () => {
   tester.it("renders the diagnostic musical position and bar jump controls", () => {
     const html = renderAudioPlayer();
@@ -212,4 +223,86 @@ tester.describe("mobile musical timeline playback", () => {
     tester.expect(playback.getSoughtMusicalPosition()).toEqual({ bar: 4, beat: 1 });
     tester.expect(musicalPositionElement.textContent).toBe("Bar 4 · Beat 1");
   });
+
+  tester.it("restores the sticky Go anchor after a mobile page reload and clears it only on Stop", async () => {
+    const storage = createMemoryStorage();
+    const workspace = createRecordingWorkspaceState({
+      projectId: "project-1",
+      storageProvider: storage,
+    });
+    const firstPlayback = createPlaybackHarness();
+    const firstGoButton = createButton();
+    const firstStopButton = createButton();
+    const firstSeekInput = { disabled: true, value: "1" };
+    const first = createAudioPlayerController({
+      playbackEngine: firstPlayback.engine,
+      seekBackwardButton: createButton(),
+      playPauseButton: createButton(),
+      stopButton: firstStopButton,
+      progressInput: createRangeInput(),
+      timestampElement: { textContent: null as string | null },
+      durationElement: { textContent: null as string | null },
+      musicalPositionElement: { textContent: null as string | null },
+      seekBarInput: firstSeekInput,
+      seekBarButton: firstGoButton,
+      trackNameElement: { textContent: null as string | null },
+      loopCheckbox: { checked: false },
+      metronomeCheckbox: { checked: false },
+      recordingWorkspaceState: workspace,
+    });
+    first.init();
+    first.loadMix([{
+      channelNumber: 1,
+      trackId: "track-1",
+      name: "Guitar",
+      audioUrl: "/track.wav",
+      volume: 1,
+    }]);
+    firstSeekInput.value = "16";
+    await firstGoButton.click();
+    tester.expect(workspace.getAnchor()).toEqual({ bar: 16, beat: 1 });
+
+    first.stop({ resetWorkspaceAnchor: false });
+    tester.expect(workspace.getAnchor()).toEqual({ bar: 16, beat: 1 });
+
+    const restoredWorkspace = createRecordingWorkspaceState({
+      projectId: "project-1",
+      storageProvider: storage,
+    });
+    const secondPlayback = createPlaybackHarness();
+    const secondStopButton = createButton();
+    const secondSeekInput = { disabled: true, value: "1" };
+    const second = createAudioPlayerController({
+      playbackEngine: secondPlayback.engine,
+      seekBackwardButton: createButton(),
+      playPauseButton: createButton(),
+      stopButton: secondStopButton,
+      progressInput: createRangeInput(),
+      timestampElement: { textContent: null as string | null },
+      durationElement: { textContent: null as string | null },
+      musicalPositionElement: { textContent: null as string | null },
+      seekBarInput: secondSeekInput,
+      seekBarButton: createButton(),
+      trackNameElement: { textContent: null as string | null },
+      loopCheckbox: { checked: false },
+      metronomeCheckbox: { checked: false },
+      recordingWorkspaceState: restoredWorkspace,
+    });
+    second.init();
+    second.loadMix([{
+      channelNumber: 1,
+      trackId: "track-1",
+      name: "Guitar",
+      audioUrl: "/track.wav",
+      volume: 1,
+    }]);
+
+    tester.expect(secondSeekInput.value).toBe("16");
+    tester.expect(secondPlayback.getSoughtMusicalPosition()).toEqual({ bar: 16, beat: 1 });
+
+    await secondStopButton.click();
+    tester.expect(restoredWorkspace.getAnchor()).toBe(null);
+    tester.expect(secondSeekInput.value).toBe("1");
+  });
+
 });

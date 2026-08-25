@@ -1,6 +1,9 @@
 import {
     createHtmlAudioPlaybackEngine,
+    createRecordingWorkspaceState,
     type PlaybackEngine,
+    type RecordingWorkspaceState,
+    type StorageProvider,
 } from "@hugovela/frontend-core";
 import {
     createAudioPlayerController,
@@ -150,6 +153,7 @@ function createControllerTestSetup(options: {
     musicalTimeline?: AudioPlayerControllerInput["musicalTimeline"];
     projectId?: string;
     debugLogger?: AudioPlayerControllerInput["debugLogger"];
+    recordingWorkspaceState?: RecordingWorkspaceState;
 } = {}) {
     const audioElement = createFakeAudioElement();
     const seekBackwardButton = createFakeButton();
@@ -193,6 +197,9 @@ function createControllerTestSetup(options: {
         trackNameElement,
         loopCheckbox,
         metronomeCheckbox,
+        ...(options.recordingWorkspaceState
+            ? { recordingWorkspaceState: options.recordingWorkspaceState }
+            : {}),
     });
 
     return {
@@ -210,6 +217,15 @@ function createControllerTestSetup(options: {
         loopCheckbox,
         metronomeCheckbox,
         controller,
+    };
+}
+
+function createMemoryStorage(): StorageProvider {
+    const values = new Map<string, string>();
+    return {
+        getItem(key) { return values.get(key) ?? null; },
+        setItem(key, value) { values.set(key, value); },
+        removeItem(key) { values.delete(key); },
     };
 }
 
@@ -311,6 +327,79 @@ tester.describe("audio player controller", () => {
         }]);
 
         tester.expect(seekBarInput.value).toBe("12");
+    });
+
+    tester.it("keeps the Go anchor through mix reload and browser recreation until explicit Stop", async () => {
+        const storage = createMemoryStorage();
+        const workspace = createRecordingWorkspaceState({
+            projectId: "project-1",
+            storageProvider: storage,
+        });
+        const first = createControllerTestSetup({
+            musicalTimeline: {
+                bpm: 120,
+                timeSignature: { numerator: 4, denominator: 4 },
+            },
+            recordingWorkspaceState: workspace,
+        });
+        first.controller.init();
+        first.controller.loadMix([{
+            channelNumber: 1,
+            trackId: "track-1",
+            name: "Guitar",
+            audioUrl: "/guitar.wav",
+            volume: 1,
+        }]);
+
+        first.seekBarInput.value = "12";
+        await first.seekBarButton.click();
+        tester.expect(first.audioElement.currentTime).toBe(22);
+        tester.expect(workspace.getAnchor()).toEqual({ bar: 12, beat: 1 });
+
+        first.controller.loadMix([{
+            channelNumber: 1,
+            trackId: "track-1",
+            name: "Guitar",
+            audioUrl: "/guitar.wav",
+            volume: 1,
+        }, {
+            channelNumber: 2,
+            trackId: "kept-take",
+            name: "Kept Take",
+            audioUrl: "/kept.webm",
+            volume: 1,
+        }]);
+        tester.expect(first.audioElement.currentTime).toBe(22);
+
+        first.controller.stop({ resetWorkspaceAnchor: false });
+        tester.expect(workspace.getAnchor()).toEqual({ bar: 12, beat: 1 });
+
+        const restoredWorkspace = createRecordingWorkspaceState({
+            projectId: "project-1",
+            storageProvider: storage,
+        });
+        const second = createControllerTestSetup({
+            musicalTimeline: {
+                bpm: 120,
+                timeSignature: { numerator: 4, denominator: 4 },
+            },
+            recordingWorkspaceState: restoredWorkspace,
+        });
+        second.controller.init();
+        second.controller.loadMix([{
+            channelNumber: 1,
+            trackId: "track-1",
+            name: "Guitar",
+            audioUrl: "/guitar.wav",
+            volume: 1,
+        }]);
+        tester.expect(second.seekBarInput.value).toBe("12");
+        tester.expect(second.audioElement.currentTime).toBe(22);
+
+        await second.stopButton.click();
+        tester.expect(second.audioElement.currentTime).toBe(0);
+        tester.expect(restoredWorkspace.getAnchor()).toBe(null);
+        tester.expect(second.seekBarInput.value).toBe("1");
     });
 
     tester.it("shows the shared musical position and jumps to a requested bar", async () => {

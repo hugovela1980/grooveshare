@@ -16,6 +16,7 @@ import type {
   PlaybackEngine,
   PlaybackSnapshot,
   PlaybackStateListener,
+  RecordedTakeAuditionOptions,
   SynchronizedRecordingPlaybackStart,
 } from "./playback-engine.js";
 import {
@@ -233,6 +234,11 @@ export function createWebAudioPlaybackEngine(
   let loadingPromise: Promise<void> = Promise.resolve();
   let pendingSeekSeconds: number | null = null;
   let destroyed = false;
+  let activeRecordedTakeAudition: {
+    source: AudioBufferSourceNodeLike;
+    generation: number;
+  } | null = null;
+  let recordedTakeAuditionGeneration = 0;
   let outputDiagnosticAttemptId: string | null = null;
   let outputDiagnosticReferenceContextTimeSeconds: number | null = null;
   let nextOutputClockSampleIndex = 0;
@@ -637,6 +643,16 @@ export function createWebAudioPlaybackEngine(
     source.disconnect?.();
   }
 
+  function clearRecordedTakeAudition(): void {
+    recordedTakeAuditionGeneration += 1;
+    const active = activeRecordedTakeAudition;
+    activeRecordedTakeAudition = null;
+
+    if (active) {
+      safeStopSource(active.source);
+    }
+  }
+
   function clearActiveSources(): void {
     for (const generation of sourceGenerations) {
       for (const { source } of generation.sources) {
@@ -646,6 +662,7 @@ export function createWebAudioPlaybackEngine(
 
     sourceGenerations = [];
     lastScheduledLoopInstruction = null;
+    clearRecordedTakeAudition();
   }
 
   function pruneCompletedSourceGenerations(): void {
@@ -991,6 +1008,128 @@ export function createWebAudioPlaybackEngine(
     };
   }
 
+  async function auditionRecordedTake({
+    capture,
+    projectStartSeconds,
+    alignmentOffsetSeconds = 0,
+    mediaLeadInSeconds = 0,
+    onEnded,
+  }: RecordedTakeAuditionOptions): Promise<void> {
+    if (destroyed) {
+      throw new Error("Playback engine has been destroyed.");
+    }
+
+    await loadingPromise;
+
+    if (!hasReadyChannels()) {
+      throw new Error(
+        "Load at least one project track before auditioning a recorded take.",
+      );
+    }
+
+    if (!Number.isFinite(projectStartSeconds)) {
+      throw new Error("Recorded take audition has an invalid project position.");
+    }
+
+    // Decode the temporary capture before starting the transport so project and
+    // take can be scheduled together on one AudioContext clock edge.
+    const captureBytes = new Uint8Array(capture.bytes.byteLength);
+    captureBytes.set(capture.bytes);
+    const takeBuffer = await audioContext.decodeAudioData(captureBytes.buffer);
+
+    if (destroyed) {
+      return;
+    }
+
+    if (transport.getSnapshot().playbackState === "playing") {
+      transport.pause();
+    }
+    clearActiveSources();
+    clearAllClickCues();
+
+    const clampedProjectStart = Math.max(
+      0,
+      Math.min(transport.getSnapshot().durationSeconds, projectStartSeconds),
+    );
+    transport.seek(clampedProjectStart);
+
+    if (audioContext.state !== "running") {
+      await audioContext.resume();
+    }
+
+    const instruction = scheduleAndStartSources(PLAYBACK_START_LEAD_SECONDS);
+    if (!instruction) {
+      throw new Error("Project playback could not start for take audition.");
+    }
+
+    const alignmentWindow = getTrackSourceAlignmentWindow({
+      trackStartSeconds: clampedProjectStart,
+      sourceDurationSeconds: takeBuffer.duration,
+      alignmentOffsetSeconds,
+      mediaLeadInSeconds,
+    });
+    const sourceProjectStart = Math.max(
+      instruction.projectPositionSeconds,
+      alignmentWindow.projectStartSeconds,
+    );
+    const sourceOffset = getAlignedSourceOffsetSeconds({
+      projectTimeSeconds: sourceProjectStart,
+      trackStartSeconds: clampedProjectStart,
+      alignmentOffsetSeconds,
+      mediaLeadInSeconds,
+    });
+
+    if (
+      sourceProjectStart >= instruction.projectPositionSeconds + instruction.durationSeconds - END_EPSILON_SECONDS ||
+      sourceProjectStart >= alignmentWindow.projectEndSeconds - END_EPSILON_SECONDS ||
+      sourceOffset >= takeBuffer.duration - END_EPSILON_SECONDS
+    ) {
+      stop();
+      onEnded?.();
+      return;
+    }
+
+    const source = audioContext.createBufferSource();
+    source.buffer = takeBuffer;
+    source.connect(audioContext.destination);
+    const generation = ++recordedTakeAuditionGeneration;
+    activeRecordedTakeAudition = { source, generation };
+    source.onended = () => {
+      if (
+        destroyed ||
+        !activeRecordedTakeAudition ||
+        activeRecordedTakeAudition.source !== source ||
+        activeRecordedTakeAudition.generation !== generation
+      ) {
+        return;
+      }
+
+      activeRecordedTakeAudition = null;
+      source.onended = null;
+      source.disconnect?.();
+      onEnded?.();
+    };
+
+    try {
+      source.start(
+        instruction.startAtClockTime +
+          (sourceProjectStart - instruction.projectPositionSeconds),
+        sourceOffset,
+      );
+    } catch (error) {
+      if (activeRecordedTakeAudition?.source === source) {
+        activeRecordedTakeAudition = null;
+      }
+      safeStopSource(source);
+      stop();
+      throw error;
+    }
+  }
+
+  function stopRecordedTakeAudition(): void {
+    clearRecordedTakeAudition();
+  }
+
   function pause(): void {
     if (transport.getSnapshot().playbackState !== "playing") {
       return;
@@ -1104,6 +1243,12 @@ export function createWebAudioPlaybackEngine(
       return;
     }
 
+    // Rebuilding the mix is a data refresh, not a navigation command. Preserve
+    // either a seek requested while the previous mix was decoding or the
+    // transport position the user is currently working from. Explicit Stop is
+    // the operation that resets transport to project start.
+    const preservedPositionSeconds = pendingSeekSeconds ?? transport.getPosition();
+
     const generation = loadGeneration + 1;
     loadGeneration = generation;
 
@@ -1118,7 +1263,9 @@ export function createWebAudioPlaybackEngine(
       buffer: null,
       gainNode: null,
     }));
-    pendingSeekSeconds = null;
+    pendingSeekSeconds = preservedPositionSeconds > 0
+      ? preservedPositionSeconds
+      : null;
     transport.stop();
     transport.setDuration(0);
 
@@ -1195,6 +1342,8 @@ export function createWebAudioPlaybackEngine(
     loadMix,
     play,
     startSynchronizedRecordingPlayback,
+    auditionRecordedTake,
+    stopRecordedTakeAudition,
     pause,
     stop,
     seek,

@@ -10,11 +10,14 @@ import { tester } from "./test-runner/tester.js";
 class FakeMediaStreamTrack {
   stopCalls = 0;
   readyState: MediaStreamTrackState = "live";
+  channelCount = 1;
+  rejectMonoConstraint = false;
+  applyConstraintsCalls: MediaTrackConstraints[] = [];
   getSettings(): MediaTrackSettings {
     return {
       latency: 0.04,
       sampleRate: 48000,
-      channelCount: 1,
+      channelCount: this.channelCount,
       echoCancellation: false,
       noiseSuppression: false,
       autoGainControl: false,
@@ -30,6 +33,19 @@ class FakeMediaStreamTrack {
   getConstraints(): MediaTrackConstraints {
     return {};
   }
+  async applyConstraints(constraints: MediaTrackConstraints): Promise<void> {
+    this.applyConstraintsCalls.push(constraints);
+    if (this.rejectMonoConstraint) {
+      throw new Error("mono constraint rejected");
+    }
+    const requested = constraints.channelCount;
+    const exact = typeof requested === "object" && requested !== null && "exact" in requested
+      ? requested.exact
+      : requested;
+    if (exact === 1) {
+      this.channelCount = 1;
+    }
+  }
   stop(): void {
     this.stopCalls += 1;
     this.readyState = "ended";
@@ -42,8 +58,14 @@ class FakeMediaStreamTrack {
 
 class FakeMediaStream {
   readonly track = new FakeMediaStreamTrack();
+  constructor(channelCount = 1) {
+    this.track.channelCount = channelCount;
+  }
   getTracks(): MediaStreamTrack[] {
     return [this.track as unknown as MediaStreamTrack];
+  }
+  getAudioTracks(): MediaStreamTrack[] {
+    return this.getTracks();
   }
 }
 
@@ -182,6 +204,62 @@ tester.describe("browser microphone recording adapter", () => {
     tester.expect(stream.track.stopCalls).toBe(1);
   });
 
+
+  tester.it("forces a multichannel microphone track to native mono before MediaRecorder", async () => {
+    const stream = new FakeMediaStream(2);
+    const adapter = createBrowserMicrophoneRecordingAdapter({
+      mediaDevices: createMediaDevices(stream),
+      MediaRecorderConstructor: FakeMediaRecorder,
+    });
+
+    await adapter.prepare();
+    tester.expect(stream.track.applyConstraintsCalls).toEqual([
+      { channelCount: { exact: 1 } },
+    ]);
+    tester.expect(stream.track.channelCount).toBe(1);
+
+    await adapter.start();
+    tester.expect(FakeMediaRecorder.instances[0]?.stream).toBe(
+      stream as unknown as MediaStream,
+    );
+    await adapter.stop();
+    await adapter.release();
+  });
+
+  tester.it("falls back to a browser mono capture stream when the device refuses a mono track constraint", async () => {
+    const stream = new FakeMediaStream(2);
+    stream.track.rejectMonoConstraint = true;
+    const normalizedStream = new FakeMediaStream(1);
+    let normalizeCalls = 0;
+    let normalizeReleaseCalls = 0;
+    const adapter = createBrowserMicrophoneRecordingAdapter({
+      mediaDevices: createMediaDevices(stream),
+      MediaRecorderConstructor: FakeMediaRecorder,
+      async createMonoRecordingStream(sourceStream) {
+        normalizeCalls += 1;
+        tester.expect(sourceStream).toBe(stream as unknown as MediaStream);
+        return {
+          stream: normalizedStream as unknown as MediaStream,
+          async release() {
+            normalizeReleaseCalls += 1;
+          },
+        };
+      },
+    });
+
+    await adapter.prepare();
+    await adapter.start();
+
+    tester.expect(normalizeCalls).toBe(1);
+    tester.expect(FakeMediaRecorder.instances[0]?.stream).toBe(
+      normalizedStream as unknown as MediaStream,
+    );
+
+    await adapter.stop();
+    await adapter.release();
+    tester.expect(normalizeReleaseCalls).toBe(1);
+    tester.expect(stream.track.stopCalls).toBe(1);
+  });
 
   tester.it("reacquires a fresh music-oriented stream when the prepared input has ended", async () => {
     const firstStream = new FakeMediaStream();

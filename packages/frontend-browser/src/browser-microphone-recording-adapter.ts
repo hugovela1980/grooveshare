@@ -52,6 +52,15 @@ export type BrowserMicrophonePcmAlignmentMonitorFactory = (
   options: BrowserMicrophonePcmAlignmentMonitorOptions,
 ) => Promise<BrowserMicrophonePcmAlignmentMonitor | null>;
 
+export type BrowserMonoRecordingStream = {
+  stream: MediaStream;
+  release(): Promise<void>;
+};
+
+export type BrowserMonoRecordingStreamFactory = (
+  sourceStream: MediaStream,
+) => Promise<BrowserMonoRecordingStream | null>;
+
 export type BrowserMicrophoneRecordingAdapterOptions = {
   mediaDevices?: MediaDevicesLike | null;
   MediaRecorderConstructor?: MediaRecorderConstructorLike | null;
@@ -59,6 +68,11 @@ export type BrowserMicrophoneRecordingAdapterOptions = {
   /** Enable the temporary AudioWorklet PCM tap for this acquired stream. */
   getPcmAlignmentDiagnosticsEnabled?: () => boolean;
   createPcmAlignmentMonitor?: BrowserMicrophonePcmAlignmentMonitorFactory;
+  /**
+   * Optional browser-only fallback that turns a multichannel capture route
+   * into one mono MediaStream before MediaRecorder sees it.
+   */
+  createMonoRecordingStream?: BrowserMonoRecordingStreamFactory;
   /**
    * Resolve browser microphone constraints at prepare-time. This is kept in
    * frontend-browser so diagnostic capture choices never leak into the shared
@@ -168,6 +182,78 @@ function readRangeMaximum(
     : null;
 }
 
+async function createDefaultMonoRecordingStream(
+  sourceStream: MediaStream,
+): Promise<BrowserMonoRecordingStream | null> {
+  const browserGlobal = globalThis as typeof globalThis & {
+    AudioContext?: typeof AudioContext;
+    webkitAudioContext?: typeof AudioContext;
+  };
+  const AudioContextConstructor =
+    browserGlobal.AudioContext ?? browserGlobal.webkitAudioContext;
+
+  if (!AudioContextConstructor) {
+    return null;
+  }
+
+  const context = new AudioContextConstructor({ latencyHint: "interactive" });
+  let sourceNode: MediaStreamAudioSourceNode | null = null;
+  let downmixNode: GainNode | null = null;
+  let destinationNode: MediaStreamAudioDestinationNode | null = null;
+
+  try {
+    if (context.state !== "running") {
+      await context.resume();
+    }
+
+    sourceNode = context.createMediaStreamSource(sourceStream);
+    downmixNode = context.createGain();
+    destinationNode = context.createMediaStreamDestination();
+
+    // Force the input connection to one channel. Web Audio performs the
+    // standard speaker downmix here, so a two-channel interface stream becomes
+    // a genuine mono recording instead of a stereo file with signal only left.
+    downmixNode.channelCount = 1;
+    downmixNode.channelCountMode = "explicit";
+    downmixNode.channelInterpretation = "speakers";
+    destinationNode.channelCount = 1;
+    destinationNode.channelCountMode = "explicit";
+    destinationNode.channelInterpretation = "speakers";
+
+    sourceNode.connect(downmixNode);
+    downmixNode.connect(destinationNode);
+
+    const normalizedStream = destinationNode.stream;
+    if (normalizedStream.getAudioTracks().length === 0) {
+      sourceNode.disconnect();
+      downmixNode.disconnect();
+      await context.close();
+      return null;
+    }
+
+    return {
+      stream: normalizedStream,
+      async release() {
+        for (const track of normalizedStream.getTracks()) {
+          track.stop();
+        }
+        sourceNode?.disconnect();
+        downmixNode?.disconnect();
+        await context.close();
+      },
+    };
+  } catch {
+    try {
+      sourceNode?.disconnect();
+      downmixNode?.disconnect();
+      await context.close();
+    } catch {
+      // Fall through to the original stream when normalization is unavailable.
+    }
+    return null;
+  }
+}
+
 function createUnsupportedError(): MicrophoneRecordingError {
   return new MicrophoneRecordingError(
     "unsupported",
@@ -188,8 +274,11 @@ export function createBrowserMicrophoneRecordingAdapter({
   getAudioConstraints = () => ({ ...MUSIC_RECORDING_AUDIO_CONSTRAINTS }),
   getPcmAlignmentDiagnosticsEnabled = () => false,
   createPcmAlignmentMonitor = createBrowserMicrophonePcmAlignmentMonitor,
+  createMonoRecordingStream = createDefaultMonoRecordingStream,
 }: BrowserMicrophoneRecordingAdapterOptions = {}): MicrophoneRecordingPort {
   let stream: MediaStream | null = null;
+  let recordingStream: MediaStream | null = null;
+  let monoRecordingStream: BrowserMonoRecordingStream | null = null;
   let recorder: MediaRecorderLike | null = null;
   let chunks: Blob[] = [];
   let activeFailureHandler: ((failure: MicrophoneRecordingFailure) => void) | null = null;
@@ -228,7 +317,13 @@ export function createBrowserMicrophoneRecordingAdapter({
     }
 
     const tracks = stream.getTracks();
-    return tracks.length > 0 && tracks.some((track) => track.readyState !== "ended");
+    const recordingTracks = recordingStream?.getTracks() ?? tracks;
+    return (
+      tracks.length > 0 &&
+      tracks.some((track) => track.readyState !== "ended") &&
+      recordingTracks.length > 0 &&
+      recordingTracks.some((track) => track.readyState !== "ended")
+    );
   }
 
   function stopStreamTracks(): void {
@@ -248,10 +343,18 @@ export function createBrowserMicrophoneRecordingAdapter({
     pcmAlignmentMonitor = null;
     preparedDiagnosticDetail = null;
 
+    const activeMonoRecordingStream = monoRecordingStream;
+    monoRecordingStream = null;
+    recordingStream = null;
+
     try {
       await activeMonitor?.release();
     } finally {
-      stopStreamTracks();
+      try {
+        await activeMonoRecordingStream?.release();
+      } finally {
+        stopStreamTracks();
+      }
     }
   }
 
@@ -293,7 +396,7 @@ export function createBrowserMicrophoneRecordingAdapter({
         audio: audioConstraints,
       });
       const audioTrack = stream.getTracks()[0];
-      const settings = audioTrack?.getSettings?.() as
+      let settings = audioTrack?.getSettings?.() as
         | (MediaTrackSettings & { latency?: number })
         | undefined;
       const capabilities = audioTrack?.getCapabilities?.() as
@@ -309,6 +412,38 @@ export function createBrowserMicrophoneRecordingAdapter({
       const supportedConstraints = supported.mediaDevices.getSupportedConstraints?.() as
         | (MediaTrackSupportedConstraints & { latency?: boolean })
         | undefined;
+      let recordingChannelNormalizationMode =
+        settings?.channelCount === 1 ? "native-mono" : "not-needed";
+
+      if (audioTrack && typeof settings?.channelCount === "number" && settings.channelCount > 1) {
+        try {
+          await audioTrack.applyConstraints({
+            channelCount: { exact: 1 },
+          });
+          settings = audioTrack.getSettings?.() as
+            | (MediaTrackSettings & { latency?: number })
+            | undefined;
+          if (settings?.channelCount === 1) {
+            recordingChannelNormalizationMode = "track-constraint-mono";
+          }
+        } catch {
+          // Some USB/browser routes report stereo but reject a one-channel
+          // track constraint. A Web Audio downmix below is the safe fallback.
+        }
+      }
+
+      recordingStream = stream;
+      if (typeof settings?.channelCount === "number" && settings.channelCount > 1) {
+        const normalized = await createMonoRecordingStream?.(stream) ?? null;
+        if (normalized) {
+          monoRecordingStream = normalized;
+          recordingStream = normalized.stream;
+          recordingChannelNormalizationMode = "web-audio-downmix";
+        } else {
+          recordingChannelNormalizationMode = "unresolved-multichannel";
+        }
+      }
+
       const requestedConstraints =
         typeof audioConstraints === "object" ? audioConstraints : null;
       const musicCaptureRequested = Boolean(
@@ -385,6 +520,7 @@ export function createBrowserMicrophoneRecordingAdapter({
         captureProcessingMode: musicCaptureRequested
           ? "music-unprocessed"
           : "browser-default",
+        recordingChannelNormalizationMode,
         requestedEchoCancellation:
           typeof requestedConstraints?.echoCancellation === "boolean"
             ? requestedConstraints.echoCancellation
@@ -503,7 +639,7 @@ export function createBrowserMicrophoneRecordingAdapter({
       );
     }
 
-    const activeStream = stream;
+    const activeStream = recordingStream ?? stream;
 
     chunks = [];
     recorderFailure = null;

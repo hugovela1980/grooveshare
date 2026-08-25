@@ -409,6 +409,10 @@ export function createHtmlAudioPlaybackEngine({
   }
 
   function loadMix(channels: PlaybackChannel[]): void {
+    // Rebuilding the mix is a data refresh, not a navigation command. Preserve
+    // the current working position; the explicit Project Player Stop command is
+    // what resets transport to project start.
+    const preservedPositionSeconds = getTransportCurrentTime();
     stop();
 
     loadedChannels = channels.map((channel, index) => {
@@ -429,6 +433,11 @@ export function createHtmlAudioPlaybackEngine({
         audioElement,
       };
     });
+
+    if (preservedPositionSeconds > 0) {
+      seek(preservedPositionSeconds);
+      return;
+    }
 
     notify();
   }

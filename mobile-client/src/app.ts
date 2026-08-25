@@ -3,6 +3,7 @@ import {
   createHtmlAudioPlaybackEngine,
   createMicrophoneRecordingSession,
   createProjectDraftState,
+  createRecordingWorkspaceState,
   createWebAudioPlaybackEngine,
   getProjectMusicalTimeline,
   loadRecordingAlignmentCompensationMilliseconds,
@@ -23,6 +24,7 @@ import {
   createBrowserOutputKeepalivePlaybackEngine,
   createBrowserRecordingAlignmentDiagnostics,
   createBrowserRecordedTakePlaybackAdapter,
+  createBrowserRecordedTakeDraftPort,
   createBrowserRecordedTakeUploadAdapter,
   createBrowserGrooveShareApp,
   getBrowserInvitationSessionStore,
@@ -957,6 +959,11 @@ function initializeProjectPlayerPage({
     playbackEngine: basePlaybackEngine,
   });
 
+  const recordingWorkspaceState = createRecordingWorkspaceState({
+    projectId: selectedProject.id,
+    storageProvider,
+    userId: currentUser?.id,
+  });
   const audioPlayerController = createAudioPlayerController({
     playbackEngine,
     musicalTimeline,
@@ -974,6 +981,7 @@ function initializeProjectPlayerPage({
     trackNameElement,
     loopCheckbox,
     metronomeCheckbox,
+    recordingWorkspaceState,
   });
 
   audioPlayerController.init();
@@ -1064,6 +1072,8 @@ function initializeProjectPlayerPage({
             recordingAlignmentDiagnostics,
           }),
           takePlaybackPort: createBrowserRecordedTakePlaybackAdapter(),
+          takeDraftPort: createBrowserRecordedTakeDraftPort() ?? undefined,
+          takeDraftScopeId: `${currentUser?.id ?? "anonymous"}:${selectedProject.id}`,
           takeUploadPort: createBrowserRecordedTakeUploadAdapter({
             tracksService: tracksApi,
           }),
@@ -1132,6 +1142,9 @@ function initializeProjectPlayerPage({
       : null;
 
   microphoneRecordingController?.init();
+  if (recordingSession) {
+    void recordingSession.restorePendingTake();
+  }
 
   const projectTracksApi = invitationForProject
     ? {
@@ -1209,21 +1222,21 @@ function initializeProjectPlayerPage({
   async function leavePlayerForHome(): Promise<void> {
     await stopActiveRecording();
     await controller.flushPendingMixSettings();
-    audioPlayerController.stop();
+    audioPlayerController.stop({ resetWorkspaceAnchor: false });
     navigateTo("project-menu");
   }
 
   async function leavePlayerWithBack(): Promise<void> {
     await stopActiveRecording();
     await controller.flushPendingMixSettings();
-    audioPlayerController.stop();
+    audioPlayerController.stop({ resetWorkspaceAnchor: false });
     goBack("project-menu");
   }
 
   async function logoutFromPlayer(): Promise<void> {
     await stopActiveRecording();
     await controller.flushPendingMixSettings();
-    audioPlayerController.stop();
+    audioPlayerController.stop({ resetWorkspaceAnchor: false });
     await onLogout();
   }
 

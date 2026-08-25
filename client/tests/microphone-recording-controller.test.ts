@@ -55,6 +55,7 @@ function createStoppedTake() {
       musicalSpanBeats: 4,
       mediaLeadInSeconds: 2.43,
     },
+    alignmentCompensationMilliseconds: 0,
   };
 }
 
@@ -99,6 +100,10 @@ function createSessionHarness() {
   }
 
   const session: MicrophoneRecordingSession = {
+    restorePendingTake() {
+      calls.push("restore-pending-take");
+      return Promise.resolve(snapshot);
+    },
     arm() {
       calls.push("arm");
       return publish({ ...snapshot, status: "ready", failure: null, savedTrack: null });

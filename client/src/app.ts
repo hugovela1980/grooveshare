@@ -3,6 +3,7 @@ import {
   createHtmlAudioPlaybackEngine,
   createMicrophoneRecordingSession,
   createProjectDraftState,
+  createRecordingWorkspaceState,
   createWebAudioPlaybackEngine,
   getProjectMusicalTimeline,
   loadRecordingAlignmentCompensationMilliseconds,
@@ -22,6 +23,7 @@ import {
   createBrowserMicrophoneRecordingAdapter,
   createBrowserRecordingAlignmentDiagnostics,
   createBrowserRecordedTakePlaybackAdapter,
+  createBrowserRecordedTakeDraftPort,
   createBrowserRecordedTakeUploadAdapter,
   createBrowserGrooveShareApp,
   getBrowserInvitationSessionStore,
@@ -584,6 +586,11 @@ function initializeProjectPlayerPage({
     ...(invitationForProject ? { fetchAudioData: createInvitationAudioDataFetcher(invitationForProject.token) } : {}),
     createFallbackEngine: () => createHtmlAudioPlaybackEngine({ primaryAudioElement: audioElement, createAudioElement: () => document.createElement("audio"), musicalTimeline }),
   });
+  const recordingWorkspaceState = createRecordingWorkspaceState({
+    projectId: selectedProject.id,
+    storageProvider,
+    userId: currentUser?.id,
+  });
   const audioPlayerController = createAudioPlayerController({
     playbackEngine,
     musicalTimeline,
@@ -601,6 +608,7 @@ function initializeProjectPlayerPage({
     trackNameElement,
     loopCheckbox,
     metronomeCheckbox,
+    recordingWorkspaceState,
   });
   audioPlayerController.init();
 
@@ -690,6 +698,8 @@ function initializeProjectPlayerPage({
             recordingAlignmentDiagnostics,
           }),
           takePlaybackPort: createBrowserRecordedTakePlaybackAdapter(),
+          takeDraftPort: createBrowserRecordedTakeDraftPort() ?? undefined,
+          takeDraftScopeId: `${currentUser?.id ?? "anonymous"}:${selectedProject.id}`,
           takeUploadPort: createBrowserRecordedTakeUploadAdapter({
             tracksService: tracksApi,
           }),
@@ -758,6 +768,9 @@ function initializeProjectPlayerPage({
       : null;
 
   microphoneRecordingController?.init();
+  if (recordingSession) {
+    void recordingSession.restorePendingTake();
+  }
 
   const projectTracksApi = invitationForProject ? { ...tracksApi, getTracksByProjectId(projectId: string) { return tracksApi.getTracksByProjectId(projectId, invitationForProject.token); } } : tracksApi;
   const projectStorageProvider = isGuestProject ? createGuestMixStorageProvider(selectedProject.id, storageProvider) : storageProvider;
@@ -791,8 +804,8 @@ function initializeProjectPlayerPage({
     }
   }
 
-  async function leavePlayerWithBack(): Promise<void> { await stopActiveRecording(); await controller.flushPendingMixSettings(); audioPlayerController.stop(); goBack("project-menu"); }
-  async function logoutFromPlayer(): Promise<void> { await stopActiveRecording(); await controller.flushPendingMixSettings(); audioPlayerController.stop(); await onLogout(); }
+  async function leavePlayerWithBack(): Promise<void> { await stopActiveRecording(); await controller.flushPendingMixSettings(); audioPlayerController.stop({ resetWorkspaceAnchor: false }); goBack("project-menu"); }
+  async function logoutFromPlayer(): Promise<void> { await stopActiveRecording(); await controller.flushPendingMixSettings(); audioPlayerController.stop({ resetWorkspaceAnchor: false }); await onLogout(); }
   backButton?.addEventListener("click", () => { void runBusyButtonAction(backButton, leavePlayerWithBack); });
   logoutButton?.addEventListener("click", () => { void runBusyButtonAction(logoutButton, logoutFromPlayer); });
   guestHomeButton?.addEventListener("click", onGuestAuth);
