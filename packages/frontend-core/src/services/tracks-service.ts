@@ -69,6 +69,7 @@ export function createTracksService<TAudioFile>(input: {
       audioFile,
       musicalPlacement,
       alignmentOffsetSeconds,
+      mediaLeadInSeconds,
     }) {
       const response = await transport.request(
         `${apiBaseUrl}/api/projects/${projectId}/tracks`,
@@ -79,6 +80,7 @@ export function createTracksService<TAudioFile>(input: {
             audioFile,
             musicalPlacement,
             alignmentOffsetSeconds,
+            mediaLeadInSeconds,
           }),
         },
       );

@@ -70,6 +70,8 @@ export type MicrophoneRecordedTake = {
     musicalStart: MusicalPosition;
     musicalStop: MusicalPosition;
     musicalSpanBeats: number;
+    /** Encoded media before the authoritative project start (count-in/warm-up). */
+    mediaLeadInSeconds: number;
   };
 };
 
@@ -154,6 +156,7 @@ function cloneTake(take: MicrophoneRecordedTake | null): MicrophoneRecordedTake 
       musicalStart: { ...take.timing.musicalStart },
       musicalStop: { ...take.timing.musicalStop },
       musicalSpanBeats: take.timing.musicalSpanBeats,
+      mediaLeadInSeconds: take.timing.mediaLeadInSeconds,
     },
   };
 }
@@ -213,6 +216,7 @@ export function createMicrophoneRecordingSession({
   let destroyed = false;
   let captureActive = false;
   let stopInProgress = false;
+  let recordingMediaLeadInSeconds = 0;
   const listeners = new Set<MicrophoneRecordingStateListener>();
   const synchronizationRequested = Boolean(playbackEngine || musicalTimeline);
   const normalizedMusicalTimeline = musicalTimeline
@@ -252,6 +256,7 @@ export function createMicrophoneRecordingSession({
                 }
               : undefined,
             alignmentOffsetSeconds: savedTrack.alignmentOffsetSeconds,
+            mediaLeadInSeconds: savedTrack.mediaLeadInSeconds,
           }
         : null,
       alignmentCompensationMilliseconds,
@@ -317,6 +322,7 @@ export function createMicrophoneRecordingSession({
   function clearTakeState(): void {
     capture = null;
     startPosition = null;
+    recordingMediaLeadInSeconds = 0;
     take = null;
     takeReviewStatus = "idle";
     takeReviewFailure = null;
@@ -677,9 +683,16 @@ export function createMicrophoneRecordingSession({
       }
 
       if (synchronization) {
+        const synchronizedStart = playbackWasAlreadyRunning
+          ? null
+          : await synchronization.engine.startSynchronizedRecordingPlayback?.({
+              countInBars: 1,
+            }) ?? null;
         const marker = playbackWasAlreadyRunning
           ? synchronization.engine.markRecordingStart?.() ?? null
-          : await synchronization.engine.startSynchronizedRecordingPlayback?.() ?? null;
+          : synchronizedStart?.marker ?? null;
+
+        recordingMediaLeadInSeconds = synchronizedStart?.mediaLeadInSeconds ?? 0;
 
         if (
           !marker ||
@@ -714,6 +727,11 @@ export function createMicrophoneRecordingSession({
           projectPositionSeconds: marker.projectPositionSeconds,
           musicalPosition: { ...marker.musicalPosition },
           playbackState: marker.playbackState,
+          detail: {
+            mediaLeadInMilliseconds: recordingMediaLeadInSeconds * 1000,
+            countInBars: synchronizedStart?.countIn.bars ?? 0,
+            countInBeats: synchronizedStart?.countIn.beats ?? 0,
+          },
         });
 
         startPosition = {
@@ -837,6 +855,7 @@ export function createMicrophoneRecordingSession({
             musicalStart: { ...startPosition.musical },
             musicalStop: { ...timingResult.stop.musicalPosition },
             musicalSpanBeats: timingResult.metadata.durationSeconds / secondsPerBeat,
+            mediaLeadInSeconds: recordingMediaLeadInSeconds,
           },
         };
         observeRecordingAlignment({
@@ -851,6 +870,7 @@ export function createMicrophoneRecordingSession({
             musicalSpanBeats: take.timing.musicalSpanBeats,
             timelineOffsetSeconds:
               timingResult.metadata.timelineOffsetSeconds,
+            mediaLeadInMilliseconds: recordingMediaLeadInSeconds * 1000,
           },
         });
       }
@@ -901,6 +921,7 @@ export function createMicrophoneRecordingSession({
           recordingAlignmentCompensationMillisecondsToSeconds(
             alignmentCompensationMilliseconds,
           ),
+        mediaLeadInSeconds: take.timing.mediaLeadInSeconds,
         onEnded() {
           if (destroyed || generation !== takeReviewGeneration) {
             return;
@@ -1070,6 +1091,7 @@ export function createMicrophoneRecordingSession({
           recordingAlignmentCompensationMillisecondsToSeconds(
             alignmentCompensationMilliseconds,
           ),
+        mediaLeadInSeconds: takeToKeep.timing.mediaLeadInSeconds,
       });
 
       try {
@@ -1090,6 +1112,7 @@ export function createMicrophoneRecordingSession({
             }
           : undefined,
         alignmentOffsetSeconds: uploadedTrack.alignmentOffsetSeconds,
+        mediaLeadInSeconds: uploadedTrack.mediaLeadInSeconds,
       };
       status = "idle";
       return notify();

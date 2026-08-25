@@ -4,6 +4,7 @@ import type {
   PlaybackSnapshot,
   PlaybackStateListener,
   RecordingStartMarker,
+  SynchronizedRecordingPlaybackStart,
 } from "@hugovela/frontend-core";
 import {
   BROWSER_OUTPUT_KEEPALIVE_FREQUENCY_HZ,
@@ -97,6 +98,7 @@ class FakePlaybackEngine implements PlaybackEngine {
   pauseCalls = 0;
   stopCalls = 0;
   synchronizedPlayCalls = 0;
+  metronomeValues: boolean[] = [];
   destroyCalls = 0;
   snapshot: PlaybackSnapshot = {
     currentTime: 0,
@@ -137,6 +139,9 @@ class FakePlaybackEngine implements PlaybackEngine {
   }
 
   setLoopEnabled(_enabled: boolean): void {}
+  setMetronomeEnabled(enabled: boolean): void {
+    this.metronomeValues.push(enabled);
+  }
   setChannelVolume(_channelNumber: number, _volume: number): boolean {
     return true;
   }
@@ -154,15 +159,19 @@ class FakePlaybackEngine implements PlaybackEngine {
     return () => this.listeners.delete(listener);
   }
 
-  async startSynchronizedRecordingPlayback(): Promise<RecordingStartMarker> {
+  async startSynchronizedRecordingPlayback(): Promise<SynchronizedRecordingPlaybackStart> {
     this.synchronizedPlayCalls += 1;
     this.setPlaying(true);
     return {
-      kind: "recording-start",
-      projectPositionSeconds: this.snapshot.currentTime,
-      musicalPosition: { ...this.snapshot.musicalPosition },
-      audioContextTimeSeconds: 12.5,
-      playbackState: "playing",
+      marker: {
+        kind: "recording-start",
+        projectPositionSeconds: this.snapshot.currentTime,
+        musicalPosition: { ...this.snapshot.musicalPosition },
+        audioContextTimeSeconds: 12.5,
+        playbackState: "playing",
+      },
+      mediaLeadInSeconds: 2.03,
+      countIn: { bars: 1, beats: 4, durationSeconds: 2 },
     };
   }
 
@@ -300,10 +309,12 @@ tester.describe("browser output keepalive playback engine", () => {
 
     tester.expect(harness.playbackEngine.synchronizedPlayCalls).toBe(0);
     harness.runNextTimer();
-    const marker = await startPromise;
+    const result = await startPromise;
 
     tester.expect(harness.playbackEngine.synchronizedPlayCalls).toBe(1);
-    tester.expect(marker.audioContextTimeSeconds).toBe(12.5);
+    tester.expect(result.marker.audioContextTimeSeconds).toBe(12.5);
+    tester.expect(Math.abs(result.mediaLeadInSeconds - 2.43) < 1e-9).toBe(true);
+    tester.expect(result.countIn).toEqual({ bars: 1, beats: 4, durationSeconds: 2 });
     tester.expect(FakeAudioContext.instances[0]?.closeCalls).toBe(0);
   });
 
@@ -376,6 +387,16 @@ tester.describe("browser output keepalive playback engine", () => {
 
     await engine.play();
     tester.expect(playbackEngine.playCalls).toBe(1);
+  });
+
+  tester.it("delegates the optional metronome toggle without changing output keepalive lifecycle", () => {
+    const harness = createHarness();
+
+    harness.engine.setMetronomeEnabled?.(true);
+    harness.engine.setMetronomeEnabled?.(false);
+
+    tester.expect(harness.playbackEngine.metronomeValues).toEqual([true, false]);
+    tester.expect(FakeAudioContext.instances.length).toBe(0);
   });
 
   tester.it("tears down the keepalive and delegated engine on destroy", async () => {

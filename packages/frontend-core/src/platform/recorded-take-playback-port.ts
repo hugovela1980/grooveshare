@@ -24,6 +24,8 @@ export interface RecordedTakePlaybackPort {
        * the take by skipping source audio; negative values delay take playback.
        */
       alignmentOffsetSeconds?: number;
+      /** Encoded media to skip before the take's musical origin. */
+      mediaLeadInSeconds?: number;
       onEnded?: RecordedTakePlaybackEndHandler;
       onFailure?: RecordedTakePlaybackFailureHandler;
     },

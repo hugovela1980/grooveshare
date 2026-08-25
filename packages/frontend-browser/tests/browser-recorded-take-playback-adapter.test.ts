@@ -101,6 +101,20 @@ tester.describe("browser recorded-take playback adapter", () => {
     tester.expect(harness.audioElements[0]?.removeAttributeCalls).toEqual(["src"]);
   });
 
+  tester.it("skips captured count-in lead-in independently from signed alignment", async () => {
+    const harness = createHarness();
+
+    await harness.adapter.play(capture, {
+      mediaLeadInSeconds: 2.43,
+      alignmentOffsetSeconds: 0.16,
+    });
+
+    tester.expect(
+      Math.abs((harness.audioElements[0]?.currentTime ?? 0) - 2.59) < 1e-9,
+    ).toBe(true);
+    tester.expect(harness.audioElements[0]?.playCalls).toBe(1);
+  });
+
   tester.it("advances a late take by seeking its temporary source before audition", async () => {
     const harness = createHarness();
 

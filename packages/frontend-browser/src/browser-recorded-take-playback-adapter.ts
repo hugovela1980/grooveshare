@@ -118,10 +118,12 @@ export function createBrowserRecordedTakePlaybackAdapter({
     capture: RecordedAudioCapture,
     {
       alignmentOffsetSeconds = 0,
+      mediaLeadInSeconds = 0,
       onEnded,
       onFailure,
     }: {
       alignmentOffsetSeconds?: number;
+      mediaLeadInSeconds?: number;
       onEnded?: () => void;
       onFailure?: (failure: RecordedTakePlaybackFailure) => void;
     } = {},
@@ -167,7 +169,11 @@ export function createBrowserRecordedTakePlaybackAdapter({
     const normalizedAlignmentOffset = Number.isFinite(alignmentOffsetSeconds)
       ? alignmentOffsetSeconds
       : 0;
-    const sourceOffsetSeconds = Math.max(0, normalizedAlignmentOffset);
+    const normalizedMediaLeadIn = Number.isFinite(mediaLeadInSeconds)
+      ? Math.max(0, mediaLeadInSeconds)
+      : 0;
+    const sourceOffsetSeconds =
+      normalizedMediaLeadIn + Math.max(0, normalizedAlignmentOffset);
     const delayMilliseconds = Math.max(0, -normalizedAlignmentOffset * 1000);
 
     if (sourceOffsetSeconds > 0) {

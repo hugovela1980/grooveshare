@@ -145,6 +145,7 @@ tester.describe("database migration behavior", () => {
         spanBeats: null,
       });
       tester.expect(track?.alignmentOffsetSeconds).toBe(0);
+      tester.expect(track?.mediaLeadInSeconds).toBe(0);
     },
   );
 

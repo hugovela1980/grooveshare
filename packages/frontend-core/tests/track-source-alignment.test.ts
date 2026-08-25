@@ -24,6 +24,27 @@ tester.describe("track source alignment", () => {
     })).toBe(2.16);
   });
 
+  tester.it("always skips structural captured-media lead-in before applying signed alignment", () => {
+    const window = getTrackSourceAlignmentWindow({
+      trackStartSeconds: 4,
+      sourceDurationSeconds: 12.43,
+      mediaLeadInSeconds: 2.43,
+      alignmentOffsetSeconds: 0.16,
+    });
+
+    tester.expect(window.projectStartSeconds).toBe(4);
+    tester.expect(Math.abs(window.projectEndSeconds - 13.84) < 1e-9).toBe(true);
+    tester.expect(
+      Math.abs(window.sourceOffsetAtProjectStartSeconds - 2.59) < 1e-9,
+    ).toBe(true);
+    tester.expect(Math.abs(getAlignedSourceOffsetSeconds({
+      projectTimeSeconds: 6,
+      trackStartSeconds: 4,
+      mediaLeadInSeconds: 2.43,
+      alignmentOffsetSeconds: 0.16,
+    }) - 4.59) < 1e-9).toBe(true);
+  });
+
   tester.it("delays early captured content without changing the declared musical start", () => {
     const window = getTrackSourceAlignmentWindow({
       trackStartSeconds: 4,

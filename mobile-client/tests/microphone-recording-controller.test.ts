@@ -53,6 +53,7 @@ function createStoppedTake() {
       musicalStart: { bar: 2, beat: 4 },
       musicalStop: { bar: 3, beat: 4 },
       musicalSpanBeats: 4,
+      mediaLeadInSeconds: 2.43,
     },
   };
 }

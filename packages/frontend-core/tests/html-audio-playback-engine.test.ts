@@ -147,6 +147,35 @@ tester.describe("HtmlAudioPlaybackEngine", () => {
     });
   });
 
+  tester.it("skips captured count-in lead-in without moving fallback musical placement", () => {
+    const first = createFakeAudioElement();
+    first.duration = 12.43;
+    const engine = createHtmlAudioPlaybackEngine({
+      primaryAudioElement: first,
+      createAudioElement: createFakeAudioElement,
+      musicalTimeline: {
+        bpm: 120,
+        timeSignature: { numerator: 4, denominator: 4 },
+      },
+    });
+
+    engine.loadMix([{
+      channelNumber: 1,
+      trackId: "recorded-take",
+      audioUrl: "/take.webm",
+      volume: 1,
+      enabled: true,
+      musicalPlacement: { start: { bar: 2, beat: 1 }, spanBeats: 20 },
+      mediaLeadInSeconds: 2.43,
+    }]);
+
+    engine.seekToMusicalPosition({ bar: 2, beat: 1 });
+
+    tester.expect(first.currentTime).toBe(2.43);
+    tester.expect(Math.abs(engine.getSnapshot().currentTime - 2) < 1e-9).toBe(true);
+    tester.expect(Math.abs(engine.getSnapshot().duration - 12) < 1e-9).toBe(true);
+  });
+
   tester.it("keeps placed tracks aligned when seeking during fallback playback", async () => {
     const first = createFakeAudioElement();
     const second = createFakeAudioElement();

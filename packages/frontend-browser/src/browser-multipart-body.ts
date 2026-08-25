@@ -7,12 +7,16 @@ export function createBrowserMultipartBodyFactory(): MultipartBodyFactory<File> 
       audioFile,
       musicalPlacement,
       alignmentOffsetSeconds,
+      mediaLeadInSeconds,
     }) {
       const formData = new FormData();
       formData.append("trackName", trackName);
       formData.append("audioFile", audioFile);
       if (alignmentOffsetSeconds !== undefined) {
         formData.append("alignmentOffsetSeconds", String(alignmentOffsetSeconds));
+      }
+      if (mediaLeadInSeconds !== undefined) {
+        formData.append("mediaLeadInSeconds", String(mediaLeadInSeconds));
       }
       if (musicalPlacement) {
         formData.append("musicalStartBar", String(musicalPlacement.start.bar));

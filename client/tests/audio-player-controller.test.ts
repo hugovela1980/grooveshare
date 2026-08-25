@@ -156,6 +156,7 @@ function createControllerTestSetup(options: {
     const playPauseButton = createFakeButton();
     const stopButton = createFakeButton();
     const loopCheckbox = createFakeCheckbox();
+    const metronomeCheckbox = createFakeCheckbox();
     const progressInput = createFakeRangeInput();
     const timestampElement = createFakeTextElement();
     const durationElement = createFakeTextElement();
@@ -191,6 +192,7 @@ function createControllerTestSetup(options: {
         seekBarButton,
         trackNameElement,
         loopCheckbox,
+        metronomeCheckbox,
     });
 
     return {
@@ -206,6 +208,7 @@ function createControllerTestSetup(options: {
         seekBarButton,
         trackNameElement,
         loopCheckbox,
+        metronomeCheckbox,
         controller,
     };
 }
@@ -1069,6 +1072,9 @@ tester.describe("audio player controller playback boundary", () => {
             setLoopEnabled(enabled) {
                 calls.push(`loop:${enabled}`);
             },
+            setMetronomeEnabled(enabled) {
+                calls.push(`metronome:${enabled}`);
+            },
             setChannelVolume(channelNumber, volume) {
                 calls.push(`volume:${channelNumber}:${volume}`);
                 return true;
@@ -1100,6 +1106,7 @@ tester.describe("audio player controller playback boundary", () => {
         const seekBarButton = createFakeButton();
         const trackNameElement = createFakeTextElement();
         const loopCheckbox = createFakeCheckbox();
+        const metronomeCheckbox = createFakeCheckbox();
 
         const controller = createAudioPlayerController({
             playbackEngine,
@@ -1114,6 +1121,7 @@ tester.describe("audio player controller playback boundary", () => {
             seekBarButton,
             trackNameElement,
             loopCheckbox,
+            metronomeCheckbox,
         });
 
         controller.init();
@@ -1127,6 +1135,8 @@ tester.describe("audio player controller playback boundary", () => {
             timelineOffsetSeconds: 3.5,
         }]);
 
+        metronomeCheckbox.checked = true;
+        metronomeCheckbox.change();
         await playPauseButton.click();
         await seekBackwardButton.click();
         controller.setChannelVolume(1, 0.4);
@@ -1136,7 +1146,9 @@ tester.describe("audio player controller playback boundary", () => {
         tester.expect(loadedTimelineOffsetSeconds).toBe(3.5);
         tester.expect(calls).toEqual([
             "loop:false",
+            "metronome:false",
             "load:1",
+            "metronome:true",
             "play",
             "seekBy:-5",
             "volume:1:0.4",

@@ -24,6 +24,8 @@ function createTrack(input: UploadTrackInput<File>): Track {
     mimeType: input.audioFile.type,
     fileSize: 3,
     musicalPlacement: input.musicalPlacement,
+    alignmentOffsetSeconds: input.alignmentOffsetSeconds,
+    mediaLeadInSeconds: input.mediaLeadInSeconds,
     createdAt: "2026-08-21T00:00:00.000Z",
   };
 }
@@ -53,6 +55,7 @@ tester.describe("browser recorded-take upload adapter", () => {
         spanBeats: 6.25,
       },
       alignmentOffsetSeconds: 0.032,
+      mediaLeadInSeconds: 2.43,
     });
 
     const uploadInput = uploadInputs[0];
@@ -64,6 +67,7 @@ tester.describe("browser recorded-take upload adapter", () => {
       spanBeats: 6.25,
     });
     tester.expect(uploadInput?.alignmentOffsetSeconds).toBe(0.032);
+    tester.expect(uploadInput?.mediaLeadInSeconds).toBe(2.43);
     tester.expect(audioFile?.name).toBe("Lead - Harmony.webm");
     tester.expect(audioFile?.type).toBe("audio/webm");
     tester.expect(audioFile?.bits.length).toBe(1);
@@ -72,6 +76,7 @@ tester.describe("browser recorded-take upload adapter", () => {
       start: { bar: 3, beat: 2.5 },
       spanBeats: 6.25,
     });
+    tester.expect(savedTrack.mediaLeadInSeconds).toBe(2.43);
   });
 
   tester.it("rejects a capture format the normal server upload path cannot accept", async () => {
@@ -100,6 +105,7 @@ tester.describe("browser recorded-take upload adapter", () => {
           spanBeats: 1,
         },
         alignmentOffsetSeconds: 0,
+        mediaLeadInSeconds: 2.03,
       });
     } catch (error) {
       message = error instanceof Error ? error.message : String(error);

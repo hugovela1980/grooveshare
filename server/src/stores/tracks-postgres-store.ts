@@ -24,6 +24,7 @@ type TrackRow = {
     musical_start_beat: number;
     musical_span_beats: number | null;
     alignment_offset_seconds: number;
+    media_lead_in_seconds: number;
     created_at: Date;
 };
 
@@ -47,6 +48,7 @@ function trackRowToTrack(
             spanBeats: row.musical_span_beats,
         },
         alignmentOffsetSeconds: row.alignment_offset_seconds,
+        mediaLeadInSeconds: row.media_lead_in_seconds,
         createdAt: row.created_at.toISOString(),
     };
 }
@@ -73,6 +75,7 @@ export function createTracksPostgresStore(
             musical_start_beat,
             musical_span_beats,
             alignment_offset_seconds,
+            media_lead_in_seconds,
             created_at
           FROM tracks
           WHERE project_id = $1
@@ -104,6 +107,7 @@ export function createTracksPostgresStore(
             musical_start_beat,
             musical_span_beats,
             alignment_offset_seconds,
+            media_lead_in_seconds,
             created_at
           FROM tracks
           WHERE project_id = $1
@@ -143,6 +147,7 @@ export function createTracksPostgresStore(
             musical_start_beat,
             musical_span_beats,
             alignment_offset_seconds,
+            media_lead_in_seconds,
             created_at
           )
           VALUES (
@@ -158,6 +163,7 @@ export function createTracksPostgresStore(
             $10,
             $11,
             $12,
+            $13,
             NOW()
           )
           RETURNING
@@ -173,6 +179,7 @@ export function createTracksPostgresStore(
             musical_start_beat,
             musical_span_beats,
             alignment_offset_seconds,
+            media_lead_in_seconds,
             created_at
         `,
                 [
@@ -188,6 +195,7 @@ export function createTracksPostgresStore(
                     trackInput.musicalPlacement?.start.beat ?? 1,
                     trackInput.musicalPlacement?.spanBeats ?? null,
                     trackInput.alignmentOffsetSeconds ?? 0,
+                    trackInput.mediaLeadInSeconds ?? 0,
                 ],
             );
 
@@ -253,6 +261,7 @@ export function createTracksPostgresStore(
             musical_start_beat,
             musical_span_beats,
             alignment_offset_seconds,
+            media_lead_in_seconds,
             created_at
         `,
                 [
@@ -344,6 +353,7 @@ export function createTracksPostgresStore(
             musical_start_beat,
             musical_span_beats,
             alignment_offset_seconds,
+            media_lead_in_seconds,
             created_at
         `,
                     [

@@ -165,6 +165,7 @@ export type {
   PlaybackEngine,
   PlaybackSnapshot,
   PlaybackStateListener,
+  SynchronizedRecordingPlaybackStart,
 } from "./playback/playback-engine.js";
 export {
   createTransport,
@@ -183,6 +184,7 @@ export {
   getAlignedSourceOffsetSeconds,
   getTrackSourceAlignmentWindow,
   normalizeTrackAlignmentOffsetSeconds,
+  normalizeTrackMediaLeadInSeconds,
   type TrackSourceAlignmentWindow,
 } from "./playback/track-source-alignment.js";
 export {

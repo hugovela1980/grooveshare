@@ -88,6 +88,8 @@ export type Track = {
    * changing its declared musical placement.
    */
   alignmentOffsetSeconds?: number;
+  /** Encoded media before the track's declared musical origin. */
+  mediaLeadInSeconds?: number;
   createdAt: string;
 };
 
@@ -102,6 +104,7 @@ export type UploadTrackInput<TAudioFile = unknown> = {
   audioFile: TAudioFile;
   musicalPlacement?: TrackMusicalPlacement;
   alignmentOffsetSeconds?: number;
+  mediaLeadInSeconds?: number;
 };
 
 export type UpdateTrackDetailsInput = {

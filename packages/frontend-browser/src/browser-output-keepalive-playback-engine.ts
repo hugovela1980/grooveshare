@@ -2,6 +2,7 @@ import type {
   PlaybackEngine,
   PlaybackStateListener,
   RecordingStartMarker,
+  SynchronizedRecordingPlaybackStart,
 } from "@hugovela/frontend-core";
 
 type GainParamLike = {
@@ -253,15 +254,30 @@ export function createBrowserOutputKeepalivePlaybackEngine({
     return elapsed >= 0 && elapsed <= recentlyActiveMilliseconds;
   }
 
-  async function prepareOutputRoute(): Promise<void> {
+  async function prepareOutputRoute(): Promise<number> {
+    const preparationStartedAtMilliseconds = nowMilliseconds();
     const canSkipWarmup = wasRecentlyActive();
     const started = await startKeepalive();
 
-    if (!started || canSkipWarmup) {
-      return;
+    if (!started) {
+      return 0;
     }
 
-    await waitForMilliseconds(warmupMilliseconds, scheduleTimeout);
+    if (!canSkipWarmup) {
+      await waitForMilliseconds(warmupMilliseconds, scheduleTimeout);
+    }
+
+    const measuredPreparationMilliseconds = Math.max(
+      0,
+      nowMilliseconds() - preparationStartedAtMilliseconds,
+    );
+
+    // Test clocks and some coarse browser clocks may not advance across the
+    // injected warm-up timer. Never report less structural capture lead-in
+    // than the warm-up we deliberately applied.
+    return canSkipWarmup
+      ? measuredPreparationMilliseconds
+      : Math.max(warmupMilliseconds, measuredPreparationMilliseconds);
   }
 
   async function play(): Promise<void> {
@@ -290,7 +306,9 @@ export function createBrowserOutputKeepalivePlaybackEngine({
     }
   }
 
-  async function startSynchronizedRecordingPlayback(): Promise<RecordingStartMarker> {
+  async function startSynchronizedRecordingPlayback(
+    options?: { countInBars?: number },
+  ): Promise<SynchronizedRecordingPlaybackStart> {
     if (!playbackEngine.startSynchronizedRecordingPlayback) {
       throw new Error(
         "Synchronized recording playback is unavailable in this environment.",
@@ -299,7 +317,7 @@ export function createBrowserOutputKeepalivePlaybackEngine({
 
     keepaliveDesired = true;
     const generation = ++playbackOperationGeneration;
-    await prepareOutputRoute();
+    const warmupAppliedMilliseconds = await prepareOutputRoute();
 
     if (destroyed || generation !== playbackOperationGeneration) {
       if (!keepaliveDesired) {
@@ -309,7 +327,12 @@ export function createBrowserOutputKeepalivePlaybackEngine({
     }
 
     try {
-      return await playbackEngine.startSynchronizedRecordingPlayback();
+      const result = await playbackEngine.startSynchronizedRecordingPlayback(options);
+      return {
+        ...result,
+        mediaLeadInSeconds:
+          result.mediaLeadInSeconds + warmupAppliedMilliseconds / 1000,
+      };
     } catch (error) {
       keepaliveDesired = false;
       await stopKeepalive();
@@ -364,6 +387,7 @@ export function createBrowserOutputKeepalivePlaybackEngine({
     seekToMusicalPosition: (position) =>
       playbackEngine.seekToMusicalPosition(position),
     setLoopEnabled: (enabled) => playbackEngine.setLoopEnabled(enabled),
+    setMetronomeEnabled: (enabled) => playbackEngine.setMetronomeEnabled?.(enabled),
     setChannelVolume: (channelNumber, volume) =>
       playbackEngine.setChannelVolume(channelNumber, volume),
     setChannelEnabled: (channelNumber, enabled) =>

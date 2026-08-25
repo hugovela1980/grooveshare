@@ -96,5 +96,6 @@ export interface MultipartBodyFactory<TFile = unknown> {
     audioFile: TFile;
     musicalPlacement?: TrackMusicalPlacement;
     alignmentOffsetSeconds?: number;
+    mediaLeadInSeconds?: number;
   }): unknown;
 }

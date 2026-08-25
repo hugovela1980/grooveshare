@@ -465,7 +465,7 @@ tester.describe("project API routes", () => {
     }
   });
 
-  tester.it("uploads recorded-take musical placement with a signed alignment offset", async () => {
+  tester.it("uploads recorded-take placement, structural media lead-in, and signed alignment independently", async () => {
     const { baseUrl, server, request } = await createTestServer();
     const boundary = "----GrooveShareRecordedTakeAlignmentBoundary";
     const fileData = Buffer.from("recorded take", "utf-8");
@@ -496,6 +496,7 @@ tester.describe("project API routes", () => {
           createTextPart({ boundary, name: "musicalStartBeat", value: "2.5" }),
           createTextPart({ boundary, name: "musicalSpanBeats", value: "8" }),
           createTextPart({ boundary, name: "alignmentOffsetSeconds", value: "0.163" }),
+          createTextPart({ boundary, name: "mediaLeadInSeconds", value: "2.43" }),
           createFilePart({
             boundary,
             fieldName: "audioFile",
@@ -524,12 +525,63 @@ tester.describe("project API routes", () => {
         spanBeats: 8,
       });
       tester.expect(uploadBody.data?.alignmentOffsetSeconds).toBe(0.163);
+      tester.expect(uploadBody.data?.mediaLeadInSeconds).toBe(2.43);
 
       const tracksResponse = await request(
         `${baseUrl}/api/projects/${projectId}/tracks`,
       );
       const tracksBody = (await tracksResponse.json()) as ApiResponse<Track[]>;
       tester.expect(tracksBody.data?.[0]?.alignmentOffsetSeconds).toBe(0.163);
+      tester.expect(tracksBody.data?.[0]?.mediaLeadInSeconds).toBe(2.43);
+    } finally {
+      await closeServer(server);
+    }
+  });
+
+  tester.it("rejects an invalid captured-media lead-in", async () => {
+    const { baseUrl, server, request } = await createTestServer();
+    const boundary = "----GrooveShareInvalidMediaLeadInBoundary";
+
+    try {
+      const createProjectResponse = await request(`${baseUrl}/api/projects`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: "Invalid Lead In",
+          description: "Invalid lead-in validation test",
+        }),
+      });
+      const createProjectBody =
+        (await createProjectResponse.json()) as ApiResponse<Project>;
+      const projectId = createProjectBody.data?.id;
+      if (!projectId) throw new Error("Created project did not include an ID.");
+
+      const multipartBody = createMultipartBody({
+        boundary,
+        parts: [
+          createTextPart({ boundary, name: "trackName", value: "Bad Lead In" }),
+          createTextPart({ boundary, name: "mediaLeadInSeconds", value: "-1" }),
+          createFilePart({
+            boundary,
+            fieldName: "audioFile",
+            filename: "bad-lead-in.webm",
+            mimeType: "audio/webm",
+            data: Buffer.from("audio", "utf-8"),
+          }),
+        ],
+      });
+
+      const response = await request(`${baseUrl}/api/projects/${projectId}/tracks`, {
+        method: "POST",
+        headers: {
+          "Content-Type": `multipart/form-data; boundary=${boundary}`,
+        },
+        body: bufferToArrayBuffer(multipartBody),
+      });
+      const body = (await response.json()) as ApiResponse<unknown>;
+
+      tester.expect(response.status).toBe(400);
+      tester.expect(body.error).toBe("Invalid track media lead-in.");
     } finally {
       await closeServer(server);
     }

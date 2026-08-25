@@ -3,6 +3,7 @@ import {
   createMicrophoneRecordingSession,
   createRecordingTimeline,
   createTransport,
+  getSecondsPerMusicalBeat,
   musicalPositionToTransportSeconds,
   type MicrophoneRecordingFailureHandler,
   type MicrophoneRecordingPort,
@@ -372,7 +373,19 @@ function createPlaybackHarness({
             events.push("playback-start");
             transport.play();
             events.push("mark-recording-start");
-            return recordingTimeline.markStart();
+            const marker = recordingTimeline.markStart();
+            const beats = musicalTimeline.timeSignature.numerator;
+            const durationSeconds =
+              beats * getSecondsPerMusicalBeat(musicalTimeline);
+            return {
+              marker,
+              mediaLeadInSeconds: durationSeconds + 0.03,
+              countIn: {
+                bars: 1,
+                beats,
+                durationSeconds,
+              },
+            };
           },
           markRecordingStart() {
             events.push("mark-recording-start");
@@ -637,6 +650,7 @@ type TakePlaybackHarness = {
   releaseCalls: number;
   lastCapture: RecordedAudioCapture | null;
   lastAlignmentOffsetSeconds: number | null;
+  lastMediaLeadInSeconds: number | null;
   end(): void;
   fail(message: string): void;
 };
@@ -668,6 +682,7 @@ function createTakeUploadHarness(): TakeUploadHarness {
           spanBeats: input.musicalPlacement.spanBeats,
         },
         alignmentOffsetSeconds: input.alignmentOffsetSeconds,
+        mediaLeadInSeconds: input.mediaLeadInSeconds,
       });
 
       if (harness.uploadError) {
@@ -687,6 +702,7 @@ function createTakeUploadHarness(): TakeUploadHarness {
           spanBeats: input.musicalPlacement.spanBeats,
         },
         alignmentOffsetSeconds: input.alignmentOffsetSeconds,
+        mediaLeadInSeconds: input.mediaLeadInSeconds,
         createdAt: "2026-08-21T00:00:00.000Z",
       };
 
@@ -706,6 +722,7 @@ function createTakePlaybackHarness(): TakePlaybackHarness {
     releaseCalls: 0,
     lastCapture: null,
     lastAlignmentOffsetSeconds: null,
+    lastMediaLeadInSeconds: null,
     port: null as unknown as RecordedTakePlaybackPort,
     end() {
       onEnded?.();
@@ -723,6 +740,7 @@ function createTakePlaybackHarness(): TakePlaybackHarness {
         mimeType: capture.mimeType,
       };
       harness.lastAlignmentOffsetSeconds = options?.alignmentOffsetSeconds ?? 0;
+      harness.lastMediaLeadInSeconds = options?.mediaLeadInSeconds ?? 0;
       onEnded = options?.onEnded;
       onFailure = options?.onFailure;
     },
@@ -1008,6 +1026,7 @@ tester.describe("keep reviewed microphone take", () => {
       spanBeats: 4,
     });
     tester.expect(takeUploadHarness.uploadCalls[0]?.alignmentOffsetSeconds).toBe(0);
+    tester.expect(takeUploadHarness.uploadCalls[0]?.mediaLeadInSeconds).toBe(2.03);
     tester.expect(playbackHarness.engine.getSnapshot().isPlaying).toBe(false);
     tester.expect(takePlaybackHarness.releaseCalls).toBe(1);
     tester.expect(recordingHarness.releaseCalls).toBe(1);
@@ -1019,6 +1038,7 @@ tester.describe("keep reviewed microphone take", () => {
       start: { bar: 2, beat: 4 },
       spanBeats: 4,
     });
+    tester.expect(kept.savedTrack?.mediaLeadInSeconds).toBe(2.03);
 
     await session.destroy();
     playbackHarness.engine.destroy?.();

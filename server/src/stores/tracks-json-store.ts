@@ -34,6 +34,7 @@ export function createTracksJsonStore(
           spanBeats: null,
         },
         alignmentOffsetSeconds: track.alignmentOffsetSeconds ?? 0,
+        mediaLeadInSeconds: track.mediaLeadInSeconds ?? 0,
       }));
   }
 
@@ -55,6 +56,7 @@ export function createTracksJsonStore(
         spanBeats: null,
       },
       alignmentOffsetSeconds: trackInput.alignmentOffsetSeconds ?? 0,
+      mediaLeadInSeconds: trackInput.mediaLeadInSeconds ?? 0,
       createdAt: now,
     };
 
@@ -107,6 +109,7 @@ export function createTracksJsonStore(
         trackInput.alignmentOffsetSeconds ??
         existingTrack.alignmentOffsetSeconds ??
         0,
+      mediaLeadInSeconds: existingTrack.mediaLeadInSeconds ?? 0,
     };
 
     database.tracks[trackIndex] = updatedTrack;
@@ -180,6 +183,8 @@ export function createTracksJsonStore(
             start: { bar: 1, beat: 1 },
             spanBeats: null,
           },
+          alignmentOffsetSeconds: track.alignmentOffsetSeconds ?? 0,
+          mediaLeadInSeconds: track.mediaLeadInSeconds ?? 0,
         }
       : null;
   }

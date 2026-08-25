@@ -876,6 +876,11 @@ function initializeProjectPlayerPage({
     "#audio-loop-checkbox",
   );
 
+  const metronomeCheckbox = getElement<HTMLInputElement>(
+    appElement,
+    "#audio-metronome-checkbox",
+  );
+
   const progressInput = getElement<HTMLInputElement>(
     appElement,
     "#audio-progress",
@@ -923,7 +928,8 @@ function initializeProjectPlayerPage({
     !seekBarInput ||
     !seekBarButton ||
     !trackNameElement ||
-    !loopCheckbox
+    !loopCheckbox ||
+    !metronomeCheckbox
   ) {
     throw new Error("Project Player audio elements were not found.");
   }
@@ -967,6 +973,7 @@ function initializeProjectPlayerPage({
     seekBarButton,
     trackNameElement,
     loopCheckbox,
+    metronomeCheckbox,
   });
 
   audioPlayerController.init();

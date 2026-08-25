@@ -19,6 +19,8 @@ export type PlaybackChannel = {
   musicalPlacement?: TrackMusicalPlacement;
   /** Signed source-to-project alignment correction in seconds. */
   alignmentOffsetSeconds?: number;
+  /** Encoded media before the declared musical origin (for example, count-in capture). */
+  mediaLeadInSeconds?: number;
 };
 
 export type PlaybackSnapshot = {
@@ -32,6 +34,17 @@ export type PlaybackSnapshot = {
 export type PlaybackStateListener = (
   snapshot: PlaybackSnapshot,
 ) => void;
+
+export type SynchronizedRecordingPlaybackStart = {
+  marker: RecordingStartMarker;
+  /** Encoded capture time before marker/project playback begins. */
+  mediaLeadInSeconds: number;
+  countIn: {
+    bars: number;
+    beats: number;
+    durationSeconds: number;
+  };
+};
 
 /**
  * Presentation-independent playback contract used by both GrooveShare clients.
@@ -48,6 +61,7 @@ export interface PlaybackEngine {
   seekBy(seconds: number): void;
   seekToMusicalPosition(position: MusicalPosition): void;
   setLoopEnabled(enabled: boolean): void;
+  setMetronomeEnabled?(enabled: boolean): void;
   setChannelVolume(channelNumber: number, volume: number): boolean;
   setChannelEnabled(channelNumber: number, enabled: boolean): boolean;
   getSnapshot(): PlaybackSnapshot;
@@ -62,7 +76,7 @@ export interface PlaybackEngine {
    * use this only after microphone capture has actually entered its recording
    * state so the first project transient cannot outrun MediaRecorder startup.
    */
-  startSynchronizedRecordingPlayback?(): Promise<RecordingStartMarker>;
+  startSynchronizedRecordingPlayback?(options?: { countInBars?: number }): Promise<SynchronizedRecordingPlaybackStart>;
   markRecordingStart?(): RecordingStartMarker;
   markRecordingStop?(start: RecordingStartMarker): RecordingTimelineResult;
   destroy?(): void;

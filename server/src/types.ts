@@ -50,6 +50,7 @@ export type Track = {
     uploadedByUserId: string | null;
     musicalPlacement?: TrackMusicalPlacement;
     alignmentOffsetSeconds?: number;
+    mediaLeadInSeconds?: number;
     createdAt: string;
 };
 
@@ -90,4 +91,5 @@ export type CreateTrackInput = {
     uploadedByUserId: string | null;
     musicalPlacement?: TrackMusicalPlacement;
     alignmentOffsetSeconds?: number;
+    mediaLeadInSeconds?: number;
 };

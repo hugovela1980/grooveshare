@@ -66,6 +66,7 @@ export function createBrowserRecordedTakeUploadAdapter({
       capture,
       musicalPlacement,
       alignmentOffsetSeconds,
+      mediaLeadInSeconds,
     }) {
       if (!FileConstructor) {
         throw new Error("Browser file uploads are unavailable in this environment.");
@@ -86,6 +87,7 @@ export function createBrowserRecordedTakeUploadAdapter({
           spanBeats: musicalPlacement.spanBeats,
         },
         alignmentOffsetSeconds,
+        mediaLeadInSeconds,
       });
     },
   };

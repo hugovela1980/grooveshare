@@ -9,6 +9,7 @@ import {
   getAlignedSourceOffsetSeconds,
   getTrackSourceAlignmentWindow,
   normalizeTrackAlignmentOffsetSeconds,
+  normalizeTrackMediaLeadInSeconds,
 } from "./track-source-alignment.js";
 import type {
   PlaybackChannel,
@@ -93,6 +94,7 @@ export function createHtmlAudioPlaybackEngine({
         ? audioElement.duration
         : 0,
       alignmentOffsetSeconds: channel.alignmentOffsetSeconds,
+      mediaLeadInSeconds: channel.mediaLeadInSeconds,
     });
   }
 
@@ -126,7 +128,8 @@ export function createHtmlAudioPlaybackEngine({
         const projectTime =
           getChannelOffset(channel) +
           audioElement.currentTime -
-          normalizeTrackAlignmentOffsetSeconds(channel.alignmentOffsetSeconds);
+          normalizeTrackAlignmentOffsetSeconds(channel.alignmentOffsetSeconds) -
+          normalizeTrackMediaLeadInSeconds(channel.mediaLeadInSeconds);
 
         return Math.max(furthestTime, Math.max(0, projectTime));
       },
@@ -166,6 +169,7 @@ export function createHtmlAudioPlaybackEngine({
               projectTimeSeconds: projectTime,
               trackStartSeconds: getChannelOffset(channel),
               alignmentOffsetSeconds: channel.alignmentOffsetSeconds,
+              mediaLeadInSeconds: channel.mediaLeadInSeconds,
             });
       setAudioElementCurrentTime(audioElement, localTime);
     }
@@ -441,6 +445,9 @@ export function createHtmlAudioPlaybackEngine({
     seekToMusicalPosition,
     setLoopEnabled(enabled) {
       loopEnabled = enabled;
+    },
+    setMetronomeEnabled() {
+      // HTML fallback cannot provide sample-scheduled metronome clicks.
     },
     setChannelVolume,
     setChannelEnabled,

@@ -14,6 +14,7 @@ type MixChannelForPlayer = {
     enabled?: boolean;
     timelineOffsetSeconds?: number;
     alignmentOffsetSeconds?: number;
+    mediaLeadInSeconds?: number;
     musicalPlacement?: {
         start: { bar: number; beat: number };
         spanBeats: number | null;
@@ -87,6 +88,7 @@ type AudioPlayerControllerOptions = {
     seekBarButton: ButtonElementLike;
     trackNameElement: TextElementLike;
     loopCheckbox: CheckboxElementLike;
+    metronomeCheckbox: CheckboxElementLike;
 };
 
 const PLAY_ICON = "▶";
@@ -129,6 +131,7 @@ export function createAudioPlayerController({
     seekBarButton,
     trackNameElement,
     loopCheckbox,
+    metronomeCheckbox,
 }: AudioPlayerControllerOptions) {
     let isSeeking = false;
     let loadedMixChannels: MixChannelForPlayer[] = [];
@@ -289,6 +292,9 @@ export function createAudioPlayerController({
             ...(channel.alignmentOffsetSeconds !== undefined
                 ? { alignmentOffsetSeconds: channel.alignmentOffsetSeconds }
                 : {}),
+            ...(channel.mediaLeadInSeconds !== undefined
+                ? { mediaLeadInSeconds: channel.mediaLeadInSeconds }
+                : {}),
             ...(channel.musicalPlacement
                 ? {
                     musicalPlacement: {
@@ -382,6 +388,7 @@ export function createAudioPlayerController({
 
     function init(): void {
         playbackEngine.setLoopEnabled(loopCheckbox.checked);
+        playbackEngine.setMetronomeEnabled?.(metronomeCheckbox.checked);
         playbackEngine.subscribe((snapshot) => {
             updateProgress(snapshot);
         });
@@ -403,6 +410,10 @@ export function createAudioPlayerController({
 
         loopCheckbox.addEventListener?.("change", () => {
             playbackEngine.setLoopEnabled(loopCheckbox.checked);
+        });
+
+        metronomeCheckbox.addEventListener?.("change", () => {
+            playbackEngine.setMetronomeEnabled?.(metronomeCheckbox.checked);
         });
     }
 

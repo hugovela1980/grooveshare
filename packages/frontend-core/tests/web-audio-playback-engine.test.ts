@@ -11,12 +11,16 @@ type FakeBuffer = {
 
 type FakeGainNode = ReturnType<typeof createFakeGainNode>;
 type FakeSource = ReturnType<typeof createFakeSource>;
+type FakeOscillator = ReturnType<typeof createFakeOscillator>;
 
 function createFakeGainNode() {
   return {
     gain: {
       value: 1,
       setValueAtTime(value: number) {
+        this.value = value;
+      },
+      linearRampToValueAtTime(value: number) {
         this.value = value;
       },
     },
@@ -58,9 +62,35 @@ function createFakeSource() {
   };
 }
 
+
+function createFakeOscillator() {
+  return {
+    type: "sine",
+    frequency: { value: 0 },
+    connectedDestination: null as unknown,
+    startWhen: null as number | null,
+    stopWhen: null as number | null,
+    disconnected: false,
+    connect(destination: unknown) {
+      this.connectedDestination = destination;
+      return destination;
+    },
+    start(when = 0) {
+      this.startWhen = when;
+    },
+    stop(when = 0) {
+      this.stopWhen = when;
+    },
+    disconnect() {
+      this.disconnected = true;
+    },
+  };
+}
+
 function createFakeAudioContext() {
   const gainNodes: FakeGainNode[] = [];
   const sources: FakeSource[] = [];
+  const oscillators: FakeOscillator[] = [];
 
   return {
     currentTime: 10,
@@ -74,10 +104,16 @@ function createFakeAudioContext() {
     closeCallCount: 0,
     gainNodes,
     sources,
+    oscillators,
     createGain() {
       const gainNode = createFakeGainNode();
       gainNodes.push(gainNode);
       return gainNode;
+    },
+    createOscillator() {
+      const oscillator = createFakeOscillator();
+      oscillators.push(oscillator);
+      return oscillator;
     },
     createBufferSource() {
       const source = createFakeSource();
@@ -343,6 +379,27 @@ tester.describe("WebAudioPlaybackEngine", () => {
     engine.destroy?.();
   });
 
+  tester.it("skips structural captured-media lead-in in Web Audio playback and duration", async () => {
+    const { audioContext, engine } = createEngineHarness();
+
+    engine.loadMix([{
+      channelNumber: 1,
+      trackId: "counted-in-take",
+      audioUrl: "/recorded-take.webm",
+      volume: 1,
+      enabled: true,
+      musicalPlacement: { start: { bar: 2, beat: 1 }, spanBeats: 2 },
+      mediaLeadInSeconds: 1,
+    }]);
+    await engine.play();
+
+    tester.expect(audioContext.sources[0]?.startWhen).toBe(12.03);
+    tester.expect(audioContext.sources[0]?.startOffset).toBe(1);
+    tester.expect(engine.getSnapshot().duration).toBe(3);
+
+    engine.destroy?.();
+  });
+
   tester.it("applies signed source alignment without changing authoritative musical placement", async () => {
     const positiveHarness = createEngineHarness();
     positiveHarness.engine.loadMix([{
@@ -381,19 +438,186 @@ tester.describe("WebAudioPlaybackEngine", () => {
     negativeHarness.engine.destroy?.();
   });
 
-  tester.it("starts capture-safe recording playback without the normal playback scheduling lead", async () => {
+  tester.it("records one bar of count-in before capture-safe project playback", async () => {
     const { audioContext, engine } = createEngineHarness();
     engine.loadMix(twoChannelMix);
     audioContext.currentTime = 20;
 
-    const marker = await engine.startSynchronizedRecordingPlayback?.();
+    const synchronizedStart = await engine.startSynchronizedRecordingPlayback?.();
 
-    tester.expect(marker?.audioContextTimeSeconds).toBe(20);
-    tester.expect(marker?.projectPositionSeconds).toBe(0);
-    tester.expect(marker?.musicalPosition).toEqual({ bar: 1, beat: 1 });
-    tester.expect(audioContext.sources[0]?.startWhen).toBe(20);
-    tester.expect(audioContext.sources[1]?.startWhen).toBe(20);
+    tester.expect(synchronizedStart?.marker.audioContextTimeSeconds).toBe(22.03);
+    tester.expect(synchronizedStart?.marker.projectPositionSeconds).toBe(0);
+    tester.expect(synchronizedStart?.marker.musicalPosition).toEqual({ bar: 1, beat: 1 });
+    tester.expect(
+      Math.abs((synchronizedStart?.mediaLeadInSeconds ?? 0) - 2.03) < 1e-9,
+    ).toBe(true);
+    tester.expect(synchronizedStart?.countIn).toEqual({
+      bars: 1,
+      beats: 4,
+      durationSeconds: 2,
+    });
+    tester.expect(audioContext.sources[0]?.startWhen).toBe(22.03);
+    tester.expect(audioContext.sources[1]?.startWhen).toBe(22.03);
+    tester.expect(audioContext.oscillators.length).toBe(4);
+    tester.expect(audioContext.oscillators.map((oscillator) => oscillator.startWhen)).toEqual([
+      20.03,
+      20.53,
+      21.03,
+      21.53,
+    ]);
+    tester.expect(audioContext.oscillators.map((oscillator) => oscillator.frequency.value)).toEqual([
+      1760,
+      880,
+      880,
+      880,
+    ]);
     tester.expect(engine.getSnapshot().isPlaying).toBe(true);
+
+    engine.destroy?.();
+  });
+
+  tester.it("preserves a later requested musical start across the recording count-in", async () => {
+    const { audioContext, engine } = createEngineHarness();
+    engine.loadMix(twoChannelMix);
+    engine.seekToMusicalPosition({ bar: 3, beat: 1 });
+    audioContext.currentTime = 25;
+
+    const synchronizedStart = await engine.startSynchronizedRecordingPlayback?.();
+
+    tester.expect(synchronizedStart?.marker.projectPositionSeconds).toBe(4);
+    tester.expect(synchronizedStart?.marker.musicalPosition).toEqual({ bar: 3, beat: 1 });
+    tester.expect(synchronizedStart?.marker.audioContextTimeSeconds).toBe(27.03);
+    tester.expect(audioContext.sources[0]?.startOffset).toBe(4);
+    tester.expect(audioContext.sources[1]?.startOffset).toBe(4);
+    tester.expect(
+      Math.abs((synchronizedStart?.mediaLeadInSeconds ?? 0) - 2.03) < 1e-9,
+    ).toBe(true);
+
+    engine.destroy?.();
+  });
+
+  tester.it("uses denominator-aware beat units for a one-bar 6/8 recording count-in", async () => {
+    const { audioContext, engine } = createEngineHarness({
+      bpm: 120,
+      timeSignature: { numerator: 6, denominator: 8 },
+    });
+    engine.loadMix(twoChannelMix);
+    audioContext.currentTime = 30;
+
+    const synchronizedStart = await engine.startSynchronizedRecordingPlayback?.();
+
+    tester.expect(synchronizedStart?.countIn).toEqual({
+      bars: 1,
+      beats: 6,
+      durationSeconds: 1.5,
+    });
+    tester.expect(synchronizedStart?.marker.audioContextTimeSeconds).toBe(31.53);
+    tester.expect(audioContext.oscillators.map((oscillator) => oscillator.startWhen)).toEqual([
+      30.03,
+      30.28,
+      30.53,
+      30.78,
+      31.03,
+      31.28,
+    ]);
+    tester.expect(audioContext.oscillators[0]?.frequency.value).toBe(1760);
+    tester.expect(audioContext.oscillators.slice(1).every((oscillator) => oscillator.frequency.value === 880)).toBe(true);
+
+    engine.destroy?.();
+  });
+
+  tester.it("schedules an optional phase-aligned metronome with an accented bar downbeat", async () => {
+    const { audioContext, engine, tickTransport } = createEngineHarness();
+    engine.loadMix(twoChannelMix);
+    engine.setMetronomeEnabled?.(true);
+
+    await engine.play();
+
+    tester.expect(audioContext.oscillators.slice(0, 2).map((oscillator) => oscillator.startWhen)).toEqual([
+      10.03,
+      10.53,
+    ]);
+    tester.expect(audioContext.oscillators[0]?.frequency.value).toBe(1760);
+    tester.expect(audioContext.oscillators[1]?.frequency.value).toBe(880);
+
+    audioContext.currentTime = 10.8;
+    tickTransport();
+
+    tester.expect(audioContext.oscillators.slice(0, 4).map((oscillator) => oscillator.startWhen)).toEqual([
+      10.03,
+      10.53,
+      11.03,
+      11.53,
+    ]);
+
+    engine.destroy?.();
+  });
+
+  tester.it("keeps metronome phase aligned after seek, restart, and a loop boundary", async () => {
+    const seekHarness = createEngineHarness();
+    seekHarness.engine.loadMix(twoChannelMix);
+    seekHarness.engine.setMetronomeEnabled?.(true);
+    await seekHarness.engine.play();
+
+    seekHarness.audioContext.currentTime = 10.8;
+    seekHarness.engine.seekToMusicalPosition({ bar: 2, beat: 2 });
+
+    let recentClicks = seekHarness.audioContext.oscillators.slice(-2);
+    tester.expect(
+      Math.abs((recentClicks[0]?.startWhen ?? 0) - 10.83) < 1e-9,
+    ).toBe(true);
+    tester.expect(recentClicks[0]?.frequency.value).toBe(880);
+
+    seekHarness.audioContext.currentTime = 20;
+    seekHarness.engine.stop();
+    await seekHarness.engine.play();
+
+    recentClicks = seekHarness.audioContext.oscillators.slice(-2);
+    tester.expect(
+      Math.abs((recentClicks[0]?.startWhen ?? 0) - 20.03) < 1e-9,
+    ).toBe(true);
+    tester.expect(recentClicks[0]?.frequency.value).toBe(1760);
+    seekHarness.engine.destroy?.();
+
+    const loopHarness = createEngineHarness();
+    loopHarness.engine.loadMix([{
+      channelNumber: 1,
+      trackId: "loop",
+      audioUrl: "/loop.wav",
+      volume: 1,
+      enabled: true,
+    }]);
+    loopHarness.engine.setLoopEnabled(true);
+    loopHarness.engine.setMetronomeEnabled?.(true);
+    await loopHarness.engine.play();
+
+    const firstSourceStart = loopHarness.audioContext.sources[0]?.startWhen ?? 0;
+    const loopBoundary = firstSourceStart + 10;
+    loopHarness.audioContext.currentTime = loopBoundary - 0.53;
+    loopHarness.tickTransport();
+
+    const loopDownbeat = loopHarness.audioContext.oscillators.find((oscillator) =>
+      Math.abs((oscillator.startWhen ?? -1) - loopBoundary) < 1e-9,
+    );
+    tester.expect(loopDownbeat?.frequency.value).toBe(1760);
+
+    loopHarness.engine.destroy?.();
+  });
+
+  tester.it("keeps the mandatory recording count-in independent from the optional metronome toggle", async () => {
+    const { audioContext, engine } = createEngineHarness();
+    engine.loadMix(twoChannelMix);
+    audioContext.currentTime = 40;
+
+    await engine.startSynchronizedRecordingPlayback?.();
+    const countInStopTimes = audioContext.oscillators.map((oscillator) => oscillator.stopWhen);
+
+    engine.setMetronomeEnabled?.(true);
+    engine.setMetronomeEnabled?.(false);
+
+    tester.expect(audioContext.oscillators.slice(0, 4).map((oscillator) => oscillator.stopWhen)).toEqual(
+      countInStopTimes.slice(0, 4),
+    );
 
     engine.destroy?.();
   });

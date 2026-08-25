@@ -565,6 +565,7 @@ function initializeProjectPlayerPage({
   const playPauseButton = getElement<HTMLButtonElement>(appElement, "#audio-play-pause-button");
   const stopButton = getElement<HTMLButtonElement>(appElement, "#audio-stop-button");
   const loopCheckbox = getElement<HTMLInputElement>(appElement, "#audio-loop-checkbox");
+  const metronomeCheckbox = getElement<HTMLInputElement>(appElement, "#audio-metronome-checkbox");
   const progressInput = getElement<HTMLInputElement>(appElement, "#audio-progress");
   const timestampElement = getElement<HTMLElement>(appElement, "#audio-timestamp");
   const durationElement = getElement<HTMLElement>(appElement, "#audio-duration");
@@ -572,7 +573,7 @@ function initializeProjectPlayerPage({
   const seekBarInput = getElement<HTMLInputElement>(appElement, "#audio-seek-bar-input");
   const seekBarButton = getElement<HTMLButtonElement>(appElement, "#audio-seek-bar-button");
   const trackNameElement = getElement<HTMLElement>(appElement, "#audio-track-name");
-  if (!audioElement || !seekBackwardButton || !playPauseButton || !stopButton || !progressInput || !timestampElement || !durationElement || !musicalPositionElement || !seekBarInput || !seekBarButton || !trackNameElement || !loopCheckbox) throw new Error("Project Player audio elements were not found.");
+  if (!audioElement || !seekBackwardButton || !playPauseButton || !stopButton || !progressInput || !timestampElement || !durationElement || !musicalPositionElement || !seekBarInput || !seekBarButton || !trackNameElement || !loopCheckbox || !metronomeCheckbox) throw new Error("Project Player audio elements were not found.");
 
   const musicalTimeline = getProjectMusicalTimeline(selectedProject);
   const recordingAlignmentDiagnostics =
@@ -599,6 +600,7 @@ function initializeProjectPlayerPage({
     seekBarButton,
     trackNameElement,
     loopCheckbox,
+    metronomeCheckbox,
   });
   audioPlayerController.init();
 

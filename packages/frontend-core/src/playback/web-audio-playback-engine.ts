@@ -2,6 +2,7 @@ import type { MusicalPosition, MusicalTimeline } from "../domain/types.js";
 import type { RecordingAlignmentDiagnosticsPort } from "../recording/recording-alignment-diagnostics.js";
 import {
   normalizeMusicalTimeline,
+  getSecondsPerMusicalBeat,
   musicalPositionToTransportSeconds,
   transportSecondsToMusicalPosition,
 } from "../timeline/musical-timeline.js";
@@ -15,15 +16,13 @@ import type {
   PlaybackEngine,
   PlaybackSnapshot,
   PlaybackStateListener,
+  SynchronizedRecordingPlaybackStart,
 } from "./playback-engine.js";
 import {
   createTransport,
   type PlaybackScheduleInstruction,
 } from "./transport.js";
-import {
-  createRecordingTimeline,
-  type RecordingStartMarker,
-} from "./recording-timeline.js";
+import { createRecordingTimeline } from "./recording-timeline.js";
 
 type AudioBufferLike = {
   duration: number;
@@ -32,6 +31,7 @@ type AudioBufferLike = {
 type GainParamLike = {
   value: number;
   setValueAtTime?: (value: number, startTime: number) => void;
+  linearRampToValueAtTime?: (value: number, endTime: number) => void;
 };
 
 type GainNodeLike = {
@@ -46,6 +46,16 @@ type AudioBufferSourceNodeLike = {
   connect: (destination: unknown) => unknown;
   disconnect?: () => void;
   start: (when?: number, offset?: number) => void;
+  stop: (when?: number) => void;
+};
+
+
+type OscillatorNodeLike = {
+  type: string;
+  frequency: { value: number };
+  connect: (destination: unknown) => unknown;
+  disconnect?: () => void;
+  start: (when?: number) => void;
   stop: (when?: number) => void;
 };
 
@@ -74,6 +84,7 @@ type AudioContextLike = {
   getOutputTimestamp?: () => AudioOutputTimestampLike;
   destination: unknown;
   createGain: () => GainNodeLike;
+  createOscillator?: () => OscillatorNodeLike;
   createBufferSource: () => AudioBufferSourceNodeLike;
   decodeAudioData: (audioData: ArrayBuffer) => Promise<AudioBufferLike>;
   resume: () => Promise<void>;
@@ -119,6 +130,14 @@ const END_EPSILON_SECONDS = 0.01;
 const PLAYBACK_START_LEAD_SECONDS = 0.03;
 const LOOP_SCHEDULE_LOOKAHEAD_SECONDS = 1;
 const SNAPSHOT_INTERVAL_MS = 100;
+const METRONOME_LOOKAHEAD_SECONDS = 1;
+const METRONOME_CLICK_DURATION_SECONDS = 0.04;
+const METRONOME_REGULAR_FREQUENCY_HZ = 880;
+const METRONOME_DOWNBEAT_FREQUENCY_HZ = 1760;
+const METRONOME_REGULAR_GAIN = 0.12;
+const METRONOME_DOWNBEAT_GAIN = 0.2;
+const RECORDING_COUNT_IN_START_LEAD_SECONDS = 0.03;
+const DEFAULT_RECORDING_COUNT_IN_BARS = 1;
 const OUTPUT_CLOCK_SAMPLE_OFFSETS_SECONDS = [0.25, 1, 2, 4, 8, 12, 15] as const;
 
 function clampVolume(volume: number): number {
@@ -200,9 +219,19 @@ export function createWebAudioPlaybackEngine(
   let loadedChannels: LoadedWebAudioChannel[] = [];
   let sourceGenerations: ScheduledSourceGeneration[] = [];
   let lastScheduledLoopInstruction: PlaybackScheduleInstruction | null = null;
+  let metronomeEnabled = false;
+  let activeMetronomeClicks: Array<{
+    oscillator: OscillatorNodeLike;
+    gainNode: GainNodeLike;
+    startAtClockTime: number;
+    stopAtClockTime: number;
+    kind: "metronome" | "count-in";
+  }> = [];
+  let lastScheduledMetronomeClockTime: number | null = null;
   const listeners = new Set<PlaybackStateListener>();
   let loadGeneration = 0;
   let loadingPromise: Promise<void> = Promise.resolve();
+  let pendingSeekSeconds: number | null = null;
   let destroyed = false;
   let outputDiagnosticAttemptId: string | null = null;
   let outputDiagnosticReferenceContextTimeSeconds: number | null = null;
@@ -241,6 +270,7 @@ export function createWebAudioPlaybackEngine(
         trackStartSeconds: trackStartPosition,
         sourceDurationSeconds: duration,
         alignmentOffsetSeconds: channel.alignmentOffsetSeconds,
+        mediaLeadInSeconds: channel.mediaLeadInSeconds,
       });
 
       return Math.max(longestDuration, alignmentWindow.projectEndSeconds);
@@ -278,10 +308,172 @@ export function createWebAudioPlaybackEngine(
     }
   }
 
+  function pruneCompletedMetronomeClicks(): void {
+    const now = audioContext.currentTime;
+    activeMetronomeClicks = activeMetronomeClicks.filter((click) => {
+      if (click.stopAtClockTime > now) {
+        return true;
+      }
+      click.oscillator.disconnect?.();
+      click.gainNode.disconnect?.();
+      return false;
+    });
+  }
+
+  function clearClickCues(kind?: "metronome" | "count-in"): void {
+    const now = audioContext.currentTime;
+    const remaining: typeof activeMetronomeClicks = [];
+
+    for (const click of activeMetronomeClicks) {
+      if (kind && click.kind !== kind) {
+        remaining.push(click);
+        continue;
+      }
+
+      if (click.stopAtClockTime > now) {
+        try {
+          click.oscillator.stop(now);
+        } catch {
+          // The oscillator may already have completed.
+        }
+      }
+      click.oscillator.disconnect?.();
+      click.gainNode.disconnect?.();
+    }
+
+    activeMetronomeClicks = remaining;
+    if (!kind || kind === "metronome") {
+      lastScheduledMetronomeClockTime = null;
+    }
+  }
+
+  function clearMetronomeClicks(): void {
+    clearClickCues("metronome");
+  }
+
+  function clearAllClickCues(): void {
+    clearClickCues();
+  }
+
+  function scheduleMetronomeClick(
+    startAtClockTime: number,
+    isDownbeat: boolean,
+    kind: "metronome" | "count-in" = "metronome",
+  ): boolean {
+    const createOscillator = audioContext.createOscillator;
+    if (!createOscillator) {
+      return false;
+    }
+
+    const oscillator = createOscillator.call(audioContext);
+    const gainNode = audioContext.createGain();
+    const stopAtClockTime = startAtClockTime + METRONOME_CLICK_DURATION_SECONDS;
+    const gainValue = isDownbeat
+      ? METRONOME_DOWNBEAT_GAIN
+      : METRONOME_REGULAR_GAIN;
+
+    oscillator.type = "sine";
+    oscillator.frequency.value = isDownbeat
+      ? METRONOME_DOWNBEAT_FREQUENCY_HZ
+      : METRONOME_REGULAR_FREQUENCY_HZ;
+    gainNode.gain.value = gainValue;
+    gainNode.gain.setValueAtTime?.(gainValue, startAtClockTime);
+    gainNode.gain.linearRampToValueAtTime?.(0, stopAtClockTime);
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    oscillator.start(startAtClockTime);
+    oscillator.stop(stopAtClockTime);
+
+    activeMetronomeClicks.push({
+      oscillator,
+      gainNode,
+      startAtClockTime,
+      stopAtClockTime,
+      kind,
+    });
+    return true;
+  }
+
+  function scheduleMetronomeForInstruction(
+    instruction: PlaybackScheduleInstruction,
+    horizonClockTime: number,
+  ): void {
+    const secondsPerBeat = getSecondsPerMusicalBeat(normalizedMusicalTimeline);
+    const beatsPerBar = normalizedMusicalTimeline.timeSignature.numerator;
+    const now = audioContext.currentTime;
+    const windowStartClockTime = Math.max(now, instruction.startAtClockTime);
+    const windowEndClockTime = Math.min(
+      horizonClockTime,
+      instruction.endAtClockTime,
+    );
+
+    if (windowEndClockTime <= windowStartClockTime) {
+      return;
+    }
+
+    const projectAtWindowStart =
+      instruction.projectPositionSeconds +
+      (windowStartClockTime - instruction.startAtClockTime);
+    let beatIndex = Math.ceil(projectAtWindowStart / secondsPerBeat - 1e-9);
+
+    while (true) {
+      const beatProjectSeconds = beatIndex * secondsPerBeat;
+      const clickClockTime =
+        instruction.startAtClockTime +
+        (beatProjectSeconds - instruction.projectPositionSeconds);
+
+      if (clickClockTime >= windowEndClockTime - 1e-9) {
+        break;
+      }
+
+      if (
+        clickClockTime >= now - 1e-9 &&
+        (lastScheduledMetronomeClockTime === null ||
+          clickClockTime > lastScheduledMetronomeClockTime + 1e-9)
+      ) {
+        if (scheduleMetronomeClick(
+          clickClockTime,
+          beatIndex % beatsPerBar === 0,
+        )) {
+          lastScheduledMetronomeClockTime = clickClockTime;
+        }
+      }
+
+      beatIndex += 1;
+    }
+  }
+
+  function maintainMetronomeSchedule(): void {
+    pruneCompletedMetronomeClicks();
+
+    if (
+      !metronomeEnabled ||
+      transport.getSnapshot().playbackState !== "playing"
+    ) {
+      return;
+    }
+
+    const horizonClockTime =
+      audioContext.currentTime + METRONOME_LOOKAHEAD_SECONDS;
+    const instructions = sourceGenerations
+      .map((generation) => generation.instruction)
+      .sort((a, b) => a.startAtClockTime - b.startAtClockTime);
+
+    for (const instruction of instructions) {
+      scheduleMetronomeForInstruction(instruction, horizonClockTime);
+    }
+  }
+
+  function resetMetronomeSchedule(): void {
+    clearMetronomeClicks();
+    maintainMetronomeSchedule();
+  }
+
   const unsubscribeTransport = transport.subscribe(() => {
     observePeriodicOutputClockSample();
     pruneCompletedSourceGenerations();
     maintainLoopSchedule();
+    maintainMetronomeSchedule();
     notify();
   });
 
@@ -512,6 +704,7 @@ export function createWebAudioPlaybackEngine(
         trackStartSeconds: trackStartPosition,
         sourceDurationSeconds: buffer.duration,
         alignmentOffsetSeconds: loadedChannel.channel.alignmentOffsetSeconds,
+        mediaLeadInSeconds: loadedChannel.channel.mediaLeadInSeconds,
       });
       const sourceProjectStart = Math.max(
         playbackPosition,
@@ -521,6 +714,7 @@ export function createWebAudioPlaybackEngine(
         projectTimeSeconds: sourceProjectStart,
         trackStartSeconds: trackStartPosition,
         alignmentOffsetSeconds: loadedChannel.channel.alignmentOffsetSeconds,
+        mediaLeadInSeconds: loadedChannel.channel.mediaLeadInSeconds,
       });
 
       if (
@@ -689,6 +883,7 @@ export function createWebAudioPlaybackEngine(
       maintainLoopSchedule(true);
     }
 
+    maintainMetronomeSchedule();
     return instruction;
   }
 
@@ -713,7 +908,9 @@ export function createWebAudioPlaybackEngine(
     scheduleAndStartSources(PLAYBACK_START_LEAD_SECONDS);
   }
 
-  async function startSynchronizedRecordingPlayback(): Promise<RecordingStartMarker> {
+  async function startSynchronizedRecordingPlayback(
+    { countInBars = DEFAULT_RECORDING_COUNT_IN_BARS }: { countInBars?: number } = {},
+  ): Promise<SynchronizedRecordingPlaybackStart> {
     if (destroyed) {
       throw new Error("Playback engine has been destroyed.");
     }
@@ -727,31 +924,70 @@ export function createWebAudioPlaybackEngine(
     }
 
     if (transport.getSnapshot().playbackState === "playing") {
-      return recordingTimeline.markStart();
+      return {
+        marker: recordingTimeline.markStart(),
+        mediaLeadInSeconds: 0,
+        countIn: { bars: 0, beats: 0, durationSeconds: 0 },
+      };
     }
 
     if (audioContext.state !== "running") {
       await audioContext.resume();
     }
 
-    // Recording capture is already active before this method is called. A zero
-    // scheduling lead avoids adding GrooveShare's normal 30 ms playback lead
-    // to the recorded source as artificial pre-roll.
-    const instruction = scheduleAndStartSources(0);
+    if (!audioContext.createOscillator) {
+      throw new Error("This Web Audio environment cannot schedule a recording count-in.");
+    }
+
+    const normalizedCountInBars = Number.isInteger(countInBars) && countInBars > 0
+      ? countInBars
+      : DEFAULT_RECORDING_COUNT_IN_BARS;
+    const beatsPerBar = normalizedMusicalTimeline.timeSignature.numerator;
+    const countInBeats = normalizedCountInBars * beatsPerBar;
+    const secondsPerBeat = getSecondsPerMusicalBeat(normalizedMusicalTimeline);
+    const countInDurationSeconds = countInBeats * secondsPerBeat;
+    const schedulingStartedAt = audioContext.currentTime;
+    const countInStartAt =
+      schedulingStartedAt + RECORDING_COUNT_IN_START_LEAD_SECONDS;
+    const projectStartAt = countInStartAt + countInDurationSeconds;
+
+    for (let beatIndex = 0; beatIndex < countInBeats; beatIndex += 1) {
+      scheduleMetronomeClick(
+        countInStartAt + beatIndex * secondsPerBeat,
+        beatIndex % beatsPerBar === 0,
+        "count-in",
+      );
+    }
+
+    const instruction = scheduleAndStartSources(
+      Math.max(0, projectStartAt - audioContext.currentTime),
+    );
 
     if (!instruction) {
+      clearAllClickCues();
       throw new Error("Project playback could not start for synchronized recording.");
     }
 
     return {
-      kind: "recording-start",
-      projectPositionSeconds: instruction.projectPositionSeconds,
-      musicalPosition: transportSecondsToMusicalPosition(
-        normalizedMusicalTimeline,
-        instruction.projectPositionSeconds,
+      marker: {
+        kind: "recording-start",
+        projectPositionSeconds: instruction.projectPositionSeconds,
+        musicalPosition: transportSecondsToMusicalPosition(
+          normalizedMusicalTimeline,
+          instruction.projectPositionSeconds,
+        ),
+        audioContextTimeSeconds: instruction.startAtClockTime,
+        playbackState: "playing",
+      },
+      mediaLeadInSeconds: Math.max(
+        0,
+        instruction.startAtClockTime - schedulingStartedAt,
       ),
-      audioContextTimeSeconds: instruction.startAtClockTime,
-      playbackState: "playing",
+      countIn: {
+        bars: normalizedCountInBars,
+        beats: countInBeats,
+        durationSeconds: countInDurationSeconds,
+      },
     };
   }
 
@@ -762,22 +998,29 @@ export function createWebAudioPlaybackEngine(
 
     transport.pause();
     clearActiveSources();
+    clearAllClickCues();
   }
 
   function stop(): void {
+    pendingSeekSeconds = null;
     transport.stop();
     clearActiveSources();
+    clearAllClickCues();
   }
 
   function seek(seconds: number): void {
-    if (
-      destroyed ||
-      !hasReadyChannels() ||
-      !Number.isFinite(seconds)
-    ) {
+    if (destroyed || !Number.isFinite(seconds)) {
       return;
     }
 
+    if (!hasReadyChannels()) {
+      if (loadedChannels.length > 0) {
+        pendingSeekSeconds = Math.max(0, seconds);
+      }
+      return;
+    }
+
+    pendingSeekSeconds = null;
     const transportSnapshot = transport.getSnapshot();
     const duration = transportSnapshot.durationSeconds;
     const nextPosition = Math.max(
@@ -793,6 +1036,7 @@ export function createWebAudioPlaybackEngine(
     }
 
     clearActiveSources();
+    clearAllClickCues();
     transport.seek(nextPosition);
 
     if (shouldResume) {
@@ -864,6 +1108,7 @@ export function createWebAudioPlaybackEngine(
     loadGeneration = generation;
 
     clearActiveSources();
+    clearAllClickCues();
     disconnectLoadedChannels();
     loadedChannels = channels.map((channel) => ({
       channel: {
@@ -873,6 +1118,7 @@ export function createWebAudioPlaybackEngine(
       buffer: null,
       gainNode: null,
     }));
+    pendingSeekSeconds = null;
     transport.stop();
     transport.setDuration(0);
 
@@ -910,6 +1156,11 @@ export function createWebAudioPlaybackEngine(
         }
 
         transport.setDuration(getMixDuration());
+        if (pendingSeekSeconds !== null) {
+          const requestedSeekSeconds = pendingSeekSeconds;
+          pendingSeekSeconds = null;
+          transport.seek(requestedSeekSeconds);
+        }
       })
       .catch((error: unknown) => {
         if (destroyed || generation !== loadGeneration) {
@@ -930,6 +1181,7 @@ export function createWebAudioPlaybackEngine(
 
     loadGeneration += 1;
     clearActiveSources();
+    clearAllClickCues();
     disconnectLoadedChannels();
     loadedChannels = [];
     unsubscribeTransport();
@@ -964,11 +1216,24 @@ export function createWebAudioPlaybackEngine(
       if (!enabled) {
         cancelFutureLoopGenerations();
         lastScheduledLoopInstruction = null;
+        resetMetronomeSchedule();
         return;
       }
 
       lastScheduledLoopInstruction = getCurrentOrUpcomingInstruction();
       maintainLoopSchedule(true);
+      resetMetronomeSchedule();
+    },
+    setMetronomeEnabled(enabled) {
+      if (metronomeEnabled === enabled) {
+        return;
+      }
+      metronomeEnabled = enabled;
+      if (!enabled) {
+        clearMetronomeClicks();
+        return;
+      }
+      resetMetronomeSchedule();
     },
     setChannelVolume,
     setChannelEnabled,

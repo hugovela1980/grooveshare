@@ -122,6 +122,8 @@ tester.describe("mobile musical timeline playback", () => {
     tester.expect(html.includes("Bar 1 · Beat 1")).toBe(true);
     tester.expect(html.includes('id="audio-seek-bar-input"')).toBe(true);
     tester.expect(html.includes('id="audio-seek-bar-button"')).toBe(true);
+    tester.expect(html.includes('id="audio-metronome-checkbox"')).toBe(true);
+    tester.expect(html.includes("Click")).toBe(true);
   });
 
   tester.it("preserves the go-to-bar value across mix reloads", () => {
@@ -140,6 +142,7 @@ tester.describe("mobile musical timeline playback", () => {
       seekBarButton: createButton(),
       trackNameElement: { textContent: null as string | null },
       loopCheckbox: { checked: false },
+      metronomeCheckbox: { checked: false },
     });
 
     controller.init();
@@ -178,6 +181,7 @@ tester.describe("mobile musical timeline playback", () => {
       seekBarButton,
       trackNameElement: { textContent: null as string | null },
       loopCheckbox: { checked: false },
+      metronomeCheckbox: { checked: false },
     });
 
     controller.init();

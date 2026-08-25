@@ -126,6 +126,7 @@ function createProjectPlayerIntegrationElements() {
   const playPauseButton = createButton();
   const stopButton = createButton();
   const loopCheckbox = { checked: false };
+  const metronomeCheckbox = { checked: false };
   const progressInput = {
     disabled: false,
     value: "0",
@@ -225,6 +226,7 @@ function createProjectPlayerIntegrationElements() {
         ["#audio-play-pause-button", playPauseButton],
         ["#audio-stop-button", stopButton],
         ["#audio-loop-checkbox", loopCheckbox],
+        ["#audio-metronome-checkbox", metronomeCheckbox],
         ["#audio-progress", progressInput],
         ["#audio-timestamp", timestampElement],
         ["#audio-duration", durationElement],

@@ -218,6 +218,16 @@ function isUpdateProjectDetailsInput(
 }
 
 const MAX_TRACK_ALIGNMENT_OFFSET_SECONDS = 2;
+const MAX_TRACK_MEDIA_LEAD_IN_SECONDS = 600;
+
+function isValidTrackMediaLeadInSeconds(value: unknown): value is number {
+  return (
+    typeof value === "number" &&
+    Number.isFinite(value) &&
+    value >= 0 &&
+    value <= MAX_TRACK_MEDIA_LEAD_IN_SECONDS
+  );
+}
 
 function isValidTrackAlignmentOffsetSeconds(value: unknown): value is number {
   return (
@@ -329,6 +339,19 @@ function parseUploadTrackAlignmentOffsetSeconds(
   const value = Number(rawValue);
 
   return isValidTrackAlignmentOffsetSeconds(value) ? value : null;
+}
+
+function parseUploadTrackMediaLeadInSeconds(
+  fields: Record<string, string>,
+): number | undefined | null {
+  const rawValue = fields.mediaLeadInSeconds;
+
+  if (rawValue === undefined) {
+    return undefined;
+  }
+
+  const value = Number(rawValue);
+  return isValidTrackMediaLeadInSeconds(value) ? value : null;
 }
 
 function isMixSettings(data: unknown): data is MixSettings {
@@ -956,6 +979,8 @@ export function createAppServer({
     );
     const alignmentOffsetSeconds =
       parseUploadTrackAlignmentOffsetSeconds(parsedForm.fields);
+    const mediaLeadInSeconds =
+      parseUploadTrackMediaLeadInSeconds(parsedForm.fields);
 
     if (hasMusicalPlacementFields && !musicalPlacement) {
       sendJson(
@@ -972,6 +997,16 @@ export function createAppServer({
         res,
         400,
         { ok: false, error: "Invalid track alignment offset." },
+        clientOrigin,
+      );
+      return;
+    }
+
+    if (mediaLeadInSeconds === null) {
+      sendJson(
+        res,
+        400,
+        { ok: false, error: "Invalid track media lead-in." },
         clientOrigin,
       );
       return;
@@ -998,6 +1033,7 @@ export function createAppServer({
       uploadedByUserId,
       musicalPlacement,
       alignmentOffsetSeconds: alignmentOffsetSeconds ?? 0,
+      mediaLeadInSeconds: mediaLeadInSeconds ?? 0,
     });
 
     sendJson(

@@ -62,6 +62,7 @@ tester.describe("tracks PostgreSQL store", () => {
                     spanBeats: 8,
                 },
                 alignmentOffsetSeconds: 0.163,
+                mediaLeadInSeconds: 2.43,
             });
 
             tester.expect(typeof track.id).toBe("string");
@@ -83,6 +84,7 @@ tester.describe("tracks PostgreSQL store", () => {
                 spanBeats: 8,
             });
             tester.expect(track.alignmentOffsetSeconds).toBe(0.163);
+            tester.expect(track.mediaLeadInSeconds).toBe(2.43);
 
             tester.expect(typeof track.createdAt).toBe(
                 "string",
@@ -262,6 +264,7 @@ tester.describe("tracks PostgreSQL store", () => {
                 mimeType: "audio/wav",
                 fileSize: 100,
                 uploadedByUserId: null,
+                mediaLeadInSeconds: 2.43,
             });
 
             const result = await store.updateTrackDetails(projectId, track.id, {
@@ -279,6 +282,7 @@ tester.describe("tracks PostgreSQL store", () => {
                 spanBeats: 12,
             });
             tester.expect(result.updatedTrack.alignmentOffsetSeconds).toBe(-0.032);
+            tester.expect(result.updatedTrack.mediaLeadInSeconds).toBe(2.43);
         },
     );
 

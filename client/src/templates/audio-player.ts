@@ -70,6 +70,22 @@ export function renderAudioPlayer(): string {
               Loop
             </span>
           </label>
+
+          <label class="audio-player__loop-control audio-player__metronome-control">
+            <input
+              id="audio-metronome-checkbox"
+              type="checkbox"
+              data-audio-metronome-checkbox
+            />
+
+            <span class="audio-player__loop-button" aria-hidden="true">
+              ♩
+            </span>
+
+            <span class="audio-player__control-caption">
+              Click
+            </span>
+          </label>
         </div>
 
         <div class="audio-player__musical-timeline" aria-label="Musical timeline position">

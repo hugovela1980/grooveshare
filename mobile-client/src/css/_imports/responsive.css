@@ -208,10 +208,10 @@
     }
 
     .audio-player__controls {
-        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-columns: repeat(5, minmax(0, 1fr));
         grid-template-areas:
-            "back play stop loop"
-            "timeline timeline timeline timeline";
+            "back play stop loop metronome"
+            "timeline timeline timeline timeline timeline";
         gap: 0.55rem 0.35rem;
         padding: 0.7rem 0.55rem 0.8rem;
         border-width: 1px;
@@ -232,6 +232,10 @@
 
     .audio-player__loop-control {
         grid-area: loop;
+    }
+
+    .audio-player__metronome-control {
+        grid-area: metronome;
     }
 
     .audio-player__timeline {
