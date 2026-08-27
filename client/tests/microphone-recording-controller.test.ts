@@ -354,11 +354,13 @@ tester.describe("microphone recording controller", () => {
     harness.controller.init();
 
     tester.expect(harness.armButton.textContent).toBe("Enable Microphone");
+    tester.expect(harness.calls).toEqual([]);
 
     await harness.armButton.click();
     tester.expect(harness.armButton.disabled).toBe(false);
     tester.expect(harness.armButton.textContent).toBe("Disable Microphone");
     tester.expect(harness.recordButton.disabled).toBe(false);
+    tester.expect(harness.recordButton.textContent).toBe("Record Take");
 
     await harness.armButton.click();
     tester.expect(harness.armButton.textContent).toBe("Enable Microphone");

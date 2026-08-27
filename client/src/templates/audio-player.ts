@@ -1,4 +1,8 @@
-export function renderAudioPlayer(): string {
+type AudioPlayerTemplateOptions = {
+  showMicrophoneControl?: boolean;
+};
+
+export function renderAudioPlayer({ showMicrophoneControl = false }: AudioPlayerTemplateOptions = {}): string {
   return /*html*/ `
     <section
       id="player-area"
@@ -6,8 +10,8 @@ export function renderAudioPlayer(): string {
       aria-labelledby="audio-player-heading"
     >
       <div class="audio-player__header">
-        <h2 id="audio-player-heading" class="visually-hidden">
-          Audio Player
+        <h2 id="audio-player-heading" class="audio-player__title">
+          Project Player
         </h2>
 
         <p id="audio-track-name" class="audio-player__track-name">
@@ -19,7 +23,7 @@ export function renderAudioPlayer(): string {
 
       <div class="audio-player__controls">
         <div class="audio-player__transport">
-          <div class="audio-player__seek-back-control">
+          <div class="audio-player__transport-primary">
             <button
               id="audio-seek-back-button"
               class="button audio-player__transport-button audio-player__seek-back-button"
@@ -27,65 +31,80 @@ export function renderAudioPlayer(): string {
               aria-label="Seek backward 5 seconds"
               disabled
             >
-              <span aria-hidden="true">↶5</span>
+              -5s
             </button>
 
-            <span class="audio-player__control-caption" aria-hidden="true">
-              -5s
-            </span>
+            <button
+              id="audio-play-pause-button"
+              class="button audio-player__transport-button audio-player__play-pause-button"
+              type="button"
+              aria-label="Play or pause mix"
+              disabled
+            >
+              ▶
+            </button>
+
+            ${showMicrophoneControl ? /*html*/ `
+              <button
+                id="microphone-arm-button"
+                class="button audio-player__transport-button audio-player__microphone-button"
+                type="button"
+                aria-label="Prepare microphone"
+                aria-pressed="false"
+              >
+                <svg class="audio-player__microphone-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 14.5a3.5 3.5 0 0 0 3.5-3.5V6a3.5 3.5 0 0 0-7 0v5a3.5 3.5 0 0 0 3.5 3.5Z" />
+                  <path d="M5.75 10.5v.5a6.25 6.25 0 0 0 12.5 0v-.5M12 17.25V21M9 21h6" />
+                </svg>
+                <span id="microphone-arm-button-label" class="visually-hidden">Prepare microphone</span>
+              </button>
+            ` : ""}
+
+            <button
+              id="audio-stop-button"
+              class="button audio-player__transport-button audio-player__stop-button"
+              type="button"
+              aria-label="Stop"
+              disabled
+            >
+              <span class="audio-player__stop-icon" aria-hidden="true"></span>
+              <span class="visually-hidden">Stop</span>
+            </button>
+
+            <button
+              id="audio-seek-forward-button"
+              class="button audio-player__transport-button audio-player__seek-forward-button"
+              type="button"
+              aria-label="Seek forward 5 seconds"
+              disabled
+            >
+              +5s
+            </button>
           </div>
 
-          <button
-            id="audio-play-pause-button"
-            class="button audio-player__transport-button audio-player__play-pause-button"
-            type="button"
-            aria-label="Play or pause mix"
-            disabled
-          >
-            ▶
-          </button>
+          <div class="audio-player__transport-secondary">
+            <label class="audio-player__loop-control">
+              <input
+                id="audio-loop-checkbox"
+                type="checkbox"
+                data-audio-loop-checkbox
+              />
 
-          <button
-            id="audio-stop-button"
-            class="button audio-player__transport-button audio-player__stop-button"
-            type="button"
-            aria-label="Stop mix"
-            disabled
-          >
-            ■
-          </button>
+              <span class="audio-player__loop-button">
+                Loop<span class="audio-player__selected-indicator" aria-hidden="true"> ✓</span>
+              </span>
+            </label>
 
-          <label class="audio-player__loop-control">
-            <input
-              id="audio-loop-checkbox"
-              type="checkbox"
-              data-audio-loop-checkbox
-            />
+            <label class="audio-player__loop-control audio-player__metronome-control">
+              <input
+                id="audio-metronome-checkbox"
+                type="checkbox"
+                data-audio-metronome-checkbox
+              />
 
-            <span class="audio-player__loop-button" aria-hidden="true">
-              ↻
-            </span>
-
-            <span class="audio-player__control-caption">
-              Loop
-            </span>
-          </label>
-
-          <label class="audio-player__loop-control audio-player__metronome-control">
-            <input
-              id="audio-metronome-checkbox"
-              type="checkbox"
-              data-audio-metronome-checkbox
-            />
-
-            <span class="audio-player__loop-button" aria-hidden="true">
-              ♩
-            </span>
-
-            <span class="audio-player__control-caption">
-              Click
-            </span>
-          </label>
+              <span class="audio-player__loop-button">Click</span>
+            </label>
+          </div>
         </div>
 
         <div class="audio-player__musical-timeline" aria-label="Musical timeline position">

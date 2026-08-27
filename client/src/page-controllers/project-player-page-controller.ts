@@ -230,6 +230,7 @@ type ProjectPlayerPageControllerOptions = {
     statusElement?: TextElementLike | null;
     deleteProjectButton?: ButtonElementLike | null;
     projectTitleElement?: EditableTextElementLike | null;
+    projectSummaryTitleElement?: TextElementLike | null;
     projectMobileTitleElement?: TextElementLike | null;
     projectDescriptionElement?: EditableTextElementLike | null;
     projectEditModal?: DialogElementLike | null;
@@ -348,6 +349,7 @@ export function createProjectPlayerPageController({
     statusElement,
     deleteProjectButton,
     projectTitleElement,
+    projectSummaryTitleElement,
     projectMobileTitleElement,
     projectDescriptionElement,
     projectEditModal,
@@ -772,6 +774,10 @@ export function createProjectPlayerPageController({
                 projectTitleElement.textContent = updatedProject.title;
             }
 
+            if (projectSummaryTitleElement) {
+                projectSummaryTitleElement.textContent = updatedProject.title;
+            }
+
             if (projectMobileTitleElement) {
                 projectMobileTitleElement.textContent = updatedProject.title;
             }
@@ -1092,6 +1098,10 @@ export function createProjectPlayerPageController({
             project.title = updatedProject.title;
             projectTitleElement.textContent = updatedProject.title;
 
+            if (projectSummaryTitleElement) {
+                projectSummaryTitleElement.textContent = updatedProject.title;
+            }
+
             if (projectMobileTitleElement) {
                 projectMobileTitleElement.textContent = updatedProject.title;
             }
@@ -1101,6 +1111,9 @@ export function createProjectPlayerPageController({
             currentProjectTitle = previousTitle;
             project.title = previousTitle;
             projectTitleElement.textContent = previousTitle;
+            if (projectSummaryTitleElement) {
+                projectSummaryTitleElement.textContent = previousTitle;
+            }
             setStatus(statusElement, "Could not save project title.");
         }
     }

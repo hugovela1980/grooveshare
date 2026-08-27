@@ -559,11 +559,13 @@ function initializeProjectPlayerPage({
   const statusElement = getElement<HTMLParagraphElement>(appElement, "#project-player-status");
   const deleteProjectButton = getElement<HTMLButtonElement>(appElement, "#delete-project-button");
   const projectTitleElement = getElement<HTMLElement>(appElement, "[data-project-title-display]");
+  const projectSummaryTitleElement = getElement<HTMLElement>(appElement, "[data-project-summary-title-display]");
   const projectDescriptionElement = getElement<HTMLElement>(appElement, "[data-project-description-display]");
   if (!trackListElement) { guestHomeButton?.addEventListener("click", onGuestAuth); loginButton?.addEventListener("click", onGuestAuth); return null; }
 
   const audioElement = getElement<HTMLAudioElement>(appElement, "#project-audio-player");
   const seekBackwardButton = getElement<HTMLButtonElement>(appElement, "#audio-seek-back-button");
+  const seekForwardButton = getElement<HTMLButtonElement>(appElement, "#audio-seek-forward-button");
   const playPauseButton = getElement<HTMLButtonElement>(appElement, "#audio-play-pause-button");
   const stopButton = getElement<HTMLButtonElement>(appElement, "#audio-stop-button");
   const loopCheckbox = getElement<HTMLInputElement>(appElement, "#audio-loop-checkbox");
@@ -597,6 +599,7 @@ function initializeProjectPlayerPage({
     projectId: selectedProject.id,
     debugLogger: (message, details) => console.info(message, details),
     seekBackwardButton,
+    seekForwardButton,
     playPauseButton,
     stopButton,
     progressInput,
@@ -615,6 +618,10 @@ function initializeProjectPlayerPage({
   const microphoneArmButton = getElement<HTMLButtonElement>(
     appElement,
     "#microphone-arm-button",
+  );
+  const microphoneArmButtonLabelElement = getElement<HTMLElement>(
+    appElement,
+    "#microphone-arm-button-label",
   );
   const microphoneRecordButton = getElement<HTMLButtonElement>(
     appElement,
@@ -731,6 +738,7 @@ function initializeProjectPlayerPage({
       ? createMicrophoneRecordingController({
           recordingSession,
           armButton: microphoneArmButton,
+          armButtonLabelElement: microphoneArmButtonLabelElement,
           recordButton: microphoneRecordButton,
           stopButton: microphoneStopButton,
           auditionButton: microphoneAuditionButton,
@@ -783,6 +791,7 @@ function initializeProjectPlayerPage({
     statusElement,
     deleteProjectButton,
     projectTitleElement,
+    projectSummaryTitleElement,
     projectDescriptionElement,
     tracksApi: projectTracksApi,
     projectsApi,

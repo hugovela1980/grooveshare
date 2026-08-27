@@ -59,6 +59,11 @@ tester.describe("desktop Project Player integration", () => {
     tester.expect(pageMarkup.includes("Collaboration Link")).toBe(true);
     tester.expect(pageMarkup.includes("project-edit-modal")).toBe(false);
     tester.expect(pageMarkup.includes('id="microphone-arm-button"')).toBe(true);
+    tester.expect(pageMarkup.includes('id="microphone-record-button"')).toBe(true);
+    tester.expect(pageMarkup.indexOf('id="microphone-arm-button"') < pageMarkup.indexOf('id="audio-stop-button"')).toBe(true);
+    tester.expect(pageMarkup.indexOf('id="microphone-record-button"') > pageMarkup.indexOf('id="audio-stop-button"')).toBe(true);
+    tester.expect(pageMarkup.includes("Record Take")).toBe(true);
+    tester.expect(pageMarkup.includes(">Enable Microphone<")).toBe(false);
     tester.expect(pageMarkup.includes("For the cleanest recording, use wired headphones")).toBe(true);
     tester.expect(mixerMarkup.includes("data-track-name-editor")).toBe(true);
     tester.expect(mixerMarkup.includes('contenteditable="true"')).toBe(true);
@@ -92,12 +97,13 @@ tester.describe("desktop Project Player integration", () => {
     const project = structuredClone(ownerProject);
     const trackListElement = createTrackListElement();
     const titleElement = createEditableTextElement(project.title);
+    const summaryTitleElement = { textContent: project.title as string | null };
     const descriptionElement = createEditableTextElement(project.description);
     const statusElement = { textContent: "" as string | null };
     const updates: Array<{ title?: string; description?: string }> = [];
     let selectionCount = 0;
     const controller = createProjectPlayerPageController({
-      project, trackListElement, statusElement, projectTitleElement: titleElement, projectDescriptionElement: descriptionElement,
+      project, trackListElement, statusElement, projectTitleElement: titleElement, projectSummaryTitleElement: summaryTitleElement, projectDescriptionElement: descriptionElement,
       tracksApi: { async getTracksByProjectId() { return []; }, async deleteTrack() { return ownedTrack; } },
       projectsApi: { async deleteProject() { return project; }, async updateProjectDetails(_projectId, input) { updates.push(input); return { ...project, ...input }; } },
       renderTrackList() { return ""; }, projectRole: "owner", currentUserId: "user-1", selectAllText() { selectionCount += 1; },
@@ -111,6 +117,7 @@ tester.describe("desktop Project Player integration", () => {
     tester.expect(updates).toEqual([{ title: "Desktop Song Revised" }]);
     tester.expect(project.title).toBe("Desktop Song Revised");
     tester.expect(titleElement.textContent).toBe("Desktop Song Revised");
+    tester.expect(summaryTitleElement.textContent).toBe("Desktop Song Revised");
     tester.expect(statusElement.textContent).toBe("Project title updated.");
   });
 

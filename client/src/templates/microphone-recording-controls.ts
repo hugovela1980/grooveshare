@@ -38,19 +38,12 @@ export function renderMicrophoneRecordingControls(): string {
 
       <div class="microphone-recording__actions">
         <button
-          id="microphone-arm-button"
-          class="button button--secondary"
-          type="button"
-        >
-          Enable Microphone
-        </button>
-        <button
           id="microphone-record-button"
           class="button"
           type="button"
           disabled
         >
-          Record
+          Record Take
         </button>
         <button
           id="microphone-stop-button"

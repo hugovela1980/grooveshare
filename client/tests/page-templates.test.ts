@@ -119,7 +119,7 @@ tester.describe("page templates", () => {
     const html = renderProjectPlayerPage();
 
     tester.expect(html.includes("Project Player")).toBe(true);
-    tester.expect(html.includes("Audio Player")).toBe(true);
+    tester.expect(html.includes("Project Player")).toBe(true);
     tester.expect(html.includes("player-area")).toBe(true);
     tester.expect(html.includes("player-track-list")).toBe(true);
     tester.expect(html.includes("project-player-workspace")).toBe(true);
@@ -144,13 +144,17 @@ tester.describe("page templates", () => {
     tester.expect(html.includes("Reggae groove")).toBe(true);
     tester.expect(html.includes("guitar and bass")).toBe(true);
     tester.expect(html.includes("data-project-title-display")).toBe(true);
+    tester.expect(html.includes("data-project-summary-title-display")).toBe(true);
+    tester.expect(html.includes("data-project-details")).toBe(true);
+    tester.expect(html.includes("<details class=\"project-player-header__details\" data-project-details open")).toBe(false);
+    tester.expect(html.includes("project-player-header__details-content")).toBe(true);
     tester.expect(html.includes("data-project-description-display")).toBe(true);
     tester.expect(html.includes("data-project-musical-timeline-display")).toBe(true);
     tester.expect(html.includes("120 BPM · 4/4 · Bar 1 at project start")).toBe(true);
     tester.expect(html.includes('contenteditable="true"')).toBe(true);
     tester.expect(html.includes('id="project-edit-modal"')).toBe(false);
     tester.expect(html.includes('id="track-edit-modal"')).toBe(false);
-    tester.expect(html.includes("Audio Player")).toBe(true);
+    tester.expect(html.includes("Project Player")).toBe(true);
     tester.expect(html.includes("player-area")).toBe(true);
     tester.expect(html.includes("player-track-list")).toBe(true);
     tester.expect(html.includes("player-track-upload-form")).toBe(false);

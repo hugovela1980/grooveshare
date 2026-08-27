@@ -13,6 +13,8 @@ type ButtonElementLike = {
     eventName: "click",
     handler: () => void | Promise<void>,
   ) => void;
+  setAttribute?: (name: string, value: string) => void;
+  removeAttribute?: (name: string) => void;
 };
 
 type ValueInputLike = {
@@ -33,6 +35,7 @@ type AlignmentNudgeControl = {
 type MicrophoneRecordingControllerOptions = {
   recordingSession: MicrophoneRecordingSession;
   armButton: ButtonElementLike;
+  armButtonLabelElement?: TextElementLike | null;
   recordButton: ButtonElementLike;
   stopButton: ButtonElementLike;
   auditionButton: ButtonElementLike;
@@ -110,6 +113,7 @@ function getStatusMessage(snapshot: MicrophoneRecordingSnapshot): string {
 export function createMicrophoneRecordingController({
   recordingSession,
   armButton,
+  armButtonLabelElement,
   recordButton,
   stopButton,
   auditionButton,
@@ -175,14 +179,26 @@ export function createMicrophoneRecordingController({
       );
     }
 
-    armButton.textContent = snapshot.status === "requesting-permission"
+    const armButtonLabel = snapshot.status === "requesting-permission"
       ? "Enabling…"
       : snapshot.status === "ready"
         ? "Disable Microphone"
         : "Enable Microphone";
+    if (armButtonLabelElement) {
+      armButtonLabelElement.textContent = armButtonLabel;
+    } else {
+      armButton.textContent = armButtonLabel;
+    }
+    armButton.setAttribute?.("aria-label", armButtonLabel);
+    armButton.setAttribute?.("aria-pressed", String(snapshot.status === "ready"));
+    if (snapshot.status === "requesting-permission") {
+      armButton.setAttribute?.("aria-busy", "true");
+    } else {
+      armButton.removeAttribute?.("aria-busy");
+    }
     recordButton.textContent = snapshot.status === "recording"
       ? "Recording…"
-      : "Record";
+      : "Record Take";
     auditionButton.textContent = snapshot.takeReviewStatus === "auditioning"
       ? "Stop Audition"
       : "Audition Take";

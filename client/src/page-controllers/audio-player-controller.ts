@@ -79,6 +79,7 @@ type AudioPlayerControllerOptions = {
     projectId?: string;
     debugLogger?: PlaybackDebugLogger;
     seekBackwardButton: ButtonElementLike;
+    seekForwardButton?: ButtonElementLike | null;
     playPauseButton: ButtonElementLike;
     stopButton: ButtonElementLike;
     progressInput: RangeInputElementLike;
@@ -123,6 +124,7 @@ export function createAudioPlayerController({
     projectId,
     debugLogger,
     seekBackwardButton,
+    seekForwardButton,
     playPauseButton,
     stopButton,
     progressInput,
@@ -141,6 +143,9 @@ export function createAudioPlayerController({
 
     function setControlsEnabled(isEnabled: boolean): void {
         seekBackwardButton.disabled = !isEnabled;
+        if (seekForwardButton) {
+            seekForwardButton.disabled = !isEnabled;
+        }
         playPauseButton.disabled = !isEnabled;
         stopButton.disabled = !isEnabled;
         progressInput.disabled = !isEnabled;
@@ -416,6 +421,10 @@ export function createAudioPlayerController({
 
         seekBackwardButton.addEventListener("click", () => {
             playbackEngine.seekBy(-SEEK_BACKWARD_SECONDS);
+        });
+
+        seekForwardButton?.addEventListener("click", () => {
+            playbackEngine.seekBy(SEEK_BACKWARD_SECONDS);
         });
 
         playPauseButton.addEventListener("click", () => {

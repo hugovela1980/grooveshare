@@ -42,12 +42,19 @@ export function renderProjectPlayerPage(project: Project | null = null, { curren
           ${guest && !currentUser ? `<button id="player-guest-home-button" class="button button--secondary" type="button">Home</button><button id="player-login-button" class="button button--secondary" type="button">Log In</button>` : `<button id="player-back-button" class="button button--secondary" type="button">Back</button><button id="player-logout-button" class="button button--secondary" type="button">Log Out</button>`}
           ${canManageProject ? renderProjectActionsMenu() : ""}
         </div>
-        <div class="project-player-header__details">
-          <div class="project-player-header__eyebrow-row"><p class="eyebrow">Project Player</p>${project ? `<span class="project-role-badge${guest ? " project-role-badge--guest" : ""}">${getRoleLabel(project)}</span>` : ""}</div>
-          <div class="project-player-editable project-player-editable--title${editableClass}"><h1 class="project-player-editable__text project-player-editable__title" ${editableAttribute} ${canManageProject ? 'role="textbox" aria-label="Edit project title"' : ""} spellcheck="false" data-project-title-display>${heading}</h1></div>
-          <div class="project-player-editable project-player-editable--description${editableClass}"><p class="description project-player-editable__text project-player-editable__description" ${editableAttribute} ${canManageProject ? 'role="textbox" aria-label="Edit project description"' : ""} data-placeholder="No description provided." data-project-description-display>${description}</p></div>
-          ${project ? `<p class="description project-musical-timeline-summary" data-project-musical-timeline-display>${musicalTimelineSummary}</p>` : ""}
-        </div>
+        <details class="project-player-header__details" data-project-details>
+          <summary class="project-player-header__summary">
+            <span class="project-player-header__summary-title" data-project-summary-title-display>${heading}</span>
+            ${project ? `<span class="project-role-badge${guest ? " project-role-badge--guest" : ""}">${getRoleLabel(project)}</span>` : ""}
+            <span class="project-player-header__disclosure" aria-hidden="true"></span>
+          </summary>
+          <div class="project-player-header__details-content">
+            <div class="project-player-header__eyebrow-row"><p class="eyebrow">Project Details</p></div>
+            <div class="project-player-editable project-player-editable--title${editableClass}"><h1 class="project-player-editable__text project-player-editable__title" ${editableAttribute} ${canManageProject ? 'role="textbox" aria-label="Edit project title"' : ""} spellcheck="false" data-project-title-display>${heading}</h1></div>
+            <div class="project-player-editable project-player-editable--description${editableClass}"><p class="description project-player-editable__text project-player-editable__description" ${editableAttribute} ${canManageProject ? 'role="textbox" aria-label="Edit project description"' : ""} data-placeholder="No description provided." data-project-description-display>${description}</p></div>
+            ${project ? `<p class="description project-musical-timeline-summary" data-project-musical-timeline-display>${musicalTimelineSummary}</p>` : ""}
+          </div>
+        </details>
       </header>
       <div id="project-player-loading" class="project-player-loading" ${loadingHiddenAttribute}>${renderLoadingState("Loading your project...", { className: "project-player-loading__state" })}</div>
       <div id="project-player-content" class="project-player-content" ${contentHiddenAttribute}>
@@ -55,7 +62,7 @@ export function renderProjectPlayerPage(project: Project | null = null, { curren
         ${guest ? `<section id="guest-access-banner" class="guest-access-banner guest-message-card" aria-label="Guest access"><button id="dismiss-guest-access-button" class="icon-button guest-message-card__close" type="button" aria-label="Dismiss Guest listening message">×</button><div><p class="eyebrow">Guest Listening</p><h2>You are viewing this project as a Guest.</h2><p>Your mix stays on this browser. You cannot change the shared project or upload tracks.</p></div></section>` : ""}
         ${canBecomeContributor ? `<section id="contributor-invitation-card" class="contributor-invitation-card guest-message-card" aria-labelledby="contributor-invitation-heading"><button id="dismiss-contributor-invitation-button" class="icon-button guest-message-card__close" type="button" aria-label="Dismiss collaboration invitation message">×</button><div><p class="eyebrow">Collaboration Invitation</p><h2 id="contributor-invitation-heading">Become a Contributor</h2><p>${currentUser ? "Accept this invitation to add tracks and collaborate through your account." : "Log in or create an account, then explicitly accept this invitation to contribute."}</p></div><button id="become-contributor-button" class="button contributor-invitation-card__button" type="button">${currentUser ? "Accept Contributor Invitation" : "Become a Contributor"}</button><p id="contributor-invitation-status" class="status-message" aria-live="polite"></p></section>` : ""}
         <div class="project-player-workspace">
-          ${renderAudioPlayer()}
+          ${renderAudioPlayer({ showMicrophoneControl: canRecordProject })}
           ${canRecordProject ? renderMicrophoneRecordingControls() : ""}
           <section class="panel project-player-tracks-panel">
             <h2 class="visually-hidden">Tracks</h2>

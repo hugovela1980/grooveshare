@@ -157,6 +157,7 @@ function createControllerTestSetup(options: {
 } = {}) {
     const audioElement = createFakeAudioElement();
     const seekBackwardButton = createFakeButton();
+    const seekForwardButton = createFakeButton();
     const playPauseButton = createFakeButton();
     const stopButton = createFakeButton();
     const loopCheckbox = createFakeCheckbox();
@@ -186,6 +187,7 @@ function createControllerTestSetup(options: {
         ...(options.projectId ? { projectId: options.projectId } : {}),
         ...(options.debugLogger ? { debugLogger: options.debugLogger } : {}),
         seekBackwardButton,
+        seekForwardButton,
         playPauseButton,
         stopButton,
         progressInput,
@@ -205,6 +207,7 @@ function createControllerTestSetup(options: {
     return {
         audioElement,
         seekBackwardButton,
+        seekForwardButton,
         playPauseButton,
         stopButton,
         progressInput,
@@ -697,6 +700,25 @@ tester.describe("audio player controller", () => {
         await seekBackwardButton.click();
 
         tester.expect(audioElement.currentTime).toBe(0);
+    });
+
+    tester.it("seeks forward five seconds", async () => {
+        const { controller, audioElement, seekForwardButton } =
+            createControllerTestSetup();
+
+        controller.init();
+        controller.loadMix([{
+            channelNumber: 1,
+            trackId: "track-1",
+            name: "Guitar",
+            audioUrl: "http://localhost:3000/audio/guitar.wav",
+            volume: 1,
+        }]);
+
+        audioElement.currentTime = 3;
+        await seekForwardButton.click();
+
+        tester.expect(audioElement.currentTime).toBe(8);
     });
 
     tester.it("seeks all loaded tracks to the same position", () => {

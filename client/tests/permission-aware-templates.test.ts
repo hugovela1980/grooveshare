@@ -44,7 +44,7 @@ tester.describe("permission-aware templates", () => {
     tester.expect(html.includes('id="project-actions-button"')).toBe(false);
     tester.expect(html.includes('contenteditable="true"')).toBe(false);
     tester.expect(html.includes("Project Members")).toBe(false);
-    tester.expect(html.includes("Audio Player")).toBe(true);
+    tester.expect(html.includes("Project Player")).toBe(true);
   });
 
   tester.it("renders Contributor project details as read-only without member management", () => {
