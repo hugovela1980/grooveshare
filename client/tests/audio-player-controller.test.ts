@@ -140,9 +140,17 @@ function createFakeTextElement() {
 }
 
 function createFakeNumberInput() {
+    type Handler = (event: { key: string; preventDefault(): void }) => void;
+    const handlers = new Map<string, Handler>();
     return {
         disabled: true,
         value: "1",
+        selectCalls: 0,
+        select() { this.selectCalls += 1; },
+        addEventListener(name: "keydown" | "focus" | "click", handler: Handler) { handlers.set(name, handler); },
+        enter() { handlers.get("keydown")?.({ key: "Enter", preventDefault() {} }); },
+        focus() { handlers.get("focus")?.({ key: "", preventDefault() {} }); },
+        click() { handlers.get("click")?.({ key: "", preventDefault() {} }); },
     };
 }
 
@@ -167,6 +175,8 @@ function createControllerTestSetup(options: {
     const durationElement = createFakeTextElement();
     const musicalPositionElement = createFakeTextElement();
     const seekBarInput = createFakeNumberInput();
+    const seekBeatInput = createFakeNumberInput();
+    const seekStatusElement = createFakeTextElement();
     const seekBarButton = createFakeButton();
     const trackNameElement = createFakeTextElement();
 
@@ -195,6 +205,8 @@ function createControllerTestSetup(options: {
         durationElement,
         musicalPositionElement,
         seekBarInput,
+        seekBeatInput,
+        seekStatusElement,
         seekBarButton,
         trackNameElement,
         loopCheckbox,
@@ -215,6 +227,8 @@ function createControllerTestSetup(options: {
         durationElement,
         musicalPositionElement,
         seekBarInput,
+        seekBeatInput,
+        seekStatusElement,
         seekBarButton,
         trackNameElement,
         loopCheckbox,
@@ -233,6 +247,18 @@ function createMemoryStorage(): StorageProvider {
 }
 
 tester.describe("audio player controller", () => {
+    tester.it("selects the entire Go destination on focus and every click", () => {
+        const h = createControllerTestSetup();
+        h.controller.init();
+        for (const input of [h.seekBarInput, h.seekBeatInput]) {
+            input.value = "12";
+            input.focus();
+            input.click();
+            input.click();
+            tester.expect(input.selectCalls).toBe(3);
+            tester.expect(input.value).toBe("12");
+        }
+    });
     tester.it("formats timestamps as minutes and seconds", () => {
         tester.expect(formatTimestamp(0)).toBe("00:00");
         tester.expect(formatTimestamp(5)).toBe("00:05");
@@ -396,7 +422,7 @@ tester.describe("audio player controller", () => {
             audioUrl: "/guitar.wav",
             volume: 1,
         }]);
-        tester.expect(second.seekBarInput.value).toBe("12");
+        tester.expect(second.seekBarInput.value).toBe("1");
         tester.expect(second.audioElement.currentTime).toBe(22);
 
         await second.stopButton.click();
@@ -700,6 +726,42 @@ tester.describe("audio player controller", () => {
         await seekBackwardButton.click();
 
         tester.expect(audioElement.currentTime).toBe(0);
+    });
+
+    tester.it("keeps the local Bar/Beat destination separate from playback and validates Go", async () => {
+        const h = createControllerTestSetup({ musicalTimeline: { bpm: 120, timeSignature: { numerator: 6, denominator: 8 } } });
+        h.controller.init();
+        h.controller.loadMix([{ channelNumber: 1, trackId: "t", name: "Take", audioUrl: "/take.wav", volume: 1 }]);
+        h.seekBarInput.value = "3";
+        h.seekBeatInput.value = "4";
+        h.seekBeatInput.enter();
+        tester.expect(h.audioElement.currentTime).toBe(3.75);
+        await h.playPauseButton.click();
+        await h.seekForwardButton.click();
+        await h.seekBackwardButton.click();
+        h.progressInput.value = "50";
+        h.progressInput.input();
+        h.progressInput.change();
+        await h.stopButton.click();
+        tester.expect(h.seekBarInput.value).toBe("3");
+        tester.expect(h.seekBeatInput.value).toBe("4");
+        tester.expect(h.musicalPositionElement.textContent).toBe("Bar 1 · Beat 1");
+        await h.playPauseButton.click();
+        h.seekBarInput.enter();
+        tester.expect(h.audioElement.currentTime).toBe(3.75);
+        tester.expect(h.audioElement.paused).toBe(false);
+        for (const [bar, beat] of [["0", "1"], ["1", "7"], ["1", "0"], ["", "1"], ["2.5", "1"], ["1", "1.5"], ["9999", "1"], ["abc", "1"]]) {
+            h.seekBarInput.value = bar;
+            h.seekBeatInput.value = beat;
+            await h.seekBarButton.click();
+            tester.expect(h.audioElement.currentTime).toBe(3.75);
+            tester.expect(Boolean(h.seekStatusElement.textContent)).toBe(true);
+        }
+        h.seekBarInput.value = "1";
+        h.seekBeatInput.value = "1";
+        await h.seekBarButton.click();
+        tester.expect(h.audioElement.currentTime).toBe(0);
+        tester.expect(h.seekStatusElement.textContent).toBe("");
     });
 
     tester.it("previews fractional musical seeks without moving playback and resumes snapshot feedback", async () => {

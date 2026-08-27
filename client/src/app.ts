@@ -575,6 +575,8 @@ function initializeProjectPlayerPage({
   const durationElement = getElement<HTMLElement>(appElement, "#audio-duration");
   const musicalPositionElement = getElement<HTMLElement>(appElement, "#audio-musical-position");
   const seekBarInput = getElement<HTMLInputElement>(appElement, "#audio-seek-bar-input");
+  const seekBeatInput = getElement<HTMLInputElement>(appElement, "#audio-seek-beat-input");
+  const seekStatusElement = getElement<HTMLElement>(appElement, "#audio-seek-status");
   const seekBarButton = getElement<HTMLButtonElement>(appElement, "#audio-seek-bar-button");
   const trackNameElement = getElement<HTMLElement>(appElement, "#audio-track-name");
   if (!audioElement || !seekBackwardButton || !playPauseButton || !stopButton || !progressInput || !timestampElement || !durationElement || !musicalPositionElement || !seekBarInput || !seekBarButton || !trackNameElement || !loopCheckbox || !metronomeCheckbox) throw new Error("Project Player audio elements were not found.");
@@ -607,6 +609,8 @@ function initializeProjectPlayerPage({
     durationElement,
     musicalPositionElement,
     seekBarInput,
+    seekBeatInput,
+    seekStatusElement,
     seekBarButton,
     trackNameElement,
     loopCheckbox,

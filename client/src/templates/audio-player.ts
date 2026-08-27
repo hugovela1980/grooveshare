@@ -113,9 +113,21 @@ export function renderAudioPlayer({ showMicrophoneControl = false }: AudioPlayer
           </span>
 
           <div class="audio-player__bar-jump">
+            <span class="audio-player__go-label">Go to</span>
             <label for="audio-seek-bar-input">Bar</label>
             <input
               id="audio-seek-bar-input"
+              class="audio-player__bar-input"
+              type="number"
+              min="1"
+              step="1"
+              value="1"
+              inputmode="numeric"
+              disabled
+            />
+            <label for="audio-seek-beat-input">Beat</label>
+            <input
+              id="audio-seek-beat-input"
               class="audio-player__bar-input"
               type="number"
               min="1"
@@ -133,6 +145,7 @@ export function renderAudioPlayer({ showMicrophoneControl = false }: AudioPlayer
               Go
             </button>
           </div>
+          <p id="audio-seek-status" class="audio-player__seek-status" role="status"></p>
         </div>
 
         <div class="audio-player__timeline">

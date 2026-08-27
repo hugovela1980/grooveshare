@@ -1,5 +1,6 @@
 import {
     normalizeMusicalTimeline,
+    musicalPositionToTransportSeconds,
     transportSecondsToMusicalPosition,
     type MusicalTimeline,
     type PlaybackChannel,
@@ -59,6 +60,8 @@ type TextElementLike = {
 type NumberInputElementLike = {
     disabled: boolean;
     value: string;
+    select?: () => void;
+    addEventListener?: (eventName: "keydown" | "focus" | "click", handler: (event: { key: string; preventDefault(): void }) => void) => void;
 };
 
 type PlaybackMusicalTimelineDebugDetails = {
@@ -91,6 +94,8 @@ type AudioPlayerControllerOptions = {
     durationElement: TextElementLike;
     musicalPositionElement: TextElementLike;
     seekBarInput: NumberInputElementLike;
+    seekBeatInput?: NumberInputElementLike | null;
+    seekStatusElement?: TextElementLike | null;
     seekBarButton: ButtonElementLike;
     trackNameElement: TextElementLike;
     loopCheckbox: CheckboxElementLike;
@@ -135,6 +140,8 @@ export function createAudioPlayerController({
     durationElement,
     musicalPositionElement,
     seekBarInput,
+    seekBeatInput,
+    seekStatusElement,
     seekBarButton,
     trackNameElement,
     loopCheckbox,
@@ -153,6 +160,7 @@ export function createAudioPlayerController({
         stopButton.disabled = !isEnabled;
         progressInput.disabled = !isEnabled;
         seekBarInput.disabled = !isEnabled;
+        if (seekBeatInput) seekBeatInput.disabled = !isEnabled;
         seekBarButton.disabled = !isEnabled;
     }
 
@@ -257,7 +265,6 @@ export function createAudioPlayerController({
         playbackEngine.stop();
         if (resetWorkspaceAnchor) {
             recordingWorkspaceState?.clearAnchor();
-            seekBarInput.value = "1";
         }
     }
 
@@ -295,12 +302,25 @@ export function createAudioPlayerController({
 
     function seekToBar(): void {
         const bar = Number(seekBarInput.value);
+        const beat = seekBeatInput ? Number(seekBeatInput.value) : 1;
+        const timeline = normalizeMusicalTimeline(musicalTimeline);
+        const reportError = (message: string): void => {
+            if (seekStatusElement) seekStatusElement.textContent = message;
+        };
 
-        if (!Number.isInteger(bar) || bar < 1) {
+        if (!Number.isInteger(bar) || bar < 1 || !Number.isInteger(beat) || beat < 1 || beat > timeline.timeSignature.numerator) {
+            reportError(`Enter a whole bar of 1 or more and a beat from 1 to ${timeline.timeSignature.numerator}.`);
             return;
         }
 
-        const anchor = { bar, beat: 1 };
+        const anchor = { bar, beat };
+        const snapshot = playbackEngine.getSnapshot();
+        const seconds = musicalPositionToTransportSeconds(timeline, anchor);
+        if (!snapshot.hasLoadedChannels || seconds > snapshot.duration) {
+            reportError("Choose a position within the loaded project.");
+            return;
+        }
+        reportError("");
         recordingWorkspaceState?.setAnchor(anchor);
         playbackEngine.seekToMusicalPosition(anchor);
         updateProgress(playbackEngine.getSnapshot());
@@ -337,7 +357,6 @@ export function createAudioPlayerController({
         playbackEngine.loadMix(playbackChannels);
         const workspaceAnchor = recordingWorkspaceState?.getAnchor() ?? null;
         if (workspaceAnchor) {
-            seekBarInput.value = String(workspaceAnchor.bar);
             playbackEngine.seekToMusicalPosition(workspaceAnchor);
         }
         updateLoadedMixPresentation();
@@ -421,11 +440,6 @@ export function createAudioPlayerController({
     }
 
     function init(): void {
-        const workspaceAnchor = recordingWorkspaceState?.getAnchor() ?? null;
-        if (workspaceAnchor) {
-            seekBarInput.value = String(workspaceAnchor.bar);
-        }
-
         playbackEngine.setLoopEnabled(loopCheckbox.checked);
         playbackEngine.setMetronomeEnabled?.(metronomeCheckbox.checked);
         playbackEngine.subscribe((snapshot) => {
@@ -448,6 +462,16 @@ export function createAudioPlayerController({
 
         stopButton.addEventListener("click", () => stop());
         seekBarButton.addEventListener("click", seekToBar);
+        for (const input of [seekBarInput, seekBeatInput]) {
+            input?.addEventListener?.("focus", () => input.select?.());
+            input?.addEventListener?.("click", () => input.select?.());
+            input?.addEventListener?.("keydown", (event) => {
+                if (event.key === "Enter") {
+                    event.preventDefault();
+                    seekToBar();
+                }
+            });
+        }
         progressInput.addEventListener("input", beginSeeking);
         progressInput.addEventListener("change", finishSeeking);
 
