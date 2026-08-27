@@ -170,9 +170,10 @@
 }
 
 .audio-player__timeline {
+    grid-row: 2;
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    gap: 0.75rem;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.15rem 0.75rem;
     align-items: center;
     min-width: 0;
 }
@@ -186,9 +187,71 @@
 }
 
 .audio-player__progress {
+    --seek-progress: 0%;
+    appearance: none;
+    -webkit-appearance: none;
+    grid-column: 1 / -1;
+    grid-row: 2;
     width: 100%;
     min-height: 2rem;
     margin: 0;
+    background: transparent;
+    cursor: pointer;
+}
+
+.audio-player__duration {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+}
+
+.audio-player__progress::-webkit-slider-runnable-track {
+    height: 0.5rem;
+    border-radius: 999px;
+    background: linear-gradient(to right, #86df9a var(--seek-progress), #56616b var(--seek-progress));
+    box-shadow: inset 0 1px 2px #0005;
+}
+
+.audio-player__progress::-moz-range-track {
+    height: 0.5rem;
+    border-radius: 999px;
+    background: linear-gradient(to right, #86df9a var(--seek-progress), #56616b var(--seek-progress));
+}
+
+.audio-player__progress::-webkit-slider-thumb {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 1.4rem;
+    height: 1.4rem;
+    margin-top: -0.45rem;
+    border: 2px solid #b4edc0;
+    border-radius: 50%;
+    background: #f3fff6;
+    box-shadow: 0 2px 5px #0006;
+}
+
+.audio-player__progress::-moz-range-thumb {
+    width: 1.15rem;
+    height: 1.15rem;
+    border: 2px solid #b4edc0;
+    border-radius: 50%;
+    background: #f3fff6;
+    box-shadow: 0 2px 5px #0006;
+}
+
+.audio-player__progress:focus-visible {
+    outline: 2px solid #b4edc0;
+    outline-offset: 3px;
+    border-radius: 0.5rem;
+}
+
+.audio-player__progress:hover:not(:disabled) {
+    filter: brightness(1.12);
+}
+
+.audio-player__progress:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
 }
 
 @media (max-width: 42rem) {
@@ -218,12 +281,14 @@
     align-items: center;
     justify-content: space-between;
     gap: 1rem;
-    margin-top: 0.75rem;
+    margin-top: 0;
+    flex-wrap: wrap;
 }
 
 .audio-player__musical-position {
     font-variant-numeric: tabular-nums;
-    font-weight: 600;
+    font-weight: 750;
+    font-size: 1.15rem;
 }
 
 .audio-player__bar-jump {

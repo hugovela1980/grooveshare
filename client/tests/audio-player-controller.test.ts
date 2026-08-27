@@ -239,7 +239,7 @@ tester.describe("audio player controller", () => {
         tester.expect(formatTimestamp(65)).toBe("01:05");
         tester.expect(formatTimestamp(600)).toBe("10:00");
         tester.expect(formatMusicalPosition({ bar: 3, beat: 2.5 })).toBe(
-            "Bar 3 · Beat 2.5",
+            "Bar 3 · Beat 2",
         );
     });
 
@@ -435,7 +435,7 @@ tester.describe("audio player controller", () => {
         audioElement.currentTime = 0.625;
         await audioElement.trigger("timeupdate");
         tester.expect(musicalPositionElement.textContent).toBe(
-            "Bar 1 · Beat 3.5",
+            "Bar 1 · Beat 3",
         );
 
         seekBarInput.value = "3";
@@ -700,6 +700,34 @@ tester.describe("audio player controller", () => {
         await seekBackwardButton.click();
 
         tester.expect(audioElement.currentTime).toBe(0);
+    });
+
+    tester.it("previews fractional musical seeks without moving playback and resumes snapshot feedback", async () => {
+        const { controller, audioElement, progressInput, musicalPositionElement, timestampElement } = createControllerTestSetup({
+            musicalTimeline: { bpm: 120, timeSignature: { numerator: 6, denominator: 8 } },
+        });
+        controller.init();
+        controller.loadMix([{ channelNumber: 1, trackId: "track-1", name: "Guitar", audioUrl: "/audio/guitar.wav", volume: 1 }]);
+        audioElement.duration = 10;
+        progressInput.value = "21.3";
+        progressInput.input();
+        tester.expect(audioElement.currentTime).toBe(0);
+        tester.expect(musicalPositionElement.textContent).toBe("Bar 2 · Beat 3");
+        audioElement.currentTime = 1;
+        await audioElement.trigger("timeupdate");
+        tester.expect(musicalPositionElement.textContent).toBe("Bar 2 · Beat 3");
+        progressInput.change();
+        tester.expect(audioElement.currentTime).toBe(2.13);
+        audioElement.currentTime = 3;
+        await audioElement.trigger("timeupdate");
+        tester.expect(musicalPositionElement.textContent).toBe("Bar 3 · Beat 1");
+        tester.expect(timestampElement.textContent).toBe("00:03");
+        for (const [value, expected] of [["0", 0], ["100", 10]] as const) {
+            progressInput.value = value;
+            progressInput.input();
+            progressInput.change();
+            tester.expect(audioElement.currentTime).toBe(expected);
+        }
     });
 
     tester.it("seeks forward five seconds", async () => {

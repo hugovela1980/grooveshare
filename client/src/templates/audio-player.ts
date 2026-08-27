@@ -141,7 +141,7 @@ export function renderAudioPlayer({ showMicrophoneControl = false }: AudioPlayer
           </span>
 
           <label class="visually-hidden" for="audio-progress">
-            Progress
+            Seek project position
           </label>
 
           <input
@@ -152,6 +152,7 @@ export function renderAudioPlayer({ showMicrophoneControl = false }: AudioPlayer
             max="100"
             step="0.1"
             value="0"
+            aria-valuetext="Bar 1 · Beat 1, 00:00 of 00:00"
             disabled
           />
 

@@ -1,4 +1,6 @@
 import {
+    normalizeMusicalTimeline,
+    transportSecondsToMusicalPosition,
     type MusicalTimeline,
     type PlaybackChannel,
     type PlaybackEngine,
@@ -42,6 +44,8 @@ type CheckboxElementLike = {
 type RangeInputElementLike = {
     disabled: boolean;
     value: string;
+    style?: { setProperty(name: string, value: string): void };
+    setAttribute?: (name: string, value: string) => void;
     addEventListener: (
         eventName: "input" | "change",
         handler: () => void,
@@ -110,8 +114,7 @@ export function formatTimestamp(totalSeconds: number): string {
 }
 
 function formatMusicalBeat(beat: number): string {
-    const rounded = Number(beat.toFixed(3));
-    return String(rounded);
+    return String(Math.floor(beat));
 }
 
 export function formatMusicalPosition(position: { bar: number; beat: number }): string {
@@ -160,13 +163,23 @@ export function createAudioPlayerController({
     }
 
     function updateTimestamp(snapshot: PlaybackSnapshot): void {
-        timestampElement.textContent = formatTimestamp(snapshot.currentTime);
+        const selectedTime = isSeeking ? getSelectedTime(snapshot) : null;
+        const currentTime = selectedTime ?? snapshot.currentTime;
+        const position = selectedTime === null
+            ? snapshot.musicalPosition
+            : transportSecondsToMusicalPosition(normalizeMusicalTimeline(musicalTimeline), selectedTime);
+        timestampElement.textContent = formatTimestamp(currentTime);
         durationElement.textContent = snapshot.duration > 0
             ? formatTimestamp(snapshot.duration)
             : "00:00";
         musicalPositionElement.textContent = formatMusicalPosition(
-            snapshot.musicalPosition,
+            position,
         );
+        const percentage = snapshot.duration > 0
+            ? Math.max(0, Math.min(100, currentTime / snapshot.duration * 100))
+            : 0;
+        progressInput.style?.setProperty("--seek-progress", `${percentage}%`);
+        progressInput.setAttribute?.("aria-valuetext", `${formatMusicalPosition(position)}, ${formatTimestamp(currentTime)} of ${formatTimestamp(snapshot.duration)}`);
     }
 
     function updateProgress(snapshot: PlaybackSnapshot): void {
@@ -248,28 +261,30 @@ export function createAudioPlayerController({
         }
     }
 
-    function seek(): void {
-        const snapshot = playbackEngine.getSnapshot();
-
+    function getSelectedTime(snapshot: PlaybackSnapshot): number | null {
         if (snapshot.duration <= 0) {
-            return;
+            return null;
         }
 
         const progressPercentage = Number(progressInput.value);
 
         if (!Number.isFinite(progressPercentage)) {
-            return;
+            return null;
         }
 
-        const nextCurrentTime =
+        return (
             (Math.max(0, Math.min(100, progressPercentage)) / 100) *
-            snapshot.duration;
+            snapshot.duration);
+    }
 
-        playbackEngine.seek(nextCurrentTime);
+    function seek(): void {
+        const nextCurrentTime = getSelectedTime(playbackEngine.getSnapshot());
+        if (nextCurrentTime !== null) playbackEngine.seek(nextCurrentTime);
     }
 
     function beginSeeking(): void {
         isSeeking = true;
+        updateTimestamp(playbackEngine.getSnapshot());
     }
 
     function finishSeeking(): void {
