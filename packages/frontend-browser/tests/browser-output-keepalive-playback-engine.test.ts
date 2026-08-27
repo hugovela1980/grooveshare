@@ -189,6 +189,11 @@ class FakePlaybackEngine implements PlaybackEngine {
     this.stopAuditionCalls += 1;
   }
 
+  auditionVolume = 1;
+  setRecordedTakeAuditionVolume(volume: number): void {
+    this.auditionVolume = volume;
+  }
+
   markRecordingStart(): RecordingStartMarker {
     return {
       kind: "recording-start",
@@ -334,6 +339,8 @@ tester.describe("browser output keepalive playback engine", () => {
 
   tester.it("warms the Android route before sample-accurate recorded-take audition", async () => {
     const harness = createHarness();
+    harness.engine.setRecordedTakeAuditionVolume!(0.4);
+    tester.expect(harness.playbackEngine.auditionVolume).toBe(0.4);
     const auditionPromise = harness.engine.auditionRecordedTake!({
       capture: { bytes: new Uint8Array([1, 2, 3]), mimeType: "audio/webm" },
       projectStartSeconds: 8,

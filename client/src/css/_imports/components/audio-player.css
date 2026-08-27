@@ -80,7 +80,8 @@
 .audio-player__microphone-button {
     min-width: 3.2rem;
     border-color: rgba(248, 113, 113, 0.72);
-    background: linear-gradient(180deg, #4a2730, #352027);
+    background: linear-gradient(180deg, #130a0c, #000000);
+    /* background: linear-gradient(180deg, #4a2730, #352027); */
 }
 
 .audio-player__microphone-button:hover:not(:disabled) {
@@ -89,13 +90,13 @@
 }
 
 .audio-player__microphone-button[aria-pressed="true"] {
-    border-color: #86efac;
-    background: linear-gradient(180deg, #234735, #1d382c);
+    border-color: #f4f4f4;
+    background: linear-gradient(180deg, #b91438, #9f0e0e);
     box-shadow: 0 0 0 1px rgba(134, 239, 172, 0.2), 0 0.35rem 1rem rgba(0, 0, 0, 0.18);
 }
 
 .audio-player__microphone-button[aria-pressed="true"] .audio-player__microphone-icon {
-    stroke: #86efac;
+    stroke: #f4f4f4;
 }
 
 .audio-player__microphone-icon {
@@ -103,7 +104,7 @@
     height: 1.25rem;
     overflow: visible;
     fill: none;
-    stroke: #fca5a5;
+    stroke: rgba(248, 113, 113, 0.72);
     stroke-linecap: round;
     stroke-linejoin: round;
     stroke-width: 1.8;
@@ -170,7 +171,6 @@
 }
 
 .audio-player__timeline {
-    grid-row: 2;
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 0.15rem 0.75rem;

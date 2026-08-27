@@ -15,6 +15,14 @@ type ButtonElementLike = {
   ) => void;
   setAttribute?: (name: string, value: string) => void;
   removeAttribute?: (name: string) => void;
+  focus?: () => void;
+};
+
+type RecordingDialogLike = {
+  open: boolean;
+  showModal(): void;
+  close(): void;
+  addEventListener(name: "cancel", handler: (event: { preventDefault(): void }) => void): void;
 };
 
 type ValueInputLike = {
@@ -36,6 +44,22 @@ type MicrophoneRecordingControllerOptions = {
   recordingSession: MicrophoneRecordingSession;
   armButton: ButtonElementLike;
   armButtonLabelElement?: TextElementLike | null;
+  workspace?: RecordingDialogLike | null;
+  closeButton?: ButtonElementLike | null;
+  prepareRetryButton?: ButtonElementLike | null;
+  headingElement?: TextElementLike | null;
+  alignmentSection?: { hidden: boolean | string } | null;
+  reviewSection?: { hidden: boolean | string } | null;
+  hintElement?: { hidden: boolean | string } | null;
+  auditionVolumeInput?: { value: string; disabled: boolean; addEventListener(name: "input", handler: () => void): void } | null;
+  auditionVolumeValue?: TextElementLike | null;
+  onAuditionVolumeChanged?: (volume: number) => void;
+  keepDialog?: RecordingDialogLike | null;
+  keepConfirmButton?: ButtonElementLike | null;
+  keepCancelButton?: ButtonElementLike | null;
+  keepStatusElement?: TextElementLike | null;
+  onPhaseChange?: (status: MicrophoneRecordingSnapshot["status"]) => void;
+  shouldMoveFocus?: () => boolean;
   recordButton: ButtonElementLike;
   stopButton: ButtonElementLike;
   auditionButton: ButtonElementLike;
@@ -114,6 +138,22 @@ export function createMicrophoneRecordingController({
   recordingSession,
   armButton,
   armButtonLabelElement,
+  workspace,
+  closeButton,
+  prepareRetryButton,
+  headingElement,
+  alignmentSection,
+  reviewSection,
+  hintElement,
+  auditionVolumeInput,
+  auditionVolumeValue,
+  onAuditionVolumeChanged,
+  keepDialog,
+  keepConfirmButton,
+  keepCancelButton,
+  keepStatusElement,
+  onPhaseChange,
+  shouldMoveFocus,
   recordButton,
   stopButton,
   auditionButton,
@@ -129,10 +169,72 @@ export function createMicrophoneRecordingController({
 }: MicrophoneRecordingControllerOptions) {
   let unsubscribe: (() => void) | null = null;
   let takeNameInitialized = false;
+  let starting = false;
+  let disposed = false;
+  let previousStatus: MicrophoneRecordingSnapshot["status"] | null = null;
+
+  async function closeWorkspace(): Promise<void> {
+    const status = recordingSession.getSnapshot().status;
+    if (starting || status === "recording" || recordingSession.getSnapshot().takeSaveStatus === "saving") return;
+    workspace?.close();
+    if (status === "ready") {
+      const result = await recordingSession.disarm();
+      if (disposed) return;
+      if (result.status === "failed") {
+        workspace?.showModal();
+        return;
+      }
+    }
+    render(recordingSession.getSnapshot());
+    armButton.focus?.();
+  }
+
+  async function prepareWorkspace(): Promise<void> {
+    if (workspace && !workspace.open) workspace.showModal();
+    const current = recordingSession.getSnapshot();
+    render(current);
+    if (current.status === "ready" || current.status === "stopped" || current.status === "recording" || current.status === "requesting-permission") return;
+    const result = await recordingSession.arm();
+    // Browser permission prompts cannot be canceled by closing our dialog.
+    // Release a late acquisition if the user already left this workspace.
+    if (!disposed && workspace && !workspace.open && result.status === "ready") {
+      await recordingSession.disarm();
+    }
+  }
 
   function render(snapshot: MicrophoneRecordingSnapshot): void {
+    // Capture focus ownership before hiding the previous action. Browsers may
+    // otherwise move activeElement to body as soon as that control disappears.
+    const moveFocus = shouldMoveFocus?.() ?? true;
     const hasStoppedTake = snapshot.status === "stopped" && Boolean(snapshot.take);
     const isSaving = snapshot.takeSaveStatus === "saving";
+    if (workspace) {
+      if (headingElement) headingElement.textContent = snapshot.status === "ready"
+        ? "Microphone ready"
+        : snapshot.status === "requesting-permission" ? "Preparing microphone…"
+        : snapshot.status === "failed" ? "Microphone needs attention"
+        : snapshot.status === "recording" ? "Recording…"
+        : hasStoppedTake ? (snapshot.takeReviewStatus === "auditioning" ? "Auditioning temporary take" : "Take review") : "Prepare your microphone";
+      if (closeButton) closeButton.disabled = starting || snapshot.status === "recording" || isSaving;
+      if (alignmentSection) alignmentSection.hidden = !hasStoppedTake;
+      if (prepareRetryButton) {
+        prepareRetryButton.hidden = snapshot.status !== "failed" && snapshot.status !== "idle";
+        prepareRetryButton.disabled = starting;
+      }
+      recordButton.hidden = snapshot.status !== "ready" && snapshot.status !== "requesting-permission";
+      stopButton.hidden = snapshot.status !== "recording";
+    }
+    if (reviewSection) reviewSection.hidden = !hasStoppedTake;
+    if (hintElement) hintElement.hidden = snapshot.status !== "ready" && snapshot.status !== "requesting-permission";
+    if (auditionVolumeInput) auditionVolumeInput.disabled = !hasStoppedTake || isSaving;
+    if (keepConfirmButton) {
+      keepConfirmButton.disabled = !hasStoppedTake || isSaving;
+      keepConfirmButton.textContent = isSaving ? "Saving…" : "Keep Take";
+    }
+    if (keepCancelButton) keepCancelButton.disabled = isSaving;
+    if (keepStatusElement) keepStatusElement.textContent = isSaving
+      ? "Saving your take…" : snapshot.takeSaveFailure?.message ?? "";
+    if (!hasStoppedTake && keepDialog?.open) keepDialog.close();
     const alignmentControlsDisabled =
       snapshot.status === "requesting-permission" ||
       snapshot.status === "recording" ||
@@ -148,10 +250,10 @@ export function createMicrophoneRecordingController({
     }
 
     armButton.disabled =
-      snapshot.status === "requesting-permission" ||
+      starting || isSaving || (snapshot.status === "requesting-permission" && !workspace) ||
       snapshot.status === "recording" ||
-      snapshot.status === "stopped";
-    recordButton.disabled = snapshot.status !== "ready";
+      (snapshot.status === "stopped" && !workspace);
+    recordButton.disabled = starting || snapshot.status !== "ready";
     stopButton.disabled = snapshot.status !== "recording";
 
     auditionButton.hidden = !hasStoppedTake;
@@ -179,7 +281,9 @@ export function createMicrophoneRecordingController({
       );
     }
 
-    const armButtonLabel = snapshot.status === "requesting-permission"
+    const armButtonLabel = workspace
+      ? (workspace.open ? "Close recording interface" : "Open recording interface")
+      : snapshot.status === "requesting-permission"
       ? "Enabling…"
       : snapshot.status === "ready"
         ? "Disable Microphone"
@@ -190,6 +294,7 @@ export function createMicrophoneRecordingController({
       armButton.textContent = armButtonLabel;
     }
     armButton.setAttribute?.("aria-label", armButtonLabel);
+    if (workspace) armButton.setAttribute?.("aria-expanded", String(workspace.open));
     armButton.setAttribute?.("aria-pressed", String(snapshot.status === "ready"));
     if (snapshot.status === "requesting-permission") {
       armButton.setAttribute?.("aria-busy", "true");
@@ -201,9 +306,29 @@ export function createMicrophoneRecordingController({
       : "Record Take";
     auditionButton.textContent = snapshot.takeReviewStatus === "auditioning"
       ? "Stop Audition"
-      : "Audition Take";
-    keepButton.textContent = isSaving ? "Saving…" : "Keep Take";
+      : workspace ? "Audition" : "Audition Take";
+    auditionButton.setAttribute?.("aria-pressed", String(snapshot.takeReviewStatus === "auditioning"));
+    keepButton.textContent = isSaving ? "Saving…" : workspace ? "Keep" : "Keep Take";
     statusElement.textContent = getStatusMessage(snapshot);
+    if (workspace && snapshot.status === "ready") {
+      statusElement.textContent = starting
+        ? "Starting capture… The existing count-in leads into project playback."
+        : "Recording has not started. Press Record Take when you’re ready. Closing releases the microphone.";
+    }
+    if (workspace && hasStoppedTake) {
+      const start = snapshot.take!.timing.musicalStart;
+      const description = `Temporary take from Bar ${start.bar} · Beat ${Math.floor(start.beat)}. Not yet kept.`;
+      statusElement.textContent = `${description} ${isSaving ? "Saving as a project track…"
+        : snapshot.takeSaveFailure?.message ?? snapshot.takeReviewFailure?.message
+        ?? (snapshot.takeReviewStatus === "auditioning" ? "Playing with the project mix." : "Retry, Audition, or Keep when ready.")}`;
+    }
+    if (workspace && snapshot.status === "recording") {
+      statusElement.textContent = "Recording is in progress. Use Stop Recording below to finish this take.";
+    }
+    if (previousStatus !== snapshot.status) {
+      previousStatus = snapshot.status;
+      if (workspace?.open && moveFocus) onPhaseChange?.(snapshot.status);
+    }
   }
 
   async function adjustAlignment(deltaMilliseconds: number): Promise<void> {
@@ -240,6 +365,11 @@ export function createMicrophoneRecordingController({
     unsubscribe = recordingSession.subscribe(render);
 
     armButton.addEventListener("click", async () => {
+      if (workspace) {
+        if (workspace.open) await closeWorkspace();
+        else await prepareWorkspace();
+        return;
+      }
       if (recordingSession.getSnapshot().status === "ready") {
         await recordingSession.disarm();
         return;
@@ -249,10 +379,26 @@ export function createMicrophoneRecordingController({
     });
 
     recordButton.addEventListener("click", async () => {
-      await recordingSession.start();
+      if (starting || recordingSession.getSnapshot().status !== "ready") return;
+      starting = true;
+      render(recordingSession.getSnapshot());
+      try {
+        await recordingSession.start();
+      } finally {
+        starting = false;
+        if (!disposed) render(recordingSession.getSnapshot());
+      }
+    });
+
+    closeButton?.addEventListener("click", closeWorkspace);
+    prepareRetryButton?.addEventListener("click", prepareWorkspace);
+    workspace?.addEventListener("cancel", (event) => {
+      event.preventDefault();
+      void closeWorkspace();
     });
 
     stopButton.addEventListener("click", async () => {
+      if (recordingSession.getSnapshot().status !== "recording") return;
       await recordingSession.stop();
     });
 
@@ -269,16 +415,54 @@ export function createMicrophoneRecordingController({
     });
 
     discardButton.addEventListener("click", async () => {
-      await recordingSession.discard();
+      // Discarding from this workspace means preparing for another take.
+      // The shared retry transition clears the draft and retains a ready mic.
+      await recordingSession.retry();
     });
 
-    keepButton.addEventListener("click", async () => {
+    async function confirmKeep(): Promise<void> {
+      const snapshot = recordingSession.getSnapshot();
+      if (snapshot.status !== "stopped" || snapshot.takeSaveStatus === "saving") return;
       const result = await recordingSession.keep(takeNameInput.value);
 
       if (result.savedTrack) {
         takeNameInput.value = "";
+        if (!disposed) {
+          workspace?.close();
+          render(result);
+          armButton.focus?.();
+        }
         await onTakeKept?.(result.savedTrack);
       }
+    }
+    keepButton.addEventListener("click", async () => {
+      if (keepDialog) {
+        const snapshot = recordingSession.getSnapshot();
+        if (snapshot.status !== "stopped" || snapshot.takeSaveStatus === "saving") return;
+        if (!keepDialog.open) keepDialog.showModal();
+        return;
+      }
+      await confirmKeep();
+    });
+    keepConfirmButton?.addEventListener("click", confirmKeep);
+    function cancelKeep(): void {
+      if (recordingSession.getSnapshot().takeSaveStatus === "saving") return;
+      keepDialog?.close();
+      keepButton.focus?.();
+    }
+    keepCancelButton?.addEventListener("click", cancelKeep);
+    keepDialog?.addEventListener("cancel", event => {
+      event.preventDefault();
+      cancelKeep();
+    });
+    auditionVolumeInput?.addEventListener("input", () => {
+      if (auditionVolumeInput.disabled) return;
+      const value = Number(auditionVolumeInput.value);
+      if (!Number.isFinite(value)) return;
+      const percentage = Math.max(0, Math.min(100, value));
+      auditionVolumeInput.value = String(percentage);
+      if (auditionVolumeValue) auditionVolumeValue.textContent = `${percentage}%`;
+      onAuditionVolumeChanged?.(percentage / 100);
     });
 
     for (const { button, deltaMilliseconds } of alignmentNudgeControls) {
@@ -291,6 +475,9 @@ export function createMicrophoneRecordingController({
   }
 
   function destroy(): void {
+    disposed = true;
+    workspace?.close();
+    keepDialog?.close();
     unsubscribe?.();
     unsubscribe = null;
   }

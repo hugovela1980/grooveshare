@@ -31,5 +31,7 @@ export interface RecordedTakePlaybackPort {
     },
   ): Promise<void>;
   stop(): Promise<void>;
+  /** Temporary playback gain (0–1), independent of persisted tracks. */
+  setVolume?(volume: number): void;
   release(): Promise<void>;
 }

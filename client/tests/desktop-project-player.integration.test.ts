@@ -59,6 +59,20 @@ tester.describe("desktop Project Player integration", () => {
     tester.expect(pageMarkup.includes("Collaboration Link")).toBe(true);
     tester.expect(pageMarkup.includes("project-edit-modal")).toBe(false);
     tester.expect(pageMarkup.includes('id="microphone-arm-button"')).toBe(true);
+    tester.expect(pageMarkup.includes('id="microphone-recording-workspace"')).toBe(true);
+    tester.expect(pageMarkup.indexOf('id="audio-stop-button"') < pageMarkup.indexOf('id="microphone-recording-workspace"')).toBe(true);
+    tester.expect(pageMarkup.indexOf('id="microphone-recording-workspace"') < pageMarkup.indexOf('id="audio-progress"')).toBe(true);
+    tester.expect(pageMarkup.split('id="microphone-recording-workspace"').length).toBe(2);
+    tester.expect(pageMarkup.includes('<dialog id="microphone-keep-dialog"')).toBe(true);
+    tester.expect(pageMarkup.indexOf('id="microphone-retry-button"') < pageMarkup.indexOf('id="microphone-audition-button"')).toBe(true);
+    tester.expect(pageMarkup.indexOf('id="microphone-audition-volume"') < pageMarkup.indexOf('id="microphone-keep-button"')).toBe(true);
+    tester.expect(pageMarkup.indexOf('id="microphone-keep-button"') < pageMarkup.indexOf('id="microphone-legacy-alignment"')).toBe(true);
+    tester.expect(pageMarkup.includes('microphone-recording-disclosure')).toBe(false);
+    tester.expect(pageMarkup.includes('microphone-recording__summary')).toBe(false);
+    tester.expect(pageMarkup.includes('class="microphone-recording microphone-recording__body"')).toBe(true);
+    tester.expect(pageMarkup.includes('aria-labelledby="microphone-recording-heading"')).toBe(true);
+    tester.expect(pageMarkup.includes('aria-label="Close recording interface"')).toBe(true);
+    tester.expect(pageMarkup.includes('class="panel microphone-recording"')).toBe(false);
     tester.expect(pageMarkup.includes('id="microphone-record-button"')).toBe(true);
     tester.expect(pageMarkup.indexOf('id="microphone-arm-button"') < pageMarkup.indexOf('id="audio-stop-button"')).toBe(true);
     tester.expect(pageMarkup.indexOf('id="microphone-record-button"') > pageMarkup.indexOf('id="audio-stop-button"')).toBe(true);
@@ -90,6 +104,8 @@ tester.describe("desktop Project Player integration", () => {
     tester.expect(contributorMarkup.includes('id="microphone-retry-button"')).toBe(true);
     tester.expect(contributorMarkup.includes('id="microphone-discard-button"')).toBe(true);
     tester.expect(viewerMarkup.includes('id="microphone-record-button"')).toBe(false);
+    tester.expect(viewerMarkup.includes('id="microphone-recording-workspace"')).toBe(false);
+    tester.expect(guestMarkup.includes('id="microphone-recording-workspace"')).toBe(false);
     tester.expect(guestMarkup.includes('id="microphone-record-button"')).toBe(false);
   });
 

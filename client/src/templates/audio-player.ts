@@ -1,3 +1,5 @@
+import { renderMicrophoneRecordingControls } from "./microphone-recording-controls.js";
+
 type AudioPlayerTemplateOptions = {
   showMicrophoneControl?: boolean;
 };
@@ -50,6 +52,8 @@ export function renderAudioPlayer({ showMicrophoneControl = false }: AudioPlayer
                 class="button audio-player__transport-button audio-player__microphone-button"
                 type="button"
                 aria-label="Prepare microphone"
+                aria-controls="microphone-recording-workspace"
+                aria-expanded="false"
                 aria-pressed="false"
               >
                 <svg class="audio-player__microphone-icon" viewBox="0 0 24 24" aria-hidden="true">
@@ -107,6 +111,34 @@ export function renderAudioPlayer({ showMicrophoneControl = false }: AudioPlayer
           </div>
         </div>
 
+        ${showMicrophoneControl ? renderMicrophoneRecordingControls() : ""}
+
+        <div class="audio-player__timeline">
+          <span id="audio-timestamp" class="audio-player__timestamp">
+            00:00
+          </span>
+
+          <label class="visually-hidden" for="audio-progress">
+            Seek project position
+          </label>
+
+          <input
+            id="audio-progress"
+            class="audio-player__progress"
+            type="range"
+            min="0"
+            max="100"
+            step="0.1"
+            value="0"
+            aria-valuetext="Bar 1 · Beat 1, 00:00 of 00:00"
+            disabled
+          />
+
+          <span id="audio-duration" class="audio-player__duration">
+            00:00
+          </span>
+        </div>
+
         <div class="audio-player__musical-timeline" aria-label="Musical timeline position">
           <span id="audio-musical-position" class="audio-player__musical-position">
             Bar 1 · Beat 1
@@ -148,31 +180,7 @@ export function renderAudioPlayer({ showMicrophoneControl = false }: AudioPlayer
           <p id="audio-seek-status" class="audio-player__seek-status" role="status"></p>
         </div>
 
-        <div class="audio-player__timeline">
-          <span id="audio-timestamp" class="audio-player__timestamp">
-            00:00
-          </span>
 
-          <label class="visually-hidden" for="audio-progress">
-            Seek project position
-          </label>
-
-          <input
-            id="audio-progress"
-            class="audio-player__progress"
-            type="range"
-            min="0"
-            max="100"
-            step="0.1"
-            value="0"
-            aria-valuetext="Bar 1 · Beat 1, 00:00 of 00:00"
-            disabled
-          />
-
-          <span id="audio-duration" class="audio-player__duration">
-            00:00
-          </span>
-        </div>
       </div>
     </section>
   `;

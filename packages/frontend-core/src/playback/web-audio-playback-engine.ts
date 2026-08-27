@@ -236,9 +236,11 @@ export function createWebAudioPlaybackEngine(
   let destroyed = false;
   let activeRecordedTakeAudition: {
     source: AudioBufferSourceNodeLike;
+    gainNode: GainNodeLike;
     generation: number;
   } | null = null;
   let recordedTakeAuditionGeneration = 0;
+  let recordedTakeAuditionVolume = 1;
   let outputDiagnosticAttemptId: string | null = null;
   let outputDiagnosticReferenceContextTimeSeconds: number | null = null;
   let nextOutputClockSampleIndex = 0;
@@ -650,6 +652,7 @@ export function createWebAudioPlaybackEngine(
 
     if (active) {
       safeStopSource(active.source);
+      active.gainNode.disconnect?.();
     }
   }
 
@@ -1091,9 +1094,12 @@ export function createWebAudioPlaybackEngine(
 
     const source = audioContext.createBufferSource();
     source.buffer = takeBuffer;
-    source.connect(audioContext.destination);
+    const gainNode = audioContext.createGain();
+    gainNode.gain.value = recordedTakeAuditionVolume;
+    source.connect(gainNode);
+    gainNode.connect(audioContext.destination);
     const generation = ++recordedTakeAuditionGeneration;
-    activeRecordedTakeAudition = { source, generation };
+    activeRecordedTakeAudition = { source, gainNode, generation };
     source.onended = () => {
       if (
         destroyed ||
@@ -1107,6 +1113,7 @@ export function createWebAudioPlaybackEngine(
       activeRecordedTakeAudition = null;
       source.onended = null;
       source.disconnect?.();
+      gainNode.disconnect?.();
       onEnded?.();
     };
 
@@ -1121,6 +1128,7 @@ export function createWebAudioPlaybackEngine(
         activeRecordedTakeAudition = null;
       }
       safeStopSource(source);
+      gainNode.disconnect?.();
       stop();
       throw error;
     }
@@ -1128,6 +1136,14 @@ export function createWebAudioPlaybackEngine(
 
   function stopRecordedTakeAudition(): void {
     clearRecordedTakeAudition();
+  }
+
+  function setRecordedTakeAuditionVolume(volume: number): void {
+    if (!Number.isFinite(volume) || destroyed) return;
+    recordedTakeAuditionVolume = Math.max(0, Math.min(1, volume));
+    if (activeRecordedTakeAudition) {
+      activeRecordedTakeAudition.gainNode.gain.value = recordedTakeAuditionVolume;
+    }
   }
 
   function pause(): void {
@@ -1343,6 +1359,7 @@ export function createWebAudioPlaybackEngine(
     play,
     startSynchronizedRecordingPlayback,
     auditionRecordedTake,
+    setRecordedTakeAuditionVolume,
     stopRecordedTakeAudition,
     pause,
     stop,

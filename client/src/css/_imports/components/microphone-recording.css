@@ -1,7 +1,57 @@
 .microphone-recording {
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid var(--border-input);
+    border-radius: 1rem;
+    color: var(--color-text);
+    background: var(--color-surface-strong);
+}
+
+.microphone-recording[hidden] {
+    display: none;
+}
+
+.microphone-recording__body {
+    position: relative;
     display: grid;
-    gap: 1rem;
-    padding: 1rem 1.1rem;
+    gap: 1.4rem;
+    padding: 1.25rem;
+}
+
+.microphone-recording__close {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+}
+
+.microphone-recording .microphone-recording__details {
+    padding-right: 1.5rem;
+}
+
+.microphone-recording .microphone-recording__details h2 {
+    font-size: 1.5rem;
+}
+
+.microphone-recording #microphone-record-button {
+    min-height: 3rem;
+    min-width: 12rem;
+    margin: 0.5rem auto;
+    background: #86df9a;
+    color: #132a1a;
+    font-weight: 750;
+}
+
+.microphone-recording #microphone-record-button:hover:not(:disabled) {
+    background: #a0ebb0;
+}
+
+.microphone-recording button:focus-visible {
+    outline: 2px solid #b4edc0;
+    outline-offset: 3px;
+}
+
+.microphone-recording__alignment[hidden] {
+    display: none;
 }
 
 .microphone-recording__details {
@@ -88,4 +138,127 @@
 
 .microphone-recording__take-name[hidden] {
     display: none;
+}
+
+.microphone-recording [hidden] {
+    display: none;
+}
+
+.microphone-recording__actions:not(:has(button:not([hidden]))) {
+    display: none;
+}
+
+.microphone-recording .microphone-recording__stop {
+    min-height: 3.5rem;
+    min-width: 14rem;
+    margin: 0.5rem auto;
+    background: #ffb4ab;
+    color: #491310;
+    font-weight: 750;
+}
+
+.microphone-recording__stop::before {
+    content: "■";
+    margin-right: 0.65rem;
+}
+
+.microphone-recording .microphone-recording__stop:hover:not(:disabled) {
+    background: #ffcec8;
+}
+
+.microphone-recording__review {
+    display: grid;
+    grid-template-columns: minmax(5rem, 1fr) minmax(9rem, 1.4fr) minmax(5rem, 1fr);
+    align-items: start;
+    gap: 1rem;
+    width: min(100%, 36rem);
+}
+
+.microphone-recording__review .button {
+    width: 100%;
+    min-height: 3rem;
+    font-weight: 700;
+}
+
+.microphone-recording__audition {
+    display: grid;
+    gap: 0.65rem;
+    min-width: 0;
+}
+
+.microphone-recording__audition label {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 0.25rem;
+    font-size: 0.8rem;
+    color: var(--color-text-muted-cool);
+}
+
+.microphone-recording__audition output {
+    font-variant-numeric: tabular-nums;
+}
+
+.microphone-recording__audition input {
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    accent-color: #86df9a;
+    cursor: pointer;
+}
+
+.microphone-recording__audition input:focus-visible {
+    outline: 2px solid #b4edc0;
+    outline-offset: 4px;
+}
+
+.microphone-recording .microphone-recording__keep {
+    background: #86df9a;
+    color: #132a1a;
+}
+
+.microphone-recording .microphone-recording__keep:hover:not(:disabled) {
+    background: #a0ebb0;
+}
+
+.microphone-recording__discard {
+    justify-self: start;
+    font-size: 0.8rem;
+}
+
+.microphone-recording__keep-dialog {
+    box-sizing: border-box;
+    width: min(30rem, calc(100vw - 2rem));
+    padding: 1.5rem;
+    border: 1px solid var(--border-input);
+    border-radius: 1rem;
+    color: var(--color-text);
+    background: var(--color-surface-strong);
+    box-shadow: 0 1rem 4rem #0008;
+}
+
+.microphone-recording__keep-dialog::backdrop {
+    background: #080d19aa;
+}
+
+.microphone-recording__keep-dialog .input {
+    display: block;
+    box-sizing: border-box;
+    width: 100%;
+    margin-top: 0.5rem;
+}
+
+.microphone-recording__keep-dialog .microphone-recording__actions {
+    justify-content: flex-end;
+}
+
+@media (max-width: 600px) {
+    .microphone-recording__review {
+        gap: 0.5rem;
+        grid-template-columns: minmax(4rem, 1fr) minmax(7rem, 1.4fr) minmax(4rem, 1fr);
+    }
+
+    .microphone-recording__review .button {
+        padding-inline: 0.5rem;
+    }
 }

@@ -96,6 +96,8 @@ export interface PlaybackEngine {
    */
   auditionRecordedTake?(options: RecordedTakeAuditionOptions): Promise<void>;
   stopRecordedTakeAudition?(): void;
+  /** Page-local temporary-take gain (0–1); never changes project channel volume. */
+  setRecordedTakeAuditionVolume?(volume: number): void;
   markRecordingStart?(): RecordingStartMarker;
   markRecordingStop?(start: RecordingStartMarker): RecordingTimelineResult;
   destroy?(): void;

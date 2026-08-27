@@ -4,6 +4,7 @@ import { tester } from "./test-runner/tester.js";
 class FakeAudioElement {
   src = "";
   currentTime = 0;
+  volume = 1;
   onended: (() => void) | null = null;
   onerror: ((event: Event) => void) | null = null;
   playCalls = 0;
@@ -79,6 +80,23 @@ const capture = {
 };
 
 tester.describe("browser recorded-take playback adapter", () => {
+  tester.it("applies temporary volume before play, during play, and on replay without changing source offsets", async () => {
+    const { adapter, audioElements } = createHarness();
+    adapter.setVolume!(0.4);
+    await adapter.play(capture, { mediaLeadInSeconds: 2, alignmentOffsetSeconds: 0.25 });
+    tester.expect(audioElements[0]!.volume).toBe(0.4);
+    tester.expect(audioElements[0]!.currentTime).toBe(2.25);
+    adapter.setVolume!(0);
+    tester.expect(audioElements[0]!.volume).toBe(0);
+    await adapter.stop();
+    await adapter.play(capture);
+    tester.expect(audioElements[1]!.volume).toBe(0);
+    adapter.setVolume!(2);
+    tester.expect(audioElements[1]!.volume).toBe(1);
+    adapter.setVolume!(NaN);
+    tester.expect(audioElements[1]!.volume).toBe(1);
+    await adapter.release();
+  });
   tester.it("auditions temporary bytes and revokes the object URL when playback ends", async () => {
     const harness = createHarness();
     let endedCalls = 0;

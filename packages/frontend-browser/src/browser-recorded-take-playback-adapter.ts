@@ -7,6 +7,7 @@ import type {
 type AudioElementLike = {
   src: string;
   currentTime: number;
+  volume?: number;
   onended: ((event: Event) => void) | null;
   onerror: ((event: Event) => void) | null;
   play(): Promise<void> | void;
@@ -68,6 +69,7 @@ export function createBrowserRecordedTakePlaybackAdapter({
   let audioElement: AudioElementLike | null = null;
   let objectUrl: string | null = null;
   let delayedPlayHandle: unknown = null;
+  let volume = 1;
 
   function requireSupported(): {
     createAudioElement: () => AudioElementLike;
@@ -145,6 +147,7 @@ export function createBrowserRecordedTakePlaybackAdapter({
     objectUrl = nextObjectUrl;
     audioElement = nextAudioElement;
     nextAudioElement.src = nextObjectUrl;
+    nextAudioElement.volume = volume;
 
     nextAudioElement.onended = () => {
       if (audioElement !== nextAudioElement) {
@@ -228,6 +231,11 @@ export function createBrowserRecordedTakePlaybackAdapter({
 
   return {
     play,
+    setVolume(value: number) {
+      if (!Number.isFinite(value)) return;
+      volume = Math.max(0, Math.min(1, value));
+      if (audioElement) audioElement.volume = volume;
+    },
     stop,
     release,
   };

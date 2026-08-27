@@ -200,6 +200,34 @@ const twoChannelMix = [
 ];
 
 tester.describe("WebAudioPlaybackEngine", () => {
+  tester.it("changes only temporary take gain, preserving timing and project levels across replay", async () => {
+    const { audioContext, engine } = createEngineHarness();
+    engine.loadMix(twoChannelMix);
+    engine.setRecordedTakeAuditionVolume!(0.4);
+    const options = { capture: { bytes: new Uint8Array([10]), mimeType: "audio/webm" }, projectStartSeconds: 30, alignmentOffsetSeconds: 0.26, mediaLeadInSeconds: 2.43 };
+    await engine.auditionRecordedTake!(options);
+    const gain = audioContext.gainNodes[2]!;
+    const source = audioContext.sources[2]!;
+    tester.expect(source.connectedDestination).toBe(gain);
+    tester.expect(gain.gain.value).toBe(0.4);
+    engine.setRecordedTakeAuditionVolume!(0);
+    tester.expect(gain.gain.value).toBe(0);
+    tester.expect(audioContext.gainNodes[0]!.gain.value).toBe(0.8);
+    tester.expect(audioContext.gainNodes[1]!.gain.value).toBe(0.5);
+    tester.expect(Math.abs(source.startOffset! - 2.69) < 1e-9).toBe(true);
+    tester.expect(source.startWhen).toBe(audioContext.sources[0]!.startWhen);
+    engine.stop();
+    tester.expect(gain.disconnected).toBe(true);
+    engine.setRecordedTakeAuditionVolume!(0.6);
+    await engine.auditionRecordedTake!(options);
+    const replayGain = audioContext.gainNodes[3]!;
+    tester.expect(replayGain.gain.value).toBe(0.6);
+    engine.setRecordedTakeAuditionVolume!(NaN);
+    tester.expect(replayGain.gain.value).toBe(0.6);
+    audioContext.sources[5]!.onended?.();
+    tester.expect(replayGain.disconnected).toBe(true);
+    engine.destroy?.();
+  });
   tester.it("fetches and decodes every track before scheduling them on one clock", async () => {
     const { audioContext, engine, fetchedUrls } = createEngineHarness();
 

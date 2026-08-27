@@ -692,6 +692,7 @@ function initializeProjectPlayerPage({
     "#microphone-alignment-later-100",
   );
   const recordingRole = selectedProject.role ?? null;
+  const takePlaybackPort = createBrowserRecordedTakePlaybackAdapter();
   const recordingSession =
     (recordingRole === "owner" || recordingRole === "contributor") &&
     microphoneArmButton &&
@@ -708,7 +709,7 @@ function initializeProjectPlayerPage({
           recordingPort: createBrowserMicrophoneRecordingAdapter({
             recordingAlignmentDiagnostics,
           }),
-          takePlaybackPort: createBrowserRecordedTakePlaybackAdapter(),
+          takePlaybackPort,
           takeDraftPort: createBrowserRecordedTakeDraftPort() ?? undefined,
           takeDraftScopeId: `${currentUser?.id ?? "anonymous"}:${selectedProject.id}`,
           takeUploadPort: createBrowserRecordedTakeUploadAdapter({
@@ -729,6 +730,18 @@ function initializeProjectPlayerPage({
         })
       : null;
   let refreshProjectTracks: (() => Promise<void>) | null = null;
+  const recordingWorkspace = getElement<HTMLElement>(appElement, "#microphone-recording-workspace");
+  // The transport button controls the inline body through the existing visibility contract.
+  const recordingWorkspacePresentation = recordingWorkspace ? {
+    get open() { return !recordingWorkspace.hidden; },
+    showModal() {
+      recordingWorkspace.hidden = false;
+    },
+    close() { recordingWorkspace.hidden = true; },
+    addEventListener(_name: "cancel", _handler: (event: { preventDefault(): void }) => void) {
+      // Inline disclosure has no modal Escape/cancel event or focus trap.
+    },
+  } : null;
   const microphoneRecordingController = recordingSession &&
     microphoneArmButton &&
     microphoneRecordButton &&
@@ -743,6 +756,35 @@ function initializeProjectPlayerPage({
           recordingSession,
           armButton: microphoneArmButton,
           armButtonLabelElement: microphoneArmButtonLabelElement,
+          workspace: recordingWorkspacePresentation,
+          closeButton: getElement<HTMLButtonElement>(appElement, "#microphone-close-button"),
+          prepareRetryButton: getElement<HTMLButtonElement>(appElement, "#microphone-prepare-retry-button"),
+          headingElement: getElement<HTMLElement>(appElement, "#microphone-recording-heading"),
+          alignmentSection: getElement<HTMLElement>(appElement, "#microphone-legacy-alignment"),
+          reviewSection: getElement<HTMLElement>(appElement, "#microphone-take-review"),
+          hintElement: getElement<HTMLElement>(appElement, "#microphone-recording-hint"),
+          auditionVolumeInput: getElement<HTMLInputElement>(appElement, "#microphone-audition-volume"),
+          auditionVolumeValue: getElement<HTMLElement>(appElement, "#microphone-audition-volume-value"),
+          onAuditionVolumeChanged(volume) {
+            playbackEngine.setRecordedTakeAuditionVolume?.(volume);
+            takePlaybackPort.setVolume?.(volume);
+          },
+          keepDialog: getElement<HTMLDialogElement>(appElement, "#microphone-keep-dialog"),
+          keepConfirmButton: getElement<HTMLButtonElement>(appElement, "#microphone-keep-confirm"),
+          keepCancelButton: getElement<HTMLButtonElement>(appElement, "#microphone-keep-cancel"),
+          keepStatusElement: getElement<HTMLElement>(appElement, "#microphone-keep-status"),
+          shouldMoveFocus() {
+            // Keep transport/mixer focus outside the recording interface.
+            const active = document.activeElement;
+            return Boolean(active && recordingWorkspace?.contains(active));
+          },
+          onPhaseChange(status) {
+            const selector = status === "recording" ? "#microphone-stop-button"
+              : status === "stopped" ? "#microphone-audition-button"
+              : status === "ready" ? "#microphone-record-button"
+              : "#microphone-prepare-retry-button";
+            getElement<HTMLButtonElement>(appElement, selector)?.focus();
+          },
           recordButton: microphoneRecordButton,
           stopButton: microphoneStopButton,
           auditionButton: microphoneAuditionButton,

@@ -427,6 +427,10 @@ export function createBrowserOutputKeepalivePlaybackEngine({
     setMetronomeEnabled: (enabled) => playbackEngine.setMetronomeEnabled?.(enabled),
     setChannelVolume: (channelNumber, volume) =>
       playbackEngine.setChannelVolume(channelNumber, volume),
+    ...(playbackEngine.setRecordedTakeAuditionVolume ? {
+      setRecordedTakeAuditionVolume: (volume: number) =>
+        playbackEngine.setRecordedTakeAuditionVolume!(volume),
+    } : {}),
     setChannelEnabled: (channelNumber, enabled) =>
       playbackEngine.setChannelEnabled(channelNumber, enabled),
     getSnapshot: () => playbackEngine.getSnapshot(),
