@@ -83,7 +83,7 @@ tester.describe("browser recorded-take playback adapter", () => {
   tester.it("applies temporary volume before play, during play, and on replay without changing source offsets", async () => {
     const { adapter, audioElements } = createHarness();
     adapter.setVolume!(0.4);
-    await adapter.play(capture, { mediaLeadInSeconds: 2, alignmentOffsetSeconds: 0.25 });
+    await adapter.play(capture, { mediaLeadInSeconds: 2, alignmentOffsetSeconds: -0.25 });
     tester.expect(audioElements[0]!.volume).toBe(0.4);
     tester.expect(audioElements[0]!.currentTime).toBe(2.25);
     adapter.setVolume!(0);
@@ -124,7 +124,7 @@ tester.describe("browser recorded-take playback adapter", () => {
 
     await harness.adapter.play(capture, {
       mediaLeadInSeconds: 2.43,
-      alignmentOffsetSeconds: 0.16,
+      alignmentOffsetSeconds: -0.16,
     });
 
     tester.expect(
@@ -136,13 +136,13 @@ tester.describe("browser recorded-take playback adapter", () => {
   tester.it("advances a late take by seeking its temporary source before audition", async () => {
     const harness = createHarness();
 
-    await harness.adapter.play(capture, { alignmentOffsetSeconds: 0.163 });
+    await harness.adapter.play(capture, { alignmentOffsetSeconds: -0.163 });
 
     tester.expect(harness.audioElements[0]?.currentTime).toBe(0.163);
     tester.expect(harness.audioElements[0]?.playCalls).toBe(1);
   });
 
-  tester.it("delays an early take by the signed negative alignment amount", async () => {
+  tester.it("delays an early take by the signed positive alignment amount", async () => {
     const audioElements: FakeAudioElement[] = [];
     const scheduledDelays: number[] = [];
     const scheduledHandlers: Array<() => void> = [];
@@ -164,7 +164,7 @@ tester.describe("browser recorded-take playback adapter", () => {
       clearScheduledTimeout() {},
     });
 
-    await adapter.play(capture, { alignmentOffsetSeconds: -0.032 });
+    await adapter.play(capture, { alignmentOffsetSeconds: 0.032 });
 
     tester.expect(scheduledDelays).toEqual([32]);
     tester.expect(audioElements[0]?.playCalls).toBe(0);

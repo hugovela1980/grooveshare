@@ -94,7 +94,7 @@ export type MicrophoneRecordingSnapshot = {
   savedTrack: Track | null;
   /**
    * Signed local capture compensation. Positive values move recorded content
-   * earlier; negative values move it later.
+   * later; negative values move it earlier. Zero is the unadjusted baseline.
    */
   alignmentCompensationMilliseconds: number;
 };

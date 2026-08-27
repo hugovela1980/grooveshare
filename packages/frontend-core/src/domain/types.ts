@@ -83,8 +83,8 @@ export type Track = {
   musicalPlacement?: TrackMusicalPlacement;
   /**
    * Signed source-to-project alignment correction in seconds.
-   * Positive values advance captured content by skipping that much source audio
-   * at the track's musical start. Negative values delay the source without
+   * Negative values advance captured content by skipping that much source audio
+   * at the track's musical start. Positive values delay the source without
    * changing its declared musical placement.
    */
   alignmentOffsetSeconds?: number;

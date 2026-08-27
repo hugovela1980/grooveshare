@@ -314,12 +314,12 @@ function createControllerHarness(onTakeKept?: (track: Track) => void | Promise<v
     statusElement,
     alignmentValueElement,
     alignmentNudgeControls: [
-      { button: alignmentEarlier100Button, deltaMilliseconds: 100 },
-      { button: alignmentEarlier10Button, deltaMilliseconds: 10 },
-      { button: alignmentEarlier1Button, deltaMilliseconds: 1 },
-      { button: alignmentLater1Button, deltaMilliseconds: -1 },
-      { button: alignmentLater10Button, deltaMilliseconds: -10 },
-      { button: alignmentLater100Button, deltaMilliseconds: -100 },
+      { button: alignmentEarlier100Button, deltaMilliseconds: -100 },
+      { button: alignmentEarlier10Button, deltaMilliseconds: -10 },
+      { button: alignmentEarlier1Button, deltaMilliseconds: -1 },
+      { button: alignmentLater1Button, deltaMilliseconds: 1 },
+      { button: alignmentLater10Button, deltaMilliseconds: 10 },
+      { button: alignmentLater100Button, deltaMilliseconds: 100 },
     ],
     alignmentResetButton,
     onTakeKept,
@@ -443,9 +443,9 @@ tester.describe("microphone recording controller", () => {
 
     tester.expect(harness.alignmentValueElement.textContent).toBe("0 ms");
     await harness.alignmentEarlier100Button.click();
-    tester.expect(harness.alignmentValueElement.textContent).toBe("100 ms earlier");
+    tester.expect(harness.alignmentValueElement.textContent).toBe("-100 ms earlier");
     await harness.alignmentLater10Button.click();
-    tester.expect(harness.alignmentValueElement.textContent).toBe("90 ms earlier");
+    tester.expect(harness.alignmentValueElement.textContent).toBe("-90 ms earlier");
 
     await harness.armButton.click();
     await harness.recordButton.click();
@@ -455,10 +455,10 @@ tester.describe("microphone recording controller", () => {
 
     tester.expect(harness.calls.slice(-3)).toEqual([
       "stop-audition",
-      "alignment:adjust:1",
+      "alignment:adjust:-1",
       "audition",
     ]);
-    tester.expect(harness.alignmentValueElement.textContent).toBe("91 ms earlier");
+    tester.expect(harness.alignmentValueElement.textContent).toBe("-91 ms earlier");
 
     await harness.alignmentResetButton.click();
     tester.expect(harness.alignmentValueElement.textContent).toBe("0 ms");

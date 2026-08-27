@@ -80,13 +80,7 @@ function formatMusicalPosition(position: { bar: number; beat: number }): string 
 }
 
 function formatAlignmentCompensation(milliseconds: number): string {
-  if (milliseconds === 0) {
-    return "0 ms";
-  }
-
-  return milliseconds > 0
-    ? `${milliseconds} ms earlier`
-    : `${Math.abs(milliseconds)} ms later`;
+  return `Offset: ${milliseconds > 0 ? "+" : ""}${milliseconds}ms`;
 }
 
 function describeStoppedTake(take: MicrophoneRecordedTake | null): string {

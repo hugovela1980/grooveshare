@@ -1036,6 +1036,24 @@ tester.describe("durable pending recording workflow", () => {
 });
 
 tester.describe("local microphone take review", () => {
+  tester.it("passes negative, zero and positive alignment unchanged through audition and Keep", async () => {
+    for (const milliseconds of [-100, 0, 100]) {
+      const recordingHarness = createRecordingPortHarness();
+      const playbackHarness = createPlaybackHarness({ startPositionSeconds: 6 });
+      const takePlaybackHarness = createTakePlaybackHarness();
+      const takeUploadHarness = createTakeUploadHarness();
+      const session = await recordStoppedTakeForReview({ recordingHarness, playbackHarness, takePlaybackHarness, takeUploadHarness });
+      session.setAlignmentCompensationMilliseconds(milliseconds);
+      await session.audition();
+      tester.expect(session.getSnapshot().take?.alignmentCompensationMilliseconds).toBe(milliseconds);
+      tester.expect(takePlaybackHarness.lastAlignmentOffsetSeconds).toBe(milliseconds / 1000);
+      const kept = await session.keep("Signed take");
+      tester.expect(takeUploadHarness.uploadCalls[0]?.alignmentOffsetSeconds).toBe(milliseconds / 1000);
+      tester.expect(kept.savedTrack?.alignmentOffsetSeconds).toBe(milliseconds / 1000);
+      await session.destroy();
+      playbackHarness.engine.destroy?.();
+    }
+  });
   tester.it("uses the same reviewed alignment for sample-accurate audition and Keep", async () => {
     const recordingHarness = createRecordingPortHarness();
     const playbackHarness = createPlaybackHarness({ startPositionSeconds: 6 });

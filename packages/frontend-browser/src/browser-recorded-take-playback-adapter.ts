@@ -176,8 +176,8 @@ export function createBrowserRecordedTakePlaybackAdapter({
       ? Math.max(0, mediaLeadInSeconds)
       : 0;
     const sourceOffsetSeconds =
-      normalizedMediaLeadIn + Math.max(0, normalizedAlignmentOffset);
-    const delayMilliseconds = Math.max(0, -normalizedAlignmentOffset * 1000);
+      normalizedMediaLeadIn + Math.max(0, -normalizedAlignmentOffset);
+    const delayMilliseconds = Math.max(0, normalizedAlignmentOffset * 1000);
 
     if (sourceOffsetSeconds > 0) {
       try {

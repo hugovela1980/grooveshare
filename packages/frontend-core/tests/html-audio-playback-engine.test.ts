@@ -39,6 +39,24 @@ function createFakeAudioElement() {
 }
 
 tester.describe("HtmlAudioPlaybackEngine", () => {
+  tester.it("applies signed alignment to source seeks and converts source time back to project time", () => {
+    for (const alignmentOffsetSeconds of [-0.1, 0, 0.1]) {
+      const audio = createFakeAudioElement();
+      const engine = createHtmlAudioPlaybackEngine({ primaryAudioElement: audio, createAudioElement: createFakeAudioElement });
+      engine.loadMix([{
+        channelNumber: 1, trackId: "take", audioUrl: "/take.wav", volume: 0.6,
+        enabled: true, timelineOffsetSeconds: 4, mediaLeadInSeconds: 2,
+        alignmentOffsetSeconds,
+      }]);
+      engine.seek(6);
+      tester.expect(Math.abs(audio.currentTime - (4 - alignmentOffsetSeconds)) < 1e-9).toBe(true);
+      tester.expect(Math.abs(engine.getSnapshot().currentTime - 6) < 1e-9).toBe(true);
+      audio.currentTime += 0.5;
+      tester.expect(Math.abs(engine.getSnapshot().currentTime - 6.5) < 1e-9).toBe(true);
+      tester.expect(audio.volume).toBe(0.6);
+      engine.destroy?.();
+    }
+  });
   tester.it("loads and plays multiple HTML audio channels behind one contract", async () => {
     const first = createFakeAudioElement();
     const second = createFakeAudioElement();

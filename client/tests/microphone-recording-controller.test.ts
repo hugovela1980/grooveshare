@@ -345,12 +345,12 @@ function createControllerHarness(onTakeKept?: (track: Track) => void | Promise<v
     statusElement,
     alignmentValueElement,
     alignmentNudgeControls: [
-      { button: alignmentEarlier100Button, deltaMilliseconds: 100 },
-      { button: alignmentEarlier10Button, deltaMilliseconds: 10 },
-      { button: alignmentEarlier1Button, deltaMilliseconds: 1 },
-      { button: alignmentLater1Button, deltaMilliseconds: -1 },
-      { button: alignmentLater10Button, deltaMilliseconds: -10 },
-      { button: alignmentLater100Button, deltaMilliseconds: -100 },
+      { button: alignmentEarlier100Button, deltaMilliseconds: -100 },
+      { button: alignmentEarlier10Button, deltaMilliseconds: -10 },
+      { button: alignmentEarlier1Button, deltaMilliseconds: -1 },
+      { button: alignmentLater1Button, deltaMilliseconds: 1 },
+      { button: alignmentLater10Button, deltaMilliseconds: 10 },
+      { button: alignmentLater100Button, deltaMilliseconds: 100 },
     ],
     alignmentResetButton,
     onTakeKept,
@@ -383,6 +383,27 @@ function createControllerHarness(onTakeKept?: (track: Track) => void | Promise<v
 }
 
 tester.describe("microphone recording controller", () => {
+  tester.it("applies all six signed adjustments and Reset without changing audition volume", async () => {
+    const h = createControllerHarness(undefined, true);
+    h.controller.init();
+    await h.armButton.click();
+    await h.recordButton.click();
+    await h.stopButton.click();
+    h.auditionVolumeInput.input("35");
+    for (const [button, delta] of [
+      [h.alignmentEarlier100Button, -100], [h.alignmentEarlier10Button, -10], [h.alignmentEarlier1Button, -1],
+      [h.alignmentLater1Button, 1], [h.alignmentLater10Button, 10], [h.alignmentLater100Button, 100],
+    ] as const) {
+      await h.alignmentResetButton.click();
+      await button.click();
+      tester.expect(h.session.getSnapshot().alignmentCompensationMilliseconds).toBe(delta);
+      tester.expect(h.alignmentValueElement.textContent).toBe(`Offset: ${delta > 0 ? "+" : ""}${delta}ms`);
+      tester.expect(h.auditionVolumeInput.value).toBe("35");
+      tester.expect(h.volumes).toEqual([0.35]);
+    }
+    await h.alignmentResetButton.click();
+    tester.expect(h.session.getSnapshot().alignmentCompensationMilliseconds).toBe(0);
+  });
   tester.it("discards an auditioned take into microphone-ready without closing or reacquiring", async () => {
     const h = createControllerHarness(undefined, true);
     h.controller.init();
@@ -670,11 +691,11 @@ tester.describe("microphone recording controller", () => {
     const harness = createControllerHarness();
     harness.controller.init();
 
-    tester.expect(harness.alignmentValueElement.textContent).toBe("0 ms");
+    tester.expect(harness.alignmentValueElement.textContent).toBe("Offset: 0ms");
     await harness.alignmentEarlier100Button.click();
-    tester.expect(harness.alignmentValueElement.textContent).toBe("100 ms earlier");
+    tester.expect(harness.alignmentValueElement.textContent).toBe("Offset: -100ms");
     await harness.alignmentLater10Button.click();
-    tester.expect(harness.alignmentValueElement.textContent).toBe("90 ms earlier");
+    tester.expect(harness.alignmentValueElement.textContent).toBe("Offset: -90ms");
 
     await harness.armButton.click();
     await harness.recordButton.click();
@@ -684,13 +705,13 @@ tester.describe("microphone recording controller", () => {
 
     tester.expect(harness.calls.slice(-3)).toEqual([
       "stop-audition",
-      "alignment:adjust:1",
+      "alignment:adjust:-1",
       "audition",
     ]);
-    tester.expect(harness.alignmentValueElement.textContent).toBe("91 ms earlier");
+    tester.expect(harness.alignmentValueElement.textContent).toBe("Offset: -91ms");
 
     await harness.alignmentResetButton.click();
-    tester.expect(harness.alignmentValueElement.textContent).toBe("0 ms");
+    tester.expect(harness.alignmentValueElement.textContent).toBe("Offset: 0ms");
   });
 
   tester.it("keeps a named reviewed take and reports the saved track for project refresh", async () => {

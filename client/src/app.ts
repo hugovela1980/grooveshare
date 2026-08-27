@@ -796,22 +796,22 @@ function initializeProjectPlayerPage({
           alignmentValueElement: microphoneAlignmentValueElement ?? undefined,
           alignmentNudgeControls: [
             ...(microphoneAlignmentEarlier100Button
-              ? [{ button: microphoneAlignmentEarlier100Button, deltaMilliseconds: 100 }]
+              ? [{ button: microphoneAlignmentEarlier100Button, deltaMilliseconds: -100 }]
               : []),
             ...(microphoneAlignmentEarlier10Button
-              ? [{ button: microphoneAlignmentEarlier10Button, deltaMilliseconds: 10 }]
+              ? [{ button: microphoneAlignmentEarlier10Button, deltaMilliseconds: -10 }]
               : []),
             ...(microphoneAlignmentEarlier1Button
-              ? [{ button: microphoneAlignmentEarlier1Button, deltaMilliseconds: 1 }]
+              ? [{ button: microphoneAlignmentEarlier1Button, deltaMilliseconds: -1 }]
               : []),
             ...(microphoneAlignmentLater1Button
-              ? [{ button: microphoneAlignmentLater1Button, deltaMilliseconds: -1 }]
+              ? [{ button: microphoneAlignmentLater1Button, deltaMilliseconds: 1 }]
               : []),
             ...(microphoneAlignmentLater10Button
-              ? [{ button: microphoneAlignmentLater10Button, deltaMilliseconds: -10 }]
+              ? [{ button: microphoneAlignmentLater10Button, deltaMilliseconds: 10 }]
               : []),
             ...(microphoneAlignmentLater100Button
-              ? [{ button: microphoneAlignmentLater100Button, deltaMilliseconds: -100 }]
+              ? [{ button: microphoneAlignmentLater100Button, deltaMilliseconds: 100 }]
               : []),
           ],
           alignmentResetButton: microphoneAlignmentResetButton ?? undefined,

@@ -200,11 +200,43 @@ const twoChannelMix = [
 ];
 
 tester.describe("WebAudioPlaybackEngine", () => {
+  tester.it("moves the same transient earlier or later by the signed amount in audition and saved-track playback", async () => {
+    for (const alignmentOffsetSeconds of [-0.1, -0.01, -0.001, 0, 0.001, 0.01, 0.1]) {
+      const { engine, audioContext } = createEngineHarness();
+      engine.loadMix(twoChannelMix);
+      await engine.auditionRecordedTake!({
+        capture: { bytes: new Uint8Array([10]), mimeType: "audio/webm" },
+        projectStartSeconds: 8,
+        mediaLeadInSeconds: 2,
+        alignmentOffsetSeconds,
+      });
+      const audition = audioContext.sources[2]!;
+      // A transient at media time 3 (two seconds lead-in + one second music).
+      const auditionTransient = audition.startWhen! - audioContext.sources[0]!.startWhen! + 3 - audition.startOffset!;
+      tester.expect(Math.abs(auditionTransient - (1 + alignmentOffsetSeconds)) < 1e-9).toBe(true);
+      tester.expect(audioContext.gainNodes[0]!.gain.value).toBe(0.8);
+      tester.expect(audioContext.gainNodes[1]!.gain.value).toBe(0.5);
+      engine.destroy?.();
+
+      const saved = createEngineHarness();
+      saved.engine.loadMix([{
+        channelNumber: 1, trackId: "saved", audioUrl: "/long-take.m4a",
+        volume: 0.7, enabled: true, timelineOffsetSeconds: 8,
+        mediaLeadInSeconds: 2, alignmentOffsetSeconds,
+      }]);
+      await saved.engine.play();
+      const source = saved.audioContext.sources[0]!;
+      const savedTransient = source.startWhen! - (10.03 + 8) + 3 - source.startOffset!;
+      tester.expect(Math.abs(savedTransient - (1 + alignmentOffsetSeconds)) < 1e-9).toBe(true);
+      tester.expect(Math.abs(savedTransient - auditionTransient) < 1e-9).toBe(true);
+      saved.engine.destroy?.();
+    }
+  });
   tester.it("changes only temporary take gain, preserving timing and project levels across replay", async () => {
     const { audioContext, engine } = createEngineHarness();
     engine.loadMix(twoChannelMix);
     engine.setRecordedTakeAuditionVolume!(0.4);
-    const options = { capture: { bytes: new Uint8Array([10]), mimeType: "audio/webm" }, projectStartSeconds: 30, alignmentOffsetSeconds: 0.26, mediaLeadInSeconds: 2.43 };
+    const options = { capture: { bytes: new Uint8Array([10]), mimeType: "audio/webm" }, projectStartSeconds: 30, alignmentOffsetSeconds: -0.26, mediaLeadInSeconds: 2.43 };
     await engine.auditionRecordedTake!(options);
     const gain = audioContext.gainNodes[2]!;
     const source = audioContext.sources[2]!;
@@ -261,7 +293,7 @@ tester.describe("WebAudioPlaybackEngine", () => {
         mimeType: "audio/webm",
       },
       projectStartSeconds: 30,
-      alignmentOffsetSeconds: 0.26,
+      alignmentOffsetSeconds: -0.26,
       mediaLeadInSeconds: 2.43,
     });
 
@@ -485,41 +517,41 @@ tester.describe("WebAudioPlaybackEngine", () => {
   });
 
   tester.it("applies signed source alignment without changing authoritative musical placement", async () => {
-    const positiveHarness = createEngineHarness();
-    positiveHarness.engine.loadMix([{
+    const earlierHarness = createEngineHarness();
+    earlierHarness.engine.loadMix([{
       channelNumber: 1,
       trackId: "late-take",
       audioUrl: "/recorded-take.webm",
       volume: 1,
       enabled: true,
       musicalPlacement: { start: { bar: 2, beat: 1 }, spanBeats: 4 },
-      alignmentOffsetSeconds: 0.16,
+      alignmentOffsetSeconds: -0.16,
     }]);
-    await positiveHarness.engine.play();
+    await earlierHarness.engine.play();
 
-    tester.expect(positiveHarness.audioContext.sources[0]?.startWhen).toBe(12.03);
-    tester.expect(positiveHarness.audioContext.sources[0]?.startOffset).toBe(0.16);
-    tester.expect(positiveHarness.engine.getSnapshot().duration).toBe(3.84);
-    positiveHarness.engine.destroy?.();
+    tester.expect(earlierHarness.audioContext.sources[0]?.startWhen).toBe(12.03);
+    tester.expect(earlierHarness.audioContext.sources[0]?.startOffset).toBe(0.16);
+    tester.expect(earlierHarness.engine.getSnapshot().duration).toBe(3.84);
+    earlierHarness.engine.destroy?.();
 
-    const negativeHarness = createEngineHarness();
-    negativeHarness.engine.loadMix([{
+    const laterHarness = createEngineHarness();
+    laterHarness.engine.loadMix([{
       channelNumber: 1,
       trackId: "early-take",
       audioUrl: "/recorded-take.webm",
       volume: 1,
       enabled: true,
       musicalPlacement: { start: { bar: 2, beat: 1 }, spanBeats: 4 },
-      alignmentOffsetSeconds: -0.032,
+      alignmentOffsetSeconds: 0.032,
     }]);
-    await negativeHarness.engine.play();
+    await laterHarness.engine.play();
 
-    tester.expect(negativeHarness.audioContext.sources[0]?.startWhen).toBe(12.062);
+    tester.expect(laterHarness.audioContext.sources[0]?.startWhen).toBe(12.062);
     tester.expect(
-      Math.abs(negativeHarness.audioContext.sources[0]?.startOffset ?? 0) < 0.000001,
+      Math.abs(laterHarness.audioContext.sources[0]?.startOffset ?? 0) < 0.000001,
     ).toBe(true);
-    tester.expect(negativeHarness.engine.getSnapshot().duration).toBe(4.032);
-    negativeHarness.engine.destroy?.();
+    tester.expect(laterHarness.engine.getSnapshot().duration).toBe(4.032);
+    laterHarness.engine.destroy?.();
   });
 
   tester.it("records one bar of count-in before capture-safe project playback", async () => {

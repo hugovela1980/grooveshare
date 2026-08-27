@@ -47,6 +47,33 @@ function createEditableTextElement(initialText: string) {
 }
 
 tester.describe("desktop Project Player integration", () => {
+  tester.it("renders collapsed native alignment with offset feedback and Discard after Keep inside review", () => {
+    const markup = renderProjectPlayerPage(ownerProject);
+    const disclosure = markup.match(/<details\s+id="microphone-legacy-alignment"[^>]*>([\s\S]*?)<\/details>/);
+    tester.expect(Boolean(disclosure)).toBe(true);
+    tester.expect(/<details[^>]*\bopen\b/.test(disclosure?.[0] ?? "")).toBe(false);
+    const summary = disclosure?.[1]?.match(/<summary[^>]*>([\s\S]*?)<\/summary>/)?.[1] ?? "";
+    tester.expect(summary.includes("Set Recording Alignment")).toBe(true);
+    tester.expect(summary.includes('id="microphone-alignment-value">Offset: 0ms')).toBe(true);
+    tester.expect((disclosure?.[1]?.match(/<button /g) ?? []).length).toBe(7);
+    const reviewStart = markup.indexOf('id="microphone-take-review"');
+    const keep = markup.indexOf('id="microphone-keep-button"', reviewStart);
+    const discard = markup.indexOf('id="microphone-discard-button"', reviewStart);
+    const reviewEnd = markup.indexOf("</div>", keep);
+    tester.expect(keep < discard && discard < reviewEnd).toBe(true);
+    tester.expect(markup.split('id="microphone-discard-button"').length).toBe(2);
+  });
+  tester.it("groups review beside alignment with signed millisecond labels and accessible directions", () => {
+    const markup = renderProjectPlayerPage(ownerProject);
+    tester.expect(markup.includes('class="microphone-recording__review-layout"')).toBe(true);
+    for (const [direction, sign] of [["earlier", "-"], ["later", "+"]]) {
+      for (const amount of [1, 10, 100]) {
+        tester.expect(markup.includes(`aria-label="Move recording ${amount} ms ${direction}">${sign}${amount} ms</button>`)).toBe(true);
+      }
+    }
+    tester.expect(markup.includes('id="microphone-alignment-reset" class="button button--secondary" type="button">Reset</button>')).toBe(true);
+    tester.expect(markup.includes("Negative = earlier · Positive = later")).toBe(true);
+  });
   tester.it("renders desktop/tablet controls and inline editing without mobile presentation controls", () => {
     const pageMarkup = renderProjectPlayerPage(ownerProject);
     const mixerMarkup = renderMixChannelSlots([ownedTrack], undefined, { role: "owner", currentUserId: "user-1" });

@@ -20,8 +20,8 @@ export interface RecordedTakePlaybackPort {
     capture: RecordedAudioCapture,
     options?: {
       /**
-       * Signed source-to-project alignment correction. Positive values advance
-       * the take by skipping source audio; negative values delay take playback.
+       * Signed source-to-project alignment correction. Negative values advance
+       * the take by skipping source audio; positive values delay take playback.
        */
       alignmentOffsetSeconds?: number;
       /** Encoded media to skip before the take's musical origin. */

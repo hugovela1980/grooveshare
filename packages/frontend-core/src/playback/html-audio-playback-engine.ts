@@ -127,7 +127,7 @@ export function createHtmlAudioPlaybackEngine({
 
         const projectTime =
           getChannelOffset(channel) +
-          audioElement.currentTime -
+          audioElement.currentTime +
           normalizeTrackAlignmentOffsetSeconds(channel.alignmentOffsetSeconds) -
           normalizeTrackMediaLeadInSeconds(channel.mediaLeadInSeconds);
 

@@ -7,8 +7,8 @@ export const MIN_RECORDING_ALIGNMENT_COMPENSATION_MILLISECONDS = -2000;
 export const MAX_RECORDING_ALIGNMENT_COMPENSATION_MILLISECONDS = 2000;
 
 /**
- * Positive compensation advances a recorded source relative to its declared
- * musical start. Negative compensation delays it. The value is deliberately
+ * Negative compensation advances a recorded source relative to its declared
+ * musical start. Positive compensation delays it. The value is deliberately
  * stored as whole milliseconds so the UI can offer predictable 1/10/100 ms
  * nudges without exposing floating-point seconds to musicians.
  */

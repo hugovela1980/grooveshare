@@ -78,22 +78,56 @@
 }
 
 .microphone-recording__alignment {
-    display: grid;
-    gap: 0.55rem;
+    min-width: 0;
+    box-sizing: border-box;
     padding: 0.75rem;
-    border: 1px solid var(--color-border);
+    border: 1px solid var(--border-input);
     border-radius: 0.65rem;
 }
 
 .microphone-recording__alignment-header {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 0.5rem;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.25rem 0.75rem;
+    cursor: pointer;
+    list-style: none;
+    border-radius: 0.25rem;
+}
+
+.microphone-recording__alignment-header::-webkit-details-marker {
+    display: none;
+}
+
+.microphone-recording__alignment-header::after {
+    content: "▸";
+    grid-column: 2;
+    grid-row: 1 / 3;
+    align-self: center;
+}
+
+.microphone-recording__alignment[open] > summary::after {
+    transform: rotate(90deg);
+}
+
+.microphone-recording__alignment-header:hover {
+    color: var(--color-accent);
+}
+
+.microphone-recording__alignment-header:focus-visible {
+    outline: 2px solid #b4edc0;
+    outline-offset: 4px;
+}
+
+.microphone-recording__alignment > .microphone-recording__alignment-actions {
+    margin-top: 0.85rem;
+}
+
+.microphone-recording__alignment > .microphone-recording__alignment-hint {
+    margin-top: 0.55rem;
 }
 
 .microphone-recording__alignment-header span {
+    grid-column: 1;
     font-variant-numeric: tabular-nums;
 }
 
@@ -110,12 +144,18 @@
 }
 
 .microphone-recording__alignment-actions .button {
-    padding-inline: 0.7rem;
+    flex: 0 0 auto;
+    min-height: 2.5rem;
+    padding: 0.5rem 0.45rem;
+    font-size: 0.82rem;
+    white-space: nowrap;
 }
 
-.microphone-recording__alignment-label {
-    font-size: 0.82rem;
-    font-weight: 700;
+.microphone-recording__alignment-actions {
+    flex-wrap: nowrap;
+    gap: 0.35rem;
+    /* The outer review layout reserves space for this complete, unbroken row. */
+    padding: 0.3rem;
 }
 
 .microphone-recording__alignment-actions .button:disabled,
@@ -166,21 +206,53 @@
     background: #ffcec8;
 }
 
-.microphone-recording__review {
-    display: grid;
-    grid-template-columns: minmax(5rem, 1fr) minmax(9rem, 1.4fr) minmax(5rem, 1fr);
-    align-items: start;
+.microphone-recording__review-layout {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 1.25rem 1.5rem;
+}
+
+.microphone-recording__review-layout:not(:has(> :not([hidden]))) {
+    display: none;
+}
+
+.microphone-recording__review-layout > * {
+    flex: 1 1 20rem;
+    min-width: min(100%, 20rem);
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+.microphone-recording__review-layout > .microphone-recording__alignment {
+    /* Give the seven controls their intrinsic width before sharing spare space.
+       If the row cannot fit beside Take Review, wrap the whole disclosure. */
+    flex: 1 0 max-content;
+    min-width: min-content;
+}
+
+.microphone-recording__body:has(#microphone-take-review:not([hidden])) {
     gap: 1rem;
-    width: min(100%, 36rem);
+}
+
+.microphone-recording__review {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 0.5rem;
+    max-width: 100%;
 }
 
 .microphone-recording__review .button {
-    width: 100%;
-    min-height: 3rem;
+    width: auto;
+    min-height: 2.75rem;
+    padding: 0.55rem 0.8rem;
+    font-size: 0.9rem;
     font-weight: 700;
 }
 
 .microphone-recording__audition {
+    flex: 0 1 8.5rem;
     display: grid;
     gap: 0.65rem;
     min-width: 0;
@@ -221,9 +293,15 @@
     background: #a0ebb0;
 }
 
-.microphone-recording__discard {
-    justify-self: start;
-    font-size: 0.8rem;
+.microphone-recording .microphone-recording__discard {
+    color: var(--color-danger-bg);
+    background: #351b20;
+    border: 1px solid #b76b75;
+}
+
+.microphone-recording .microphone-recording__discard:hover:not(:disabled) {
+    color: #fff;
+    background: #542b34;
 }
 
 .microphone-recording__keep-dialog {
@@ -250,15 +328,4 @@
 
 .microphone-recording__keep-dialog .microphone-recording__actions {
     justify-content: flex-end;
-}
-
-@media (max-width: 600px) {
-    .microphone-recording__review {
-        gap: 0.5rem;
-        grid-template-columns: minmax(4rem, 1fr) minmax(7rem, 1.4fr) minmax(4rem, 1fr);
-    }
-
-    .microphone-recording__review .button {
-        padding-inline: 0.5rem;
-    }
 }

@@ -9,7 +9,7 @@ tester.describe("track source alignment", () => {
     const window = getTrackSourceAlignmentWindow({
       trackStartSeconds: 4,
       sourceDurationSeconds: 10,
-      alignmentOffsetSeconds: 0.16,
+      alignmentOffsetSeconds: -0.16,
     });
 
     tester.expect(window).toEqual({
@@ -20,7 +20,7 @@ tester.describe("track source alignment", () => {
     tester.expect(getAlignedSourceOffsetSeconds({
       projectTimeSeconds: 6,
       trackStartSeconds: 4,
-      alignmentOffsetSeconds: 0.16,
+      alignmentOffsetSeconds: -0.16,
     })).toBe(2.16);
   });
 
@@ -29,7 +29,7 @@ tester.describe("track source alignment", () => {
       trackStartSeconds: 4,
       sourceDurationSeconds: 12.43,
       mediaLeadInSeconds: 2.43,
-      alignmentOffsetSeconds: 0.16,
+      alignmentOffsetSeconds: -0.16,
     });
 
     tester.expect(window.projectStartSeconds).toBe(4);
@@ -41,7 +41,7 @@ tester.describe("track source alignment", () => {
       projectTimeSeconds: 6,
       trackStartSeconds: 4,
       mediaLeadInSeconds: 2.43,
-      alignmentOffsetSeconds: 0.16,
+      alignmentOffsetSeconds: -0.16,
     }) - 4.59) < 1e-9).toBe(true);
   });
 
@@ -49,7 +49,7 @@ tester.describe("track source alignment", () => {
     const window = getTrackSourceAlignmentWindow({
       trackStartSeconds: 4,
       sourceDurationSeconds: 10,
-      alignmentOffsetSeconds: -0.032,
+      alignmentOffsetSeconds: 0.032,
     });
 
     tester.expect(window).toEqual({

@@ -58,8 +58,8 @@ function formatAlignmentCompensation(milliseconds: number): string {
   }
 
   return milliseconds > 0
-    ? `${milliseconds} ms earlier`
-    : `${Math.abs(milliseconds)} ms later`;
+    ? `+${milliseconds} ms later`
+    : `${milliseconds} ms earlier`;
 }
 
 function describeStoppedTake(take: MicrophoneRecordedTake | null): string {

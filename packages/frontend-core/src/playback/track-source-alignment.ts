@@ -25,8 +25,8 @@ export function normalizeTrackMediaLeadInSeconds(
  * audio file onto the authoritative project timeline.
  *
  * mediaLeadInSeconds is structural media before the declared musical origin
- * (for example a captured count-in) and is always skipped. Positive alignment
- * advances the take farther by skipping source audio; negative alignment delays
+ * (for example a captured count-in) and is always skipped. Negative alignment
+ * advances the take farther by skipping source audio; positive alignment delays
  * the source while leaving the declared musical placement unchanged.
  */
 export function getTrackSourceAlignmentWindow({
@@ -47,12 +47,12 @@ export function getTrackSourceAlignmentWindow({
   const duration = Number.isFinite(sourceDurationSeconds)
     ? Math.max(0, sourceDurationSeconds)
     : 0;
-  const positiveSourceOffset = Math.max(0, alignmentOffset);
+  const advanceSourceOffset = Math.max(0, -alignmentOffset);
   const sourceOffsetAtProjectStartSeconds = Math.min(
     duration,
-    mediaLeadIn + positiveSourceOffset,
+    mediaLeadIn + advanceSourceOffset,
   );
-  const delayedProjectStart = trackStartSeconds + Math.max(0, -alignmentOffset);
+  const delayedProjectStart = trackStartSeconds + Math.max(0, alignmentOffset);
   const playableDuration = Math.max(
     0,
     duration - sourceOffsetAtProjectStartSeconds,
@@ -83,6 +83,6 @@ export function getAlignedSourceOffsetSeconds({
 
   return mediaLeadIn + Math.max(
     0,
-    projectTimeSeconds - trackStartSeconds + alignmentOffset,
+    projectTimeSeconds - trackStartSeconds - alignmentOffset,
   );
 }
