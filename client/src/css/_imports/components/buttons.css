@@ -75,4 +75,5 @@ button[data-busy="true"]::after {
 
 .button--danger:hover:not(:disabled) {
     background: var(--color-danger-hover);
+    color: #f4f4f4;
 }

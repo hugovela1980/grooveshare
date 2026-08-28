@@ -125,16 +125,24 @@ function renderConfirmationTrackList(pendingTracks: PendingTrackDraft[]): string
   `;
 }
 
-function chooseAudioFile(): Promise<File | null> {
+export function chooseAudioFile(
+  createInput: () => HTMLInputElement = () => document.createElement("input"),
+): Promise<File | null> {
   return new Promise((resolve) => {
-    const input = document.createElement("input");
+    const input = createInput();
 
     input.type = "file";
     input.accept = "audio/*";
 
-    input.addEventListener("change", () => {
-      resolve(input.files?.[0] ?? null);
-    });
+    const finish = (file: File | null) => {
+      input.removeEventListener("change", onChange);
+      input.removeEventListener("cancel", onCancel);
+      resolve(file);
+    };
+    const onChange = () => finish(input.files?.[0] ?? null);
+    const onCancel = () => finish(null);
+    input.addEventListener("change", onChange);
+    input.addEventListener("cancel", onCancel);
 
     input.click();
   });

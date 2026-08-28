@@ -115,16 +115,11 @@ tester.describe("mix channel slots template", () => {
         tester.expect(html.includes("✎")).toBe(false);
     });
 
-    tester.it("renders musical placement as an inline desktop editor when a project timeline is available", () => {
+    tester.it("omits timing UI without modifying stored musical placement", () => {
+        const track = createTrack({ musicalPlacement: { start: { bar: 3, beat: 2.5 }, spanBeats: 8 } });
+        const before = JSON.stringify(track);
         const html = renderMixChannelSlots(
-            [
-                createTrack({
-                    musicalPlacement: {
-                        start: { bar: 3, beat: 2.5 },
-                        spanBeats: 8,
-                    },
-                }),
-            ],
+            [track],
             undefined,
             {
                 role: "owner",
@@ -136,14 +131,11 @@ tester.describe("mix channel slots template", () => {
             },
         );
 
-        tester.expect(html.includes("Bar 3, beat 2.5 · 2 bars")).toBe(true);
-        tester.expect(html.includes("data-track-musical-start-bar")).toBe(true);
-        tester.expect(html.includes("data-track-musical-start-beat")).toBe(true);
-        tester.expect(html.includes("data-track-musical-span-bars")).toBe(true);
-        tester.expect(html.includes('value="3"')).toBe(true);
-        tester.expect(html.includes('value="2.5"')).toBe(true);
-        tester.expect(html.includes('value="2"')).toBe(true);
-        tester.expect(html.includes("data-track-edit-button")).toBe(false);
+        for (const hook of ["data-track-timing", "data-track-musical", "Length (bars)", "Bar 3, beat"]) {
+            tester.expect(html.includes(hook)).toBe(false);
+        }
+        tester.expect(JSON.stringify(track)).toBe(before);
+        tester.expect(html.includes("data-track-name-editor")).toBe(true);
     });
 
     tester.it("renders enabled, volume, and delete controls without waveform placeholders", () => {
@@ -295,6 +287,34 @@ tester.describe("mix channel slots template", () => {
         tester.expect(emptyHtml.includes("data-track-add-button")).toBe(true);
         tester.expect(emptyHtml.includes(">Add Track</button>")).toBe(true);
         tester.expect(emptyHtml.includes("mix-channel-slot__add-track-symbol")).toBe(false);
+    });
+
+    tester.it("keeps each channel's controls and Delete bound to its own track", () => {
+        const tracks = Array.from({ length: 4 }, (_, index) =>
+            createTrack({ id: `track-${index + 1}`, name: `Long track name ${index + 1}` }));
+        for (const count of [1, 2, 3, 4]) {
+            const html = renderMixChannelSlots(tracks.slice(0, count), {
+                channels: tracks.map((track, index) => ({
+                    channelNumber: index + 1, trackId: track.id,
+                    enabled: index % 2 === 0, volume: index / 3,
+                })),
+            });
+            const articles = html.match(/<article[\s\S]*?<\/article>/g) ?? [];
+            tester.expect(articles.length).toBe(4);
+            for (let index = 0; index < count; index++) {
+                const article = articles[index];
+                tester.expect(article.includes(`data-track-id="track-${index + 1}"`)).toBe(true);
+                tester.expect(article.includes("data-track-name-editor")).toBe(true);
+                tester.expect(article.includes(`aria-label="Delete track Long track name ${index + 1}"`)).toBe(true);
+                tester.expect(article.indexOf("mix-channel-slot__actions") > article.indexOf("data-channel-volume")).toBe(true);
+                tester.expect(article.includes(`${Math.round(index / 3 * 100)}%`)).toBe(true);
+                tester.expect(article.includes("checked")).toBe(index % 2 === 0);
+                tester.expect(article.includes('type="range"')).toBe(true);
+                tester.expect(article.includes('min="0"')).toBe(true);
+                tester.expect(article.includes('max="1"')).toBe(true);
+                tester.expect(article.includes('step="0.01"')).toBe(true);
+            }
+        }
     });
 
     tester.it("renders a volume value target for each assigned channel", () => {

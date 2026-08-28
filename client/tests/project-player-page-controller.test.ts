@@ -1524,6 +1524,13 @@ tester.describe("project player page controller", () => {
 
     tester.expect(trackListElement.getVolumeValueText(1)).toBe("100%");
 
+    await trackListElement.inputVolume(1, 0);
+    tester.expect(trackListElement.getVolumeValueText(1)).toBe("0%");
+    tester.expect(liveVolumeUpdates.pop()).toEqual({ channelNumber: 1, volume: 0 });
+    await trackListElement.inputVolume(1, 1);
+    tester.expect(trackListElement.getVolumeValueText(1)).toBe("100%");
+    tester.expect(liveVolumeUpdates.pop()).toEqual({ channelNumber: 1, volume: 1 });
+
     await trackListElement.inputVolume(1, 0.73);
 
     tester.expect(trackListElement.getVolumeValueText(1)).toBe("73%");

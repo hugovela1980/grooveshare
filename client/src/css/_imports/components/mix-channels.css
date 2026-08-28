@@ -1,200 +1,82 @@
+/* The tray owns overflow; every channel keeps the same width and one-row placement. */
+.project-player-content,
+.project-player-workspace,
+.project-player-tracks-panel,
+#player-track-list,
 .mix-channel-panel {
-    display: flex;
-    justify-content: center;
-    gap: 1rem;
+    min-width: 0;
 }
 
-/* The desktop Project Player presents the mixer visually, so these explanatory
-   labels remain in the markup for semantics/tests but do not compete with the
-   project title and transport controls. */
-.mix-channel-panel__header,
-.mix-channel-grid-header {
-    display: none;
+.mix-channel-panel__title { margin: 0; font-size: 1rem; }
+.mix-channel-panel__description {
+    margin: 0.25rem 0 0.75rem;
+    color: var(--color-text-muted);
+    font-size: 0.8rem;
 }
 
 .mix-channel-slots {
-    --channel-width: 12rem;
-
     display: grid;
-    grid-template-columns: repeat(auto-fit, var(--channel-width));
-    justify-content: center;
-    gap: 1rem;
-
-    width: min(100%,
-            calc((var(--channel-width) * 4) + (1rem * 3)));
+    grid-auto-flow: column;
+    grid-auto-columns: 9rem;
+    justify-content: start;
+    gap: 0.75rem;
+    min-width: 0;
+    overflow-x: auto;
+    padding: 0.25rem 0.25rem 0.75rem;
 }
 
-.mix-channel-slot {
+.mix-channel-slot { min-width: 0; }
+.mix-channel-slot__strip {
     display: grid;
-    grid-template-columns: 1fr;
-    grid-template-rows: minmax(2.75rem, auto) auto minmax(12rem, 1fr) auto;
-    grid-template-areas:
-        "name"
-        "channel"
-        "volume"
-        "actions";
+    grid-template-areas: "name" "volume" "channel";
+    grid-template-rows: 3.75rem 12rem 3.25rem;
     min-width: 0;
-    min-height: 23rem;
-    overflow: hidden;
     border: 1px solid var(--border-dark);
-    border-radius: var(--radius-xl);
-    background: linear-gradient(180deg, #2b2b2e 0%, var(--color-surface) 100%);
-    box-shadow: 0 0.45rem 1.1rem rgba(0, 0, 0, 0.14);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
 }
-
-.mix-channel-slot__channel-cell,
-.mix-channel-slot__name-cell,
-.mix-channel-slot__volume-cell,
-.mix-channel-slot__actions {
-    min-width: 0;
-    padding: 0.75rem;
-}
-
 .mix-channel-slot__name-cell {
     grid-area: name;
     display: flex;
     align-items: center;
-    justify-content: center;
+    min-width: 0;
+    padding: 0.5rem;
     border-bottom: 1px solid var(--border-dark);
-    background: rgba(17, 17, 19, 0.38);
 }
-
-.mix-channel-slot__channel-cell {
-    grid-area: channel;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding-bottom: 0.25rem;
-}
-
-.mix-channel-slot__volume-cell {
-    grid-area: volume;
-    display: flex;
-    min-height: 12rem;
-    align-items: center;
-    justify-content: center;
-    padding-block: 0.25rem;
-}
-
-.mix-channel-slot__actions {
-    grid-area: actions;
-    display: flex;
-    min-height: 3.5rem;
-    align-items: center;
-    justify-content: center;
-    padding-top: 0.35rem;
-}
-
-/* Channel enable toggle */
-.mix-channel-slot__channel-toggle {
-    position: relative;
-    display: inline-grid;
-    cursor: pointer;
-}
-
-.mix-channel-slot__enabled-input {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    opacity: 0;
-    pointer-events: none;
-}
-
-.mix-channel-slot__channel-number {
-    display: grid;
-    width: 2.75rem;
-    height: 2.75rem;
-    place-items: center;
-    border: 1px solid var(--border-input);
-    border-radius: var(--radius-md);
-    color: var(--color-light-text);
-    background: var(--color-light-button);
-    font-size: 0.95rem;
-    font-weight: 800;
-    transition:
-        background 120ms ease,
-        border-color 120ms ease,
-        transform 120ms ease,
-        box-shadow 120ms ease;
-}
-
-.mix-channel-slot__enabled-input:checked+.mix-channel-slot__channel-number {
-    border-color: #4ade80;
-    background: #4ade80;
-    box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.12);
-}
-
-.mix-channel-slot__enabled-input:focus-visible+.mix-channel-slot__channel-number {
-    outline: 3px solid var(--color-text);
-    outline-offset: 3px;
-}
-
-.mix-channel-slot__channel-toggle:hover .mix-channel-slot__channel-number {
-    transform: translateY(-1px);
-}
-
-/* Desktop inline track-name editing */
-.mix-channel-slot__editable-name {
-    display: flex;
-    width: 100%;
-    min-width: 0;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0.5rem;
-    padding: 0.25rem 0.35rem;
-    border: 1px solid transparent;
-    border-radius: var(--radius-sm);
-}
-
-.mix-channel-slot__editable-name label {
-    display: flex;
-    flex-direction: column;
-    width: 100%;
-    min-width: 0;
-    gap: 0.25rem;
-}
-
-.mix-channel-slot__editable-name label input {
-    width: 100%;
-    min-width: 0;
-    box-sizing: border-box;
-}
-
-.mix-channel-slot__editable-name--enabled:hover,
-.mix-channel-slot__editable-name--enabled:focus-within {
-    border-color: var(--border-input);
-    background: rgba(255, 255, 255, 0.035);
-}
-
+.mix-channel-slot__editable-name { width: 100%; min-width: 0; }
 .mix-channel-slot__track-name {
     display: block;
-    width: 100%;
-    min-width: 0;
+    max-height: 2.5em;
     overflow: hidden;
+    overflow-wrap: anywhere;
     color: var(--color-text);
     font-size: 0.88rem;
     font-weight: 650;
     line-height: 1.25;
-    outline: none;
     text-align: center;
-    text-overflow: ellipsis;
-    white-space: nowrap;
 }
-
-.mix-channel-slot__track-name--editable {
-    cursor: text;
+.mix-channel-slot__track-name--editable { cursor: text; }
+.mix-channel-slot__track-name--editable:hover { background: rgba(255, 255, 255, 0.05); }
+.mix-channel-slot__track-name--editable:focus {
+    overflow-y: auto;
+    outline: 2px solid var(--color-text);
+    outline-offset: 2px;
 }
-
-/* Vertical channel fader */
+.mix-channel-slot__strip:has(.mix-channel-slot__enabled-input:checked) .mix-channel-slot__track-name {
+    color: #86efac;
+}
+.mix-channel-slot__volume-cell { grid-area: volume; padding: 0.5rem; }
 .mix-channel-slot__volume-label {
     display: grid;
-    min-height: 11.5rem;
-    grid-template-rows: 1fr auto;
-    gap: 0.55rem;
-    place-items: center;
+    grid-template-rows: auto 1fr;
+    gap: 0.5rem;
+    justify-items: center;
 }
-
+.mix-channel-slot__volume-value {
+    color: var(--color-text);
+    font-size: 0.8rem;
+    font-variant-numeric: tabular-nums;
+}
 .mix-channel-slot__volume-label input[type="range"] {
     width: 2rem;
     height: 9.75rem;
@@ -202,90 +84,83 @@
     writing-mode: vertical-lr;
     direction: rtl;
     cursor: pointer;
+    accent-color: #86efac;
 }
-
-.mix-channel-slot__volume-value {
-    min-width: 3.2rem;
-    padding: 0.22rem 0.35rem;
-    border-radius: var(--radius-pill);
-    color: var(--color-text-muted);
-    background: var(--color-surface-deep);
-    font-size: 0.72rem;
-    font-variant-numeric: tabular-nums;
-    font-weight: 700;
-    text-align: center;
+.mix-channel-slot__channel-cell {
+    grid-area: channel;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.375rem;
 }
-
-/* Track actions */
-.mix-channel-slot__delete-button {
-    min-height: 2.25rem;
-    padding: 0.45rem 0.75rem;
-    font-size: 0.72rem;
+.mix-channel-slot__channel-toggle { position: relative; cursor: pointer; }
+.mix-channel-slot__enabled-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
 }
-
-.mix-channel-slot__empty-label {
-    color: var(--color-text-subtle);
-    font-size: 0.82rem;
-}
-
-/* Empty strips keep the same physical footprint so the four-channel surface
-   stays stable as tracks are added. */
-.mix-channel-slot--empty {
-    grid-template-rows: 1fr;
-    grid-template-areas: "channel";
-    background: rgba(38, 38, 38, 0.58);
-}
-
-.mix-channel-slot--empty .mix-channel-slot__channel-cell {
-    min-height: 23rem;
-    padding: 1rem;
-}
-
-.mix-channel-slot--empty .mix-channel-slot__name-cell,
-.mix-channel-slot--empty .mix-channel-slot__volume-cell,
-.mix-channel-slot--empty .mix-channel-slot__actions {
-    display: none;
-}
-
-.mix-channel-slot__add-track-button {
-    display: grid;
-    width: 100%;
-    min-height: 10rem;
-    place-items: center;
-    gap: 0.45rem;
-    padding: 1rem;
-    border: 1px dashed var(--border-input);
-    border-radius: var(--radius-lg);
-    color: var(--color-text-muted);
-    background: transparent;
-    font-size: 0.78rem;
-}
-
-.mix-channel-slot__add-track-button::before {
-    content: "+";
-    display: grid;
-    width: 3rem;
-    height: 3rem;
-    place-items: center;
+.mix-channel-slot__channel-number {
+    display: flex;
+    gap: 0.25rem;
+    min-width: 4.5rem;
+    min-height: 2.5rem;
+    align-items: center;
+    justify-content: center;
     border: 1px solid var(--border-input);
     border-radius: var(--radius-md);
     color: var(--color-text);
-    font-size: 1.75rem;
-    font-weight: 400;
-    line-height: 1;
+    background: var(--color-surface-deep);
+    font-size: 0.8rem;
+    font-weight: 700;
 }
-
-.mix-channel-slot__add-track-button:hover:not(:disabled),
-.mix-channel-slot__add-track-button:focus-visible {
-    border-color: var(--color-accent-hover);
+.mix-channel-slot__enabled-input:checked + .mix-channel-slot__channel-number {
+    background: #86efac;
+    border-color: #86efac;
+    color: #132019;
+}
+.mix-channel-slot__enabled-input:focus-visible + .mix-channel-slot__channel-number {
+    outline: 3px solid var(--color-text);
+    outline-offset: 2px;
+}
+.mix-channel-slot__state-on,
+.mix-channel-slot__enabled-input:checked + .mix-channel-slot__channel-number .mix-channel-slot__state-off {
+    display: none;
+}
+.mix-channel-slot__enabled-input:checked + .mix-channel-slot__channel-number .mix-channel-slot__state-on {
+    display: inline;
+}
+.mix-channel-slot__actions {
+    display: flex;
+    justify-content: center;
+    min-height: 3rem;
+    padding-top: 0.5rem;
+}
+.mix-channel-slot__delete-button {
+    min-height: 2.25rem;
+    padding: 0.35rem 0.75rem;
+    color: #f5b6be;
+    border-color: #996068;
+    background: transparent;
+    font-size: 0.75rem;
+}
+.mix-channel-slot--empty .mix-channel-slot__strip {
+    grid-template-areas: "channel";
+    grid-template-rows: 19rem;
+    background: transparent;
+}
+.mix-channel-slot--empty .mix-channel-slot__name-cell,
+.mix-channel-slot--empty .mix-channel-slot__volume-cell { display: none; }
+.mix-channel-slot__empty-label { color: var(--color-text-muted); }
+.mix-channel-slot__add-track-button {
+    min-height: 3rem;
+    padding: 0.5rem;
+    border: 1px dashed var(--border-input);
     color: var(--color-text);
-    background: rgba(134, 239, 172, 0.05);
+    background: transparent;
+    font-size: 0.8rem;
 }
 
-@media (max-width: 34rem) {
-
-    .mix-channel-slot,
-    .mix-channel-slot--empty .mix-channel-slot__channel-cell {
-        min-height: 20rem;
-    }
+.mix-channel-slot__add-track-button:hover {
+    color: #333;
 }

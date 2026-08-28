@@ -4,6 +4,7 @@ import "./async-state.test.js";
 import "./loading-state-template.test.js";
 import "./page-templates.test.js";
 import "./grooveshare-app.test.js";
+import "./audio-file-picker.test.js";
 import "./desktop-project-player.integration.test.js";
 import "./create-project-confirmation-controller.test.js";
 import "./create-project-page-controller.test.js";

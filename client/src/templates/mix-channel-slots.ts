@@ -1,8 +1,6 @@
 import {
     canContribute,
     canManageTrack,
-    getTrackMusicalPlacement,
-    musicalSpanBeatsToBars,
 } from "@hugovela/frontend-core";
 import type {
     MixSettings,
@@ -48,79 +46,6 @@ function createMixChannelSlots(tracks: Track[]): ChannelSlot[] {
     );
 }
 
-function formatMusicalValue(value: number): string {
-    return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(4)));
-}
-
-function renderTrackMusicalTiming(
-    track: Track,
-    timeline: MusicalTimeline | undefined,
-    mayManageTrack: boolean,
-): string {
-    if (!timeline) {
-        return "";
-    }
-
-    const placement = getTrackMusicalPlacement(timeline, track);
-    const spanBars = placement.spanBeats === null
-        ? null
-        : musicalSpanBeatsToBars(timeline, placement.spanBeats);
-    const spanLabel = spanBars === null
-        ? "length unknown"
-        : `${formatMusicalValue(spanBars)} bars`;
-    const timingLabel = `Bar ${formatMusicalValue(placement.start.bar)}, beat ${formatMusicalValue(placement.start.beat)} · ${spanLabel}`;
-
-    if (!mayManageTrack) {
-        return `<span class="mix-channel-slot__timing" data-track-timing-display data-track-id="${escapeHtml(track.id)}">${escapeHtml(timingLabel)}</span>`;
-    }
-
-    return /*html*/ `
-      <details class="mix-channel-slot__timing-editor" data-track-timing-editor data-track-id="${escapeHtml(track.id)}">
-        <summary class="mix-channel-slot__timing" data-track-timing-display data-track-id="${escapeHtml(track.id)}">${escapeHtml(timingLabel)}</summary>
-        <div class="mix-channel-slot__timing-fields">
-          <label>
-            <span>Bar</span>
-            <input
-              type="number"
-              min="1"
-              step="1"
-              value="${formatMusicalValue(placement.start.bar)}"
-              data-track-musical-start-bar
-              data-track-id="${escapeHtml(track.id)}"
-              aria-label="Start bar for ${escapeHtml(track.name)}"
-            />
-          </label>
-          <label>
-            <span>Beat</span>
-            <input
-              type="number"
-              min="1"
-              max="${timeline.timeSignature.numerator}"
-              step="any"
-              value="${formatMusicalValue(placement.start.beat)}"
-              data-track-musical-start-beat
-              data-track-id="${escapeHtml(track.id)}"
-              aria-label="Start beat for ${escapeHtml(track.name)}"
-            />
-          </label>
-          <label>
-            <span>Length (bars)</span>
-            <input
-              type="number"
-              min="0"
-              step="any"
-              value="${spanBars === null ? "" : formatMusicalValue(spanBars)}"
-              placeholder="Unknown"
-              data-track-musical-span-bars
-              data-track-id="${escapeHtml(track.id)}"
-              aria-label="Musical length in bars for ${escapeHtml(track.name)}"
-            />
-          </label>
-        </div>
-      </details>
-    `;
-}
-
 function renderAssignedChannelSlot(
     slot: ChannelSlot,
     mixSettings: MixSettings | undefined,
@@ -144,11 +69,6 @@ function renderAssignedChannelSlot(
         currentUserId: context.currentUserId,
         track,
     });
-    const timingMarkup = renderTrackMusicalTiming(
-        track,
-        context.musicalTimeline,
-        mayManageTrack,
-    );
 
     const trackNameMarkup = mayManageTrack
         ? /*html*/ `
@@ -178,55 +98,55 @@ function renderAssignedChannelSlot(
         data-mix-channel="${slot.channelNumber}"
         data-track-id="${escapeHtml(track.id)}"
       >
-        <div class="mix-channel-slot__channel-cell">
-          <label class="mix-channel-slot__channel-toggle">
-            <input
-              class="mix-channel-slot__enabled-input"
-              type="checkbox"
-              data-channel-enabled
-              data-mix-channel="${slot.channelNumber}"
-              data-track-id="${escapeHtml(track.id)}"
-              aria-label="Enable channel ${slot.channelNumber}"
-              ${isEnabled ? "checked" : ""}
-            />
-            <span class="mix-channel-slot__channel-number" aria-hidden="true">
-              ${slot.channelNumber}
-            </span>
-          </label>
-        </div>
+        <div class="mix-channel-slot__strip">
+          <div class="mix-channel-slot__name-cell">
+            <div
+              class="mix-channel-slot__editable-name${mayManageTrack
+                  ? " mix-channel-slot__editable-name--enabled"
+                  : ""}"
+            >
+              ${trackNameMarkup}
+            </div>
+          </div>
 
-        <div class="mix-channel-slot__name-cell">
-          <div
-            class="mix-channel-slot__editable-name${mayManageTrack
-                ? " mix-channel-slot__editable-name--enabled"
-                : ""}"
-          >
-            ${trackNameMarkup}
-            ${timingMarkup}
+          <div class="mix-channel-slot__volume-cell">
+            <label class="mix-channel-slot__volume-label">
+              <span
+                class="mix-channel-slot__volume-value"
+                data-channel-volume-value
+                data-mix-channel="${slot.channelNumber}"
+              >${volumePercentage}%</span>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                value="${volume}"
+                data-channel-volume
+                data-mix-channel="${slot.channelNumber}"
+                data-track-id="${escapeHtml(track.id)}"
+                aria-label="Channel ${slot.channelNumber} volume"
+              />
+            </label>
+          </div>
+
+          <div class="mix-channel-slot__channel-cell">
+            <label class="mix-channel-slot__channel-toggle">
+              <input
+                class="mix-channel-slot__enabled-input"
+                type="checkbox"
+                data-channel-enabled
+                data-mix-channel="${slot.channelNumber}"
+                data-track-id="${escapeHtml(track.id)}"
+                aria-label="Enable channel ${slot.channelNumber}"
+                ${isEnabled ? "checked" : ""}
+              />
+              <span class="mix-channel-slot__channel-number" aria-hidden="true">
+                ${slot.channelNumber} · <span class="mix-channel-slot__state-on">On</span><span class="mix-channel-slot__state-off">Off</span>
+              </span>
+            </label>
           </div>
         </div>
-
-        <div class="mix-channel-slot__volume-cell">
-          <label class="mix-channel-slot__volume-label">
-            <span
-              class="mix-channel-slot__volume-value"
-              data-channel-volume-value
-              data-mix-channel="${slot.channelNumber}"
-            >${volumePercentage}%</span>
-            <input
-              type="range"
-              min="0"
-              max="1"
-              step="0.01"
-              value="${volume}"
-              data-channel-volume
-              data-mix-channel="${slot.channelNumber}"
-              data-track-id="${escapeHtml(track.id)}"
-              aria-label="Channel ${slot.channelNumber} volume"
-            />
-          </label>
-        </div>
-
         <div class="mix-channel-slot__actions">
           ${mayManageTrack
               ? /*html*/ `
@@ -265,11 +185,13 @@ function renderEmptyChannelSlot(
         data-mix-channel-slot
         data-mix-channel="${channelNumber}"
       >
-        <div class="mix-channel-slot__channel-cell">
-          ${addTrackMarkup}
+        <div class="mix-channel-slot__strip">
+          <div class="mix-channel-slot__channel-cell">
+            ${addTrackMarkup}
+          </div>
+          <div class="mix-channel-slot__name-cell" aria-hidden="true"></div>
+          <div class="mix-channel-slot__volume-cell" aria-hidden="true"></div>
         </div>
-        <div class="mix-channel-slot__name-cell" aria-hidden="true"></div>
-        <div class="mix-channel-slot__volume-cell" aria-hidden="true"></div>
         <div class="mix-channel-slot__actions" aria-hidden="true"></div>
       </article>
     `;
@@ -286,21 +208,14 @@ export function renderMixChannelSlots(
       <section class="mix-channel-panel" aria-label="Four channel mix setup">
         <div class="mix-channel-panel__header">
           <div>
-            <h3 class="mix-channel-panel__title">Mix Channels</h3>
+            <h3 class="mix-channel-panel__title">Mix</h3>
             <p class="mix-channel-panel__description">
               Enable up to four tracks and adjust their volume during playback.
             </p>
           </div>
         </div>
 
-        <div class="mix-channel-grid-header" aria-hidden="true">
-          <span>Channel</span>
-          <span>Name</span>
-          <span>Volume</span>
-          <span></span>
-        </div>
-
-        <div class="mix-channel-slots">
+        <div class="mix-channel-slots" tabindex="0" role="region" aria-label="Mix channels">
           ${slots
               .map((slot) => {
                   return renderAssignedChannelSlot(
