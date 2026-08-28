@@ -158,7 +158,7 @@ tester.describe("mix channel slots template", () => {
         tester.expect(html.includes('id="load-mix-button"')).toBe(false);
         tester.expect(html.includes("data-load-mix-button")).toBe(false);
         tester.expect(html.includes(">Timeline<")).toBe(false);
-        tester.expect(html.includes("Enable up to four tracks and adjust their volume during playback.")).toBe(true);
+        tester.expect(html.includes("Toggle tracks and adjust volume.")).toBe(true);
     });
 
     tester.it("renders the first four uploaded tracks as Channels 1 through 4", () => {

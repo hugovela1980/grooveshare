@@ -306,18 +306,18 @@ export function createMicrophoneRecordingController({
     statusElement.textContent = getStatusMessage(snapshot);
     if (workspace && snapshot.status === "ready") {
       statusElement.textContent = starting
-        ? "Starting capture… The existing count-in leads into project playback."
-        : "Recording has not started. Press Record Take when you’re ready. Closing releases the microphone.";
+        ? "Starting capture… count-in leads into playback."
+        : "Not recording yet. Press Record Take to begin; close to release the microphone.";
     }
     if (workspace && hasStoppedTake) {
       const start = snapshot.take!.timing.musicalStart;
       const description = `Temporary take from Bar ${start.bar} · Beat ${Math.floor(start.beat)}. Not yet kept.`;
       statusElement.textContent = `${description} ${isSaving ? "Saving as a project track…"
         : snapshot.takeSaveFailure?.message ?? snapshot.takeReviewFailure?.message
-        ?? (snapshot.takeReviewStatus === "auditioning" ? "Playing with the project mix." : "Retry, Audition, or Keep when ready.")}`;
+        ?? (snapshot.takeReviewStatus === "auditioning" ? "Playing with the project mix." : "Keep adds it to Mix.")}`;
     }
     if (workspace && snapshot.status === "recording") {
-      statusElement.textContent = "Recording is in progress. Use Stop Recording below to finish this take.";
+      statusElement.textContent = "Press Stop Recording to finish your take.";
     }
     if (previousStatus !== snapshot.status) {
       previousStatus = snapshot.status;

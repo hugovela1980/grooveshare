@@ -210,7 +210,7 @@ export function renderMixChannelSlots(
           <div>
             <h3 class="mix-channel-panel__title">Mix</h3>
             <p class="mix-channel-panel__description">
-              Enable up to four tracks and adjust their volume during playback.
+              Toggle tracks and adjust volume.
             </p>
           </div>
         </div>

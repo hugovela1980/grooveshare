@@ -15,7 +15,7 @@ function getRoleLabel(project: Project | null): string { if (isGuestProject(proj
 function renderMusicalTimelineSummary(project: Project | null): string {
   if (!project) return "";
   const timeline = getProjectMusicalTimeline(project);
-  return `${timeline.bpm} BPM · ${timeline.timeSignature.numerator}/${timeline.timeSignature.denominator} · Bar 1 at project start`;
+  return `${timeline.bpm} BPM · ${timeline.timeSignature.numerator}/${timeline.timeSignature.denominator}`;
 }
 
 type ProjectPlayerPageOptions = { currentUser?: User | null; hasContributorInvitation?: boolean; statusMessage?: string };
@@ -43,9 +43,9 @@ export function renderProjectPlayerPage(project: Project | null = null, { curren
         </div>
         <details class="project-player-header__details" data-project-details>
           <summary class="project-player-header__summary">
+            <span class="project-player-header__disclosure" aria-hidden="true"></span>
             <span class="project-player-header__summary-title" data-project-summary-title-display>${heading}</span>
             ${project ? `<span class="project-role-badge${guest ? " project-role-badge--guest" : ""}">${getRoleLabel(project)}</span>` : ""}
-            <span class="project-player-header__disclosure" aria-hidden="true"></span>
           </summary>
           <div class="project-player-header__details-content">
             <div class="project-player-header__eyebrow-row"><p class="eyebrow">Project Details</p></div>

@@ -201,7 +201,7 @@ const twoChannelMix = [
 
 tester.describe("WebAudioPlaybackEngine", () => {
   tester.it("moves the same transient earlier or later by the signed amount in audition and saved-track playback", async () => {
-    for (const alignmentOffsetSeconds of [-0.1, -0.01, -0.001, 0, 0.001, 0.01, 0.1]) {
+    for (const alignmentOffsetSeconds of [-0.36, -0.1, -0.01, -0.001, 0, 0.001, 0.01, 0.1]) {
       const { engine, audioContext } = createEngineHarness();
       engine.loadMix(twoChannelMix);
       await engine.auditionRecordedTake!({

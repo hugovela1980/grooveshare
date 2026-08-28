@@ -47,6 +47,21 @@ function createEditableTextElement(initialText: string) {
 }
 
 tester.describe("desktop Project Player integration", () => {
+  tester.it("keeps disclosure adjacent to project identity and accessible transport controls tied to the workspace", () => {
+    const title = "Long project title & rehearsal ".repeat(8);
+    const markup = renderProjectPlayerPage({ ...ownerProject, title });
+    const summary = markup.match(/<summary class="project-player-header__summary">([\s\S]*?)<\/summary>/)?.[1] ?? "";
+    tester.expect(summary.indexOf("project-player-header__disclosure") < summary.indexOf("data-project-summary-title-display")).toBe(true);
+    tester.expect(summary.includes("Long project title &amp; rehearsal")).toBe(true);
+    tester.expect(summary.includes("Owner")).toBe(true);
+    tester.expect(markup.includes('aria-controls="microphone-recording-workspace"')).toBe(true);
+    tester.expect(markup.includes('aria-expanded="false"')).toBe(true);
+    for (const label of ["Seek backward 5 seconds", "Play or pause mix", "Prepare microphone", "Stop", "Seek forward 5 seconds"]) {
+      tester.expect(markup.includes(`aria-label="${label}"`)).toBe(true);
+    }
+    tester.expect(markup.includes('aria-live="polite"')).toBe(true);
+    tester.expect(markup.includes('role="status"')).toBe(true);
+  });
   tester.it("renders collapsed native alignment with offset feedback and Discard after Keep inside review", () => {
     const markup = renderProjectPlayerPage(ownerProject);
     const disclosure = markup.match(/<details\s+id="microphone-legacy-alignment"[^>]*>([\s\S]*?)<\/details>/);
@@ -105,7 +120,7 @@ tester.describe("desktop Project Player integration", () => {
     tester.expect(pageMarkup.indexOf('id="microphone-record-button"') > pageMarkup.indexOf('id="audio-stop-button"')).toBe(true);
     tester.expect(pageMarkup.includes("Record Take")).toBe(true);
     tester.expect(pageMarkup.includes(">Enable Microphone<")).toBe(false);
-    tester.expect(pageMarkup.includes("For the cleanest recording, use wired headphones")).toBe(true);
+    tester.expect(pageMarkup.includes("Use wired headphones to keep playback out of your recording.")).toBe(true);
     tester.expect(mixerMarkup.includes("data-track-name-editor")).toBe(true);
     tester.expect(mixerMarkup.includes('contenteditable="true"')).toBe(true);
     tester.expect(mixerMarkup.includes("data-track-edit-button")).toBe(false);

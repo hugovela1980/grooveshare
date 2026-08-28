@@ -1,10 +1,11 @@
 .microphone-recording {
     width: 100%;
     box-sizing: border-box;
-    border: 1px solid var(--border-input);
-    border-radius: 1rem;
+    border: 1px solid #9f0e0e;
+    border-inline-start: 3px solid #b91438;
+    border-radius: var(--radius-lg);
     color: var(--color-text);
-    background: var(--color-surface-strong);
+    background: linear-gradient(110deg, #24181c, var(--color-surface-strong) 65%);
 }
 
 .microphone-recording[hidden] {
@@ -14,8 +15,8 @@
 .microphone-recording__body {
     position: relative;
     display: grid;
-    gap: 1.4rem;
-    padding: 1.25rem;
+    gap: 1rem;
+    padding: 1rem;
 }
 
 .microphone-recording__close {
@@ -25,11 +26,13 @@
 }
 
 .microphone-recording .microphone-recording__details {
-    padding-right: 1.5rem;
+    padding-right: 2.5rem;
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .microphone-recording .microphone-recording__details h2 {
-    font-size: 1.5rem;
+    font-size: 1.2rem;
 }
 
 .microphone-recording #microphone-record-button {
@@ -59,16 +62,11 @@
     gap: 0.35rem;
 }
 
-.microphone-recording__details .eyebrow,
 .microphone-recording__details h2,
 .microphone-recording__hint,
 .microphone-recording__status,
 .microphone-recording__alignment-hint {
     margin: 0;
-}
-
-.microphone-recording__details h2 {
-    font-size: 1.05rem;
 }
 
 .microphone-recording__hint,
@@ -81,8 +79,9 @@
     min-width: 0;
     box-sizing: border-box;
     padding: 0.75rem;
-    border: 1px solid var(--border-input);
+    border: 0;
     border-radius: 0.65rem;
+    background: var(--color-surface-deep);
 }
 
 .microphone-recording__alignment-header {
@@ -166,6 +165,11 @@
 
 .microphone-recording__status {
     min-height: 1.25rem;
+    font-size: 0.9rem;
+}
+
+.microphone-recording__hint {
+    font-size: 0.85rem;
 }
 
 .microphone-recording__actions .button[hidden] {
@@ -190,7 +194,7 @@
 
 .microphone-recording .microphone-recording__stop {
     min-height: 3.5rem;
-    min-width: 14rem;
+    min-width: min(100%, 14rem);
     margin: 0.5rem auto;
     background: #ffb4ab;
     color: #491310;

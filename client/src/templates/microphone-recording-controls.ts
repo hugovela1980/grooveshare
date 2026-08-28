@@ -52,10 +52,10 @@ export function renderMicrophoneRecordingControls(): string {
         </details>
       </div>
 
-      <p id="microphone-recording-hint" class="microphone-recording__hint">For the cleanest recording, use wired headphones so project playback stays out of the microphone.</p>
+      <p id="microphone-recording-hint" class="microphone-recording__hint">Use wired headphones to keep playback out of your recording.</p>
       <dialog id="microphone-keep-dialog" class="microphone-recording__keep-dialog" aria-labelledby="microphone-keep-heading">
         <h2 id="microphone-keep-heading">Keep this take?</h2>
-        <p>Name the track to add it to this project. Its placement and reviewed alignment will be preserved.</p>
+        <p>Name your track. Timing and alignment stay as reviewed.</p>
         <label for="microphone-take-name-input">Track name</label>
         <input id="microphone-take-name-input" class="input microphone-recording__take-name" type="text" aria-label="Recorded take track name" maxlength="120" value="" autofocus disabled hidden />
         <p id="microphone-keep-status" role="status"></p>

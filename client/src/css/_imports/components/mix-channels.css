@@ -7,7 +7,7 @@
     min-width: 0;
 }
 
-.mix-channel-panel__title { margin: 0; font-size: 1rem; }
+.mix-channel-panel__title { margin: 0; font-size: 1.2rem; }
 .mix-channel-panel__description {
     margin: 0.25rem 0 0.75rem;
     color: var(--color-text-muted);
@@ -84,7 +84,16 @@
     writing-mode: vertical-lr;
     direction: rtl;
     cursor: pointer;
+    accent-color: var(--color-text-subtle);
+}
+.mix-channel-slot__strip:has(.mix-channel-slot__enabled-input:checked) .mix-channel-slot__volume-label input[type="range"] {
     accent-color: #86efac;
+}
+.mix-channel-slot__volume-label input[type="range"]::-webkit-slider-thumb {
+    transform: scale(1.2);
+}
+.mix-channel-slot__volume-label input[type="range"]::-moz-range-thumb {
+    transform: scale(1.2);
 }
 .mix-channel-slot__channel-cell {
     grid-area: channel;

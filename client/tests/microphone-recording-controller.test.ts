@@ -8,8 +8,12 @@ import { tester } from "./test-runner/tester.js";
 
 function createButton() {
   let clickHandler: (() => void | Promise<void>) | null = null;
+  const attributes = new Map<string, string>();
 
   return {
+    setAttribute(name: string, value: string) { attributes.set(name, value); },
+    removeAttribute(name: string) { attributes.delete(name); },
+    getAttribute(name: string) { return attributes.get(name) ?? null; },
     disabled: false,
     hidden: false,
     textContent: "",
@@ -383,6 +387,29 @@ function createControllerHarness(onTakeKept?: (track: Track) => void | Promise<v
 }
 
 tester.describe("microphone recording controller", () => {
+  tester.it("keeps the transport disclosure state tied to workspace visibility through take review", async () => {
+    const h = createControllerHarness(undefined, true);
+    h.controller.init();
+    tester.expect(h.armButton.getAttribute("aria-expanded")).toBe("false");
+    await h.armButton.click();
+    tester.expect(h.armButton.getAttribute("aria-expanded")).toBe("true");
+    await h.recordButton.click();
+    tester.expect(h.armButton.getAttribute("aria-expanded")).toBe("true");
+    await h.stopButton.click();
+    const take = h.session.getSnapshot().take;
+    tester.expect(h.armButton.getAttribute("aria-pressed")).toBe("false");
+    tester.expect(h.armButton.getAttribute("aria-expanded")).toBe("true");
+    await h.closeButton.click();
+    tester.expect(h.armButton.getAttribute("aria-expanded")).toBe("false");
+    tester.expect(h.session.getSnapshot().take).toBe(take);
+    await h.armButton.click();
+    tester.expect(h.armButton.getAttribute("aria-expanded")).toBe("true");
+    tester.expect(h.session.getSnapshot().take).toBe(take);
+    await h.keepButton.click();
+    await h.keepCancelButton.click();
+    tester.expect(h.session.getSnapshot().take).toBe(take);
+    tester.expect(h.armButton.getAttribute("aria-expanded")).toBe("true");
+  });
   tester.it("applies all six signed adjustments and Reset without changing audition volume", async () => {
     const h = createControllerHarness(undefined, true);
     h.controller.init();
@@ -403,6 +430,12 @@ tester.describe("microphone recording controller", () => {
     }
     await h.alignmentResetButton.click();
     tester.expect(h.session.getSnapshot().alignmentCompensationMilliseconds).toBe(0);
+    for (let index = 0; index < 3; index++) await h.alignmentEarlier100Button.click();
+    for (let index = 0; index < 6; index++) await h.alignmentEarlier10Button.click();
+    tester.expect(h.alignmentValueElement.textContent).toBe("Offset: -360ms");
+    tester.expect(h.session.getSnapshot().alignmentCompensationMilliseconds).toBe(-360);
+    await h.alignmentResetButton.click();
+    tester.expect(h.alignmentValueElement.textContent).toBe("Offset: 0ms");
   });
   tester.it("discards an auditioned take into microphone-ready without closing or reacquiring", async () => {
     const h = createControllerHarness(undefined, true);

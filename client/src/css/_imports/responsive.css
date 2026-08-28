@@ -2,8 +2,7 @@
   Desktop/tablet responsive coordination.
 
   The dedicated phone presentation still lives in mobile-client. The desktop
-  web client now uses the same mixer language — vertical channel strips — while
-  reflowing those strips from four columns to two as tablet space gets tighter.
+  web client keeps mixer strips in one row, scrolling inside the tray as needed.
 */
 
 @media (max-width: 56rem) {

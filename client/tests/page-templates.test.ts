@@ -150,7 +150,7 @@ tester.describe("page templates", () => {
     tester.expect(html.includes("project-player-header__details-content")).toBe(true);
     tester.expect(html.includes("data-project-description-display")).toBe(true);
     tester.expect(html.includes("data-project-musical-timeline-display")).toBe(true);
-    tester.expect(html.includes("120 BPM · 4/4 · Bar 1 at project start")).toBe(true);
+    tester.expect(html.includes("120 BPM · 4/4")).toBe(true);
     tester.expect(html.includes('contenteditable="true"')).toBe(true);
     tester.expect(html.includes('id="project-edit-modal"')).toBe(false);
     tester.expect(html.includes('id="track-edit-modal"')).toBe(false);
