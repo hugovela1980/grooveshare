@@ -1028,6 +1028,82 @@ function initializeProjectPlayerPage({
     appElement,
     "#microphone-recording-workspace",
   );
+  const microphonePreparingView = getElement<HTMLElement>(
+    appElement,
+    "#microphone-preparing-view",
+  );
+  const microphoneReadyView = getElement<HTMLElement>(
+    appElement,
+    "#microphone-ready-view",
+  );
+  const microphoneFailureView = getElement<HTMLElement>(
+    appElement,
+    "#microphone-failure-view",
+  );
+  const microphoneLegacyView = getElement<HTMLElement>(
+    appElement,
+    "#microphone-legacy-view",
+  );
+  const microphonePreparingCloseButton = getElement<HTMLButtonElement>(
+    appElement,
+    "#microphone-preparing-close-button",
+  );
+  const microphoneReadyCloseButton = getElement<HTMLButtonElement>(
+    appElement,
+    "#microphone-ready-close-button",
+  );
+  const microphoneFailureCloseButton = getElement<HTMLButtonElement>(
+    appElement,
+    "#microphone-failure-close-button",
+  );
+  const microphoneCancelButton = getElement<HTMLButtonElement>(
+    appElement,
+    "#microphone-cancel-button",
+  );
+  const microphoneFailureCancelButton = getElement<HTMLButtonElement>(
+    appElement,
+    "#microphone-failure-cancel-button",
+  );
+  const microphonePermissionRetryButton = getElement<HTMLButtonElement>(
+    appElement,
+    "#microphone-retry-permission-button",
+  );
+  const microphoneFailureHeading = getElement<HTMLElement>(
+    appElement,
+    "#microphone-failure-heading",
+  );
+  const microphoneFailureMessage = getElement<HTMLElement>(
+    appElement,
+    "#microphone-failure-message",
+  );
+  const microphoneStartPositionButton = getElement<HTMLButtonElement>(
+    appElement,
+    "#microphone-start-position-button",
+  );
+  const microphoneStartPositionLabel = getElement<HTMLElement>(
+    appElement,
+    "#microphone-start-position-label",
+  );
+  const microphoneStartPositionEditor = getElement<HTMLElement>(
+    appElement,
+    "#microphone-start-position-editor",
+  );
+  const microphoneStartBarInput = getElement<HTMLInputElement>(
+    appElement,
+    "#microphone-start-bar-input",
+  );
+  const microphoneStartBeatInput = getElement<HTMLInputElement>(
+    appElement,
+    "#microphone-start-beat-input",
+  );
+  const microphoneStartPositionApplyButton = getElement<HTMLButtonElement>(
+    appElement,
+    "#microphone-start-position-apply-button",
+  );
+  const microphoneStartPositionStatus = getElement<HTMLElement>(
+    appElement,
+    "#microphone-start-position-status",
+  );
   const microphoneRecordButton = getElement<HTMLButtonElement>(
     appElement,
     "#microphone-record-button",
@@ -1145,6 +1221,31 @@ function initializeProjectPlayerPage({
           armButton: microphoneArmButton,
           armButtonLabelElement: microphoneArmButtonLabel ?? undefined,
           workspaceElement: microphoneRecordingWorkspace ?? undefined,
+          preparingViewElement: microphonePreparingView ?? undefined,
+          readyViewElement: microphoneReadyView ?? undefined,
+          failureViewElement: microphoneFailureView ?? undefined,
+          legacyViewElement: microphoneLegacyView ?? undefined,
+          cancelButtons: [
+            microphonePreparingCloseButton,
+            microphoneReadyCloseButton,
+            microphoneFailureCloseButton,
+            microphoneCancelButton,
+            microphoneFailureCancelButton,
+          ].filter((button): button is HTMLButtonElement => Boolean(button)),
+          permissionRetryButton: microphonePermissionRetryButton ?? undefined,
+          failureHeadingElement: microphoneFailureHeading ?? undefined,
+          failureMessageElement: microphoneFailureMessage ?? undefined,
+          startPositionButton: microphoneStartPositionButton ?? undefined,
+          startPositionLabelElement: microphoneStartPositionLabel ?? undefined,
+          startPositionEditorElement: microphoneStartPositionEditor ?? undefined,
+          startBarInput: microphoneStartBarInput ?? undefined,
+          startBeatInput: microphoneStartBeatInput ?? undefined,
+          startPositionApplyButton: microphoneStartPositionApplyButton ?? undefined,
+          startPositionStatusElement: microphoneStartPositionStatus ?? undefined,
+          beatsPerBar: musicalTimeline.timeSignature.numerator,
+          getRecordingStartPosition: audioPlayerController.getRecordingStartPosition,
+          setRecordingStartPosition: audioPlayerController.seekToMusicalPosition,
+          prepareRecordingStart: audioPlayerController.prepareRecordingStart,
           recordButton: microphoneRecordButton,
           stopButton: microphoneStopButton,
           auditionButton: microphoneAuditionButton,

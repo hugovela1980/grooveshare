@@ -32,6 +32,15 @@ type MediaDevicesLike = {
   getSupportedConstraints?: () => MediaTrackSupportedConstraints;
 };
 
+type BrowserAudioSessionType =
+  | "auto"
+  | "playback"
+  | "play-and-record";
+
+type BrowserAudioSessionLike = {
+  type: BrowserAudioSessionType;
+};
+
 type MediaRecorderLike = {
   readonly mimeType: string;
   readonly state: RecordingState;
@@ -79,6 +88,11 @@ export type BrowserMicrophoneRecordingAdapterOptions = {
    * recording port.
    */
   getAudioConstraints?: () => boolean | MediaTrackConstraints;
+  /**
+   * Optional Audio Session API boundary. Safari on iOS can leave output in its
+   * lower-volume play-and-record route after the final microphone track ends.
+   */
+  audioSession?: BrowserAudioSessionLike | null;
 };
 
 function getDefaultMediaDevices(): MediaDevicesLike | null {
@@ -95,6 +109,16 @@ function getDefaultMediaRecorderConstructor(): MediaRecorderConstructorLike | nu
   }
 
   return MediaRecorder as unknown as MediaRecorderConstructorLike;
+}
+
+function getDefaultAudioSession(): BrowserAudioSessionLike | null {
+  if (typeof navigator === "undefined") {
+    return null;
+  }
+
+  return (navigator as Navigator & {
+    audioSession?: BrowserAudioSessionLike;
+  }).audioSession ?? null;
 }
 
 function classifyBrowserMicrophoneError(error: unknown): MicrophoneRecordingError {
@@ -275,6 +299,7 @@ export function createBrowserMicrophoneRecordingAdapter({
   getPcmAlignmentDiagnosticsEnabled = () => false,
   createPcmAlignmentMonitor = createBrowserMicrophonePcmAlignmentMonitor,
   createMonoRecordingStream = createDefaultMonoRecordingStream,
+  audioSession = getDefaultAudioSession(),
 }: BrowserMicrophoneRecordingAdapterOptions = {}): MicrophoneRecordingPort {
   let stream: MediaStream | null = null;
   let recordingStream: MediaStream | null = null;
@@ -296,6 +321,29 @@ export function createBrowserMicrophoneRecordingAdapter({
     string | number | boolean | null
   > | null = null;
   let pcmAlignmentMonitor: BrowserMicrophonePcmAlignmentMonitor | null = null;
+
+  function setAudioSessionType(type: BrowserAudioSessionType): void {
+    try {
+      if (audioSession) {
+        audioSession.type = type;
+      }
+    } catch {
+      // The Audio Session API is optional and browser-controlled. Microphone
+      // ownership must still work when a browser rejects a category change.
+    }
+  }
+
+  function restorePlaybackAudioSession(): void {
+    if (!audioSession) {
+      return;
+    }
+
+    // WebKit can retain the voice-call volume route after getUserMedia tracks
+    // stop. Briefly selecting playback forces the route to be recomputed; auto
+    // then returns category ownership to the browser for normal app playback.
+    setAudioSessionType("playback");
+    setAudioSessionType("auto");
+  }
 
   function requireSupported(): {
     mediaDevices: MediaDevicesLike;
@@ -348,13 +396,17 @@ export function createBrowserMicrophoneRecordingAdapter({
     recordingStream = null;
 
     try {
-      await activeMonitor?.release();
-    } finally {
       try {
-        await activeMonoRecordingStream?.release();
+        await activeMonitor?.release();
       } finally {
-        stopStreamTracks();
+        try {
+          await activeMonoRecordingStream?.release();
+        } finally {
+          stopStreamTracks();
+        }
       }
+    } finally {
+      restorePlaybackAudioSession();
     }
   }
 
@@ -392,6 +444,7 @@ export function createBrowserMicrophoneRecordingAdapter({
 
     try {
       const audioConstraints = getAudioConstraints();
+      setAudioSessionType("play-and-record");
       stream = await supported.mediaDevices.getUserMedia({
         audio: audioConstraints,
       });

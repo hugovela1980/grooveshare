@@ -184,6 +184,39 @@ tester.describe("browser microphone recording adapter", () => {
     tester.expect(stream.track.stopCalls).toBe(1);
   });
 
+  tester.it("restores the browser playback audio session after releasing the microphone", async () => {
+    const stream = new FakeMediaStream();
+    const assignedTypes: string[] = [];
+    let currentType = "auto";
+    const audioSession = {
+      get type() {
+        return currentType as "auto" | "playback" | "play-and-record";
+      },
+      set type(value: "auto" | "playback" | "play-and-record") {
+        currentType = value;
+        assignedTypes.push(value);
+      },
+    };
+    const adapter = createBrowserMicrophoneRecordingAdapter({
+      mediaDevices: createMediaDevices(stream),
+      MediaRecorderConstructor: FakeMediaRecorder,
+      audioSession,
+    });
+
+    await adapter.prepare();
+    tester.expect(assignedTypes).toEqual(["play-and-record"]);
+
+    await adapter.release();
+
+    tester.expect(stream.track.stopCalls).toBe(1);
+    tester.expect(assignedTypes).toEqual([
+      "play-and-record",
+      "playback",
+      "auto",
+    ]);
+    tester.expect(audioSession.type).toBe("auto");
+  });
+
 
   tester.it("requests music-oriented unprocessed microphone audio by default", async () => {
     const stream = new FakeMediaStream();

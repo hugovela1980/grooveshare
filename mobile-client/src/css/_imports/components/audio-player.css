@@ -66,41 +66,17 @@
     font-size: 1.45rem;
 }
 
-.audio-player__seek-back-button:hover {
-    background: var(--color-light-button-hover);
-}
-
 .audio-player__play-pause-button {
     background: var(--audio-player-play-bg);
-}
-
-.audio-player__play-pause-button:hover {
-    background: var(--audio-player-play-hover);
 }
 
 .audio-player__stop-button {
     background: var(--audio-player-stop-bg);
 }
 
-.audio-player__stop-button:hover {
-    background: var(--audio-player-stop-hover);
-}
-
 .audio-player__transport-button:disabled {
     opacity: 0.5;
     cursor: not-allowed;
-}
-
-.audio-player__seek-back-button:disabled:hover {
-    background: var(--color-light-button);
-}
-
-.audio-player__play-pause-button:disabled:hover {
-    background: var(--audio-player-play-bg);
-}
-
-.audio-player__stop-button:disabled:hover {
-    background: var(--audio-player-stop-bg);
 }
 
 .audio-player__control-caption {
@@ -134,10 +110,6 @@
         transform 120ms ease;
 }
 
-.audio-player__loop-control:hover .audio-player__loop-button {
-    background: var(--color-light-button-hover);
-}
-
 .audio-player__loop-control input:checked+.audio-player__loop-button {
     border-color: var(--color-accent-hover);
     background: var(--color-accent-hover);
@@ -168,6 +140,26 @@
     width: 100%;
     min-height: 2rem;
     margin: 0;
+}
+
+/* Touch browsers can keep :hover matched after a tap. Only apply transient
+   hover colors on devices with a real hover-capable pointing device. */
+@media (hover: hover) and (pointer: fine) {
+    .audio-player__seek-back-button:hover:not(:disabled) {
+        background: var(--color-light-button-hover);
+    }
+
+    .audio-player__play-pause-button:hover:not(:disabled) {
+        background: var(--audio-player-play-hover);
+    }
+
+    .audio-player__stop-button:hover:not(:disabled) {
+        background: var(--audio-player-stop-hover);
+    }
+
+    .audio-player__loop-control:hover .audio-player__loop-button {
+        background: var(--color-light-button-hover);
+    }
 }
 
 @media (min-width: 0rem) {

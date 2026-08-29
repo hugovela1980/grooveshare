@@ -352,12 +352,22 @@ tester.describe("mobile Project Player integration", () => {
     tester.expect(ownerMarkup.includes('id="project-details-edit-button"')).toBe(true);
     tester.expect(contributorMarkup.includes('id="project-details-edit-button"')).toBe(false);
     tester.expect(ownerMarkup.includes("For the cleanest recording, use wired headphones")).toBe(true);
+    tester.expect(ownerMarkup.includes('id="microphone-preparing-view"')).toBe(true);
+    tester.expect(ownerMarkup.includes("Preparing microphone")).toBe(true);
+    tester.expect(ownerMarkup.includes('id="microphone-ready-view"')).toBe(true);
+    tester.expect(ownerMarkup.includes("Microphone ready")).toBe(true);
+    tester.expect(ownerMarkup.includes('id="microphone-start-position-button"')).toBe(true);
+    tester.expect(ownerMarkup.includes("Start recording")).toBe(true);
+    tester.expect(ownerMarkup.includes('id="microphone-failure-view"')).toBe(true);
+    tester.expect(ownerMarkup.includes("Try again")).toBe(true);
     tester.expect(ownerMarkup.includes('id="microphone-audition-button"')).toBe(true);
     tester.expect(contributorMarkup.includes('id="microphone-record-button"')).toBe(true);
     tester.expect(contributorMarkup.includes('id="microphone-retry-button"')).toBe(true);
     tester.expect(contributorMarkup.includes('id="microphone-discard-button"')).toBe(true);
     tester.expect(viewerMarkup.includes('id="microphone-record-button"')).toBe(false);
+    tester.expect(viewerMarkup.includes('id="microphone-preparing-view"')).toBe(false);
     tester.expect(guestMarkup.includes('id="microphone-record-button"')).toBe(false);
+    tester.expect(guestMarkup.includes('id="microphone-preparing-view"')).toBe(false);
   });
 
   tester.it("collapses expanded project details when the page reaches the bottom", () => {

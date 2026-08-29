@@ -8,6 +8,7 @@ import { tester } from "./test-runner/tester.js";
 
 function createButton() {
   let clickHandler: (() => void | Promise<void>) | null = null;
+  const attributes = new Map<string, string>();
 
   return {
     disabled: false,
@@ -21,17 +22,23 @@ function createButton() {
         clickHandler = handler;
       }
     },
+    setAttribute(name: string, value: string) {
+      attributes.set(name, value);
+    },
+    getAttribute(name: string) {
+      return attributes.get(name) ?? null;
+    },
     async click() {
       await clickHandler?.();
     },
   };
 }
 
-function createInput() {
+function createInput(value = "") {
   return {
     disabled: false,
     hidden: false,
-    value: "",
+    value,
   };
 }
 
@@ -76,7 +83,7 @@ function createSavedTrack(name: string): Track {
   };
 }
 
-function createSessionHarness() {
+function createSessionHarness({ deferArm = false }: { deferArm?: boolean } = {}) {
   let snapshot: MicrophoneRecordingSnapshot = {
     status: "idle",
     capture: null,
@@ -91,12 +98,26 @@ function createSessionHarness() {
     alignmentCompensationMilliseconds: 0,
   };
   let listener: ((next: MicrophoneRecordingSnapshot) => void) | null = null;
+  let resolveDeferredArm: (() => void) | null = null;
   const calls: string[] = [];
 
-  function publish(next: MicrophoneRecordingSnapshot) {
+  function publishSync(next: MicrophoneRecordingSnapshot) {
     snapshot = next;
     listener?.(snapshot);
-    return Promise.resolve(snapshot);
+    return snapshot;
+  }
+
+  function publish(next: MicrophoneRecordingSnapshot) {
+    return Promise.resolve(publishSync(next));
+  }
+
+  function readySnapshot(): MicrophoneRecordingSnapshot {
+    return {
+      ...snapshot,
+      status: "ready",
+      failure: null,
+      savedTrack: null,
+    };
   }
 
   const session: MicrophoneRecordingSession = {
@@ -106,7 +127,20 @@ function createSessionHarness() {
     },
     arm() {
       calls.push("arm");
-      return publish({ ...snapshot, status: "ready", failure: null, savedTrack: null });
+      publishSync({
+        ...snapshot,
+        status: "requesting-permission",
+        failure: null,
+        savedTrack: null,
+      });
+
+      if (deferArm) {
+        return new Promise<MicrophoneRecordingSnapshot>((resolve) => {
+          resolveDeferredArm = () => resolve(publishSync(readySnapshot()));
+        });
+      }
+
+      return publish(readySnapshot());
     },
     disarm() {
       calls.push("disarm");
@@ -279,13 +313,51 @@ function createSessionHarness() {
     async destroy() {},
   };
 
-  return { session, calls };
+  return {
+    session,
+    calls,
+    publishSnapshot(next: MicrophoneRecordingSnapshot) {
+      return publishSync(next);
+    },
+    getSnapshot() {
+      return snapshot;
+    },
+    resolveArmReady() {
+      resolveDeferredArm?.();
+      resolveDeferredArm = null;
+    },
+  };
 }
 
-function createControllerHarness(onTakeKept?: (track: Track) => void | Promise<void>) {
-  const sessionHarness = createSessionHarness();
+type ControllerHarnessOptions = {
+  onTakeKept?: (track: Track) => void | Promise<void>;
+  deferArm?: boolean;
+  initialStartPosition?: { bar: number; beat: number };
+  beatsPerBar?: number;
+};
+
+function createControllerHarness({
+  onTakeKept,
+  deferArm = false,
+  initialStartPosition = { bar: 6, beat: 3 },
+  beatsPerBar = 4,
+}: ControllerHarnessOptions = {}) {
+  const sessionHarness = createSessionHarness({ deferArm });
   const armButton = createButton();
-  const workspaceElement = { hidden: true };
+  const workspaceElement = {
+    hidden: true,
+    attributes: new Map<string, string>(),
+    setAttribute(name: string, value: string) {
+      this.attributes.set(name, value);
+    },
+  };
+  const preparingViewElement = { hidden: true };
+  const readyViewElement = { hidden: true };
+  const failureViewElement = { hidden: true };
+  const legacyViewElement = { hidden: true };
+  const preparingCloseButton = createButton();
+  const cancelButton = createButton();
+  const permissionRetryButton = createButton();
   const recordButton = createButton();
   const stopButton = createButton();
   const auditionButton = createButton();
@@ -294,6 +366,17 @@ function createControllerHarness(onTakeKept?: (track: Track) => void | Promise<v
   const keepButton = createButton();
   const takeNameInput = createInput();
   const statusElement = { textContent: "" as string | null };
+  const failureHeadingElement = { textContent: "" as string | null };
+  const failureMessageElement = { textContent: "" as string | null };
+  const startPositionButton = createButton();
+  const startPositionLabelElement = { textContent: "" as string | null };
+  const startPositionEditorElement = { hidden: true };
+  const startBarInput = createInput("1");
+  const startBeatInput = createInput("1");
+  const startPositionApplyButton = createButton();
+  const startPositionStatusElement = { textContent: "" as string | null };
+  const selectedPositions: { bar: number; beat: number }[] = [];
+  const preparedPositions: { bar: number; beat: number }[] = [];
   const alignmentValueElement = { textContent: "" as string | null };
   const alignmentEarlier100Button = createButton();
   const alignmentEarlier10Button = createButton();
@@ -306,6 +389,12 @@ function createControllerHarness(onTakeKept?: (track: Track) => void | Promise<v
     recordingSession: sessionHarness.session,
     armButton,
     workspaceElement,
+    preparingViewElement,
+    readyViewElement,
+    failureViewElement,
+    legacyViewElement,
+    cancelButtons: [preparingCloseButton, cancelButton],
+    permissionRetryButton,
     recordButton,
     stopButton,
     auditionButton,
@@ -314,6 +403,25 @@ function createControllerHarness(onTakeKept?: (track: Track) => void | Promise<v
     keepButton,
     takeNameInput,
     statusElement,
+    failureHeadingElement,
+    failureMessageElement,
+    startPositionButton,
+    startPositionLabelElement,
+    startPositionEditorElement,
+    startBarInput,
+    startBeatInput,
+    startPositionApplyButton,
+    startPositionStatusElement,
+    beatsPerBar,
+    getRecordingStartPosition: () => ({ ...initialStartPosition }),
+    setRecordingStartPosition(position) {
+      selectedPositions.push({ ...position });
+      return true;
+    },
+    prepareRecordingStart(position) {
+      preparedPositions.push({ ...position });
+      return true;
+    },
     alignmentValueElement,
     alignmentNudgeControls: [
       { button: alignmentEarlier100Button, deltaMilliseconds: -100 },
@@ -332,6 +440,13 @@ function createControllerHarness(onTakeKept?: (track: Track) => void | Promise<v
     controller,
     armButton,
     workspaceElement,
+    preparingViewElement,
+    readyViewElement,
+    failureViewElement,
+    legacyViewElement,
+    preparingCloseButton,
+    cancelButton,
+    permissionRetryButton,
     recordButton,
     stopButton,
     auditionButton,
@@ -340,6 +455,17 @@ function createControllerHarness(onTakeKept?: (track: Track) => void | Promise<v
     keepButton,
     takeNameInput,
     statusElement,
+    failureHeadingElement,
+    failureMessageElement,
+    startPositionButton,
+    startPositionLabelElement,
+    startPositionEditorElement,
+    startBarInput,
+    startBeatInput,
+    startPositionApplyButton,
+    startPositionStatusElement,
+    selectedPositions,
+    preparedPositions,
     alignmentValueElement,
     alignmentEarlier100Button,
     alignmentEarlier10Button,
@@ -352,7 +478,7 @@ function createControllerHarness(onTakeKept?: (track: Track) => void | Promise<v
 }
 
 tester.describe("microphone recording controller", () => {
-  tester.it("toggles a prepared microphone back to idle through the same control", async () => {
+  tester.it("opens the workflow, renders Ready, and disarms when the workflow closes", async () => {
     const harness = createControllerHarness();
     harness.controller.init();
 
@@ -360,9 +486,12 @@ tester.describe("microphone recording controller", () => {
 
     await harness.armButton.click();
     tester.expect(harness.workspaceElement.hidden).toBe(false);
+    tester.expect(harness.preparingViewElement.hidden).toBe(true);
+    tester.expect(harness.readyViewElement.hidden).toBe(false);
     tester.expect(harness.armButton.disabled).toBe(false);
     tester.expect(harness.armButton.textContent).toBe("Disable Microphone");
     tester.expect(harness.recordButton.disabled).toBe(false);
+    tester.expect(harness.startPositionLabelElement.textContent).toBe("Start at Bar 6 · Beat 3");
 
     await harness.armButton.click();
     tester.expect(harness.workspaceElement.hidden).toBe(true);
@@ -372,6 +501,105 @@ tester.describe("microphone recording controller", () => {
       "Enable your microphone to prepare a take.",
     );
     tester.expect(harness.calls).toEqual(["arm", "disarm"]);
+
+    harness.controller.destroy();
+  });
+
+  tester.it("shows Preparing while permission is pending and releases a late grant after Cancel", async () => {
+    const harness = createControllerHarness({ deferArm: true });
+    harness.controller.init();
+
+    const openPromise = harness.armButton.click();
+    tester.expect(harness.getSnapshot().status).toBe("requesting-permission");
+    tester.expect(harness.workspaceElement.hidden).toBe(false);
+    tester.expect(harness.preparingViewElement.hidden).toBe(false);
+    tester.expect(harness.readyViewElement.hidden).toBe(true);
+
+    await harness.cancelButton.click();
+    tester.expect(harness.workspaceElement.hidden).toBe(true);
+
+    harness.resolveArmReady();
+    await openPromise;
+
+    tester.expect(harness.getSnapshot().status).toBe("idle");
+    tester.expect(harness.workspaceElement.hidden).toBe(true);
+    tester.expect(harness.calls).toEqual(["arm", "disarm"]);
+
+    harness.controller.destroy();
+  });
+
+  tester.it("renders permission-denied recovery and retries through the shared arm path", async () => {
+    const harness = createControllerHarness();
+    harness.controller.init();
+
+    harness.publishSnapshot({
+      ...harness.getSnapshot(),
+      status: "failed",
+      failure: {
+        code: "permission-denied",
+        message: "Permission denied by browser.",
+      },
+    });
+
+    tester.expect(harness.workspaceElement.hidden).toBe(false);
+    tester.expect(harness.failureViewElement.hidden).toBe(false);
+    tester.expect(harness.failureHeadingElement.textContent).toBe("Microphone access needed");
+    tester.expect(harness.failureMessageElement.textContent).toBe(
+      "Allow microphone access in your browser settings, then try again.",
+    );
+
+    await harness.permissionRetryButton.click();
+    tester.expect(harness.getSnapshot().status).toBe("ready");
+    tester.expect(harness.readyViewElement.hidden).toBe(false);
+    tester.expect(harness.calls).toEqual(["arm"]);
+
+    harness.controller.destroy();
+  });
+
+  tester.it("lets Ready adjust the sticky start Bar/Beat and prepares transport before shared start", async () => {
+    const harness = createControllerHarness({
+      initialStartPosition: { bar: 6, beat: 3 },
+      beatsPerBar: 4,
+    });
+    harness.controller.init();
+    await harness.armButton.click();
+
+    await harness.startPositionButton.click();
+    tester.expect(harness.startPositionEditorElement.hidden).toBe(false);
+    tester.expect(harness.startPositionButton.getAttribute("aria-expanded")).toBe("true");
+
+    harness.startBarInput.value = "8";
+    harness.startBeatInput.value = "2";
+    await harness.startPositionApplyButton.click();
+
+    tester.expect(harness.startPositionLabelElement.textContent).toBe("Start at Bar 8 · Beat 2");
+    tester.expect(harness.startPositionEditorElement.hidden).toBe(true);
+    tester.expect(harness.selectedPositions).toEqual([{ bar: 8, beat: 2 }]);
+
+    await harness.recordButton.click();
+    tester.expect(harness.preparedPositions).toEqual([{ bar: 8, beat: 2 }]);
+    tester.expect(harness.calls.slice(-1)).toEqual(["start"]);
+    tester.expect(harness.legacyViewElement.hidden).toBe(false);
+
+    harness.controller.destroy();
+  });
+
+  tester.it("rejects a Ready beat outside the project meter before recording starts", async () => {
+    const harness = createControllerHarness({ beatsPerBar: 4 });
+    harness.controller.init();
+    await harness.armButton.click();
+
+    await harness.startPositionButton.click();
+    harness.startBarInput.value = "9";
+    harness.startBeatInput.value = "5";
+    await harness.recordButton.click();
+
+    tester.expect(harness.preparedPositions).toEqual([]);
+    tester.expect(harness.calls.includes("start")).toBe(false);
+    tester.expect(harness.startPositionEditorElement.hidden).toBe(false);
+    tester.expect(harness.startPositionStatusElement.textContent).toBe(
+      "Beat must be a whole number from 1 to 4.",
+    );
 
     harness.controller.destroy();
   });
@@ -471,8 +699,10 @@ tester.describe("microphone recording controller", () => {
 
   tester.it("keeps a named reviewed take and reports the saved track for project refresh", async () => {
     const refreshedTracks: string[] = [];
-    const harness = createControllerHarness((track) => {
-      refreshedTracks.push(track.id);
+    const harness = createControllerHarness({
+      onTakeKept(track) {
+        refreshedTracks.push(track.id);
+      },
     });
     harness.controller.init();
 

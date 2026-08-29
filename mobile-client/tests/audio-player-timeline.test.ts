@@ -75,7 +75,9 @@ function createNumberInput(initialValue = "1") {
   };
 }
 
-function createPlaybackHarness() {
+function createPlaybackHarness({
+  loadImmediately = true,
+}: { loadImmediately?: boolean } = {}) {
   let snapshot: PlaybackSnapshot = {
     currentTime: 0,
     musicalPosition: { bar: 1, beat: 1 },
@@ -87,6 +89,7 @@ function createPlaybackHarness() {
   let soughtMusicalPosition: MusicalPosition | null = null;
   let loopEnabled = false;
   let metronomeEnabled = false;
+  let playCalls = 0;
 
   function publish(nextSnapshot: PlaybackSnapshot): void {
     snapshot = nextSnapshot;
@@ -97,11 +100,12 @@ function createPlaybackHarness() {
     loadMix(channels: PlaybackChannel[]) {
       publish({
         ...snapshot,
-        duration: channels.length > 0 ? 30 : 0,
-        hasLoadedChannels: channels.length > 0,
+        duration: loadImmediately && channels.length > 0 ? 30 : 0,
+        hasLoadedChannels: loadImmediately && channels.length > 0,
       });
     },
     async play() {
+      playCalls += 1;
       publish({ ...snapshot, isPlaying: true });
     },
     pause() {
@@ -166,6 +170,9 @@ function createPlaybackHarness() {
     getSoughtMusicalPosition() {
       return soughtMusicalPosition;
     },
+    getPlayCalls() {
+      return playCalls;
+    },
   };
 }
 
@@ -179,6 +186,53 @@ function createMemoryStorage(): StorageProvider {
 }
 
 tester.describe("mobile musical timeline playback", () => {
+  tester.it("keeps the transport usable and queues play while selected tracks decode", async () => {
+    const playback = createPlaybackHarness({ loadImmediately: false });
+    const seekBackwardButton = createButton();
+    const seekForwardButton = createButton();
+    const playPauseButton = createButton();
+    const stopButton = createButton();
+    const progressInput = createRangeInput();
+    const seekBarInput = createNumberInput();
+    const seekBeatInput = createNumberInput();
+    const seekBarButton = createButton();
+
+    const controller = createAudioPlayerController({
+      playbackEngine: playback.engine,
+      seekBackwardButton,
+      seekForwardButton,
+      playPauseButton,
+      stopButton,
+      progressInput,
+      timestampElement: { textContent: null },
+      durationElement: { textContent: null },
+      musicalPositionElement: { textContent: null },
+      seekBarInput,
+      seekBeatInput,
+      seekBarButton,
+      trackNameElement: { textContent: null },
+      loopCheckbox: createCheckbox(),
+      metronomeCheckbox: createCheckbox(),
+    });
+
+    controller.init();
+    controller.loadMix([{
+      channelNumber: 1,
+      trackId: "track-1",
+      name: "Bass",
+      audioUrl: "/tracks/track-1/audio",
+      volume: 1,
+    }]);
+
+    tester.expect(playback.engine.getSnapshot().hasLoadedChannels).toBe(false);
+    tester.expect(playPauseButton.disabled).toBe(false);
+    tester.expect(seekBackwardButton.disabled).toBe(false);
+    tester.expect(stopButton.disabled).toBe(false);
+
+    await playPauseButton.click();
+    tester.expect(playback.getPlayCalls()).toBe(1);
+  });
+
   tester.it("renders the diagnostic musical position and bar jump controls", () => {
     const html = renderAudioPlayer({ showMicrophoneControl: true });
 
@@ -440,6 +494,64 @@ tester.describe("mobile musical timeline playback", () => {
     await secondStopButton.click();
     tester.expect(restoredWorkspace.getAnchor()).toBe(null);
     tester.expect(secondSeekInput.value).toBe("1");
+  });
+
+  tester.it("uses the shared workspace anchor for Ready and prepares transport there before recording", () => {
+    const workspace = createRecordingWorkspaceState({ projectId: "project-1" });
+    const playback = createPlaybackHarness();
+    const seekBarInput = createNumberInput("1");
+    const seekBeatInput = createNumberInput("1");
+    const controller = createAudioPlayerController({
+      playbackEngine: playback.engine,
+      seekBackwardButton: createButton(),
+      playPauseButton: createButton(),
+      stopButton: createButton(),
+      progressInput: createRangeInput(),
+      timestampElement: { textContent: null as string | null },
+      durationElement: { textContent: null as string | null },
+      musicalPositionElement: { textContent: null as string | null },
+      seekBarInput,
+      seekBeatInput,
+      seekBarButton: createButton(),
+      trackNameElement: { textContent: null as string | null },
+      loopCheckbox: { checked: false },
+      metronomeCheckbox: { checked: false },
+      recordingWorkspaceState: workspace,
+    });
+
+    controller.init();
+    controller.loadMix([{
+      channelNumber: 1,
+      trackId: "track-1",
+      name: "Guitar",
+      audioUrl: "/track.wav",
+      volume: 1,
+    }]);
+    playback.publish({
+      currentTime: 12,
+      musicalPosition: { bar: 6, beat: 3.75 },
+      duration: 30,
+      isPlaying: true,
+      hasLoadedChannels: true,
+    });
+
+    tester.expect(controller.getRecordingStartPosition()).toEqual({ bar: 6, beat: 3 });
+    tester.expect(controller.seekToMusicalPosition({ bar: 8, beat: 2 })).toBe(true);
+    tester.expect(workspace.getAnchor()).toEqual({ bar: 8, beat: 2 });
+    tester.expect(seekBarInput.value).toBe("8");
+    tester.expect(seekBeatInput.value).toBe("2");
+
+    playback.publish({
+      currentTime: 18,
+      musicalPosition: { bar: 10, beat: 1 },
+      duration: 30,
+      isPlaying: true,
+      hasLoadedChannels: true,
+    });
+    tester.expect(controller.prepareRecordingStart({ bar: 8, beat: 2 })).toBe(true);
+    tester.expect(playback.engine.getSnapshot().isPlaying).toBe(false);
+    tester.expect(playback.getSoughtMusicalPosition()).toEqual({ bar: 8, beat: 2 });
+    tester.expect(workspace.getAnchor()).toEqual({ bar: 8, beat: 2 });
   });
 
 });

@@ -184,7 +184,13 @@ export function createAudioPlayerController({
 
         updateTimestamp(snapshot);
         setPlayPauseButtonIcon(snapshot);
-        setControlsEnabled(snapshot.hasLoadedChannels);
+        // Web Audio loads and decodes the selected mix asynchronously. Keep the
+        // transport available as soon as a mix is selected: play() already
+        // waits for that authoritative loading promise, so a tap during the
+        // initial decode should queue playback instead of being ignored.
+        setControlsEnabled(
+            snapshot.hasLoadedChannels || loadedMixChannels.length > 0,
+        );
     }
 
     function updateLoadedMixPresentation(): void {
@@ -233,7 +239,7 @@ export function createAudioPlayerController({
     async function handlePlayPauseClick(): Promise<void> {
         const snapshot = playbackEngine.getSnapshot();
 
-        if (!snapshot.hasLoadedChannels) {
+        if (!snapshot.hasLoadedChannels && loadedMixChannels.length === 0) {
             return;
         }
 
@@ -285,18 +291,49 @@ export function createAudioPlayerController({
         updateProgress(playbackEngine.getSnapshot());
     }
 
-    function seekToBar(): void {
-        const bar = Number(seekBarInput.value);
-        const beat = Number(seekBeatInput?.value ?? "1");
+    function seekToMusicalPosition(position: { bar: number; beat: number }): boolean {
+        const bar = Number(position.bar);
+        const beat = Number(position.beat);
 
         if (!Number.isInteger(bar) || bar < 1 || !Number.isInteger(beat) || beat < 1) {
-            return;
+            return false;
         }
 
         const anchor = { bar, beat };
         recordingWorkspaceState?.setAnchor(anchor);
+        seekBarInput.value = String(anchor.bar);
+        if (seekBeatInput) seekBeatInput.value = String(anchor.beat);
         playbackEngine.seekToMusicalPosition(anchor);
         updateProgress(playbackEngine.getSnapshot());
+        return true;
+    }
+
+    function seekToBar(): void {
+        seekToMusicalPosition({
+            bar: Number(seekBarInput.value),
+            beat: Number(seekBeatInput?.value ?? "1"),
+        });
+    }
+
+    function getRecordingStartPosition(): { bar: number; beat: number } {
+        const workspaceAnchor = recordingWorkspaceState?.getAnchor() ?? null;
+        if (workspaceAnchor) {
+            return {
+                bar: workspaceAnchor.bar,
+                beat: Math.max(1, Math.floor(workspaceAnchor.beat)),
+            };
+        }
+
+        const current = playbackEngine.getSnapshot().musicalPosition;
+        return {
+            bar: current.bar,
+            beat: Math.max(1, Math.floor(current.beat)),
+        };
+    }
+
+    function prepareRecordingStart(position: { bar: number; beat: number }): boolean {
+        stop({ resetWorkspaceAnchor: false });
+        return seekToMusicalPosition(position);
     }
 
     function loadMix(channels: MixChannelForPlayer[]): void {
@@ -347,7 +384,9 @@ export function createAudioPlayerController({
         // reloads (for example after keeping a recorded take). The initial
         // markup already defaults this field to Bar 1.
         setPlayPauseButtonIcon(snapshot);
-        setControlsEnabled(snapshot.hasLoadedChannels);
+        setControlsEnabled(
+            snapshot.hasLoadedChannels || loadedMixChannels.length > 0,
+        );
     }
 
     function setChannelVolume(
@@ -468,6 +507,9 @@ export function createAudioPlayerController({
         setChannelVolume,
         setChannelEnabled,
         setTrackName,
+        seekToMusicalPosition,
+        getRecordingStartPosition,
+        prepareRecordingStart,
         stop,
         destroy,
     };
