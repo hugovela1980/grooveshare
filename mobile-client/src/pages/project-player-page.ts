@@ -33,7 +33,7 @@ function renderMusicalTimelineSummary(project: Project | null): string {
 
   const timeline = getProjectMusicalTimeline(project);
 
-  return `${timeline.bpm} BPM · ${timeline.timeSignature.numerator}/${timeline.timeSignature.denominator} · Bar 1 at project start`;
+  return `${timeline.bpm} BPM · ${timeline.timeSignature.numerator}/${timeline.timeSignature.denominator}`;
 }
 
 function isGuestProject(project: Project | null): boolean {
@@ -113,13 +113,30 @@ export function renderProjectPlayerPage(
             : '<span class="project-player-header__actions-spacer" aria-hidden="true"></span>'}
 
           <div class="project-player-header__mobile-heading">
-            <p
-              class="project-player-header__mobile-title"
-              data-project-mobile-title-display
-            >${heading}</p>
-            ${project
-              ? `<span class="project-player-header__mobile-role${guest ? " project-player-header__mobile-role--guest" : ""}">${getRoleLabel(project)}</span>`
-              : ""}
+            <details class="project-player-identity" data-project-details>
+              <summary class="project-player-identity__summary">
+                <span class="project-player-identity__title-group">
+                  <span class="project-player-identity__title" data-project-mobile-title-display>${heading}</span>
+                  <span class="project-player-identity__disclosure" aria-hidden="true"></span>
+                </span>
+              </summary>
+              ${project
+                ? /*html*/ `
+                  <div class="project-player-identity__details">
+                    <span class="project-player-identity__role${guest ? " project-player-identity__role--guest" : ""}">${getRoleLabel(project)}</span>
+                    <p class="project-player-identity__description" data-project-description-display>${project.description.trim() ? escapeHtml(project.description) : "No description provided."}</p>
+                    <p class="project-player-identity__timeline" data-project-musical-timeline-display>${musicalTimelineSummary}</p>
+                    <div class="project-player-identity__tracks">
+                      <span class="project-player-identity__tracks-label">Project tracks</span>
+                      <p id="project-details-track-names" class="project-player-identity__track-names">Loading tracks…</p>
+                    </div>
+                    ${canManageProject
+                      ? '<button id="project-details-edit-button" class="button button--secondary project-player-identity__edit-button" type="button">Edit Project</button>'
+                      : ""}
+                  </div>
+                `
+                : ""}
+            </details>
           </div>
 
           ${canManageProject
@@ -189,11 +206,7 @@ export function renderProjectPlayerPage(
           `
           : ""}
 
-        ${project
-          ? `<p class="description project-musical-timeline-summary" data-project-musical-timeline-display>${musicalTimelineSummary}</p>`
-          : ""}
-
-        ${renderAudioPlayer()}
+        ${renderAudioPlayer({ showMicrophoneControl: canRecordProject })}
 
         ${canRecordProject ? renderMicrophoneRecordingControls() : ""}
 

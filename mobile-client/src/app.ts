@@ -38,6 +38,7 @@ import { createProjectMenuPageController } from "./page-controllers/project-menu
 import { createProjectPlayerPageController } from "./page-controllers/project-player-page-controller.js";
 import { createProjectMembersController } from "./page-controllers/project-members-controller.js";
 import { createProjectActionsMenuController } from "./page-controllers/project-actions-menu-controller.js";
+import { createProjectDetailsScrollController } from "./page-controllers/project-details-scroll-controller.js";
 import { createProjectInvitationController } from "./page-controllers/project-invitation-controller.js";
 import { createAudioPlayerController } from "./page-controllers/audio-player-controller.js";
 import { createMicrophoneRecordingController } from "./page-controllers/microphone-recording-controller.js";
@@ -769,6 +770,21 @@ function initializeProjectPlayerPage({
     "[data-project-description-display]",
   );
 
+  const projectDetailsTrackNamesElement = getElement<HTMLElement>(
+    appElement,
+    "#project-details-track-names",
+  );
+
+  const projectDetailsEditButton = getElement<HTMLButtonElement>(
+    appElement,
+    "#project-details-edit-button",
+  );
+
+  const projectDetailsElement = getElement<HTMLDetailsElement>(
+    appElement,
+    "[data-project-details]",
+  );
+
   const projectEditModal = getElement<HTMLElement>(
     appElement,
     "#project-edit-modal",
@@ -868,6 +884,11 @@ function initializeProjectPlayerPage({
     "#audio-play-pause-button",
   );
 
+  const seekForwardButton = getElement<HTMLButtonElement>(
+    appElement,
+    "#audio-seek-forward-button",
+  );
+
   const stopButton = getElement<HTMLButtonElement>(
     appElement,
     "#audio-stop-button",
@@ -908,6 +929,11 @@ function initializeProjectPlayerPage({
     "#audio-seek-bar-input",
   );
 
+  const seekBeatInput = getElement<HTMLInputElement>(
+    appElement,
+    "#audio-seek-beat-input",
+  );
+
   const seekBarButton = getElement<HTMLButtonElement>(
     appElement,
     "#audio-seek-bar-button",
@@ -921,6 +947,7 @@ function initializeProjectPlayerPage({
   if (
     !audioElement ||
     !seekBackwardButton ||
+    !seekForwardButton ||
     !playPauseButton ||
     !stopButton ||
     !progressInput ||
@@ -928,6 +955,7 @@ function initializeProjectPlayerPage({
     !durationElement ||
     !musicalPositionElement ||
     !seekBarInput ||
+    !seekBeatInput ||
     !seekBarButton ||
     !trackNameElement ||
     !loopCheckbox ||
@@ -970,6 +998,7 @@ function initializeProjectPlayerPage({
     projectId: selectedProject.id,
     debugLogger: (message, details) => console.info(message, details),
     seekBackwardButton,
+    seekForwardButton,
     playPauseButton,
     stopButton,
     progressInput,
@@ -977,6 +1006,7 @@ function initializeProjectPlayerPage({
     durationElement,
     musicalPositionElement,
     seekBarInput,
+    seekBeatInput,
     seekBarButton,
     trackNameElement,
     loopCheckbox,
@@ -989,6 +1019,14 @@ function initializeProjectPlayerPage({
   const microphoneArmButton = getElement<HTMLButtonElement>(
     appElement,
     "#microphone-arm-button",
+  );
+  const microphoneArmButtonLabel = getElement<HTMLElement>(
+    appElement,
+    "#microphone-arm-button-label",
+  );
+  const microphoneRecordingWorkspace = getElement<HTMLElement>(
+    appElement,
+    "#microphone-recording-workspace",
   );
   const microphoneRecordButton = getElement<HTMLButtonElement>(
     appElement,
@@ -1105,6 +1143,8 @@ function initializeProjectPlayerPage({
       ? createMicrophoneRecordingController({
           recordingSession,
           armButton: microphoneArmButton,
+          armButtonLabelElement: microphoneArmButtonLabel ?? undefined,
+          workspaceElement: microphoneRecordingWorkspace ?? undefined,
           recordButton: microphoneRecordButton,
           stopButton: microphoneStopButton,
           auditionButton: microphoneAuditionButton,
@@ -1175,6 +1215,8 @@ function initializeProjectPlayerPage({
     projectTitleElement,
     projectMobileTitleElement,
     projectDescriptionElement,
+    projectDetailsTrackNamesElement,
+    projectDetailsEditButton,
     projectEditModal,
     projectEditForm,
     projectEditTitleInput,
@@ -1256,6 +1298,18 @@ function initializeProjectPlayerPage({
   });
 
   let destroyProjectActionsMenu: (() => void) | null = null;
+  const projectDetailsScrollController = projectDetailsElement
+    ? createProjectDetailsScrollController({
+        detailsElement: projectDetailsElement,
+        scrollTarget: window,
+        isPageAtBottom: () => {
+          const scrollingElement = document.scrollingElement ?? document.documentElement;
+          return Math.ceil(window.scrollY + window.innerHeight) >= scrollingElement.scrollHeight - 2;
+        },
+      })
+    : null;
+
+  projectDetailsScrollController?.init();
 
   if (selectedProject.role === "owner") {
     const memberForm = getElement<HTMLFormElement>(
@@ -1420,6 +1474,7 @@ function initializeProjectPlayerPage({
   }
 
   return () => {
+    projectDetailsScrollController?.destroy();
     destroyProjectActionsMenu?.();
     microphoneRecordingController?.destroy();
     void recordingSession?.destroy();

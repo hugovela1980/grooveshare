@@ -221,6 +221,8 @@ type ProjectPlayerPageControllerOptions = {
     projectTitleElement?: TextElementLike | null;
     projectMobileTitleElement?: TextElementLike | null;
     projectDescriptionElement?: TextElementLike | null;
+    projectDetailsTrackNamesElement?: TextElementLike | null;
+    projectDetailsEditButton?: ButtonElementLike | null;
     projectEditModal?: DialogElementLike | null;
     projectEditForm?: FormElementLike | null;
     projectEditTitleInput?: ValueInputLike | null;
@@ -307,6 +309,8 @@ export function createProjectPlayerPageController({
     projectTitleElement,
     projectMobileTitleElement,
     projectDescriptionElement,
+    projectDetailsTrackNamesElement,
+    projectDetailsEditButton,
     projectEditModal,
     projectEditForm,
     projectEditTitleInput,
@@ -378,6 +382,16 @@ export function createProjectPlayerPageController({
     let projectDeletionInFlight = false;
     let activeTrackEditId: string | null = null;
 
+    function updateProjectDetailsTrackNames(): void {
+        if (!projectDetailsTrackNamesElement) {
+            return;
+        }
+
+        projectDetailsTrackNamesElement.textContent = currentTracks.length > 0
+            ? currentTracks.map((track) => track.name).join(" · ")
+            : "No tracks";
+    }
+
     async function loadTracks({
         revealPlayer = false,
     }: { revealPlayer?: boolean } = {}): Promise<void> {
@@ -386,6 +400,7 @@ export function createProjectPlayerPageController({
         try {
             const tracks = await tracksApi.getTracksByProjectId(project.id);
             currentTracks = tracks;
+            updateProjectDetailsTrackNames();
             trackListElement.innerHTML = renderTrackList(
                 currentTracks,
                 mixPersistence.getCurrentMixSettings(),
@@ -399,6 +414,9 @@ export function createProjectPlayerPageController({
         } catch {
             trackListElement.innerHTML =
                 '<p class="empty-state">Could not load tracks.</p>';
+            if (projectDetailsTrackNamesElement) {
+                projectDetailsTrackNamesElement.textContent = "Could not load tracks.";
+            }
             setStatus(statusElement, "Could not load project tracks.");
         } finally {
             setRegionBusy(trackListElement, false);
@@ -559,6 +577,7 @@ export function createProjectPlayerPageController({
     }
 
     function rerenderTracks(): void {
+        updateProjectDetailsTrackNames();
         trackListElement.innerHTML = renderTrackList(
             currentTracks,
             mixPersistence.getCurrentMixSettings(),
@@ -1146,6 +1165,10 @@ export function createProjectPlayerPageController({
 
         projectEditDescriptionInput?.addEventListener?.("focus", () => {
             projectEditDescriptionInput.select?.();
+        });
+
+        projectDetailsEditButton?.addEventListener("click", () => {
+            openProjectEditor();
         });
 
         trackEditNameInput?.addEventListener?.("focus", () => {

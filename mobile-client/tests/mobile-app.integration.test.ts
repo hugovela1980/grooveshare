@@ -223,6 +223,7 @@ function createProjectPlayerIntegrationElements() {
         ["#player-track-list", trackListElement],
         ["#project-audio-player", audioElement],
         ["#audio-seek-back-button", seekBackwardButton],
+        ["#audio-seek-forward-button", createButton()],
         ["#audio-play-pause-button", playPauseButton],
         ["#audio-stop-button", stopButton],
         ["#audio-loop-checkbox", loopCheckbox],
@@ -232,6 +233,7 @@ function createProjectPlayerIntegrationElements() {
         ["#audio-duration", durationElement],
         ["#audio-musical-position", musicalPositionElement],
         ["#audio-seek-bar-input", seekBarInput],
+        ["#audio-seek-beat-input", { disabled: true, value: "1" }],
         ["#audio-seek-bar-button", seekBarButton],
         ["#audio-track-name", trackNameElement],
       ]);

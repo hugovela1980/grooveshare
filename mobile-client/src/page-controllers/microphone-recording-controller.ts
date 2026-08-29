@@ -13,6 +13,7 @@ type ButtonElementLike = {
     eventName: "click",
     handler: () => void | Promise<void>,
   ) => void;
+  setAttribute?: (name: string, value: string) => void;
 };
 
 type ValueInputLike = {
@@ -25,6 +26,10 @@ type TextElementLike = {
   textContent: string | null;
 };
 
+type WorkspaceElementLike = {
+  hidden: boolean | string;
+};
+
 type AlignmentNudgeControl = {
   button: ButtonElementLike;
   deltaMilliseconds: number;
@@ -33,6 +38,8 @@ type AlignmentNudgeControl = {
 type MicrophoneRecordingControllerOptions = {
   recordingSession: MicrophoneRecordingSession;
   armButton: ButtonElementLike;
+  armButtonLabelElement?: TextElementLike;
+  workspaceElement?: WorkspaceElementLike;
   recordButton: ButtonElementLike;
   stopButton: ButtonElementLike;
   auditionButton: ButtonElementLike;
@@ -110,6 +117,8 @@ function getStatusMessage(snapshot: MicrophoneRecordingSnapshot): string {
 export function createMicrophoneRecordingController({
   recordingSession,
   armButton,
+  armButtonLabelElement,
+  workspaceElement,
   recordButton,
   stopButton,
   auditionButton,
@@ -127,6 +136,11 @@ export function createMicrophoneRecordingController({
   let takeNameInitialized = false;
 
   function render(snapshot: MicrophoneRecordingSnapshot): void {
+    const workspaceVisible = snapshot.status !== "idle" || Boolean(snapshot.take) || Boolean(snapshot.failure);
+    if (workspaceElement) {
+      workspaceElement.hidden = !workspaceVisible;
+    }
+
     const hasStoppedTake = snapshot.status === "stopped" && Boolean(snapshot.take);
     const isSaving = snapshot.takeSaveStatus === "saving";
     const alignmentControlsDisabled =
@@ -175,11 +189,18 @@ export function createMicrophoneRecordingController({
       );
     }
 
-    armButton.textContent = snapshot.status === "requesting-permission"
+    const armLabel = snapshot.status === "requesting-permission"
       ? "Enabling…"
       : snapshot.status === "ready"
         ? "Disable Microphone"
         : "Enable Microphone";
+    if (armButtonLabelElement) {
+      armButtonLabelElement.textContent = armLabel;
+    } else {
+      armButton.textContent = armLabel;
+    }
+    armButton.setAttribute?.("aria-label", armLabel);
+    armButton.setAttribute?.("aria-pressed", String(workspaceVisible));
     recordButton.textContent = snapshot.status === "recording"
       ? "Recording…"
       : "Record";

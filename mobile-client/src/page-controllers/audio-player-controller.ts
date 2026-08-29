@@ -55,6 +55,11 @@ type TextElementLike = {
 type NumberInputElementLike = {
     disabled: boolean;
     value: string;
+    addEventListener?: (
+        eventName: "focus",
+        handler: () => void,
+    ) => void;
+    select?: () => void;
 };
 
 type PlaybackMusicalTimelineDebugDetails = {
@@ -79,6 +84,7 @@ type AudioPlayerControllerOptions = {
     projectId?: string;
     debugLogger?: PlaybackDebugLogger;
     seekBackwardButton: ButtonElementLike;
+    seekForwardButton?: ButtonElementLike;
     playPauseButton: ButtonElementLike;
     stopButton: ButtonElementLike;
     progressInput: RangeInputElementLike;
@@ -86,6 +92,7 @@ type AudioPlayerControllerOptions = {
     durationElement: TextElementLike;
     musicalPositionElement: TextElementLike;
     seekBarInput: NumberInputElementLike;
+    seekBeatInput?: NumberInputElementLike;
     seekBarButton: ButtonElementLike;
     trackNameElement: TextElementLike;
     loopCheckbox: CheckboxElementLike;
@@ -96,6 +103,7 @@ type AudioPlayerControllerOptions = {
 const PLAY_ICON = "▶";
 const PAUSE_ICON = "❚❚";
 const SEEK_BACKWARD_SECONDS = 5;
+const SEEK_FORWARD_SECONDS = 5;
 
 export function formatTimestamp(totalSeconds: number): string {
     if (!Number.isFinite(totalSeconds) || totalSeconds < 0) {
@@ -109,8 +117,7 @@ export function formatTimestamp(totalSeconds: number): string {
 }
 
 function formatMusicalBeat(beat: number): string {
-    const rounded = Number(beat.toFixed(3));
-    return String(rounded);
+    return String(Math.max(1, Math.floor(beat)));
 }
 
 export function formatMusicalPosition(position: { bar: number; beat: number }): string {
@@ -123,6 +130,7 @@ export function createAudioPlayerController({
     projectId,
     debugLogger,
     seekBackwardButton,
+    seekForwardButton,
     playPauseButton,
     stopButton,
     progressInput,
@@ -130,6 +138,7 @@ export function createAudioPlayerController({
     durationElement,
     musicalPositionElement,
     seekBarInput,
+    seekBeatInput,
     seekBarButton,
     trackNameElement,
     loopCheckbox,
@@ -141,10 +150,12 @@ export function createAudioPlayerController({
 
     function setControlsEnabled(isEnabled: boolean): void {
         seekBackwardButton.disabled = !isEnabled;
+        if (seekForwardButton) seekForwardButton.disabled = !isEnabled;
         playPauseButton.disabled = !isEnabled;
         stopButton.disabled = !isEnabled;
         progressInput.disabled = !isEnabled;
         seekBarInput.disabled = !isEnabled;
+        if (seekBeatInput) seekBeatInput.disabled = !isEnabled;
         seekBarButton.disabled = !isEnabled;
     }
 
@@ -240,6 +251,7 @@ export function createAudioPlayerController({
         if (resetWorkspaceAnchor) {
             recordingWorkspaceState?.clearAnchor();
             seekBarInput.value = "1";
+            if (seekBeatInput) seekBeatInput.value = "1";
         }
     }
 
@@ -275,12 +287,13 @@ export function createAudioPlayerController({
 
     function seekToBar(): void {
         const bar = Number(seekBarInput.value);
+        const beat = Number(seekBeatInput?.value ?? "1");
 
-        if (!Number.isInteger(bar) || bar < 1) {
+        if (!Number.isInteger(bar) || bar < 1 || !Number.isInteger(beat) || beat < 1) {
             return;
         }
 
-        const anchor = { bar, beat: 1 };
+        const anchor = { bar, beat };
         recordingWorkspaceState?.setAnchor(anchor);
         playbackEngine.seekToMusicalPosition(anchor);
         updateProgress(playbackEngine.getSnapshot());
@@ -318,6 +331,7 @@ export function createAudioPlayerController({
         const workspaceAnchor = recordingWorkspaceState?.getAnchor() ?? null;
         if (workspaceAnchor) {
             seekBarInput.value = String(workspaceAnchor.bar);
+            if (seekBeatInput) seekBeatInput.value = String(Math.floor(workspaceAnchor.beat));
             playbackEngine.seekToMusicalPosition(workspaceAnchor);
         }
         updateLoadedMixPresentation();
@@ -404,6 +418,7 @@ export function createAudioPlayerController({
         const workspaceAnchor = recordingWorkspaceState?.getAnchor() ?? null;
         if (workspaceAnchor) {
             seekBarInput.value = String(workspaceAnchor.bar);
+            if (seekBeatInput) seekBeatInput.value = String(Math.floor(workspaceAnchor.beat));
         }
 
         playbackEngine.setLoopEnabled(loopCheckbox.checked);
@@ -414,8 +429,15 @@ export function createAudioPlayerController({
 
         updateLoadedMixPresentation();
 
+        for (const input of [seekBarInput, seekBeatInput]) {
+            input?.addEventListener?.("focus", () => input.select?.());
+        }
+
         seekBackwardButton.addEventListener("click", () => {
             playbackEngine.seekBy(-SEEK_BACKWARD_SECONDS);
+        });
+        seekForwardButton?.addEventListener("click", () => {
+            playbackEngine.seekBy(SEEK_FORWARD_SECONDS);
         });
 
         playPauseButton.addEventListener("click", () => {

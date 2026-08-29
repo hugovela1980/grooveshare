@@ -1,4 +1,10 @@
-export function renderAudioPlayer(): string {
+type AudioPlayerTemplateOptions = {
+  showMicrophoneControl?: boolean;
+};
+
+export function renderAudioPlayer({
+  showMicrophoneControl = false,
+}: AudioPlayerTemplateOptions = {}): string {
   return /*html*/ `
     <section
       id="player-area"
@@ -18,6 +24,7 @@ export function renderAudioPlayer(): string {
       <audio id="project-audio-player" crossorigin="use-credentials"></audio>
 
       <div class="audio-player__controls">
+        <div class="audio-player__transport" aria-label="Project transport">
         <div class="audio-player__seek-back-control">
           <button
             id="audio-seek-back-button"
@@ -29,9 +36,6 @@ export function renderAudioPlayer(): string {
             <span aria-hidden="true">↶5</span>
           </button>
 
-          <span class="audio-player__control-caption" aria-hidden="true">
-            -5s
-          </span>
         </div>
 
         <button
@@ -44,6 +48,23 @@ export function renderAudioPlayer(): string {
           ▶
         </button>
 
+        ${showMicrophoneControl ? /*html*/ `
+          <button
+            id="microphone-arm-button"
+            class="button audio-player__transport-button audio-player__microphone-button"
+            type="button"
+            aria-label="Open recording workflow"
+            aria-controls="microphone-recording-workspace"
+            aria-pressed="false"
+          >
+            <svg class="audio-player__microphone-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 14.5a3.5 3.5 0 0 0 3.5-3.5V6a3.5 3.5 0 0 0-7 0v5a3.5 3.5 0 0 0 3.5 3.5Z" />
+              <path d="M5.75 10.5v.5a6.25 6.25 0 0 0 12.5 0v-.5M12 17.25V21M9 21h6" />
+            </svg>
+            <span id="microphone-arm-button-label" class="visually-hidden">Open recording workflow</span>
+          </button>
+        ` : ""}
+
         <button
           id="audio-stop-button"
           class="button audio-player__transport-button audio-player__stop-button"
@@ -54,37 +75,49 @@ export function renderAudioPlayer(): string {
           ■
         </button>
 
+        <button
+          id="audio-seek-forward-button"
+          class="button audio-player__transport-button audio-player__seek-forward-button"
+          type="button"
+          aria-label="Seek forward 5 seconds"
+          disabled
+        >
+          <span aria-hidden="true">5↷</span>
+        </button>
+        </div>
+
+        <div class="audio-player__switches">
         <label class="audio-player__loop-control">
           <input
             id="audio-loop-checkbox"
             type="checkbox"
+            role="switch"
             data-audio-loop-checkbox
           />
 
-          <span class="audio-player__loop-button" aria-hidden="true">
-            ↻
-          </span>
-
-          <span class="audio-player__control-caption">
-            Loop
-          </span>
+          <span class="audio-player__control-caption">Loop</span>
+          <span class="audio-player__switch" aria-hidden="true"></span>
         </label>
 
         <label class="audio-player__loop-control audio-player__metronome-control">
           <input
             id="audio-metronome-checkbox"
             type="checkbox"
+            role="switch"
             data-audio-metronome-checkbox
           />
 
-          <span class="audio-player__loop-button" aria-hidden="true">
-            ♩
-          </span>
-
-          <span class="audio-player__control-caption">
-            Click
-          </span>
+          <span class="audio-player__control-caption">Click</span>
+          <span class="audio-player__switch" aria-hidden="true"></span>
         </label>
+        </div>
+
+        <div class="audio-player__timeline">
+          <span id="audio-timestamp" class="audio-player__timestamp">00:00</span>
+          <label class="visually-hidden" for="audio-progress">Seek project position</label>
+          <input id="audio-progress" class="audio-player__progress" type="range" min="0" max="100" step="0.1" value="0" disabled />
+          <span id="audio-duration" class="audio-player__duration">00:00</span>
+        </div>
 
         <div class="audio-player__musical-timeline" aria-label="Musical timeline position">
           <span id="audio-musical-position" class="audio-player__musical-position">
@@ -95,6 +128,17 @@ export function renderAudioPlayer(): string {
             <label for="audio-seek-bar-input">Bar</label>
             <input
               id="audio-seek-bar-input"
+              class="audio-player__bar-input"
+              type="number"
+              min="1"
+              step="1"
+              value="1"
+              inputmode="numeric"
+              disabled
+            />
+            <label for="audio-seek-beat-input">Beat</label>
+            <input
+              id="audio-seek-beat-input"
               class="audio-player__bar-input"
               type="number"
               min="1"
@@ -114,30 +158,6 @@ export function renderAudioPlayer(): string {
           </div>
         </div>
 
-        <div class="audio-player__timeline">
-          <span id="audio-timestamp" class="audio-player__timestamp">
-            00:00
-          </span>
-
-          <label class="visually-hidden" for="audio-progress">
-            Progress
-          </label>
-
-          <input
-            id="audio-progress"
-            class="audio-player__progress"
-            type="range"
-            min="0"
-            max="100"
-            step="0.1"
-            value="0"
-            disabled
-          />
-
-          <span id="audio-duration" class="audio-player__duration">
-            00:00
-          </span>
-        </div>
       </div>
     </section>
   `;

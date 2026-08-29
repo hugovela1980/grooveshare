@@ -38,6 +38,43 @@ function createRangeInput() {
   };
 }
 
+function createCheckbox(initialChecked = false) {
+  let changeHandler: (() => void) | null = null;
+
+  return {
+    checked: initialChecked,
+    addEventListener(eventName: "change", handler: () => void) {
+      if (eventName === "change") changeHandler = handler;
+    },
+    change(nextChecked: boolean) {
+      this.checked = nextChecked;
+      changeHandler?.();
+    },
+  };
+}
+
+function createNumberInput(initialValue = "1") {
+  let focusHandler: (() => void) | null = null;
+  let selectCount = 0;
+
+  return {
+    disabled: true,
+    value: initialValue,
+    addEventListener(eventName: "focus", handler: () => void) {
+      if (eventName === "focus") focusHandler = handler;
+    },
+    select() {
+      selectCount += 1;
+    },
+    focus() {
+      focusHandler?.();
+    },
+    getSelectCount() {
+      return selectCount;
+    },
+  };
+}
+
 function createPlaybackHarness() {
   let snapshot: PlaybackSnapshot = {
     currentTime: 0,
@@ -48,6 +85,8 @@ function createPlaybackHarness() {
   };
   let listener: PlaybackStateListener | null = null;
   let soughtMusicalPosition: MusicalPosition | null = null;
+  let loopEnabled = false;
+  let metronomeEnabled = false;
 
   function publish(nextSnapshot: PlaybackSnapshot): void {
     snapshot = nextSnapshot;
@@ -86,7 +125,12 @@ function createPlaybackHarness() {
       soughtMusicalPosition = { ...position };
       publish({ ...snapshot, musicalPosition: { ...position } });
     },
-    setLoopEnabled() {},
+    setLoopEnabled(enabled: boolean) {
+      loopEnabled = enabled;
+    },
+    setMetronomeEnabled(enabled: boolean) {
+      metronomeEnabled = enabled;
+    },
     setChannelVolume() {
       return true;
     },
@@ -110,6 +154,15 @@ function createPlaybackHarness() {
   return {
     engine,
     publish,
+    getCurrentTime() {
+      return snapshot.currentTime;
+    },
+    getLoopEnabled() {
+      return loopEnabled;
+    },
+    getMetronomeEnabled() {
+      return metronomeEnabled;
+    },
     getSoughtMusicalPosition() {
       return soughtMusicalPosition;
     },
@@ -127,12 +180,15 @@ function createMemoryStorage(): StorageProvider {
 
 tester.describe("mobile musical timeline playback", () => {
   tester.it("renders the diagnostic musical position and bar jump controls", () => {
-    const html = renderAudioPlayer();
+    const html = renderAudioPlayer({ showMicrophoneControl: true });
 
     tester.expect(html.includes('id="audio-musical-position"')).toBe(true);
     tester.expect(html.includes("Bar 1 · Beat 1")).toBe(true);
     tester.expect(html.includes('id="audio-seek-bar-input"')).toBe(true);
+    tester.expect(html.includes('id="audio-seek-beat-input"')).toBe(true);
     tester.expect(html.includes('id="audio-seek-bar-button"')).toBe(true);
+    tester.expect(html.includes('id="audio-seek-forward-button"')).toBe(true);
+    tester.expect(html.includes('id="microphone-arm-button"')).toBe(true);
     tester.expect(html.includes('id="audio-metronome-checkbox"')).toBe(true);
     tester.expect(html.includes("Click")).toBe(true);
   });
@@ -215,13 +271,94 @@ tester.describe("mobile musical timeline playback", () => {
       hasLoadedChannels: true,
     });
 
-    tester.expect(musicalPositionElement.textContent).toBe("Bar 2 · Beat 2.5");
+    tester.expect(musicalPositionElement.textContent).toBe("Bar 2 · Beat 2");
 
     seekBarInput.value = "4";
     await seekBarButton.click();
 
     tester.expect(playback.getSoughtMusicalPosition()).toEqual({ bar: 4, beat: 1 });
     tester.expect(musicalPositionElement.textContent).toBe("Bar 4 · Beat 1");
+  });
+
+  tester.it("delegates both five-second seeks and bar/beat navigation to shared playback", async () => {
+    const playback = createPlaybackHarness();
+    const seekBackwardButton = createButton();
+    const seekForwardButton = createButton();
+    const seekBarButton = createButton();
+    const seekBarInput = createNumberInput("4");
+    const seekBeatInput = createNumberInput("3");
+    const controller = createAudioPlayerController({
+      playbackEngine: playback.engine,
+      seekBackwardButton,
+      seekForwardButton,
+      playPauseButton: createButton(),
+      stopButton: createButton(),
+      progressInput: createRangeInput(),
+      timestampElement: { textContent: null as string | null },
+      durationElement: { textContent: null as string | null },
+      musicalPositionElement: { textContent: null as string | null },
+      seekBarInput,
+      seekBeatInput,
+      seekBarButton,
+      trackNameElement: { textContent: null as string | null },
+      loopCheckbox: { checked: false },
+      metronomeCheckbox: { checked: false },
+    });
+
+    controller.init();
+    seekBarInput.focus();
+    seekBeatInput.focus();
+    tester.expect(seekBarInput.getSelectCount()).toBe(1);
+    tester.expect(seekBeatInput.getSelectCount()).toBe(1);
+    controller.loadMix([{
+      channelNumber: 1,
+      trackId: "track-1",
+      name: "Guitar",
+      audioUrl: "/track.wav",
+      volume: 1,
+    }]);
+    playback.publish({
+      currentTime: 10,
+      musicalPosition: { bar: 1, beat: 1 },
+      duration: 30,
+      isPlaying: false,
+      hasLoadedChannels: true,
+    });
+
+    await seekBackwardButton.click();
+    tester.expect(playback.getCurrentTime()).toBe(5);
+    await seekForwardButton.click();
+    tester.expect(playback.getCurrentTime()).toBe(10);
+    await seekBarButton.click();
+    tester.expect(playback.getSoughtMusicalPosition()).toEqual({ bar: 4, beat: 3 });
+  });
+
+  tester.it("delegates Loop and Click switches to shared playback state", () => {
+    const playback = createPlaybackHarness();
+    const loopCheckbox = createCheckbox();
+    const metronomeCheckbox = createCheckbox();
+    const controller = createAudioPlayerController({
+      playbackEngine: playback.engine,
+      seekBackwardButton: createButton(),
+      playPauseButton: createButton(),
+      stopButton: createButton(),
+      progressInput: createRangeInput(),
+      timestampElement: { textContent: null as string | null },
+      durationElement: { textContent: null as string | null },
+      musicalPositionElement: { textContent: null as string | null },
+      seekBarInput: { disabled: true, value: "1" },
+      seekBarButton: createButton(),
+      trackNameElement: { textContent: null as string | null },
+      loopCheckbox,
+      metronomeCheckbox,
+    });
+
+    controller.init();
+    loopCheckbox.change(true);
+    metronomeCheckbox.change(true);
+
+    tester.expect(playback.getLoopEnabled()).toBe(true);
+    tester.expect(playback.getMetronomeEnabled()).toBe(true);
   });
 
   tester.it("restores the sticky Go anchor after a mobile page reload and clears it only on Stop", async () => {

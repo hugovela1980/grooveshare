@@ -1,4 +1,4 @@
-export type MobileNavigationItem = "home" | "library" | "settings" | "logout";
+export type MobileNavigationItem = "home" | "people" | "library" | "logout";
 
 type MobileNavigationOptions = {
   activeItem?: Exclude<MobileNavigationItem, "logout"> | null;
@@ -23,11 +23,12 @@ function renderLibraryIcon(): string {
   `;
 }
 
-function renderSettingsIcon(): string {
+function renderPeopleIcon(): string {
   return /*html*/ `
     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <circle cx="12" cy="12" r="3" />
-      <path d="M12 2.8v2M12 19.2v2M21.2 12h-2M4.8 12h-2M18.5 5.5l-1.4 1.4M6.9 17.1l-1.4 1.4M18.5 18.5l-1.4-1.4M6.9 6.9 5.5 5.5" />
+      <circle cx="9" cy="8" r="3" />
+      <circle cx="16.5" cy="9" r="2.5" />
+      <path d="M3.5 20v-1.5A5.5 5.5 0 0 1 9 13h.5a5.5 5.5 0 0 1 5.5 5.5V20M15 14a4.5 4.5 0 0 1 5.5 4.4V20" />
     </svg>
   `;
 }
@@ -66,7 +67,19 @@ export function renderMobileNavigation({
         ${getActiveAttribute(activeItem, "home")}
       >
         <span class="mobile-navigation__icon">${renderHomeIcon()}</span>
-        <span class="mobile-navigation__label">Home</span>
+        <span class="mobile-navigation__label">Projects</span>
+      </button>
+
+      <button
+        id="mobile-nav-people-button"
+        class="mobile-navigation__item"
+        type="button"
+        disabled
+        aria-disabled="true"
+        title="People is planned for a later GrooveShare version"
+      >
+        <span class="mobile-navigation__icon">${renderPeopleIcon()}</span>
+        <span class="mobile-navigation__label">People</span>
       </button>
 
       <button
@@ -82,24 +95,12 @@ export function renderMobileNavigation({
       </button>
 
       <button
-        id="mobile-nav-settings-button"
-        class="mobile-navigation__item"
-        type="button"
-        disabled
-        aria-disabled="true"
-        title="Settings are planned for a later GrooveShare version"
-      >
-        <span class="mobile-navigation__icon">${renderSettingsIcon()}</span>
-        <span class="mobile-navigation__label">Settings</span>
-      </button>
-
-      <button
         id="${isGuest ? "mobile-nav-auth-button" : "mobile-nav-logout-button"}"
         class="mobile-navigation__item"
         type="button"
       >
         <span class="mobile-navigation__icon">${renderLogoutIcon()}</span>
-        <span class="mobile-navigation__label">${isGuest ? "Log In" : "Log Out"}</span>
+        <span class="mobile-navigation__label">${isGuest ? "Log In" : "Logout"}</span>
       </button>
     </nav>
   `;

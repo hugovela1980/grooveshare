@@ -109,7 +109,7 @@
         display: grid;
         grid-template-columns: 2.75rem minmax(0, 1fr) 2.75rem;
         gap: 0.45rem;
-        align-items: center;
+        align-items: start;
         margin-bottom: 0;
     }
 
@@ -139,8 +139,9 @@
     .project-player-header__mobile-heading {
         display: grid;
         min-width: 0;
+        min-height: 2.75rem;
+        align-items: start;
         justify-items: center;
-        gap: 0.15rem;
     }
 
     .project-player-header__mobile-role {
@@ -543,6 +544,571 @@
 
     #project-player-status {
         margin-top: 0.35rem;
+    }
+}
+
+/* Task 1: approved phone Project Player foundation. */
+@media (min-width: 0rem) {
+    html,
+    body {
+        max-width: 100%;
+        overflow-x: hidden;
+    }
+
+    .mobile-project-player-page {
+        min-height: 100dvh;
+        padding: max(0.65rem, env(safe-area-inset-top)) 0.75rem
+            calc(5.4rem + env(safe-area-inset-bottom));
+    }
+
+    .project-player-identity {
+        overflow: hidden;
+        margin-bottom: 0.75rem;
+        border: 1px solid var(--border-dark);
+        border-radius: var(--radius-lg);
+        background: var(--color-surface-strong);
+    }
+
+    .project-player-header .project-player-identity {
+        width: 100%;
+        min-width: 0;
+        margin-bottom: 0;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+    }
+
+    .project-player-header .project-player-identity__summary {
+        position: relative;
+        display: grid;
+        width: 100%;
+        height: 2.75rem;
+        min-height: 2.75rem;
+        grid-template-columns: minmax(0, 1fr);
+        place-items: center;
+        padding: 0 1.6rem;
+    }
+
+    .project-player-identity__summary {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto auto;
+        gap: 0.55rem;
+        min-height: 3.7rem;
+        align-items: center;
+        padding: 0.7rem 0.85rem;
+        cursor: pointer;
+        list-style: none;
+    }
+
+    .project-player-identity__summary::-webkit-details-marker {
+        display: none;
+    }
+
+    .project-player-identity__title {
+        display: block;
+        min-width: 0;
+        max-width: 100%;
+        overflow: hidden;
+        font-size: clamp(1.08rem, 4.8vw, 1.22rem);
+        font-weight: 750;
+        line-height: 1.1;
+        text-align: center;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .project-player-identity__title-group {
+        position: relative;
+        display: block;
+        min-width: 0;
+        max-width: calc(100% - 3rem);
+    }
+
+    .project-player-identity__role {
+        justify-self: start;
+        padding: 0.3rem 0.55rem;
+        border-radius: var(--radius-pill);
+        color: var(--color-accent-hover);
+        background: rgba(74, 222, 128, 0.12);
+        font-size: 0.65rem;
+        font-weight: 750;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+    }
+
+    .project-player-identity__role--guest {
+        color: var(--color-text-muted);
+        background: var(--color-surface);
+    }
+
+    .project-player-identity__disclosure {
+        position: absolute;
+        top: 50%;
+        left: calc(100% + 0.5rem);
+        width: 0.55rem;
+        height: 0.55rem;
+        border-right: 2px solid currentColor;
+        border-bottom: 2px solid currentColor;
+        transform: translateY(-70%) rotate(45deg);
+    }
+
+    .project-player-identity[open] .project-player-identity__disclosure {
+        transform: translateY(-30%) rotate(225deg);
+    }
+
+    .project-player-identity__timeline {
+        margin: 0;
+        color: var(--color-text-muted);
+        font-size: 0.78rem;
+    }
+
+    .project-player-identity__details {
+        display: grid;
+        gap: 0.55rem;
+        padding: 0 0.85rem 0.8rem;
+        text-align: left;
+    }
+
+    .project-player-identity__description,
+    .project-player-identity__track-names {
+        margin: 0;
+        overflow-wrap: anywhere;
+    }
+
+    .project-player-identity__description {
+        color: var(--color-text-subtle-cool);
+        font-size: 0.82rem;
+        line-height: 1.4;
+    }
+
+    .project-player-identity__tracks {
+        display: grid;
+        gap: 0.2rem;
+    }
+
+    .project-player-identity__tracks-label {
+        color: var(--color-text-muted);
+        font-size: 0.72rem;
+        font-weight: 750;
+        text-transform: uppercase;
+    }
+
+    .project-player-identity__track-names {
+        font-size: 0.8rem;
+        line-height: 1.35;
+    }
+
+    .project-player-identity__edit-button {
+        width: 100%;
+        min-height: 2.75rem;
+        margin-top: 0.1rem;
+    }
+
+    .audio-player {
+        margin: 0;
+    }
+
+    .audio-player__controls {
+        display: grid;
+        grid-template-columns: 1fr;
+        grid-template-areas: none;
+        gap: 0.75rem;
+        padding: 0.6rem 0.25rem 0.85rem;
+        border: 0;
+        background: transparent;
+    }
+
+    .audio-player__controls > *,
+    .audio-player__transport > *,
+    .audio-player__switches > .audio-player__loop-control {
+        grid-area: auto;
+    }
+
+    .audio-player__transport {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 0.35rem;
+        align-items: center;
+    }
+
+    .audio-player__seek-back-control {
+        display: grid;
+    }
+
+    .audio-player__transport-button {
+        width: 3.1rem;
+        height: 3.1rem;
+        min-height: 3.1rem;
+        justify-self: center;
+        padding: 0;
+        border: 1px solid var(--border-dark);
+        border-radius: 50%;
+        color: var(--color-text);
+        background: var(--color-surface-strong);
+        font-size: 1.15rem;
+    }
+
+    .audio-player__play-pause-button {
+        width: 4rem;
+        height: 4rem;
+        color: var(--color-light-text);
+        background: var(--color-light-button);
+        font-size: 1.55rem;
+    }
+
+    .audio-player__microphone-button {
+        width: 3.35rem;
+        height: 3.35rem;
+        color: #fff;
+        border-color: #ef4444;
+        background: linear-gradient(180deg, #ef4444, #c81e1e);
+    }
+
+    .audio-player__microphone-icon {
+        width: 1.35rem;
+        fill: none;
+        stroke: currentColor;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-width: 1.8;
+    }
+
+    .audio-player__stop-button {
+        width: 3.25rem;
+        height: 3.25rem;
+        color: var(--color-text);
+        background: var(--color-surface-strong);
+        font-size: 1.15rem;
+    }
+
+    .audio-player__seek-back-button,
+    .audio-player__seek-forward-button {
+        width: 2.75rem;
+        height: 2.75rem;
+        color: var(--color-text-muted);
+        background: var(--color-surface-strong);
+        font-size: 0.9rem;
+    }
+
+    .audio-player__switches {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.75rem;
+    }
+
+    .audio-player__loop-control {
+        display: flex;
+        min-height: 2.75rem;
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        padding-inline: 0.6rem;
+    }
+
+    .audio-player__switch {
+        position: relative;
+        width: 2.75rem;
+        height: 1.5rem;
+        border-radius: var(--radius-pill);
+        background: var(--border-input);
+    }
+
+    .audio-player__switch::after {
+        content: "";
+        position: absolute;
+        top: 0.18rem;
+        left: 0.2rem;
+        width: 1.14rem;
+        height: 1.14rem;
+        border-radius: 50%;
+        background: var(--color-text);
+        transition: transform 120ms ease;
+    }
+
+    .audio-player__loop-control input:checked + .audio-player__control-caption + .audio-player__switch {
+        background: var(--color-accent-hover);
+    }
+
+    .audio-player__loop-control input:checked + .audio-player__control-caption + .audio-player__switch::after {
+        transform: translateX(1.2rem);
+        background: var(--color-surface-deep);
+    }
+
+    .audio-player__loop-control input:focus-visible + .audio-player__control-caption + .audio-player__switch {
+        outline: 2px solid var(--color-text);
+        outline-offset: 3px;
+    }
+
+    .audio-player__timeline {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        gap: 0.55rem;
+        align-items: center;
+        width: 100%;
+        margin: 0;
+    }
+
+    .audio-player__progress {
+        min-width: 0;
+        min-height: 2.75rem;
+        margin: 0;
+        accent-color: var(--color-accent-hover);
+    }
+
+    .audio-player__progress::-webkit-slider-thumb {
+        transform: scale(1.2);
+    }
+
+    .audio-player__musical-timeline {
+        display: grid;
+        gap: 0.8rem;
+        justify-items: center;
+        margin: 0;
+    }
+
+    .audio-player__musical-position {
+        font-size: 0.95rem;
+    }
+
+    .audio-player__bar-jump {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto minmax(0, 1fr) auto;
+        gap: 0.4rem;
+        width: 100%;
+        align-items: center;
+    }
+
+    .audio-player__bar-input {
+        width: 100%;
+        min-width: 0;
+        min-height: 2.75rem;
+        padding: 0.5rem;
+        border: 1px solid var(--border-dark);
+        border-radius: var(--radius-md);
+        color: var(--color-text);
+        background: var(--color-surface-strong);
+    }
+
+    .audio-player__bar-jump-button {
+        min-height: 2.75rem;
+        padding-inline: 0.8rem;
+    }
+
+    .project-player-tracks-panel {
+        min-width: 0;
+        margin-top: 0.25rem;
+        padding: 0;
+        overflow: visible;
+        border: 0;
+        background: transparent;
+    }
+
+    .mix-channel-panel {
+        min-width: 0;
+    }
+
+    .mix-channel-panel__title {
+        margin: 0 0 0.65rem;
+        font-size: 1.15rem;
+        line-height: 1.3;
+    }
+
+    .mix-channel-slots {
+        display: grid;
+        grid-template-columns: none;
+        grid-auto-flow: column;
+        grid-auto-columns: 4.95rem;
+        justify-content: start;
+        gap: 0.45rem;
+        min-width: 0;
+        overflow-x: auto;
+        scroll-snap-type: x proximity;
+        overscroll-behavior-inline: contain;
+        padding: 0 0 0.6rem;
+        border: 0;
+        background: transparent;
+    }
+
+    .mix-channel-slot,
+    .mix-channel-slot--empty {
+        display: block;
+        grid-template: none;
+        min-width: 0;
+        min-height: 0;
+        overflow: visible;
+        scroll-snap-align: start;
+        border: 0;
+        background: transparent;
+    }
+
+    .mix-channel-slot__strip {
+        display: grid;
+        grid-template-rows: 2.8rem 10.4rem 3rem;
+        justify-items: center;
+        min-height: 16.2rem;
+        overflow: hidden;
+        border: 1px solid var(--border-dark);
+        border-radius: var(--radius-lg);
+        background: var(--color-surface-strong);
+    }
+
+    .mix-channel-slot__track-name {
+        width: 100%;
+        min-width: 0;
+        padding: 0.7rem 0.35rem 0;
+        overflow: hidden;
+        color: var(--color-text-muted);
+        font-size: 0.8rem;
+        font-weight: 800;
+        text-align: center;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .mix-channel-slot__volume-label {
+        display: grid;
+        width: 100%;
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: auto 1fr;
+        gap: 0.25rem;
+        align-items: center;
+        justify-content: stretch;
+        justify-items: center;
+        justify-self: stretch;
+        text-align: center;
+    }
+
+    .mix-channel-slot__volume-value {
+        width: 100%;
+        color: var(--color-text-muted);
+        font-size: 0.72rem;
+        text-align: center;
+    }
+
+    .mix-channel-slot__volume-label input {
+        width: 2.5rem;
+        height: 8rem;
+        place-self: center;
+        margin: 0;
+        direction: rtl;
+        writing-mode: vertical-lr;
+        accent-color: var(--color-text-subtle);
+    }
+
+    .mix-channel-slot__channel-toggle {
+        position: relative;
+        display: grid;
+        place-items: center;
+        cursor: pointer;
+    }
+
+    .mix-channel-slot__enabled-input {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        opacity: 0;
+    }
+
+    .mix-channel-slot__enabled-state {
+        display: grid;
+        width: 4.15rem;
+        min-height: 2.2rem;
+        place-items: center;
+        border-radius: var(--radius-pill);
+        color: var(--color-text-muted);
+        background: var(--color-surface);
+        font-size: 0.78rem;
+        font-weight: 700;
+    }
+
+    .mix-channel-slot__state-on {
+        display: none;
+    }
+
+    .mix-channel-slot__enabled-input:checked + .mix-channel-slot__enabled-state {
+        color: var(--color-light-text);
+        background: var(--color-accent-hover);
+    }
+
+    .mix-channel-slot__enabled-input:checked + .mix-channel-slot__enabled-state .mix-channel-slot__state-on {
+        display: inline;
+    }
+
+    .mix-channel-slot__enabled-input:checked + .mix-channel-slot__enabled-state .mix-channel-slot__state-off {
+        display: none;
+    }
+
+    .mix-channel-slot__strip:has(.mix-channel-slot__enabled-input:checked) :is(.mix-channel-slot__track-name, .mix-channel-slot__volume-value) {
+        color: var(--color-accent-hover);
+    }
+
+    .mix-channel-slot__strip:has(.mix-channel-slot__enabled-input:checked) .mix-channel-slot__volume-label input {
+        accent-color: var(--color-accent-hover);
+    }
+
+    .mix-channel-slot__enabled-input:focus-visible + .mix-channel-slot__enabled-state,
+    .mix-channel-slots:focus-visible {
+        outline: 2px solid var(--color-text);
+        outline-offset: 2px;
+    }
+
+    .mix-channel-slot--empty .mix-channel-slot__strip {
+        place-items: center;
+    }
+
+    .mix-channel-slot__add-track-button,
+    .mix-channel-slot__empty-label {
+        display: grid;
+        min-width: 4.5rem;
+        min-height: 4.5rem;
+        place-items: center;
+        gap: 0.25rem;
+        padding: 0.4rem;
+        border: 1px dashed var(--border-input);
+        border-radius: var(--radius-md);
+        color: var(--color-text-muted);
+        background: transparent;
+    }
+
+    .mix-channel-slot__add-track-button span {
+        font-size: 0.68rem;
+    }
+
+    #project-player-status:empty {
+        display: none;
+    }
+}
+
+@media (max-width: 22rem) {
+    .mobile-project-player-page {
+        padding-inline: 0.45rem;
+    }
+
+    .audio-player__transport-button {
+        width: 2.8rem;
+        height: 2.8rem;
+        min-height: 2.8rem;
+    }
+
+    .audio-player__play-pause-button {
+        width: 3.5rem;
+        height: 3.5rem;
+    }
+
+    .audio-player__bar-jump {
+        grid-template-columns: auto minmax(0, 1fr);
+    }
+
+    .audio-player__bar-jump-button {
+        grid-column: 1 / -1;
+        width: 100%;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .audio-player__switch::after,
+    .project-player-identity__disclosure {
+        transition: none;
     }
 }
 

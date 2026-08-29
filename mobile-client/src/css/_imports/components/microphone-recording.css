@@ -4,6 +4,10 @@
     padding: 1rem 1.1rem;
 }
 
+.microphone-recording[hidden] {
+    display: none;
+}
+
 .microphone-recording__details {
     display: grid;
     gap: 0.35rem;

@@ -5,8 +5,10 @@ import type {
   Track,
 } from "@hugovela/frontend-core";
 import { createProjectActionsMenuController } from "../src/page-controllers/project-actions-menu-controller.js";
+import { createProjectDetailsScrollController } from "../src/page-controllers/project-details-scroll-controller.js";
 import { createProjectPlayerPageController } from "../src/page-controllers/project-player-page-controller.js";
 import { renderProjectPlayerPage } from "../src/pages/project-player-page.js";
+import { renderMixChannelSlots } from "../src/templates/mix-channel-slots.js";
 import { tester } from "./test-runner/tester.js";
 
 const ownerProject: Project = {
@@ -266,6 +268,46 @@ function createNoopTracksApi(tracks: Track[] = []) {
 }
 
 tester.describe("mobile Project Player integration", () => {
+  tester.it("renders four independent horizontal mixer strips and approved navigation labels", () => {
+    const tracks = [
+      track,
+      { ...track, id: "track-2", name: "Drums" },
+      { ...track, id: "track-3", name: "Guitar" },
+      { ...track, id: "track-4", name: "Vocals" },
+    ];
+    const mixSettings: MixSettings = {
+      channels: tracks.map((currentTrack, index) => ({
+        channelNumber: index + 1,
+        trackId: currentTrack.id,
+        enabled: index !== 2,
+        volume: [0, 0.5, 0.75, 1][index]!,
+      })),
+    };
+    const mixerMarkup = renderMixChannelSlots(tracks, mixSettings, {
+      role: "contributor",
+      currentUserId: "user-1",
+    });
+    const pageMarkup = renderProjectPlayerPage(ownerProject, {
+      currentUser: {
+        id: "user-1",
+        email: "player@example.com",
+        displayName: "Player",
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      },
+    });
+
+    tester.expect((mixerMarkup.match(/data-mix-channel-slot/g) ?? []).length).toBe(4);
+    tester.expect(mixerMarkup.includes(">0%</span>")).toBe(true);
+    tester.expect(mixerMarkup.includes(">50%</span>")).toBe(true);
+    tester.expect(mixerMarkup.includes(">75%</span>")).toBe(true);
+    tester.expect(mixerMarkup.includes(">100%</span>")).toBe(true);
+    tester.expect((mixerMarkup.match(/ checked/g) ?? []).length).toBe(3);
+    for (const label of ["Projects", "People", "Library", "Logout"]) {
+      tester.expect(pageMarkup.includes(`>${label}</span>`)).toBe(true);
+    }
+  });
+
   tester.it("shows microphone recording only to Contributors and Owners", () => {
     const ownerMarkup = renderProjectPlayerPage(ownerProject);
     const contributorMarkup = renderProjectPlayerPage({
@@ -283,6 +325,32 @@ tester.describe("mobile Project Player integration", () => {
     });
 
     tester.expect(ownerMarkup.includes('id="microphone-arm-button"')).toBe(true);
+    const headerMarkup = ownerMarkup.slice(
+      ownerMarkup.indexOf('<header class="page-header project-player-header">'),
+      ownerMarkup.indexOf("</header>") + "</header>".length,
+    );
+    tester.expect(headerMarkup.includes('id="player-back-button"')).toBe(true);
+    tester.expect(headerMarkup.includes('class="project-player-identity"')).toBe(true);
+    tester.expect(headerMarkup.includes('id="project-actions-button"')).toBe(true);
+    tester.expect((ownerMarkup.match(/class="project-player-identity"/g) ?? []).length).toBe(1);
+    const identitySummaryMarkup = headerMarkup.slice(
+      headerMarkup.indexOf('<summary class="project-player-identity__summary">'),
+      headerMarkup.indexOf("</summary>") + "</summary>".length,
+    );
+    const identityDetailsMarkup = headerMarkup.slice(
+      headerMarkup.indexOf('<div class="project-player-identity__details">'),
+      headerMarkup.indexOf("</details>"),
+    );
+    tester.expect(identitySummaryMarkup.includes("Mobile Song")).toBe(true);
+    tester.expect(identitySummaryMarkup.includes("Owner")).toBe(false);
+    tester.expect(identitySummaryMarkup.indexOf("Mobile Song") < identitySummaryMarkup.indexOf("project-player-identity__disclosure")).toBe(true);
+    tester.expect(identityDetailsMarkup.includes("Owner")).toBe(true);
+    tester.expect(ownerMarkup.includes("Phone collaboration")).toBe(true);
+    tester.expect(ownerMarkup.includes("120 BPM · 4/4")).toBe(true);
+    tester.expect(ownerMarkup.includes("Bar 1 at project start")).toBe(false);
+    tester.expect(ownerMarkup.includes('id="project-details-track-names"')).toBe(true);
+    tester.expect(ownerMarkup.includes('id="project-details-edit-button"')).toBe(true);
+    tester.expect(contributorMarkup.includes('id="project-details-edit-button"')).toBe(false);
     tester.expect(ownerMarkup.includes("For the cleanest recording, use wired headphones")).toBe(true);
     tester.expect(ownerMarkup.includes('id="microphone-audition-button"')).toBe(true);
     tester.expect(contributorMarkup.includes('id="microphone-record-button"')).toBe(true);
@@ -290,6 +358,39 @@ tester.describe("mobile Project Player integration", () => {
     tester.expect(contributorMarkup.includes('id="microphone-discard-button"')).toBe(true);
     tester.expect(viewerMarkup.includes('id="microphone-record-button"')).toBe(false);
     tester.expect(guestMarkup.includes('id="microphone-record-button"')).toBe(false);
+  });
+
+  tester.it("collapses expanded project details when the page reaches the bottom", () => {
+    const detailsElement = { open: true };
+    const listeners: { scroll?: () => void } = {};
+    let pageAtBottom = false;
+    const scrollTarget = {
+      addEventListener(_type: "scroll", listener: () => void) {
+        listeners.scroll = listener;
+      },
+      removeEventListener(_type: "scroll", listener: () => void) {
+        if (listeners.scroll === listener) {
+          delete listeners.scroll;
+        }
+      },
+    };
+    const controller = createProjectDetailsScrollController({
+      detailsElement,
+      scrollTarget,
+      isPageAtBottom: () => pageAtBottom,
+    });
+
+    controller.init();
+    listeners.scroll?.();
+    tester.expect(detailsElement.open).toBe(true);
+
+    pageAtBottom = true;
+    listeners.scroll?.();
+    tester.expect(detailsElement.open).toBe(false);
+
+    detailsElement.open = true;
+    controller.destroy();
+    tester.expect(listeners.scroll).toBe(undefined);
   });
 
   tester.it("loads project tracks and prepares playback through the shared playback boundary", async () => {
@@ -302,6 +403,7 @@ tester.describe("mobile Project Player integration", () => {
     const trackListElement = createTrackListElement();
     const loadingElement = { hidden: false };
     const contentElement = { hidden: true };
+    const projectDetailsTrackNamesElement = { textContent: "Loading tracks…" as string | null };
     let loadedChannels: unknown[] = [];
 
     const controller = createProjectPlayerPageController({
@@ -309,6 +411,7 @@ tester.describe("mobile Project Player integration", () => {
       trackListElement,
       loadingElement,
       contentElement,
+      projectDetailsTrackNamesElement,
       tracksApi: createNoopTracksApi([track]),
       renderTrackList() {
         return '<div data-mobile-mixer="true">Guitar</div>';
@@ -328,6 +431,7 @@ tester.describe("mobile Project Player integration", () => {
     await controller.init();
 
     tester.expect(trackListElement.innerHTML.includes("Guitar")).toBe(true);
+    tester.expect(projectDetailsTrackNamesElement.textContent).toBe("Guitar");
     tester.expect(loadingElement.hidden).toBe(true);
     tester.expect(contentElement.hidden).toBe(false);
     tester.expect(loadedChannels).toEqual([
@@ -405,6 +509,7 @@ tester.describe("mobile Project Player integration", () => {
     const descriptionInput = createTextInput();
     const mobileTitleElement = { textContent: project.title as string | null };
     const saveButton = createControllerButton();
+    const detailsEditButton = createControllerButton();
     let updateCallCount = 0;
 
     const controller = createProjectPlayerPageController({
@@ -416,6 +521,7 @@ tester.describe("mobile Project Player integration", () => {
       projectEditTitleInput: titleInput,
       projectEditDescriptionInput: descriptionInput,
       projectEditSaveButton: saveButton,
+      projectDetailsEditButton: detailsEditButton,
       tracksApi: createNoopTracksApi(),
       projectsApi: {
         async deleteProject() {
@@ -439,6 +545,11 @@ tester.describe("mobile Project Player integration", () => {
     });
 
     await controller.init();
+
+    await detailsEditButton.click();
+    tester.expect(modal.hidden).toBe(false);
+    tester.expect(titleInput.value).toBe("Mobile Song");
+    modal.hidden = true;
 
     const triggerButton = createMenuButton();
     const editProjectButton = createMenuButton();

@@ -1,8 +1,10 @@
 export function renderMicrophoneRecordingControls(): string {
   return /*html*/ `
     <section
+      id="microphone-recording-workspace"
       class="panel microphone-recording"
       aria-labelledby="microphone-recording-heading"
+      hidden
     >
       <div class="microphone-recording__details">
         <p class="eyebrow">Microphone Take</p>
@@ -37,13 +39,6 @@ export function renderMicrophoneRecordingControls(): string {
       </div>
 
       <div class="microphone-recording__actions">
-        <button
-          id="microphone-arm-button"
-          class="button button--secondary"
-          type="button"
-        >
-          Enable Microphone
-        </button>
         <button
           id="microphone-record-button"
           class="button"

@@ -285,6 +285,7 @@ function createSessionHarness() {
 function createControllerHarness(onTakeKept?: (track: Track) => void | Promise<void>) {
   const sessionHarness = createSessionHarness();
   const armButton = createButton();
+  const workspaceElement = { hidden: true };
   const recordButton = createButton();
   const stopButton = createButton();
   const auditionButton = createButton();
@@ -304,6 +305,7 @@ function createControllerHarness(onTakeKept?: (track: Track) => void | Promise<v
   const controller = createMicrophoneRecordingController({
     recordingSession: sessionHarness.session,
     armButton,
+    workspaceElement,
     recordButton,
     stopButton,
     auditionButton,
@@ -329,6 +331,7 @@ function createControllerHarness(onTakeKept?: (track: Track) => void | Promise<v
     ...sessionHarness,
     controller,
     armButton,
+    workspaceElement,
     recordButton,
     stopButton,
     auditionButton,
@@ -356,11 +359,13 @@ tester.describe("microphone recording controller", () => {
     tester.expect(harness.armButton.textContent).toBe("Enable Microphone");
 
     await harness.armButton.click();
+    tester.expect(harness.workspaceElement.hidden).toBe(false);
     tester.expect(harness.armButton.disabled).toBe(false);
     tester.expect(harness.armButton.textContent).toBe("Disable Microphone");
     tester.expect(harness.recordButton.disabled).toBe(false);
 
     await harness.armButton.click();
+    tester.expect(harness.workspaceElement.hidden).toBe(true);
     tester.expect(harness.armButton.textContent).toBe("Enable Microphone");
     tester.expect(harness.recordButton.disabled).toBe(true);
     tester.expect(harness.statusElement.textContent).toBe(
