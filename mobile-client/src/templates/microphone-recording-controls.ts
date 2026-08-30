@@ -264,97 +264,172 @@ export function renderMicrophoneRecordingControls(): string {
         <p class="microphone-recording__processing-hint">You can review this take next.</p>
       </div>
 
-      <!--
-        Compatibility presentation retained for stopped-take review states.
-        Tasks 4-6 replace this with the approved meter and review experiences.
-      -->
       <div
-        id="microphone-legacy-view"
-        class="microphone-recording__view microphone-recording__view--legacy"
-        data-microphone-workflow-view="legacy"
+        id="microphone-review-view"
+        class="microphone-recording__view microphone-recording__view--review"
+        data-microphone-workflow-view="review"
         hidden
       >
-        <div class="microphone-recording__details">
-          <p class="eyebrow">Microphone Take</p>
-          <h2>Record against the project timeline</h2>
-          <p class="microphone-recording__hint">
-            For the cleanest recording, use wired headphones so project playback stays out of the microphone.
-          </p>
+        ${renderCloseButton("microphone-review-close-button", "Close take review")}
+
+        <div class="microphone-recording__review-card">
+          <div class="microphone-recording__review-heading">
+            <div>
+              <h2 id="microphone-review-heading">Take ready</h2>
+              <span
+                id="microphone-review-recovered"
+                class="microphone-recording__recovered-badge"
+                hidden
+              >Recovered draft</span>
+            </div>
+            <p id="microphone-review-position">Bar 1 · Beat 1</p>
+          </div>
+
+          <div
+            id="microphone-review-timeline"
+            class="microphone-recording__review-timeline"
+            role="img"
+            aria-label="Recorded take duration 00:00"
+          >
+            <span>Take length</span>
+            <strong id="microphone-review-duration">00:00</strong>
+            <span class="microphone-recording__review-timeline-rail" aria-hidden="true"></span>
+          </div>
+
+          <div class="microphone-recording__review-actions">
+            <button
+              id="microphone-retry-button"
+              class="button button--secondary microphone-recording__review-action"
+              type="button"
+              disabled
+              hidden
+            >
+              Retry
+            </button>
+            <button
+              id="microphone-audition-button"
+              class="button microphone-recording__review-action microphone-recording__review-action--primary"
+              type="button"
+              aria-pressed="false"
+              disabled
+              hidden
+            >
+              Audition
+            </button>
+            <button
+              id="microphone-keep-button"
+              class="button button--secondary microphone-recording__review-action"
+              type="button"
+              disabled
+              hidden
+            >
+              Keep
+            </button>
+          </div>
+
+          <label class="microphone-recording__audition-volume" for="microphone-audition-volume">
+            <span>Audition volume</span>
+            <output id="microphone-audition-volume-value" for="microphone-audition-volume">100%</output>
+            <input
+              id="microphone-audition-volume"
+              type="range"
+              min="0"
+              max="100"
+              step="1"
+              value="100"
+              disabled
+            />
+          </label>
         </div>
 
-        <div
-          class="microphone-recording__alignment"
-          aria-labelledby="microphone-alignment-heading"
+        <details
+          id="microphone-alignment-disclosure"
+          class="microphone-recording__review-disclosure"
         >
-          <div class="microphone-recording__alignment-header">
-            <strong id="microphone-alignment-heading">Recording alignment</strong>
-            <span id="microphone-alignment-value">0 ms</span>
-          </div>
-          <p class="microphone-recording__alignment-hint">
-            Nudge a reviewed take earlier or later. Small and coarse steps use the same saved local compensation.
-          </p>
-          <div class="microphone-recording__alignment-actions">
-            <span class="microphone-recording__alignment-label">Earlier</span>
-            <button id="microphone-alignment-earlier-100" class="button button--secondary" type="button">100 ms</button>
-            <button id="microphone-alignment-earlier-10" class="button button--secondary" type="button">10 ms</button>
-            <button id="microphone-alignment-earlier-1" class="button button--secondary" type="button">1 ms</button>
-            <button id="microphone-alignment-reset" class="button button--secondary" type="button">Reset</button>
-            <span class="microphone-recording__alignment-label">Later</span>
-            <button id="microphone-alignment-later-1" class="button button--secondary" type="button">1 ms</button>
-            <button id="microphone-alignment-later-10" class="button button--secondary" type="button">10 ms</button>
-            <button id="microphone-alignment-later-100" class="button button--secondary" type="button">100 ms</button>
-          </div>
-        </div>
+          <summary>
+            <span>
+              <strong>Set Recording Alignment</strong>
+              <small id="microphone-alignment-summary">Offset: 0 ms</small>
+            </span>
+            <span class="microphone-recording__disclosure-chevron" aria-hidden="true">›</span>
+          </summary>
 
-        <div class="microphone-recording__actions">
-          <button
-            id="microphone-audition-button"
-            class="button"
-            type="button"
-            disabled
-            hidden
+          <div
+            class="microphone-recording__alignment"
+            aria-label="Recording alignment controls"
           >
-            Audition Take
-          </button>
-          <button
-            id="microphone-retry-button"
-            class="button button--secondary"
-            type="button"
-            disabled
-            hidden
-          >
-            Retry
-          </button>
-          <input
-            id="microphone-take-name-input"
-            class="input microphone-recording__take-name"
-            type="text"
-            aria-label="Recorded take track name"
-            maxlength="120"
-            value=""
-            disabled
-            hidden
-          />
-          <button
-            id="microphone-keep-button"
-            class="button"
-            type="button"
-            disabled
-            hidden
-          >
-            Keep Take
-          </button>
-          <button
-            id="microphone-discard-button"
-            class="button button--danger"
-            type="button"
-            disabled
-            hidden
-          >
-            Discard
-          </button>
-        </div>
+            <p class="microphone-recording__alignment-instruction">
+              Align your recording to playback in milliseconds
+            </p>
+            <div class="microphone-recording__alignment-direction" aria-hidden="true">
+              <span class="microphone-recording__alignment-direction--earlier">← Move earlier</span>
+              <span class="microphone-recording__alignment-direction--later">Move later →</span>
+            </div>
+            <div class="microphone-recording__alignment-actions">
+              <button id="microphone-alignment-earlier-100" class="button button--secondary" type="button" aria-label="Move recording 100 milliseconds earlier">-100</button>
+              <button id="microphone-alignment-earlier-10" class="button button--secondary" type="button" aria-label="Move recording 10 milliseconds earlier">-10</button>
+              <button id="microphone-alignment-earlier-1" class="button button--secondary" type="button" aria-label="Move recording 1 millisecond earlier">-1</button>
+              <button id="microphone-alignment-reset" class="button button--secondary" type="button" aria-label="Reset recording alignment to zero milliseconds">Reset</button>
+              <button id="microphone-alignment-later-1" class="button button--secondary" type="button" aria-label="Move recording 1 millisecond later">+1</button>
+              <button id="microphone-alignment-later-10" class="button button--secondary" type="button" aria-label="Move recording 10 milliseconds later">+10</button>
+              <button id="microphone-alignment-later-100" class="button button--secondary" type="button" aria-label="Move recording 100 milliseconds later">+100</button>
+            </div>
+          </div>
+        </details>
+
+        <p id="microphone-review-status" class="microphone-recording__review-status" role="status" aria-live="polite"></p>
+
+        <button
+          id="microphone-discard-button"
+          class="microphone-recording__discard-link"
+          type="button"
+          disabled
+          hidden
+        >
+          Discard Take
+        </button>
       </div>
+
+      <dialog
+        id="microphone-keep-dialog"
+        class="microphone-recording__confirmation-dialog"
+        aria-labelledby="microphone-keep-heading"
+      >
+        <p class="microphone-recording__phase-label">Keep take</p>
+        <h2 id="microphone-keep-heading">Keep this take?</h2>
+        <label for="microphone-take-name-input">Track name</label>
+        <input
+          id="microphone-take-name-input"
+          class="input microphone-recording__take-name"
+          type="text"
+          aria-label="Recorded take track name"
+          maxlength="120"
+          value=""
+          disabled
+          hidden
+        />
+        <p id="microphone-keep-metadata" class="microphone-recording__confirmation-metadata"></p>
+        <p id="microphone-keep-status" class="microphone-recording__confirmation-status" role="status" aria-live="polite"></p>
+        <div class="microphone-recording__confirmation-actions">
+          <button id="microphone-keep-cancel" class="button button--secondary" type="button">Cancel</button>
+          <button id="microphone-keep-confirm" class="button" type="button">Keep track</button>
+        </div>
+      </dialog>
+
+      <dialog
+        id="microphone-discard-dialog"
+        class="microphone-recording__confirmation-dialog"
+        aria-labelledby="microphone-discard-heading"
+      >
+        <p class="microphone-recording__phase-label microphone-recording__phase-label--danger">Discard take</p>
+        <h2 id="microphone-discard-heading">Discard this take?</h2>
+        <p>This permanently removes the recoverable draft.</p>
+        <p id="microphone-discard-status" class="microphone-recording__confirmation-status" role="status" aria-live="polite"></p>
+        <div class="microphone-recording__confirmation-actions">
+          <button id="microphone-discard-cancel" class="button button--secondary" type="button">Cancel</button>
+          <button id="microphone-discard-confirm" class="button button--danger" type="button">Discard take</button>
+        </div>
+      </dialog>
 
       <p
         id="microphone-recording-status"

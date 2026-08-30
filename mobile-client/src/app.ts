@@ -1068,9 +1068,13 @@ function initializeProjectPlayerPage({
     appElement,
     "#microphone-processing-view",
   );
-  const microphoneLegacyView = getElement<HTMLElement>(
+  const microphoneReviewView = getElement<HTMLElement>(
     appElement,
-    "#microphone-legacy-view",
+    "#microphone-review-view",
+  );
+  const microphoneReviewCloseButton = getElement<HTMLButtonElement>(
+    appElement,
+    "#microphone-review-close-button",
   );
   const microphonePreparingCloseButton = getElement<HTMLButtonElement>(
     appElement,
@@ -1196,6 +1200,78 @@ function initializeProjectPlayerPage({
     appElement,
     "#microphone-alignment-value",
   );
+  const microphoneAlignmentSummaryElement = getElement<HTMLElement>(
+    appElement,
+    "#microphone-alignment-summary",
+  );
+  const microphoneReviewHeading = getElement<HTMLElement>(
+    appElement,
+    "#microphone-review-heading",
+  );
+  const microphoneReviewRecovered = getElement<HTMLElement>(
+    appElement,
+    "#microphone-review-recovered",
+  );
+  const microphoneReviewPosition = getElement<HTMLElement>(
+    appElement,
+    "#microphone-review-position",
+  );
+  const microphoneReviewDuration = getElement<HTMLElement>(
+    appElement,
+    "#microphone-review-duration",
+  );
+  const microphoneReviewTimeline = getElement<HTMLElement>(
+    appElement,
+    "#microphone-review-timeline",
+  );
+  const microphoneReviewStatus = getElement<HTMLElement>(
+    appElement,
+    "#microphone-review-status",
+  );
+  const microphoneAuditionVolumeInput = getElement<HTMLInputElement>(
+    appElement,
+    "#microphone-audition-volume",
+  );
+  const microphoneAuditionVolumeValue = getElement<HTMLElement>(
+    appElement,
+    "#microphone-audition-volume-value",
+  );
+  const microphoneKeepDialog = getElement<HTMLDialogElement>(
+    appElement,
+    "#microphone-keep-dialog",
+  );
+  const microphoneKeepConfirmButton = getElement<HTMLButtonElement>(
+    appElement,
+    "#microphone-keep-confirm",
+  );
+  const microphoneKeepCancelButton = getElement<HTMLButtonElement>(
+    appElement,
+    "#microphone-keep-cancel",
+  );
+  const microphoneKeepMetadata = getElement<HTMLElement>(
+    appElement,
+    "#microphone-keep-metadata",
+  );
+  const microphoneKeepStatus = getElement<HTMLElement>(
+    appElement,
+    "#microphone-keep-status",
+  );
+  const microphoneDiscardDialog = getElement<HTMLDialogElement>(
+    appElement,
+    "#microphone-discard-dialog",
+  );
+  const microphoneDiscardConfirmButton = getElement<HTMLButtonElement>(
+    appElement,
+    "#microphone-discard-confirm",
+  );
+  const microphoneDiscardCancelButton = getElement<HTMLButtonElement>(
+    appElement,
+    "#microphone-discard-cancel",
+  );
+  const microphoneDiscardStatus = getElement<HTMLElement>(
+    appElement,
+    "#microphone-discard-status",
+  );
   const microphoneAlignmentEarlier100Button = getElement<HTMLButtonElement>(
     appElement,
     "#microphone-alignment-earlier-100",
@@ -1225,6 +1301,7 @@ function initializeProjectPlayerPage({
     "#microphone-alignment-later-100",
   );
   const recordingRole = selectedProject.role ?? null;
+  const takePlaybackPort = createBrowserRecordedTakePlaybackAdapter();
   const recordingSession =
     (recordingRole === "owner" || recordingRole === "contributor") &&
     microphoneArmButton &&
@@ -1241,7 +1318,7 @@ function initializeProjectPlayerPage({
           recordingPort: createBrowserMicrophoneRecordingAdapter({
             recordingAlignmentDiagnostics,
           }),
-          takePlaybackPort: createBrowserRecordedTakePlaybackAdapter(),
+          takePlaybackPort,
           takeDraftPort: createBrowserRecordedTakeDraftPort() ?? undefined,
           takeDraftScopeId: `${currentUser?.id ?? "anonymous"}:${selectedProject.id}`,
           takeUploadPort: createBrowserRecordedTakeUploadAdapter({
@@ -1283,7 +1360,8 @@ function initializeProjectPlayerPage({
           countInViewElement: microphoneCountInView ?? undefined,
           activeRecordingViewElement: microphoneActiveRecordingView ?? undefined,
           processingViewElement: microphoneProcessingView ?? undefined,
-          legacyViewElement: microphoneLegacyView ?? undefined,
+          reviewViewElement: microphoneReviewView ?? undefined,
+          reviewCloseButton: microphoneReviewCloseButton ?? undefined,
           cancelButtons: [
             microphonePreparingCloseButton,
             microphoneReadyCloseButton,
@@ -1308,6 +1386,18 @@ function initializeProjectPlayerPage({
           countInPositionElement: microphoneCountInPosition ?? undefined,
           recordingElapsedElement: microphoneRecordingElapsed ?? undefined,
           recordingPositionElement: microphoneRecordingPosition ?? undefined,
+          reviewHeadingElement: microphoneReviewHeading ?? undefined,
+          reviewRecoveredElement: microphoneReviewRecovered ?? undefined,
+          reviewPositionElement: microphoneReviewPosition ?? undefined,
+          reviewDurationElement: microphoneReviewDuration ?? undefined,
+          reviewTimelineElement: microphoneReviewTimeline ?? undefined,
+          reviewStatusElement: microphoneReviewStatus ?? undefined,
+          auditionVolumeInput: microphoneAuditionVolumeInput ?? undefined,
+          auditionVolumeValueElement: microphoneAuditionVolumeValue ?? undefined,
+          onAuditionVolumeChanged(volume) {
+            playbackEngine.setRecordedTakeAuditionVolume?.(volume);
+            takePlaybackPort.setVolume?.(volume);
+          },
           beatsPerBar: musicalTimeline.timeSignature.numerator,
           getRecordingStartPosition: audioPlayerController.getRecordingStartPosition,
           setRecordingStartPosition: audioPlayerController.seekToMusicalPosition,
@@ -1326,6 +1416,7 @@ function initializeProjectPlayerPage({
           takeNameInput: microphoneTakeNameInput,
           statusElement: microphoneStatusElement,
           alignmentValueElement: microphoneAlignmentValueElement ?? undefined,
+          alignmentSummaryElement: microphoneAlignmentSummaryElement ?? undefined,
           alignmentNudgeControls: [
             ...(microphoneAlignmentEarlier100Button
               ? [{ button: microphoneAlignmentEarlier100Button, deltaMilliseconds: -100 }]
@@ -1347,6 +1438,15 @@ function initializeProjectPlayerPage({
               : []),
           ],
           alignmentResetButton: microphoneAlignmentResetButton ?? undefined,
+          keepDialog: microphoneKeepDialog ?? undefined,
+          keepConfirmButton: microphoneKeepConfirmButton ?? undefined,
+          keepCancelButton: microphoneKeepCancelButton ?? undefined,
+          keepMetadataElement: microphoneKeepMetadata ?? undefined,
+          keepStatusElement: microphoneKeepStatus ?? undefined,
+          discardDialog: microphoneDiscardDialog ?? undefined,
+          discardConfirmButton: microphoneDiscardConfirmButton ?? undefined,
+          discardCancelButton: microphoneDiscardCancelButton ?? undefined,
+          discardStatusElement: microphoneDiscardStatus ?? undefined,
           async onTakeKept() {
             await refreshProjectTracks?.();
           },
@@ -1355,7 +1455,11 @@ function initializeProjectPlayerPage({
 
   microphoneRecordingController?.init();
   if (recordingSession) {
-    void recordingSession.restorePendingTake();
+    void recordingSession.restorePendingTake().then((snapshot) => {
+      if (snapshot.status === "stopped" && snapshot.take) {
+        microphoneRecordingController?.markTakeRecovered();
+      }
+    });
   }
 
   const projectTracksApi = invitationForProject

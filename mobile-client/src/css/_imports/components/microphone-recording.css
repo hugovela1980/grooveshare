@@ -21,6 +21,9 @@
 .microphone-recording__view[hidden],
 .microphone-recording__start-editor[hidden],
 .microphone-recording__actions .button[hidden],
+.microphone-recording__review-actions .button[hidden],
+.microphone-recording__discard-link[hidden],
+.microphone-recording__recovered-badge[hidden],
 .microphone-recording__take-name[hidden] {
     display: none;
 }
@@ -32,6 +35,16 @@
     margin: 0 auto 0.55rem;
     border-radius: var(--radius-pill);
     background: rgba(255, 255, 255, 0.36);
+}
+
+.microphone-recording[data-recording-state="stopped"] {
+    top: calc(max(0.65rem, env(safe-area-inset-top)) + 2.75rem);
+    max-height: none;
+    padding-top: 0.65rem;
+}
+
+.microphone-recording[data-recording-state="stopped"] .microphone-recording__handle {
+    margin-bottom: 0.25rem;
 }
 
 .microphone-recording__view {
@@ -433,83 +446,339 @@
     border-radius: 50%;
 }
 
-/* Legacy stopped-take review presentation retained until Tasks 4-6 replace it. */
-.microphone-recording__view--legacy {
-    min-height: auto;
+.microphone-recording__view--review {
+    gap: 0.65rem;
+    min-height: calc(100% - 0.5rem);
+    align-content: start;
+    padding-top: 0;
 }
 
-.microphone-recording__details {
+.microphone-recording__review-card {
+    display: grid;
+    gap: 0.7rem;
+    padding: 0.8rem;
+    border: 1px solid var(--border-dark);
+    border-radius: 0.9rem;
+    background: rgba(0, 0, 0, 0.12);
+}
+
+.microphone-recording__review-heading {
+    display: grid;
+    gap: 0.3rem;
+    justify-items: center;
+    text-align: center;
+}
+
+.microphone-recording__review-heading > div {
     display: grid;
     gap: 0.35rem;
+    justify-items: center;
 }
 
-.microphone-recording__details .eyebrow,
-.microphone-recording__details h2,
-.microphone-recording__hint,
-.microphone-recording__status,
-.microphone-recording__alignment-hint {
+.microphone-recording__recovered-badge {
+    display: inline-block;
+    width: fit-content;
+    padding: 0.2rem 0.5rem;
+    border: 1px solid rgba(250, 204, 21, 0.65);
+    border-radius: 999px;
+    color: #fde68a;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.035em;
+    line-height: 1.2;
+    text-transform: uppercase;
+}
+
+.microphone-recording__review-heading h2,
+.microphone-recording__review-heading p,
+.microphone-recording__review-status,
+.microphone-recording__confirmation-dialog h2,
+.microphone-recording__confirmation-dialog p {
     margin: 0;
 }
 
-.microphone-recording__details h2 {
-    font-size: 1.05rem;
+.microphone-recording__review-heading h2 {
+    font-size: clamp(1.35rem, 6.5vw, 1.75rem);
 }
 
-.microphone-recording__hint,
-.microphone-recording__alignment-hint {
+.microphone-recording__review-heading p,
+.microphone-recording__confirmation-metadata {
     color: var(--color-text-muted-cool);
     line-height: 1.45;
 }
 
-.microphone-recording__alignment {
+.microphone-recording__review-timeline {
     display: grid;
-    gap: 0.55rem;
-    padding: 0.75rem;
-    border: 1px solid var(--border-dark);
-    border-radius: 0.65rem;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.45rem 0.75rem;
+    align-items: center;
+    color: var(--color-text-muted-cool);
+    font-size: 0.82rem;
 }
 
-.microphone-recording__alignment-header {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 0.5rem;
-}
-
-.microphone-recording__alignment-header span {
+.microphone-recording__review-timeline strong {
+    color: var(--color-text);
     font-variant-numeric: tabular-nums;
 }
 
-.microphone-recording__alignment-hint {
-    font-size: 0.82rem;
+.microphone-recording__review-timeline-rail {
+    grid-column: 1 / -1;
+    height: 0.24rem;
+    border-radius: var(--radius-pill);
+    background: rgba(255, 255, 255, 0.24);
 }
 
-.microphone-recording__alignment-actions,
-.microphone-recording__actions {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
+.microphone-recording__review-actions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0.65rem;
 }
 
-.microphone-recording__alignment-actions .button {
-    padding-inline: 0.7rem;
+.microphone-recording__review-action {
+    width: 100%;
+    min-width: 0;
+    min-height: 3.1rem;
+    padding-inline: 0.45rem;
+    border-radius: 0.65rem;
+    font-size: 0.85rem;
 }
 
-.microphone-recording__alignment-label {
+.microphone-recording__review-action--primary[aria-pressed="true"] {
+    color: var(--color-page-bg);
+    background: var(--color-accent-hover);
+}
+
+.microphone-recording__audition-volume {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.45rem 0.75rem;
+    align-items: center;
     font-size: 0.82rem;
+    font-weight: 650;
+}
+
+.microphone-recording__audition-volume output {
+    font-variant-numeric: tabular-nums;
+}
+
+.microphone-recording__audition-volume input {
+    grid-column: 1 / -1;
+    width: 100%;
+    margin: 0;
+    accent-color: var(--color-accent-hover);
+}
+
+.microphone-recording__review-disclosure {
+    border-bottom: 1px solid var(--border-dark);
+}
+
+.microphone-recording__review-disclosure summary {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.75rem;
+    align-items: center;
+    min-height: 3.3rem;
+    padding: 0.35rem 0.45rem;
+    list-style: none;
+    cursor: pointer;
+}
+
+.microphone-recording__review-disclosure summary::-webkit-details-marker {
+    display: none;
+}
+
+.microphone-recording__review-disclosure summary > span:first-child {
+    display: grid;
+    gap: 0.2rem;
+}
+
+.microphone-recording__review-disclosure summary small {
+    color: var(--color-text-muted-cool);
+    font-size: 0.78rem;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+}
+
+.microphone-recording__disclosure-chevron {
+    font-size: 1.8rem;
+    font-weight: 300;
+    line-height: 1;
+    transition: transform 160ms ease;
+}
+
+.microphone-recording__review-disclosure[open] .microphone-recording__disclosure-chevron {
+    transform: rotate(90deg);
+}
+
+.microphone-recording__alignment {
+    display: grid;
+    gap: 0.65rem;
+    margin-bottom: 0.55rem;
+    padding: 0.75rem 0.6rem;
+    border: 1px solid var(--border-dark);
+    border-radius: 0.85rem;
+    background: rgba(0, 0, 0, 0.12);
+    text-align: center;
+}
+
+.microphone-recording__alignment-instruction {
+    margin: 0;
+    color: #86efac;
+    font-size: 0.78rem;
     font-weight: 700;
+    line-height: 1.35;
+}
+
+.microphone-recording__alignment-direction {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: space-between;
+    font-size: 0.72rem;
+    font-weight: 700;
+    line-height: 1.25;
+}
+
+.microphone-recording__alignment-direction--earlier {
+    color: #86efac;
+}
+
+.microphone-recording__alignment-direction--later {
+    color: #fda4af;
+}
+
+.microphone-recording__alignment-actions {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 0.4rem 0.3rem;
+}
+
+.microphone-recording__alignment-actions .button {
+    width: 100%;
+    min-width: 0;
+    min-height: 2.65rem;
+    padding-inline: 0.2rem;
+    font-size: 0.76rem;
+}
+
+.microphone-recording__alignment-actions #microphone-alignment-reset {
+    grid-column: 1 / -1;
+    grid-row: 2;
+}
+
+#microphone-alignment-earlier-100,
+#microphone-alignment-earlier-10,
+#microphone-alignment-earlier-1 {
+    border-color: rgba(134, 239, 172, 0.62);
+    color: #86efac;
+    background: rgba(22, 101, 52, 0.16);
+}
+
+#microphone-alignment-later-1,
+#microphone-alignment-later-10,
+#microphone-alignment-later-100 {
+    border-color: rgba(251, 113, 133, 0.62);
+    color: #fda4af;
+    background: rgba(159, 18, 57, 0.14);
 }
 
 .microphone-recording__alignment-actions .button:disabled,
-.microphone-recording__actions .button:disabled {
+.microphone-recording__review-actions .button:disabled {
     cursor: not-allowed;
     opacity: 0.5;
 }
 
+.microphone-recording__review-status {
+    min-height: 1.15rem;
+    color: #fbbf24;
+    font-size: 0.8rem;
+    line-height: 1.35;
+    text-align: center;
+}
+
+.microphone-recording__review-status:empty,
+.microphone-recording__confirmation-status:empty {
+    display: none;
+}
+
+.microphone-recording__discard-link {
+    width: 100%;
+    min-height: 3rem;
+    padding: 0.6rem 1rem;
+    border: 1px solid rgba(248, 113, 113, 0.72);
+    border-radius: 0.7rem;
+    color: #fca5a5;
+    background: rgba(127, 29, 29, 0.18);
+    font-size: 0.9rem;
+    font-weight: 800;
+}
+
+.microphone-recording__discard-link:hover:not(:disabled),
+.microphone-recording__discard-link:focus-visible {
+    color: #fff;
+    border-color: #f87171;
+    background: rgba(185, 28, 28, 0.34);
+}
+
+.microphone-recording__confirmation-dialog {
+    width: min(calc(100% - 2rem), 25rem);
+    box-sizing: border-box;
+    padding: 1.15rem;
+    border: 1px solid var(--border-dark);
+    border-radius: 0.9rem;
+    color: var(--color-text);
+    background: var(--color-surface-strong);
+    box-shadow: 0 1.1rem 3rem rgba(0, 0, 0, 0.62);
+}
+
+.microphone-recording__confirmation-dialog::backdrop {
+    background: rgba(0, 0, 0, 0.72);
+}
+
+.microphone-recording__confirmation-dialog[open] {
+    display: grid;
+    gap: 0.85rem;
+}
+
+.microphone-recording__confirmation-dialog > .microphone-recording__phase-label {
+    color: var(--color-accent-hover);
+}
+
+.microphone-recording__phase-label--danger,
+.microphone-recording__confirmation-dialog > .microphone-recording__phase-label--danger {
+    color: #f87171;
+}
+
+.microphone-recording__confirmation-dialog label {
+    color: var(--color-text-muted-cool);
+    font-size: 0.82rem;
+    font-weight: 650;
+}
+
 .microphone-recording__take-name {
-    min-width: min(100%, 14rem);
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+.microphone-recording__confirmation-metadata,
+.microphone-recording__confirmation-status {
+    font-size: 0.82rem;
+}
+
+.microphone-recording__confirmation-status {
+    color: #fbbf24;
+}
+
+.microphone-recording__confirmation-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.microphone-recording__confirmation-actions .button {
+    width: 100%;
+    min-width: 0;
+    min-height: 3rem;
 }
 
 @media (max-width: 22rem) {
@@ -522,6 +791,18 @@
 
     .microphone-recording__view {
         min-height: 19rem;
+    }
+
+    .microphone-recording__alignment {
+        padding-inline: 0.4rem;
+    }
+
+    .microphone-recording__alignment-actions {
+        column-gap: 0.2rem;
+    }
+
+    .microphone-recording__alignment-actions .button {
+        font-size: 0.72rem;
     }
 
     .microphone-recording__hero {

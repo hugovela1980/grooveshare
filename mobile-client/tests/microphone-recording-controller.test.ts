@@ -14,6 +14,7 @@ function createButton() {
     disabled: false,
     hidden: false,
     textContent: "",
+    focusCalls: 0,
     addEventListener(
       eventName: "click",
       handler: () => void | Promise<void>,
@@ -28,8 +29,53 @@ function createButton() {
     getAttribute(name: string) {
       return attributes.get(name) ?? null;
     },
+    focus() {
+      this.focusCalls += 1;
+    },
     async click() {
       await clickHandler?.();
+    },
+  };
+}
+
+function createRangeInput(value = "100") {
+  let inputHandler: (() => void) | null = null;
+  return {
+    disabled: false,
+    value,
+    addEventListener(eventName: "input", handler: () => void) {
+      if (eventName === "input") inputHandler = handler;
+    },
+    input() {
+      inputHandler?.();
+    },
+  };
+}
+
+function createDialog() {
+  let cancelHandler: ((event: { preventDefault(): void }) => void) | null = null;
+  return {
+    open: false,
+    showModalCalls: 0,
+    closeCalls: 0,
+    showModal() {
+      this.open = true;
+      this.showModalCalls += 1;
+    },
+    close() {
+      this.open = false;
+      this.closeCalls += 1;
+    },
+    addEventListener(
+      eventName: "cancel",
+      handler: (event: { preventDefault(): void }) => void,
+    ) {
+      if (eventName === "cancel") cancelHandler = handler;
+    },
+    cancel() {
+      let prevented = false;
+      cancelHandler?.({ preventDefault() { prevented = true; } });
+      return prevented;
     },
   };
 }
@@ -386,7 +432,8 @@ function createControllerHarness({
   const countInViewElement = { hidden: true };
   const activeRecordingViewElement = { hidden: true };
   const processingViewElement = { hidden: true };
-  const legacyViewElement = { hidden: true };
+  const reviewViewElement = { hidden: true };
+  const reviewCloseButton = createButton();
   const preparingCloseButton = createButton();
   const cancelButton = createButton();
   const permissionRetryButton = createButton();
@@ -420,10 +467,25 @@ function createControllerHarness({
   const countInPositionElement = { textContent: "" as string | null };
   const recordingElapsedElement = { textContent: "" as string | null };
   const recordingPositionElement = { textContent: "" as string | null };
+  const reviewHeadingElement = { textContent: "" as string | null };
+  const reviewRecoveredElement = { hidden: true };
+  const reviewPositionElement = { textContent: "" as string | null };
+  const reviewDurationElement = { textContent: "" as string | null };
+  const reviewTimelineElement = {
+    attributes: new Map<string, string>(),
+    setAttribute(name: string, value: string) {
+      this.attributes.set(name, value);
+    },
+  };
+  const reviewStatusElement = { textContent: "" as string | null };
+  const auditionVolumeInput = createRangeInput();
+  const auditionVolumeValueElement = { textContent: "100%" as string | null };
+  const auditionVolumes: number[] = [];
   const selectedPositions: { bar: number; beat: number }[] = [];
   const preparedPositions: { bar: number; beat: number }[] = [];
   let playbackReadinessListener: ((ready: boolean) => void) | null = null;
   const alignmentValueElement = { textContent: "" as string | null };
+  const alignmentSummaryElement = { textContent: "" as string | null };
   const alignmentEarlier100Button = createButton();
   const alignmentEarlier10Button = createButton();
   const alignmentEarlier1Button = createButton();
@@ -431,6 +493,15 @@ function createControllerHarness({
   const alignmentLater1Button = createButton();
   const alignmentLater10Button = createButton();
   const alignmentLater100Button = createButton();
+  const keepDialog = createDialog();
+  const keepConfirmButton = createButton();
+  const keepCancelButton = createButton();
+  const keepMetadataElement = { textContent: "" as string | null };
+  const keepStatusElement = { textContent: "" as string | null };
+  const discardDialog = createDialog();
+  const discardConfirmButton = createButton();
+  const discardCancelButton = createButton();
+  const discardStatusElement = { textContent: "" as string | null };
   const controller = createMicrophoneRecordingController({
     recordingSession: sessionHarness.session,
     armButton,
@@ -441,7 +512,8 @@ function createControllerHarness({
     countInViewElement,
     activeRecordingViewElement,
     processingViewElement,
-    legacyViewElement,
+    reviewViewElement,
+    reviewCloseButton,
     cancelButtons: [preparingCloseButton, cancelButton],
     permissionRetryButton,
     countInCancelButton,
@@ -468,6 +540,17 @@ function createControllerHarness({
     countInPositionElement,
     recordingElapsedElement,
     recordingPositionElement,
+    reviewHeadingElement,
+    reviewRecoveredElement,
+    reviewPositionElement,
+    reviewDurationElement,
+    reviewTimelineElement,
+    reviewStatusElement,
+    auditionVolumeInput,
+    auditionVolumeValueElement,
+    onAuditionVolumeChanged(volume) {
+      auditionVolumes.push(volume);
+    },
     beatsPerBar,
     getRecordingStartPosition: () => ({ ...initialStartPosition }),
     setRecordingStartPosition(position) {
@@ -485,6 +568,7 @@ function createControllerHarness({
       };
     },
     alignmentValueElement,
+    alignmentSummaryElement,
     alignmentNudgeControls: [
       { button: alignmentEarlier100Button, deltaMilliseconds: -100 },
       { button: alignmentEarlier10Button, deltaMilliseconds: -10 },
@@ -494,6 +578,15 @@ function createControllerHarness({
       { button: alignmentLater100Button, deltaMilliseconds: 100 },
     ],
     alignmentResetButton,
+    keepDialog,
+    keepConfirmButton,
+    keepCancelButton,
+    keepMetadataElement,
+    keepStatusElement,
+    discardDialog,
+    discardConfirmButton,
+    discardCancelButton,
+    discardStatusElement,
     onTakeKept,
   });
 
@@ -508,7 +601,8 @@ function createControllerHarness({
     countInViewElement,
     activeRecordingViewElement,
     processingViewElement,
-    legacyViewElement,
+    reviewViewElement,
+    reviewCloseButton,
     preparingCloseButton,
     cancelButton,
     permissionRetryButton,
@@ -536,12 +630,22 @@ function createControllerHarness({
     countInPositionElement,
     recordingElapsedElement,
     recordingPositionElement,
+    reviewHeadingElement,
+    reviewRecoveredElement,
+    reviewPositionElement,
+    reviewDurationElement,
+    reviewTimelineElement,
+    reviewStatusElement,
+    auditionVolumeInput,
+    auditionVolumeValueElement,
+    auditionVolumes,
     selectedPositions,
     preparedPositions,
     publishPlaybackReadiness(ready: boolean) {
       playbackReadinessListener?.(ready);
     },
     alignmentValueElement,
+    alignmentSummaryElement,
     alignmentEarlier100Button,
     alignmentEarlier10Button,
     alignmentEarlier1Button,
@@ -549,6 +653,15 @@ function createControllerHarness({
     alignmentLater1Button,
     alignmentLater10Button,
     alignmentLater100Button,
+    keepDialog,
+    keepConfirmButton,
+    keepCancelButton,
+    keepMetadataElement,
+    keepStatusElement,
+    discardDialog,
+    discardConfirmButton,
+    discardCancelButton,
+    discardStatusElement,
   };
 }
 
@@ -655,7 +768,7 @@ tester.describe("microphone recording controller", () => {
     tester.expect(harness.preparedPositions).toEqual([{ bar: 8, beat: 2 }]);
     tester.expect(harness.calls.slice(-1)).toEqual(["start"]);
     tester.expect(harness.countInViewElement.hidden).toBe(false);
-    tester.expect(harness.legacyViewElement.hidden).toBe(true);
+    tester.expect(harness.reviewViewElement.hidden).toBe(true);
 
     harness.controller.destroy();
   });
@@ -724,7 +837,7 @@ tester.describe("microphone recording controller", () => {
     tester.expect(harness.processingViewElement.hidden).toBe(false);
     tester.expect(harness.activeRecordingViewElement.hidden).toBe(true);
     tester.expect(harness.stopButton.disabled).toBe(true);
-    tester.expect(harness.legacyViewElement.hidden).toBe(true);
+    tester.expect(harness.reviewViewElement.hidden).toBe(true);
     tester.expect(harness.statusElement.textContent).toBe(
       "Finishing take and saving a recoverable draft…",
     );
@@ -737,7 +850,55 @@ tester.describe("microphone recording controller", () => {
       take,
     });
     tester.expect(harness.processingViewElement.hidden).toBe(true);
-    tester.expect(harness.legacyViewElement.hidden).toBe(false);
+    tester.expect(harness.reviewViewElement.hidden).toBe(false);
+    tester.expect(harness.reviewHeadingElement.textContent).toBe("Take ready");
+    tester.expect(harness.reviewPositionElement.textContent).toBe("Bar 2 · Beat 4");
+    tester.expect(harness.reviewDurationElement.textContent).toBe("00:02");
+    tester.expect(
+      harness.reviewTimelineElement.attributes.get("aria-label"),
+    ).toBe("Recorded take duration 00:02");
+  });
+
+  tester.it("closes and reopens a stopped review without discarding its recoverable take", async () => {
+    const harness = createControllerHarness();
+    harness.controller.init();
+    await harness.armButton.click();
+    await harness.recordButton.click();
+    await harness.stopButton.click();
+
+    await harness.reviewCloseButton.click();
+    tester.expect(harness.workspaceElement.hidden).toBe(true);
+    tester.expect(harness.getSnapshot().status).toBe("stopped");
+    tester.expect(Boolean(harness.getSnapshot().take)).toBe(true);
+    tester.expect(harness.calls.includes("discard")).toBe(false);
+    tester.expect(harness.armButton.disabled).toBe(false);
+
+    await harness.armButton.click();
+    tester.expect(harness.workspaceElement.hidden).toBe(false);
+    tester.expect(harness.reviewViewElement.hidden).toBe(false);
+    tester.expect(Boolean(harness.getSnapshot().take)).toBe(true);
+  });
+
+  tester.it("identifies a restored recoverable draft without changing shared take state", async () => {
+    const harness = createControllerHarness();
+    harness.controller.init();
+    const take = createStoppedTake();
+    harness.publishSnapshot({
+      ...harness.getSnapshot(),
+      status: "stopped",
+      capture: take.capture,
+      take,
+    });
+
+    harness.controller.markTakeRecovered();
+
+    tester.expect(harness.reviewRecoveredElement.hidden).toBe(false);
+    tester.expect(harness.getSnapshot().status).toBe("stopped");
+    tester.expect(harness.getSnapshot().take).toBe(take);
+
+    await harness.retryButton.click();
+    await harness.recordButton.click();
+    tester.expect(harness.reviewRecoveredElement.hidden).toBe(true);
   });
 
   tester.it("rejects a Ready beat outside the project meter before recording starts", async () => {
@@ -816,24 +977,46 @@ tester.describe("microphone recording controller", () => {
     tester.expect(harness.keepButton.hidden).toBe(false);
     tester.expect(harness.takeNameInput.hidden).toBe(false);
     tester.expect(harness.takeNameInput.value).toBe("Recorded Take");
+    tester.expect(harness.reviewHeadingElement.textContent).toBe("Take ready");
+    tester.expect(harness.alignmentSummaryElement.textContent).toBe("Offset: 0 ms");
     tester.expect(harness.statusElement.textContent).toBe(
       "Take captured from Bar 2, Beat 4 · 4 project beats. Audition it, adjust alignment if needed, retry, discard it, or keep it as a project track.",
     );
 
     await harness.auditionButton.click();
-    tester.expect(harness.auditionButton.textContent).toBe("Stop Audition");
+    tester.expect(harness.auditionButton.textContent).toBe("Stop audition");
+    tester.expect(harness.auditionButton.getAttribute("aria-pressed")).toBe("true");
+    tester.expect(harness.reviewHeadingElement.textContent).toBe("Auditioning take");
     tester.expect(harness.statusElement.textContent?.endsWith("Auditioning…")).toBe(true);
 
     await harness.auditionButton.click();
-    tester.expect(harness.auditionButton.textContent).toBe("Audition Take");
+    tester.expect(harness.auditionButton.textContent).toBe("Audition");
+    tester.expect(harness.auditionButton.getAttribute("aria-pressed")).toBe("false");
+
+    harness.auditionVolumeInput.value = "72";
+    harness.auditionVolumeInput.input();
+    tester.expect(harness.auditionVolumeValueElement.textContent).toBe("72%");
+    tester.expect(harness.auditionVolumes).toEqual([0.72]);
 
     await harness.retryButton.click();
     tester.expect(harness.recordButton.disabled).toBe(false);
     tester.expect(harness.auditionButton.hidden).toBe(true);
+    tester.expect(harness.startPositionLabelElement.textContent).toBe(
+      "Start at Bar 6 · Beat 3",
+    );
+    tester.expect(harness.calls.filter((call) => call === "arm").length).toBe(1);
 
     await harness.recordButton.click();
     await harness.stopButton.click();
     await harness.discardButton.click();
+    tester.expect(harness.discardDialog.open).toBe(true);
+    tester.expect(harness.calls.includes("discard")).toBe(false);
+    await harness.discardCancelButton.click();
+    tester.expect(harness.discardDialog.open).toBe(false);
+    tester.expect(Boolean(harness.getSnapshot().take)).toBe(true);
+
+    await harness.discardButton.click();
+    await harness.discardConfirmButton.click();
     tester.expect(harness.armButton.disabled).toBe(false);
     tester.expect(harness.recordButton.disabled).toBe(true);
     tester.expect(harness.auditionButton.hidden).toBe(true);
@@ -857,16 +1040,24 @@ tester.describe("microphone recording controller", () => {
   tester.it("offers fine and coarse signed alignment nudges and re-auditions immediately", async () => {
     const harness = createControllerHarness();
     harness.controller.init();
-
-    tester.expect(harness.alignmentValueElement.textContent).toBe("0 ms");
-    await harness.alignmentEarlier100Button.click();
-    tester.expect(harness.alignmentValueElement.textContent).toBe("-100 ms earlier");
-    await harness.alignmentLater10Button.click();
-    tester.expect(harness.alignmentValueElement.textContent).toBe("-90 ms earlier");
-
     await harness.armButton.click();
     await harness.recordButton.click();
     await harness.stopButton.click();
+
+    tester.expect(harness.alignmentValueElement.textContent).toBe("0 ms");
+    await harness.alignmentLater10Button.click();
+    await harness.alignmentLater10Button.click();
+    await harness.alignmentEarlier1Button.click();
+    tester.expect(harness.alignmentValueElement.textContent).toBe("+19 ms");
+    await harness.alignmentResetButton.click();
+    tester.expect(harness.alignmentValueElement.textContent).toBe("0 ms");
+    await harness.alignmentEarlier100Button.click();
+    await harness.alignmentLater1Button.click();
+    await harness.alignmentEarlier10Button.click();
+    await harness.alignmentLater100Button.click();
+    tester.expect(harness.alignmentValueElement.textContent).toBe("-9 ms");
+    tester.expect(harness.getSnapshot().take?.timing.musicalStart).toEqual({ bar: 2, beat: 4 });
+
     await harness.auditionButton.click();
     await harness.alignmentEarlier1Button.click();
 
@@ -875,7 +1066,8 @@ tester.describe("microphone recording controller", () => {
       "alignment:adjust:-1",
       "audition",
     ]);
-    tester.expect(harness.alignmentValueElement.textContent).toBe("-91 ms earlier");
+    tester.expect(harness.alignmentValueElement.textContent).toBe("-10 ms");
+    tester.expect(harness.alignmentSummaryElement.textContent).toBe("Offset: -10 ms");
 
     await harness.alignmentResetButton.click();
     tester.expect(harness.alignmentValueElement.textContent).toBe("0 ms");
@@ -895,6 +1087,17 @@ tester.describe("microphone recording controller", () => {
     await harness.stopButton.click();
     harness.takeNameInput.value = "Harmony Vocal";
     await harness.keepButton.click();
+    tester.expect(harness.keepDialog.open).toBe(true);
+    tester.expect(harness.keepMetadataElement.textContent).toBe(
+      "Bar 2 · Beat 4 · Offset 0 ms",
+    );
+    tester.expect(harness.calls.some((call) => call.startsWith("keep:"))).toBe(false);
+    await harness.keepCancelButton.click();
+    tester.expect(harness.keepDialog.open).toBe(false);
+    tester.expect(Boolean(harness.getSnapshot().take)).toBe(true);
+
+    await harness.keepButton.click();
+    await harness.keepConfirmButton.click();
 
     tester.expect(harness.calls.at(-1)).toBe("keep:Harmony Vocal");
     tester.expect(refreshedTracks).toEqual(["recorded-track-1"]);
@@ -904,6 +1107,26 @@ tester.describe("microphone recording controller", () => {
     tester.expect(harness.statusElement.textContent).toBe(
       "“Harmony Vocal” saved as a project track. Enable your microphone to record another take.",
     );
+
+    harness.controller.destroy();
+  });
+
+  tester.it("keeps audition unavailable until required playback is ready", async () => {
+    const harness = createControllerHarness();
+    harness.controller.init();
+    await harness.armButton.click();
+    await harness.recordButton.click();
+    await harness.stopButton.click();
+
+    harness.publishPlaybackReadiness(false);
+    tester.expect(harness.auditionButton.disabled).toBe(true);
+    tester.expect(harness.reviewStatusElement.textContent).toBe(
+      "Project playback must be ready before audition.",
+    );
+
+    harness.publishPlaybackReadiness(true);
+    tester.expect(harness.auditionButton.disabled).toBe(false);
+    tester.expect(harness.reviewStatusElement.textContent).toBe("");
 
     harness.controller.destroy();
   });

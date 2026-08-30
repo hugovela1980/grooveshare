@@ -929,12 +929,28 @@ type TakeUploadHarness = {
   port: RecordedTakeUploadPort;
   uploadCalls: RecordedTakeUploadInput[];
   uploadError: Error | null;
+  deferUpload: boolean;
+  waitForUploadStart(): Promise<void>;
+  resolveUpload(): void;
 };
 
 function createTakeUploadHarness(): TakeUploadHarness {
+  let resolveDeferredUpload: (() => void) | null = null;
+  let resolveUploadStarted: (() => void) | null = null;
+  const uploadStarted = new Promise<void>((resolve) => {
+    resolveUploadStarted = resolve;
+  });
   const harness: TakeUploadHarness = {
     uploadCalls: [],
     uploadError: null,
+    deferUpload: false,
+    waitForUploadStart() {
+      return uploadStarted;
+    },
+    resolveUpload() {
+      resolveDeferredUpload?.();
+      resolveDeferredUpload = null;
+    },
     port: null as unknown as RecordedTakeUploadPort,
   };
 
@@ -954,9 +970,17 @@ function createTakeUploadHarness(): TakeUploadHarness {
         alignmentOffsetSeconds: input.alignmentOffsetSeconds,
         mediaLeadInSeconds: input.mediaLeadInSeconds,
       });
+      resolveUploadStarted?.();
+      resolveUploadStarted = null;
 
       if (harness.uploadError) {
         throw harness.uploadError;
+      }
+
+      if (harness.deferUpload) {
+        await new Promise<void>((resolve) => {
+          resolveDeferredUpload = resolve;
+        });
       }
 
       const track: Track = {
@@ -1532,6 +1556,36 @@ tester.describe("keep reviewed microphone take", () => {
       spanBeats: 4,
     });
     tester.expect(kept.savedTrack?.mediaLeadInSeconds).toBe(2.03);
+
+    await session.destroy();
+    playbackHarness.engine.destroy?.();
+  });
+
+  tester.it("submits Keep only once while the authoritative upload is in flight", async () => {
+    const recordingHarness = createRecordingPortHarness();
+    const playbackHarness = createPlaybackHarness({ startPositionSeconds: 3.5 });
+    const takePlaybackHarness = createTakePlaybackHarness();
+    const takeUploadHarness = createTakeUploadHarness();
+    takeUploadHarness.deferUpload = true;
+    const session = await recordStoppedTakeForReview({
+      recordingHarness,
+      playbackHarness,
+      takePlaybackHarness,
+      takeUploadHarness,
+    });
+
+    const firstKeep = session.keep("Lead Vocal");
+    tester.expect(session.getSnapshot().takeSaveStatus).toBe("saving");
+    const duplicateKeep = await session.keep("Lead Vocal");
+    await takeUploadHarness.waitForUploadStart();
+
+    tester.expect(duplicateKeep.takeSaveStatus).toBe("saving");
+    tester.expect(takeUploadHarness.uploadCalls.length).toBe(1);
+
+    takeUploadHarness.resolveUpload();
+    const kept = await firstKeep;
+    tester.expect(kept.savedTrack?.name).toBe("Lead Vocal");
+    tester.expect(takeUploadHarness.uploadCalls.length).toBe(1);
 
     await session.destroy();
     playbackHarness.engine.destroy?.();
