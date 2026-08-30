@@ -13,7 +13,9 @@ import {
 } from "./track-source-alignment.js";
 import type {
   PlaybackChannel,
+  PlaybackChannelPreparationStatus,
   PlaybackEngine,
+  PlaybackPreparationSnapshot,
   PlaybackSnapshot,
   PlaybackStateListener,
 } from "./playback-engine.js";
@@ -29,7 +31,7 @@ export type HtmlAudioElementLike = {
   pause: () => void;
   load?: () => void;
   addEventListener: (
-    eventName: "timeupdate" | "loadedmetadata" | "ended",
+    eventName: "timeupdate" | "loadedmetadata" | "canplay" | "ended" | "error",
     handler: () => void | Promise<void>,
   ) => void;
 };
@@ -37,6 +39,8 @@ export type HtmlAudioElementLike = {
 type LoadedPlaybackChannel = {
   channel: PlaybackChannel;
   audioElement: HtmlAudioElementLike;
+  preparationStatus: PlaybackChannelPreparationStatus;
+  failureMessage: string | null;
 };
 
 type HtmlAudioPlaybackEngineOptions = {
@@ -99,7 +103,10 @@ export function createHtmlAudioPlaybackEngine({
   }
 
   function getMixDuration(): number {
-    return loadedChannels.reduce((longestDuration, { channel, audioElement }) => {
+    return loadedChannels.reduce((longestDuration, { channel, audioElement, preparationStatus }) => {
+      if (preparationStatus !== "ready") {
+        return longestDuration;
+      }
       const duration = audioElement.duration;
 
       return isUsableDuration(duration)
@@ -160,7 +167,10 @@ export function createHtmlAudioPlaybackEngine({
   }
 
   function setAllCurrentTimes(projectTime: number): void {
-    for (const { channel, audioElement } of loadedChannels) {
+    for (const { channel, audioElement, preparationStatus } of loadedChannels) {
+      if (preparationStatus !== "ready") {
+        continue;
+      }
       const alignmentWindow = getChannelAlignmentWindow(channel, audioElement);
       const localTime =
         projectTime < alignmentWindow.projectStartSeconds
@@ -183,7 +193,10 @@ export function createHtmlAudioPlaybackEngine({
   }
 
   function scheduleFutureChannels(projectTime: number): void {
-    for (const { channel, audioElement } of loadedChannels) {
+    for (const { channel, audioElement, preparationStatus } of loadedChannels) {
+      if (preparationStatus !== "ready") {
+        continue;
+      }
       const alignmentWindow = getChannelAlignmentWindow(channel, audioElement);
       const channelStart = alignmentWindow.projectStartSeconds;
       if (channelStart <= projectTime || !audioElement.paused) {
@@ -215,11 +228,52 @@ export function createHtmlAudioPlaybackEngine({
     });
   }
 
-  function getSnapshot(): PlaybackSnapshot {
-    const hasLoadedChannels = loadedChannels.length > 0;
-    const duration = hasLoadedChannels ? getMixDuration() : 0;
+  function getPreparationSnapshot(): PlaybackPreparationSnapshot {
+    const channels = loadedChannels.map((loadedChannel) => ({
+      channelNumber: loadedChannel.channel.channelNumber,
+      trackId: loadedChannel.channel.trackId,
+      required: loadedChannel.channel.enabled,
+      status: loadedChannel.preparationStatus,
+      failureMessage: loadedChannel.failureMessage,
+    }));
+    const requiredChannels = channels.filter(({ required }) => required);
+    const failedRequiredChannel = requiredChannels.find(({ status }) => {
+      return status === "failed";
+    });
+    const readyRequiredChannelCount = requiredChannels.filter(({ status }) => {
+      return status === "ready";
+    }).length;
 
-    const currentTime = hasLoadedChannels ? getTransportCurrentTime() : 0;
+    return {
+      status: requiredChannels.length === 0
+        ? "idle"
+        : failedRequiredChannel
+          ? "failed"
+          : readyRequiredChannelCount === requiredChannels.length
+            ? "ready"
+            : "preparing",
+      requiredChannelCount: requiredChannels.length,
+      readyRequiredChannelCount,
+      channels,
+      failure: failedRequiredChannel
+        ? {
+            channelNumber: failedRequiredChannel.channelNumber,
+            trackId: failedRequiredChannel.trackId,
+            message:
+              failedRequiredChannel.failureMessage ??
+              "This track could not be prepared for playback.",
+          }
+        : null,
+    };
+  }
+
+  function getSnapshot(): PlaybackSnapshot {
+    const preparation = getPreparationSnapshot();
+    const hasLoadedChannels =
+      preparation.status === "ready" &&
+      preparation.requiredChannelCount > 0;
+    const duration = getMixDuration();
+    const currentTime = duration > 0 ? getTransportCurrentTime() : 0;
 
     return {
       currentTime,
@@ -229,10 +283,10 @@ export function createHtmlAudioPlaybackEngine({
       ),
       duration,
       isPlaying:
-        hasLoadedChannels &&
-        (playbackRequested ||
-          getLoadedAudioElements().some((audioElement) => !audioElement.paused)),
+        playbackRequested ||
+          getLoadedAudioElements().some((audioElement) => !audioElement.paused),
       hasLoadedChannels,
+      preparation,
     };
   }
 
@@ -245,7 +299,7 @@ export function createHtmlAudioPlaybackEngine({
   }
 
   async function play(): Promise<void> {
-    if (loadedChannels.length === 0) {
+    if (!getSnapshot().hasLoadedChannels) {
       return;
     }
 
@@ -254,7 +308,10 @@ export function createHtmlAudioPlaybackEngine({
     clearDelayedStarts();
     setAllCurrentTimes(projectTime);
 
-    const playableNow = loadedChannels.filter(({ channel, audioElement }) => {
+    const playableNow = loadedChannels.filter(({ channel, audioElement, preparationStatus }) => {
+      if (preparationStatus !== "ready") {
+        return false;
+      }
       const channelStart =
         getChannelAlignmentWindow(channel, audioElement).projectStartSeconds;
       return channelStart <= projectTime + END_EPSILON_SECONDS &&
@@ -375,10 +432,42 @@ export function createHtmlAudioPlaybackEngine({
       return false;
     }
 
+    if (loadedChannel.channel.enabled === enabled) {
+      return true;
+    }
+
     loadedChannel.channel.enabled = enabled;
     loadedChannel.audioElement.volume = enabled
       ? clampVolume(loadedChannel.channel.volume)
       : 0;
+
+    if (enabled) {
+      if (loadedChannel.preparationStatus === "failed") {
+        loadedChannel.preparationStatus = "unloaded";
+        loadedChannel.failureMessage = null;
+      }
+      if (loadedChannel.preparationStatus === "unloaded") {
+        beginChannelPreparation(loadedChannel);
+      } else if (loadedChannel.preparationStatus === "ready" && playbackRequested) {
+        const projectTime = getTransportCurrentTime();
+        const alignmentWindow = getChannelAlignmentWindow(
+          loadedChannel.channel,
+          loadedChannel.audioElement,
+        );
+        setAllCurrentTimes(projectTime);
+        if (
+          alignmentWindow.projectStartSeconds <=
+          projectTime + END_EPSILON_SECONDS
+        ) {
+          void loadedChannel.audioElement.play().then(notify);
+        } else {
+          clearDelayedStarts();
+          scheduleFutureChannels(projectTime);
+        }
+      }
+    }
+
+    handlePreparationChange();
 
     return true;
   }
@@ -404,8 +493,102 @@ export function createHtmlAudioPlaybackEngine({
 
     wiredAudioElements.add(audioElement as object);
     audioElement.addEventListener("timeupdate", notify);
-    audioElement.addEventListener("loadedmetadata", notify);
+    audioElement.addEventListener("loadedmetadata", () => {
+      const loadedChannel = loadedChannels.find((candidate) => {
+        return candidate.audioElement === audioElement;
+      });
+      if (
+        loadedChannel &&
+        loadedChannel.preparationStatus === "fetching"
+      ) {
+        loadedChannel.preparationStatus = "decoding";
+      }
+      notify();
+    });
+    audioElement.addEventListener("canplay", () => {
+      const loadedChannel = loadedChannels.find((candidate) => {
+        return candidate.audioElement === audioElement;
+      });
+      if (loadedChannel) {
+        loadedChannel.preparationStatus = "ready";
+        loadedChannel.failureMessage = null;
+        if (loadedChannel.channel.enabled && playbackRequested) {
+          const projectTime = getTransportCurrentTime();
+          const alignmentWindow = getChannelAlignmentWindow(
+            loadedChannel.channel,
+            loadedChannel.audioElement,
+          );
+          setAllCurrentTimes(projectTime);
+          if (
+            alignmentWindow.projectStartSeconds <=
+            projectTime + END_EPSILON_SECONDS
+          ) {
+            void loadedChannel.audioElement.play().then(notify);
+          } else {
+            scheduleFutureChannels(projectTime);
+          }
+        }
+      }
+      handlePreparationChange();
+    });
+    audioElement.addEventListener("error", () => {
+      const loadedChannel = loadedChannels.find((candidate) => {
+        return candidate.audioElement === audioElement;
+      });
+      if (loadedChannel) {
+        loadedChannel.preparationStatus = "failed";
+        loadedChannel.failureMessage = "This track could not be prepared for playback.";
+      }
+      handlePreparationChange();
+    });
     audioElement.addEventListener("ended", handleEnded);
+  }
+
+  function beginChannelPreparation(loadedChannel: LoadedPlaybackChannel): void {
+    if (
+      loadedChannel.preparationStatus === "fetching" ||
+      loadedChannel.preparationStatus === "decoding" ||
+      loadedChannel.preparationStatus === "ready"
+    ) {
+      return;
+    }
+
+    loadedChannel.preparationStatus = "fetching";
+    loadedChannel.failureMessage = null;
+    loadedChannel.audioElement.crossOrigin = "use-credentials";
+    loadedChannel.audioElement.src = loadedChannel.channel.audioUrl;
+    loadedChannel.audioElement.currentTime = 0;
+    loadedChannel.audioElement.load?.();
+    notify();
+  }
+
+  function handlePreparationChange(): void {
+    const preparation = getPreparationSnapshot();
+    if (preparation.status === "ready" || preparation.status === "idle") {
+      for (const loadedChannel of loadedChannels) {
+        if (
+          !loadedChannel.channel.enabled &&
+          loadedChannel.preparationStatus === "unloaded"
+        ) {
+          beginChannelPreparation(loadedChannel);
+        }
+      }
+    }
+    notify();
+  }
+
+  function retryPreparation(): void {
+    for (const loadedChannel of loadedChannels) {
+      if (
+        loadedChannel.channel.enabled &&
+        loadedChannel.preparationStatus === "failed"
+      ) {
+        loadedChannel.preparationStatus = "unloaded";
+        loadedChannel.failureMessage = null;
+        beginChannelPreparation(loadedChannel);
+      }
+    }
+    handlePreparationChange();
   }
 
   function loadMix(channels: PlaybackChannel[]): void {
@@ -420,19 +603,28 @@ export function createHtmlAudioPlaybackEngine({
         index === 0 ? primaryAudioElement : createAudioElement();
 
       wireAudioElement(audioElement);
-      audioElement.crossOrigin = "use-credentials";
-      audioElement.src = channel.audioUrl;
       audioElement.currentTime = 0;
       audioElement.volume = channel.enabled
         ? clampVolume(channel.volume)
         : 0;
-      audioElement.load?.();
 
       return {
         channel: { ...channel },
         audioElement,
+        preparationStatus: "unloaded" as const,
+        failureMessage: null,
       };
     });
+
+    for (const loadedChannel of loadedChannels) {
+      if (loadedChannel.channel.enabled) {
+        beginChannelPreparation(loadedChannel);
+      }
+    }
+
+    if (!loadedChannels.some(({ channel }) => channel.enabled)) {
+      handlePreparationChange();
+    }
 
     if (preservedPositionSeconds > 0) {
       seek(preservedPositionSeconds);
@@ -446,6 +638,7 @@ export function createHtmlAudioPlaybackEngine({
 
   return {
     loadMix,
+    retryPreparation,
     play,
     pause,
     stop,

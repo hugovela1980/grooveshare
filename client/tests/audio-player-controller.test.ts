@@ -55,6 +55,7 @@ function createFakeAudioElement() {
 
         load(): void {
             this.loadCallCount += 1;
+            void listeners.get("canplay")?.();
         },
 
         addEventListener(eventName: string, handler: Listener): void {
@@ -1040,7 +1041,7 @@ tester.describe("audio player controller", () => {
         tester.expect(audioElement.volume).toBe(0.35);
     });
 
-    tester.it("keeps transport available for a prepared mix when all channels are disabled", () => {
+    tester.it("keeps navigation available but blocks Play when all channels are disabled", () => {
         const {
             controller,
             audioElement,
@@ -1064,7 +1065,7 @@ tester.describe("audio player controller", () => {
         ]);
 
         tester.expect(audioElement.volume).toBe(0);
-        tester.expect(playPauseButton.disabled).toBe(false);
+        tester.expect(playPauseButton.disabled).toBe(true);
         tester.expect(stopButton.disabled).toBe(false);
         tester.expect(progressInput.disabled).toBe(false);
         tester.expect(trackNameElement.textContent).toBe("All channels disabled.");
@@ -1227,19 +1228,36 @@ tester.describe("audio player controller playback boundary", () => {
         const calls: string[] = [];
         let loadedTimelineOffsetSeconds: number | undefined;
         let listener: ((snapshot: ReturnType<PlaybackEngine["getSnapshot"]>) => void) | null = null;
-        let snapshot = {
+        let snapshot: ReturnType<PlaybackEngine["getSnapshot"]> = {
             currentTime: 0,
             musicalPosition: { bar: 1, beat: 1 },
             duration: 120,
             isPlaying: false,
             hasLoadedChannels: false,
+            preparation: {
+                status: "idle",
+                requiredChannelCount: 0,
+                readyRequiredChannelCount: 0,
+                channels: [],
+                failure: null,
+            },
         };
 
         const playbackEngine: PlaybackEngine = {
             loadMix(channels) {
                 calls.push(`load:${channels.length}`);
                 loadedTimelineOffsetSeconds = channels[0]?.timelineOffsetSeconds;
-                snapshot = { ...snapshot, hasLoadedChannels: channels.length > 0 };
+                snapshot = {
+                    ...snapshot,
+                    hasLoadedChannels: channels.length > 0,
+                    preparation: {
+                        status: channels.length > 0 ? "ready" : "idle",
+                        requiredChannelCount: channels.length,
+                        readyRequiredChannelCount: channels.length,
+                        channels: [],
+                        failure: null,
+                    },
+                };
                 listener?.(snapshot);
             },
             async play() {

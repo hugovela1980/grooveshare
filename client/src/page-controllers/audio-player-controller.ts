@@ -27,6 +27,7 @@ type MixChannelForPlayer = {
 
 type ButtonElementLike = {
     disabled: boolean;
+    hidden?: boolean | "until-found";
     textContent: string | null;
     addEventListener: (
         eventName: "click",
@@ -55,6 +56,10 @@ type RangeInputElementLike = {
 
 type TextElementLike = {
     textContent: string | null;
+};
+
+type PreparationElementLike = TextElementLike & {
+    hidden: boolean | "until-found";
 };
 
 type NumberInputElementLike = {
@@ -98,6 +103,9 @@ type AudioPlayerControllerOptions = {
     seekStatusElement?: TextElementLike | null;
     seekBarButton: ButtonElementLike;
     trackNameElement: TextElementLike;
+    preparationElement?: PreparationElementLike;
+    preparationMessageElement?: TextElementLike;
+    preparationRetryButton?: ButtonElementLike;
     loopCheckbox: CheckboxElementLike;
     metronomeCheckbox: CheckboxElementLike;
     recordingWorkspaceState?: RecordingWorkspaceState | null;
@@ -144,6 +152,9 @@ export function createAudioPlayerController({
     seekStatusElement,
     seekBarButton,
     trackNameElement,
+    preparationElement,
+    preparationMessageElement,
+    preparationRetryButton,
     loopCheckbox,
     metronomeCheckbox,
     recordingWorkspaceState,
@@ -151,17 +162,46 @@ export function createAudioPlayerController({
     let isSeeking = false;
     let loadedMixChannels: MixChannelForPlayer[] = [];
 
-    function setControlsEnabled(isEnabled: boolean): void {
-        seekBackwardButton.disabled = !isEnabled;
+    function setControlsEnabled(hasTimeline: boolean, canPlay: boolean): void {
+        seekBackwardButton.disabled = !hasTimeline;
         if (seekForwardButton) {
-            seekForwardButton.disabled = !isEnabled;
+            seekForwardButton.disabled = !hasTimeline;
         }
-        playPauseButton.disabled = !isEnabled;
-        stopButton.disabled = !isEnabled;
-        progressInput.disabled = !isEnabled;
-        seekBarInput.disabled = !isEnabled;
-        if (seekBeatInput) seekBeatInput.disabled = !isEnabled;
-        seekBarButton.disabled = !isEnabled;
+        playPauseButton.disabled = !canPlay;
+        stopButton.disabled = !hasTimeline;
+        progressInput.disabled = !hasTimeline;
+        seekBarInput.disabled = !hasTimeline;
+        if (seekBeatInput) seekBeatInput.disabled = !hasTimeline;
+        seekBarButton.disabled = !hasTimeline;
+    }
+
+    function updatePreparationPresentation(snapshot: PlaybackSnapshot): void {
+        if (!preparationElement || !preparationMessageElement || !preparationRetryButton) {
+            return;
+        }
+        const preparation = snapshot.preparation;
+        const failedTrack = preparation.failure
+            ? loadedMixChannels.find(({ trackId }) => trackId === preparation.failure?.trackId)
+            : null;
+
+        preparationElement.hidden = preparation.status === "ready";
+        preparationRetryButton.disabled = preparation.status !== "failed";
+        preparationRetryButton.hidden = preparation.status !== "failed";
+
+        if (preparation.status === "preparing") {
+            preparationMessageElement.textContent =
+                `Preparing playback… ${preparation.readyRequiredChannelCount} of ${preparation.requiredChannelCount} tracks ready.`;
+        } else if (preparation.status === "failed") {
+            preparationMessageElement.textContent = failedTrack
+                ? `Could not prepare ${failedTrack.name} for playback.`
+                : "A required track could not be prepared for playback.";
+        } else if (preparation.status === "idle") {
+            preparationMessageElement.textContent = loadedMixChannels.length > 0
+                ? "Enable at least one track to prepare playback."
+                : "No tracks are available for playback.";
+        } else {
+            preparationMessageElement.textContent = "";
+        }
     }
 
     function setPlayPauseButtonIcon(snapshot: PlaybackSnapshot): void {
@@ -199,7 +239,11 @@ export function createAudioPlayerController({
 
         updateTimestamp(snapshot);
         setPlayPauseButtonIcon(snapshot);
-        setControlsEnabled(snapshot.hasLoadedChannels);
+        updatePreparationPresentation(snapshot);
+        setControlsEnabled(
+            snapshot.duration > 0,
+            snapshot.isPlaying || snapshot.preparation.status === "ready",
+        );
     }
 
     function updateLoadedMixPresentation(): void {
@@ -248,12 +292,12 @@ export function createAudioPlayerController({
     async function handlePlayPauseClick(): Promise<void> {
         const snapshot = playbackEngine.getSnapshot();
 
-        if (!snapshot.hasLoadedChannels) {
+        if (snapshot.isPlaying) {
+            playbackEngine.pause();
             return;
         }
 
-        if (snapshot.isPlaying) {
-            playbackEngine.pause();
+        if (snapshot.preparation.status !== "ready") {
             return;
         }
 
@@ -372,7 +416,11 @@ export function createAudioPlayerController({
         // reloads (for example after keeping a recorded take). The initial
         // markup already defaults this field to Bar 1.
         setPlayPauseButtonIcon(snapshot);
-        setControlsEnabled(snapshot.hasLoadedChannels);
+        updatePreparationPresentation(snapshot);
+        setControlsEnabled(
+            snapshot.duration > 0,
+            snapshot.isPlaying || snapshot.preparation.status === "ready",
+        );
     }
 
     function setChannelVolume(
@@ -422,6 +470,7 @@ export function createAudioPlayerController({
 
         channel.enabled = enabled;
         updateLoadedMixPresentation();
+        updateProgress(playbackEngine.getSnapshot());
         return true;
     }
 
@@ -458,6 +507,10 @@ export function createAudioPlayerController({
 
         playPauseButton.addEventListener("click", () => {
             return handlePlayPauseClick();
+        });
+
+        preparationRetryButton?.addEventListener("click", () => {
+            playbackEngine.retryPreparation?.();
         });
 
         stopButton.addEventListener("click", () => stop());

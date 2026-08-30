@@ -587,6 +587,9 @@ function initializeProjectPlayerPage({
   const seekStatusElement = getElement<HTMLElement>(appElement, "#audio-seek-status");
   const seekBarButton = getElement<HTMLButtonElement>(appElement, "#audio-seek-bar-button");
   const trackNameElement = getElement<HTMLElement>(appElement, "#audio-track-name");
+  const preparationElement = getElement<HTMLElement>(appElement, "#audio-playback-preparation");
+  const preparationMessageElement = getElement<HTMLElement>(appElement, "#audio-playback-preparation-message");
+  const preparationRetryButton = getElement<HTMLButtonElement>(appElement, "#audio-playback-preparation-retry");
   if (!audioElement || !seekBackwardButton || !playPauseButton || !stopButton || !progressInput || !timestampElement || !durationElement || !musicalPositionElement || !seekBarInput || !seekBarButton || !trackNameElement || !loopCheckbox || !metronomeCheckbox) throw new Error("Project Player audio elements were not found.");
 
   const musicalTimeline = getProjectMusicalTimeline(selectedProject);
@@ -621,6 +624,9 @@ function initializeProjectPlayerPage({
     seekStatusElement,
     seekBarButton,
     trackNameElement,
+    ...(preparationElement && preparationMessageElement && preparationRetryButton
+      ? { preparationElement, preparationMessageElement, preparationRetryButton }
+      : {}),
     loopCheckbox,
     metronomeCheckbox,
     recordingWorkspaceState,

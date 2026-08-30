@@ -13,7 +13,9 @@ import {
 } from "./track-source-alignment.js";
 import type {
   PlaybackChannel,
+  PlaybackChannelPreparationStatus,
   PlaybackEngine,
+  PlaybackPreparationSnapshot,
   PlaybackSnapshot,
   PlaybackStateListener,
   RecordedTakeAuditionOptions,
@@ -96,6 +98,8 @@ type LoadedWebAudioChannel = {
   channel: PlaybackChannel;
   buffer: AudioBufferLike | null;
   gainNode: GainNodeLike | null;
+  preparationStatus: PlaybackChannelPreparationStatus;
+  failureMessage: string | null;
 };
 
 type ActiveSource = {
@@ -231,7 +235,7 @@ export function createWebAudioPlaybackEngine(
   let lastScheduledMetronomeClockTime: number | null = null;
   const listeners = new Set<PlaybackStateListener>();
   let loadGeneration = 0;
-  let loadingPromise: Promise<void> = Promise.resolve();
+  let backgroundPreparationGeneration: number | null = null;
   let pendingSeekSeconds: number | null = null;
   let destroyed = false;
   let activeRecordedTakeAudition: {
@@ -253,13 +257,49 @@ export function createWebAudioPlaybackEngine(
   });
   const recordingTimeline = createRecordingTimeline(transport);
 
+  function getPreparationSnapshot(): PlaybackPreparationSnapshot {
+    const channels = loadedChannels.map((loadedChannel) => ({
+      channelNumber: loadedChannel.channel.channelNumber,
+      trackId: loadedChannel.channel.trackId,
+      required: loadedChannel.channel.enabled,
+      status: loadedChannel.preparationStatus,
+      failureMessage: loadedChannel.failureMessage,
+    }));
+    const requiredChannels = channels.filter(({ required }) => required);
+    const failedRequiredChannel = requiredChannels.find(({ status }) => {
+      return status === "failed";
+    });
+    const readyRequiredChannelCount = requiredChannels.filter(({ status }) => {
+      return status === "ready";
+    }).length;
+    const status = requiredChannels.length === 0
+      ? "idle"
+      : failedRequiredChannel
+        ? "failed"
+        : readyRequiredChannelCount === requiredChannels.length
+          ? "ready"
+          : "preparing";
+
+    return {
+      status,
+      requiredChannelCount: requiredChannels.length,
+      readyRequiredChannelCount,
+      channels,
+      failure: failedRequiredChannel
+        ? {
+            channelNumber: failedRequiredChannel.channelNumber,
+            trackId: failedRequiredChannel.trackId,
+            message:
+              failedRequiredChannel.failureMessage ??
+              "This track could not be prepared for playback.",
+          }
+        : null,
+    };
+  }
+
   function hasReadyChannels(): boolean {
-    return (
-      loadedChannels.length > 0 &&
-      loadedChannels.every(({ buffer, gainNode }) => {
-        return buffer !== null && gainNode !== null;
-      })
-    );
+    const preparation = getPreparationSnapshot();
+    return preparation.status === "ready" && preparation.requiredChannelCount > 0;
   }
 
   function getMixDuration(): number {
@@ -287,20 +327,22 @@ export function createWebAudioPlaybackEngine(
 
   function getSnapshot(): PlaybackSnapshot {
     const hasLoadedChannels = hasReadyChannels();
+    const preparation = getPreparationSnapshot();
     const transportSnapshot = transport.getSnapshot();
+    const hasPreparedTimeline = transportSnapshot.durationSeconds > 0;
 
     return {
-      currentTime: hasLoadedChannels
+      currentTime: hasPreparedTimeline
         ? transportSnapshot.positionSeconds
         : 0,
       musicalPosition: transportSnapshot.musicalPosition,
-      duration: hasLoadedChannels
+      duration: hasPreparedTimeline
         ? transportSnapshot.durationSeconds
         : 0,
       isPlaying:
-        hasLoadedChannels &&
         transportSnapshot.playbackState === "playing",
       hasLoadedChannels,
+      preparation,
     };
   }
 
@@ -696,6 +738,65 @@ export function createWebAudioPlaybackEngine(
     }
   }
 
+  function createSourceForChannel(
+    loadedChannel: LoadedWebAudioChannel,
+    instruction: PlaybackScheduleInstruction,
+    scheduleStartAtClockTime = instruction.startAtClockTime,
+    scheduleProjectPosition = instruction.projectPositionSeconds,
+  ): ActiveSource | null {
+    const buffer = loadedChannel.buffer;
+    const gainNode = loadedChannel.gainNode;
+
+    if (!buffer || !gainNode) {
+      return null;
+    }
+
+    const trackStartPosition = getTrackTimelineOffsetSeconds(
+      loadedChannel.channel,
+      normalizedMusicalTimeline,
+    );
+    const alignmentWindow = getTrackSourceAlignmentWindow({
+      trackStartSeconds: trackStartPosition,
+      sourceDurationSeconds: buffer.duration,
+      alignmentOffsetSeconds: loadedChannel.channel.alignmentOffsetSeconds,
+      mediaLeadInSeconds: loadedChannel.channel.mediaLeadInSeconds,
+    });
+    const instructionEndPosition =
+      instruction.projectPositionSeconds +
+      (instruction.endAtClockTime - instruction.startAtClockTime);
+    const sourceProjectStart = Math.max(
+      scheduleProjectPosition,
+      alignmentWindow.projectStartSeconds,
+    );
+    const sourceOffset = getAlignedSourceOffsetSeconds({
+      projectTimeSeconds: sourceProjectStart,
+      trackStartSeconds: trackStartPosition,
+      alignmentOffsetSeconds: loadedChannel.channel.alignmentOffsetSeconds,
+      mediaLeadInSeconds: loadedChannel.channel.mediaLeadInSeconds,
+    });
+
+    if (
+      sourceProjectStart >= instructionEndPosition - END_EPSILON_SECONDS ||
+      sourceProjectStart >= alignmentWindow.projectEndSeconds - END_EPSILON_SECONDS ||
+      sourceOffset >= buffer.duration - END_EPSILON_SECONDS
+    ) {
+      return null;
+    }
+
+    const source = audioContext.createBufferSource();
+    source.buffer = buffer;
+    source.connect(gainNode);
+    source.start(
+      scheduleStartAtClockTime + (sourceProjectStart - scheduleProjectPosition),
+      sourceOffset,
+    );
+
+    return {
+      channelNumber: loadedChannel.channel.channelNumber,
+      source,
+    };
+  }
+
   function startSources(
     instruction: PlaybackScheduleInstruction,
     isLoopContinuation = false,
@@ -704,58 +805,13 @@ export function createWebAudioPlaybackEngine(
       return null;
     }
 
-    const playbackPosition = instruction.projectPositionSeconds;
-    const instructionEndPosition = playbackPosition + instruction.durationSeconds;
     const sources: ActiveSource[] = [];
 
     for (const loadedChannel of loadedChannels) {
-      const buffer = loadedChannel.buffer;
-      const gainNode = loadedChannel.gainNode;
-      const trackStartPosition = getTrackTimelineOffsetSeconds(
-        loadedChannel.channel,
-        normalizedMusicalTimeline,
-      );
-
-      if (!buffer || !gainNode) {
-        continue;
+      const source = createSourceForChannel(loadedChannel, instruction);
+      if (source) {
+        sources.push(source);
       }
-
-      const alignmentWindow = getTrackSourceAlignmentWindow({
-        trackStartSeconds: trackStartPosition,
-        sourceDurationSeconds: buffer.duration,
-        alignmentOffsetSeconds: loadedChannel.channel.alignmentOffsetSeconds,
-        mediaLeadInSeconds: loadedChannel.channel.mediaLeadInSeconds,
-      });
-      const sourceProjectStart = Math.max(
-        playbackPosition,
-        alignmentWindow.projectStartSeconds,
-      );
-      const sourceOffset = getAlignedSourceOffsetSeconds({
-        projectTimeSeconds: sourceProjectStart,
-        trackStartSeconds: trackStartPosition,
-        alignmentOffsetSeconds: loadedChannel.channel.alignmentOffsetSeconds,
-        mediaLeadInSeconds: loadedChannel.channel.mediaLeadInSeconds,
-      });
-
-      if (
-        sourceProjectStart >= instructionEndPosition - END_EPSILON_SECONDS ||
-        sourceProjectStart >= alignmentWindow.projectEndSeconds - END_EPSILON_SECONDS ||
-        sourceOffset >= buffer.duration - END_EPSILON_SECONDS
-      ) {
-        continue;
-      }
-
-      const source = audioContext.createBufferSource();
-      source.buffer = buffer;
-      source.connect(gainNode);
-      source.start(
-        instruction.startAtClockTime + (sourceProjectStart - playbackPosition),
-        sourceOffset,
-      );
-      sources.push({
-        channelNumber: loadedChannel.channel.channelNumber,
-        source,
-      });
     }
 
     if (sources.length === 0) {
@@ -912,8 +968,6 @@ export function createWebAudioPlaybackEngine(
       return;
     }
 
-    await loadingPromise;
-
     if (
       !hasReadyChannels() ||
       transport.getSnapshot().playbackState === "playing"
@@ -934,8 +988,6 @@ export function createWebAudioPlaybackEngine(
     if (destroyed) {
       throw new Error("Playback engine has been destroyed.");
     }
-
-    await loadingPromise;
 
     if (!hasReadyChannels()) {
       throw new Error(
@@ -1021,8 +1073,6 @@ export function createWebAudioPlaybackEngine(
     if (destroyed) {
       throw new Error("Playback engine has been destroyed.");
     }
-
-    await loadingPromise;
 
     if (!hasReadyChannels()) {
       throw new Error(
@@ -1245,13 +1295,239 @@ export function createWebAudioPlaybackEngine(
       return false;
     }
 
+    if (loadedChannel.channel.enabled === enabled) {
+      return true;
+    }
+
     loadedChannel.channel.enabled = enabled;
 
     if (loadedChannel.gainNode) {
       setGainValue(loadedChannel.gainNode, loadedChannel.channel);
     }
 
+    if (enabled) {
+      if (loadedChannel.preparationStatus === "failed") {
+        loadedChannel.preparationStatus = "unloaded";
+        loadedChannel.failureMessage = null;
+      }
+      if (loadedChannel.preparationStatus === "ready") {
+        attachPreparedChannelToActivePlayback(loadedChannel);
+      } else {
+        void prepareChannel(loadedChannel, loadGeneration);
+      }
+    }
+
+    handlePreparationChange(loadGeneration);
+
     return true;
+  }
+
+  function getLoadFailureMessage(error: unknown): string {
+    return error instanceof Error && error.message.trim()
+      ? error.message
+      : "This track could not be prepared for playback.";
+  }
+
+  function updatePreparedMixDuration(): void {
+    const nextDuration = getMixDuration();
+    const transportSnapshot = transport.getSnapshot();
+    const durationChanged =
+      Math.abs(transportSnapshot.durationSeconds - nextDuration) >
+      END_EPSILON_SECONDS;
+
+    if (!durationChanged) {
+      return;
+    }
+
+    const currentGeneration = sourceGenerations.find((generation) => {
+      return (
+        generation.instruction.startAtClockTime <= audioContext.currentTime &&
+        generation.instruction.endAtClockTime > audioContext.currentTime
+      );
+    });
+
+    if (transportSnapshot.playbackState === "playing" && transportSnapshot.loopEnabled) {
+      cancelFutureLoopGenerations();
+    }
+
+    transport.setDuration(nextDuration);
+
+    if (!currentGeneration) {
+      return;
+    }
+
+    currentGeneration.instruction.durationSeconds = nextDuration;
+    currentGeneration.instruction.endAtClockTime =
+      currentGeneration.instruction.startAtClockTime +
+      Math.max(0, nextDuration - currentGeneration.instruction.projectPositionSeconds);
+
+    if (transportSnapshot.loopEnabled) {
+      lastScheduledLoopInstruction = currentGeneration.instruction;
+      maintainLoopSchedule(true);
+    }
+  }
+
+  function attachPreparedChannelToActivePlayback(
+    loadedChannel: LoadedWebAudioChannel,
+  ): void {
+    const transportSnapshot = transport.getSnapshot();
+    if (
+      !loadedChannel.channel.enabled ||
+      loadedChannel.preparationStatus !== "ready" ||
+      transportSnapshot.playbackState !== "playing"
+    ) {
+      return;
+    }
+
+    pruneCompletedSourceGenerations();
+    const marker = transport.markTimelinePosition();
+    const joinLeadSeconds = PLAYBACK_START_LEAD_SECONDS;
+
+    for (const generation of sourceGenerations) {
+      if (generation.sources.some(({ channelNumber }) => {
+        return channelNumber === loadedChannel.channel.channelNumber;
+      })) {
+        continue;
+      }
+
+      const isCurrentGeneration =
+        generation.instruction.startAtClockTime <= audioContext.currentTime &&
+        generation.instruction.endAtClockTime > audioContext.currentTime;
+      const source = isCurrentGeneration
+        ? createSourceForChannel(
+            loadedChannel,
+            generation.instruction,
+            audioContext.currentTime + joinLeadSeconds,
+            marker.projectPositionSeconds + joinLeadSeconds,
+          )
+        : createSourceForChannel(loadedChannel, generation.instruction);
+
+      if (source) {
+        generation.sources.push(source);
+      }
+    }
+  }
+
+  function startBackgroundPreparation(generation: number): void {
+    if (
+      destroyed ||
+      generation !== loadGeneration ||
+      backgroundPreparationGeneration === generation
+    ) {
+      return;
+    }
+
+    backgroundPreparationGeneration = generation;
+    void (async () => {
+      try {
+        for (const loadedChannel of loadedChannels) {
+          if (destroyed || generation !== loadGeneration) {
+            return;
+          }
+          if (
+            loadedChannel.channel.enabled ||
+            loadedChannel.preparationStatus !== "unloaded"
+          ) {
+            continue;
+          }
+          await prepareChannel(loadedChannel, generation);
+        }
+      } finally {
+        if (backgroundPreparationGeneration === generation) {
+          backgroundPreparationGeneration = null;
+        }
+      }
+    })();
+  }
+
+  function handlePreparationChange(generation: number): void {
+    if (destroyed || generation !== loadGeneration) {
+      return;
+    }
+
+    const preparation = getPreparationSnapshot();
+    if (preparation.status === "ready") {
+      if (pendingSeekSeconds !== null) {
+        const requestedSeekSeconds = pendingSeekSeconds;
+        pendingSeekSeconds = null;
+        transport.seek(requestedSeekSeconds);
+      }
+      startBackgroundPreparation(generation);
+    } else if (preparation.status === "idle") {
+      startBackgroundPreparation(generation);
+    }
+
+    notify();
+  }
+
+  async function prepareChannel(
+    loadedChannel: LoadedWebAudioChannel,
+    generation: number,
+  ): Promise<void> {
+    if (
+      destroyed ||
+      generation !== loadGeneration ||
+      loadedChannel.preparationStatus === "fetching" ||
+      loadedChannel.preparationStatus === "decoding" ||
+      loadedChannel.preparationStatus === "ready"
+    ) {
+      return;
+    }
+
+    try {
+      loadedChannel.preparationStatus = "fetching";
+      loadedChannel.failureMessage = null;
+      handlePreparationChange(generation);
+      const audioData = await fetchAudioData(loadedChannel.channel.audioUrl);
+      if (destroyed || generation !== loadGeneration) {
+        return;
+      }
+
+      loadedChannel.preparationStatus = "decoding";
+      handlePreparationChange(generation);
+      const buffer = await audioContext.decodeAudioData(audioData);
+      if (destroyed || generation !== loadGeneration) {
+        return;
+      }
+
+      const gainNode = audioContext.createGain();
+      loadedChannel.buffer = buffer;
+      loadedChannel.gainNode = gainNode;
+      loadedChannel.preparationStatus = "ready";
+      setGainValue(gainNode, loadedChannel.channel);
+      gainNode.connect(audioContext.destination);
+      updatePreparedMixDuration();
+      attachPreparedChannelToActivePlayback(loadedChannel);
+      handlePreparationChange(generation);
+    } catch (error: unknown) {
+      if (destroyed || generation !== loadGeneration) {
+        return;
+      }
+      loadedChannel.preparationStatus = "failed";
+      loadedChannel.failureMessage = getLoadFailureMessage(error);
+      handlePreparationChange(generation);
+      onLoadError(error);
+    }
+  }
+
+  function retryPreparation(): void {
+    if (destroyed) {
+      return;
+    }
+
+    const generation = loadGeneration;
+    const failedRequiredChannels = loadedChannels.filter((loadedChannel) => {
+      return loadedChannel.channel.enabled &&
+        loadedChannel.preparationStatus === "failed";
+    });
+
+    for (const loadedChannel of failedRequiredChannels) {
+      loadedChannel.preparationStatus = "unloaded";
+      loadedChannel.failureMessage = null;
+      void prepareChannel(loadedChannel, generation);
+    }
+
+    handlePreparationChange(generation);
   }
 
   function loadMix(channels: PlaybackChannel[]): void {
@@ -1267,6 +1543,7 @@ export function createWebAudioPlaybackEngine(
 
     const generation = loadGeneration + 1;
     loadGeneration = generation;
+    backgroundPreparationGeneration = null;
 
     clearActiveSources();
     clearAllClickCues();
@@ -1278,6 +1555,8 @@ export function createWebAudioPlaybackEngine(
       },
       buffer: null,
       gainNode: null,
+      preparationStatus: "unloaded",
+      failureMessage: null,
     }));
     pendingSeekSeconds = preservedPositionSeconds > 0
       ? preservedPositionSeconds
@@ -1286,55 +1565,19 @@ export function createWebAudioPlaybackEngine(
     transport.setDuration(0);
 
     if (loadedChannels.length === 0) {
-      loadingPromise = Promise.resolve();
+      notify();
       return;
     }
 
-    const channelsForGeneration = loadedChannels;
+    const requiredChannels = loadedChannels.filter(({ channel }) => channel.enabled);
+    if (requiredChannels.length === 0) {
+      handlePreparationChange(generation);
+      return;
+    }
 
-    loadingPromise = Promise.all(
-      channelsForGeneration.map(async (loadedChannel) => {
-        const audioData = await fetchAudioData(
-          loadedChannel.channel.audioUrl,
-        );
-        const buffer = await audioContext.decodeAudioData(audioData);
-
-        return {
-          loadedChannel,
-          buffer,
-        };
-      }),
-    )
-      .then((decodedChannels) => {
-        if (destroyed || generation !== loadGeneration) {
-          return;
-        }
-
-        for (const { loadedChannel, buffer } of decodedChannels) {
-          const gainNode = audioContext.createGain();
-          loadedChannel.buffer = buffer;
-          loadedChannel.gainNode = gainNode;
-          setGainValue(gainNode, loadedChannel.channel);
-          gainNode.connect(audioContext.destination);
-        }
-
-        transport.setDuration(getMixDuration());
-        if (pendingSeekSeconds !== null) {
-          const requestedSeekSeconds = pendingSeekSeconds;
-          pendingSeekSeconds = null;
-          transport.seek(requestedSeekSeconds);
-        }
-      })
-      .catch((error: unknown) => {
-        if (destroyed || generation !== loadGeneration) {
-          return;
-        }
-
-        disconnectLoadedChannels();
-        loadedChannels = [];
-        transport.setDuration(0);
-        onLoadError(error);
-      });
+    for (const loadedChannel of requiredChannels) {
+      void prepareChannel(loadedChannel, generation);
+    }
   }
 
   function destroy(): void {
@@ -1356,6 +1599,7 @@ export function createWebAudioPlaybackEngine(
 
   return {
     loadMix,
+    retryPreparation,
     play,
     startSynchronizedRecordingPlayback,
     auditionRecordedTake,

@@ -171,7 +171,12 @@ export type {
 } from "./platform/recorded-take-draft-port.js";
 export type {
   PlaybackChannel,
+  PlaybackChannelPreparationSnapshot,
+  PlaybackChannelPreparationStatus,
   PlaybackEngine,
+  PlaybackPreparationFailure,
+  PlaybackPreparationSnapshot,
+  PlaybackPreparationStatus,
   PlaybackSnapshot,
   PlaybackStateListener,
   RecordedTakeAuditionOptions,

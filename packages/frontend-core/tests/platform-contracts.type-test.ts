@@ -58,6 +58,13 @@ const playbackEngine = {
       duration: 0,
       isPlaying: false,
       hasLoadedChannels: false,
+      preparation: {
+        status: "idle",
+        requiredChannelCount: 0,
+        readyRequiredChannelCount: 0,
+        channels: [],
+        failure: null,
+      },
     };
   },
   subscribe() {

@@ -944,6 +944,19 @@ function initializeProjectPlayerPage({
     "#audio-track-name",
   );
 
+  const preparationElement = getElement<HTMLElement>(
+    appElement,
+    "#audio-playback-preparation",
+  );
+  const preparationMessageElement = getElement<HTMLElement>(
+    appElement,
+    "#audio-playback-preparation-message",
+  );
+  const preparationRetryButton = getElement<HTMLButtonElement>(
+    appElement,
+    "#audio-playback-preparation-retry",
+  );
+
   if (
     !audioElement ||
     !seekBackwardButton ||
@@ -1009,6 +1022,9 @@ function initializeProjectPlayerPage({
     seekBeatInput,
     seekBarButton,
     trackNameElement,
+    ...(preparationElement && preparationMessageElement && preparationRetryButton
+      ? { preparationElement, preparationMessageElement, preparationRetryButton }
+      : {}),
     loopCheckbox,
     metronomeCheckbox,
     recordingWorkspaceState,

@@ -353,6 +353,13 @@ function createPlaybackHarness({
         duration: snapshot.durationSeconds,
         isPlaying: snapshot.playbackState === "playing",
         hasLoadedChannels: snapshot.durationSeconds > 0,
+        preparation: {
+          status: snapshot.durationSeconds > 0 ? "ready" : "idle",
+          requiredChannelCount: snapshot.durationSeconds > 0 ? 1 : 0,
+          readyRequiredChannelCount: snapshot.durationSeconds > 0 ? 1 : 0,
+          channels: [],
+          failure: null,
+        },
       };
     },
     subscribe(listener) {
@@ -363,6 +370,13 @@ function createPlaybackHarness({
           duration: snapshot.durationSeconds,
           isPlaying: snapshot.playbackState === "playing",
           hasLoadedChannels: snapshot.durationSeconds > 0,
+          preparation: {
+            status: snapshot.durationSeconds > 0 ? "ready" : "idle",
+            requiredChannelCount: snapshot.durationSeconds > 0 ? 1 : 0,
+            readyRequiredChannelCount: snapshot.durationSeconds > 0 ? 1 : 0,
+            channels: [],
+            failure: null,
+          },
         });
       });
     },

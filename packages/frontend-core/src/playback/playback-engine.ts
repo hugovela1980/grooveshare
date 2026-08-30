@@ -24,12 +24,53 @@ export type PlaybackChannel = {
   mediaLeadInSeconds?: number;
 };
 
+export type PlaybackPreparationStatus =
+  | "idle"
+  | "preparing"
+  | "ready"
+  | "failed";
+
+export type PlaybackChannelPreparationStatus =
+  | "unloaded"
+  | "fetching"
+  | "decoding"
+  | "ready"
+  | "failed";
+
+export type PlaybackPreparationFailure = {
+  channelNumber: number;
+  trackId: string;
+  message: string;
+};
+
+export type PlaybackChannelPreparationSnapshot = {
+  channelNumber: number;
+  trackId: string;
+  required: boolean;
+  status: PlaybackChannelPreparationStatus;
+  failureMessage: string | null;
+};
+
+export type PlaybackPreparationSnapshot = {
+  status: PlaybackPreparationStatus;
+  requiredChannelCount: number;
+  readyRequiredChannelCount: number;
+  channels: PlaybackChannelPreparationSnapshot[];
+  failure: PlaybackPreparationFailure | null;
+};
+
 export type PlaybackSnapshot = {
   currentTime: number;
   musicalPosition: MusicalPosition;
   duration: number;
   isPlaying: boolean;
+  /**
+   * True only when the currently enabled (required) mix is usable. Kept as a
+   * compatibility signal for recording consumers; new presentation should use
+   * the explicit preparation state below.
+   */
   hasLoadedChannels: boolean;
+  preparation: PlaybackPreparationSnapshot;
 };
 
 export type PlaybackStateListener = (
@@ -66,6 +107,8 @@ export type SynchronizedRecordingPlaybackStart = {
  */
 export interface PlaybackEngine {
   loadMix(channels: PlaybackChannel[]): void;
+  /** Retry failed preparation for channels that currently block playback. */
+  retryPreparation?(): void;
   play(): Promise<void>;
   pause(): void;
   stop(): void;

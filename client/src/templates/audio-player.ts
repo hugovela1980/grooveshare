@@ -23,6 +23,22 @@ export function renderAudioPlayer({ showMicrophoneControl = false }: AudioPlayer
 
       <audio id="project-audio-player" crossorigin="use-credentials"></audio>
 
+      <div
+        id="audio-playback-preparation"
+        class="audio-player__preparation"
+        role="status"
+        aria-live="polite"
+      >
+        <span id="audio-playback-preparation-message">No tracks are available for playback.</span>
+        <button
+          id="audio-playback-preparation-retry"
+          class="button audio-player__preparation-retry"
+          type="button"
+          hidden
+          disabled
+        >Retry</button>
+      </div>
+
       <div class="audio-player__controls">
         <div class="audio-player__transport">
           <div class="audio-player__transport-primary">

@@ -5,7 +5,7 @@ import { tester } from "./test-runner/tester.js";
 
 type Listener = () => void | Promise<void>;
 
-function createFakeAudioElement() {
+function createFakeAudioElement(autoReady = true) {
   const listeners = new Map<string, Listener>();
 
   return {
@@ -28,6 +28,9 @@ function createFakeAudioElement() {
     },
     load() {
       this.loadCallCount += 1;
+      if (autoReady) {
+        void listeners.get("canplay")?.();
+      }
     },
     addEventListener(eventName: string, handler: Listener) {
       listeners.set(eventName, handler);
@@ -39,6 +42,33 @@ function createFakeAudioElement() {
 }
 
 tester.describe("HtmlAudioPlaybackEngine", () => {
+  tester.it("uses media readiness events, prioritizes enabled tracks, and retries failure", async () => {
+    const first = createFakeAudioElement(false);
+    const second = createFakeAudioElement(false);
+    const engine = createHtmlAudioPlaybackEngine({
+      primaryAudioElement: first,
+      createAudioElement: () => second,
+    });
+
+    engine.loadMix([
+      { channelNumber: 1, trackId: "track-1", audioUrl: "/1.wav", volume: 1, enabled: true },
+      { channelNumber: 2, trackId: "track-2", audioUrl: "/2.wav", volume: 1, enabled: false },
+    ]);
+    tester.expect(engine.getSnapshot().preparation.status).toBe("preparing");
+    tester.expect(first.loadCallCount).toBe(1);
+    tester.expect(second.loadCallCount).toBe(0);
+    await engine.play();
+    tester.expect(first.playCallCount).toBe(0);
+
+    await first.trigger("error");
+    tester.expect(engine.getSnapshot().preparation.status).toBe("failed");
+    engine.retryPreparation?.();
+    tester.expect(first.loadCallCount).toBe(2);
+    await first.trigger("canplay");
+    tester.expect(engine.getSnapshot().preparation.status).toBe("ready");
+    tester.expect(second.loadCallCount).toBe(1);
+  });
+
   tester.it("applies signed alignment to source seeks and converts source time back to project time", () => {
     for (const alignmentOffsetSeconds of [-0.1, 0, 0.1]) {
       const audio = createFakeAudioElement();
@@ -408,6 +438,19 @@ tester.describe("HtmlAudioPlaybackEngine", () => {
       duration: 120,
       isPlaying: false,
       hasLoadedChannels: true,
+      preparation: {
+        status: "ready",
+        requiredChannelCount: 1,
+        readyRequiredChannelCount: 1,
+        channels: [{
+          channelNumber: 1,
+          trackId: "track-1",
+          required: true,
+          status: "ready",
+          failureMessage: null,
+        }],
+        failure: null,
+      },
     });
   });
 });

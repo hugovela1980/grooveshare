@@ -32,6 +32,29 @@
     line-height: 1.3;
 }
 
+.audio-player__preparation {
+    display: flex;
+    min-height: 2.5rem;
+    gap: 0.75rem;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.6rem 0.75rem;
+    border: 1px solid var(--border-input);
+    border-radius: var(--radius-sm);
+    color: var(--color-text-subtle);
+    font-size: 0.88rem;
+}
+
+.audio-player__preparation[hidden] {
+    display: none;
+}
+
+.audio-player__preparation-retry {
+    flex: 0 0 auto;
+    min-height: 2.25rem;
+    padding: 0.35rem 0.7rem;
+}
+
 .audio-player__controls {
     display: grid;
     gap: 1rem;

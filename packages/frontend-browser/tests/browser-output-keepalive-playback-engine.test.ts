@@ -104,16 +104,27 @@ class FakePlaybackEngine implements PlaybackEngine {
   lastAuditionOptions: RecordedTakeAuditionOptions | null = null;
   metronomeValues: boolean[] = [];
   destroyCalls = 0;
+  retryCalls = 0;
   snapshot: PlaybackSnapshot = {
     currentTime: 0,
     musicalPosition: { bar: 1, beat: 1 },
     duration: 16,
     isPlaying: false,
     hasLoadedChannels: true,
+    preparation: {
+      status: "ready",
+      requiredChannelCount: 1,
+      readyRequiredChannelCount: 1,
+      channels: [],
+      failure: null,
+    },
   };
   listeners = new Set<PlaybackStateListener>();
 
   loadMix(_channels: PlaybackChannel[]): void {}
+  retryPreparation(): void {
+    this.retryCalls += 1;
+  }
 
   async play(): Promise<void> {
     this.playCalls += 1;
@@ -283,6 +294,28 @@ tester.describe("browser output keepalive playback engine", () => {
     tester.expect(BROWSER_OUTPUT_KEEPALIVE_LEVEL_DB).toBe(-54);
     tester.expect(BROWSER_OUTPUT_KEEPALIVE_WARMUP_MS).toBe(400);
     tester.expect(BROWSER_OUTPUT_KEEPALIVE_RECENTLY_ACTIVE_MS).toBe(400);
+  });
+
+  tester.it("refuses early Play before warming the output route and forwards preparation retry", async () => {
+    const harness = createHarness();
+    harness.playbackEngine.snapshot = {
+      ...harness.playbackEngine.snapshot,
+      hasLoadedChannels: false,
+      preparation: {
+        status: "preparing",
+        requiredChannelCount: 1,
+        readyRequiredChannelCount: 0,
+        channels: [],
+        failure: null,
+      },
+    };
+
+    await harness.engine.play();
+    tester.expect(harness.playbackEngine.playCalls).toBe(0);
+    tester.expect(FakeAudioContext.instances.length).toBe(0);
+
+    harness.engine.retryPreparation?.();
+    tester.expect(harness.playbackEngine.retryCalls).toBe(1);
   });
 
   tester.it("warms a cold output route before delegating playback", async () => {

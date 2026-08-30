@@ -1,5 +1,6 @@
 import {
   createWebAudioPlaybackEngine,
+  type PlaybackEngine,
   type RecordingAlignmentDiagnosticObservation,
   type RecordingAlignmentDiagnosticsPort,
 } from "../src/index.js";
@@ -135,6 +136,21 @@ function createFakeAudioContext() {
   };
 }
 
+async function waitForPlaybackReady(engine: PlaybackEngine): Promise<void> {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const preparation = engine.getSnapshot().preparation;
+    if (preparation.status === "ready") {
+      return;
+    }
+    if (preparation.status === "failed") {
+      throw new Error(preparation.failure?.message ?? "Playback preparation failed.");
+    }
+    await Promise.resolve();
+  }
+
+  throw new Error("Playback preparation did not settle.");
+}
+
 function createEngineHarness(
   musicalTimeline = {
     bpm: 120,
@@ -152,7 +168,7 @@ function createEngineHarness(
     ["/recorded-take.webm", 2],
   ]);
 
-  const engine = createWebAudioPlaybackEngine({
+  const rawEngine = createWebAudioPlaybackEngine({
     audioContext,
     musicalTimeline,
     async fetchAudioData(audioUrl) {
@@ -171,10 +187,26 @@ function createEngineHarness(
       throw error;
     },
   });
+  const engine: PlaybackEngine = {
+    ...rawEngine,
+    async play() {
+      await waitForPlaybackReady(rawEngine);
+      await rawEngine.play();
+    },
+    async startSynchronizedRecordingPlayback(options) {
+      await waitForPlaybackReady(rawEngine);
+      return rawEngine.startSynchronizedRecordingPlayback!(options);
+    },
+    async auditionRecordedTake(options) {
+      await waitForPlaybackReady(rawEngine);
+      return rawEngine.auditionRecordedTake!(options);
+    },
+  };
 
   return {
     audioContext,
     engine,
+    rawEngine,
     fetchedUrls,
     tickTransport() {
       intervalHandler?.();
@@ -200,6 +232,120 @@ const twoChannelMix = [
 ];
 
 tester.describe("WebAudioPlaybackEngine", () => {
+  tester.it("publishes explicit required-track readiness and refuses early Play without queuing it", async () => {
+    const { rawEngine, audioContext } = createEngineHarness();
+    rawEngine.loadMix(twoChannelMix);
+
+    const preparing = rawEngine.getSnapshot();
+    tester.expect(preparing.preparation.status).toBe("preparing");
+    tester.expect(preparing.preparation.requiredChannelCount).toBe(2);
+    tester.expect(preparing.preparation.readyRequiredChannelCount).toBe(0);
+
+    await rawEngine.play();
+    tester.expect(audioContext.resumeCallCount).toBe(0);
+    tester.expect(rawEngine.getSnapshot().isPlaying).toBe(false);
+
+    await waitForPlaybackReady(rawEngine);
+    tester.expect(rawEngine.getSnapshot().isPlaying).toBe(false);
+    await rawEngine.play();
+    tester.expect(rawEngine.getSnapshot().isPlaying).toBe(true);
+    rawEngine.destroy?.();
+  });
+
+  tester.it("loads enabled tracks concurrently before starting disabled background preparation", async () => {
+    const { rawEngine, fetchedUrls } = createEngineHarness();
+    rawEngine.loadMix([
+      twoChannelMix[0]!,
+      { ...twoChannelMix[1]!, enabled: false },
+    ]);
+
+    tester.expect(fetchedUrls).toEqual(["/drums.wav"]);
+    await waitForPlaybackReady(rawEngine);
+    tester.expect(fetchedUrls).toEqual(["/drums.wav", "/bass.wav"]);
+    tester.expect(rawEngine.getSnapshot().preparation.status).toBe("ready");
+    rawEngine.destroy?.();
+  });
+
+  tester.it("keeps ready playback running while a newly enabled channel prepares and joins", async () => {
+    const audioContext = createFakeAudioContext();
+    let resolveBass: ((audioData: ArrayBuffer) => void) | null = null;
+    const bassAudio = new Promise<ArrayBuffer>((resolve) => {
+      resolveBass = resolve;
+    });
+    const engine = createWebAudioPlaybackEngine({
+      audioContext,
+      fetchAudioData(audioUrl) {
+        return audioUrl === "/bass.wav"
+          ? bassAudio
+          : Promise.resolve(new Uint8Array([60]).buffer);
+      },
+      scheduleInterval() { return {}; },
+      clearScheduledInterval() {},
+      onLoadError() {},
+    });
+
+    engine.loadMix([
+      twoChannelMix[0]!,
+      { ...twoChannelMix[1]!, enabled: false },
+    ]);
+    await waitForPlaybackReady(engine);
+    await engine.play();
+    const playingSourceCount = audioContext.sources.length;
+
+    engine.setChannelEnabled(2, true);
+    tester.expect(engine.getSnapshot().preparation.status).toBe("preparing");
+    tester.expect(engine.getSnapshot().isPlaying).toBe(true);
+    tester.expect(audioContext.sources.length).toBe(playingSourceCount);
+
+    audioContext.currentTime = 12;
+    resolveBass!(new Uint8Array([60]).buffer);
+    await waitForPlaybackReady(engine);
+    tester.expect(engine.getSnapshot().isPlaying).toBe(true);
+    tester.expect(audioContext.sources.length).toBe(playingSourceCount + 1);
+    tester.expect(audioContext.sources[0]?.stopCallCount).toBe(0);
+    tester.expect(Math.abs((audioContext.sources.at(-1)?.startOffset ?? 0) - 2) < 1e-9).toBe(true);
+    engine.destroy?.();
+  });
+
+  tester.it("reports required failures, retries them, and does not let disabled failures tear down ready playback", async () => {
+    const audioContext = createFakeAudioContext();
+    let requiredAttempts = 0;
+    const engine = createWebAudioPlaybackEngine({
+      audioContext,
+      fetchAudioData(audioUrl) {
+        if (audioUrl === "/drums.wav" && requiredAttempts++ === 0) {
+          return Promise.reject(new Error("Drums unavailable"));
+        }
+        if (audioUrl === "/bass.wav") {
+          return Promise.reject(new Error("Bass unavailable"));
+        }
+        return Promise.resolve(new Uint8Array([60]).buffer);
+      },
+      scheduleInterval() { return {}; },
+      clearScheduledInterval() {},
+      onLoadError() {},
+    });
+
+    engine.loadMix([
+      twoChannelMix[0]!,
+      { ...twoChannelMix[1]!, enabled: false },
+    ]);
+    for (let attempt = 0; attempt < 10; attempt += 1) await Promise.resolve();
+    tester.expect(engine.getSnapshot().preparation.status).toBe("failed");
+    tester.expect(engine.getSnapshot().preparation.failure?.trackId).toBe("track-1");
+
+    engine.retryPreparation?.();
+    await waitForPlaybackReady(engine);
+    for (let attempt = 0; attempt < 10; attempt += 1) await Promise.resolve();
+    tester.expect(engine.getSnapshot().preparation.status).toBe("ready");
+    tester.expect(
+      engine.getSnapshot().preparation.channels.find(({ trackId }) => trackId === "track-2")?.status,
+    ).toBe("failed");
+    await engine.play();
+    tester.expect(engine.getSnapshot().isPlaying).toBe(true);
+    engine.destroy?.();
+  });
+
   tester.it("moves the same transient earlier or later by the signed amount in audition and saved-track playback", async () => {
     for (const alignmentOffsetSeconds of [-0.36, -0.1, -0.01, -0.001, 0, 0.001, 0.01, 0.1]) {
       const { engine, audioContext } = createEngineHarness();
@@ -1236,6 +1382,7 @@ tester.describe("WebAudioPlaybackEngine", () => {
     });
 
     engine.loadMix([twoChannelMix[0]!]);
+    await waitForPlaybackReady(engine);
     await engine.play();
 
     const scheduled = observations.find((observation) =>

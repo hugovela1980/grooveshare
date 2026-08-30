@@ -18,6 +18,7 @@ function createButton() {
 
   return {
     disabled: true,
+    hidden: false as boolean | "until-found",
     textContent: null as string | null,
     addEventListener(eventName: "click", handler: Listener) {
       if (eventName === "click") {
@@ -84,12 +85,20 @@ function createPlaybackHarness({
     duration: 0,
     isPlaying: false,
     hasLoadedChannels: false,
+    preparation: {
+      status: "idle",
+      requiredChannelCount: 0,
+      readyRequiredChannelCount: 0,
+      channels: [],
+      failure: null,
+    },
   };
   let listener: PlaybackStateListener | null = null;
   let soughtMusicalPosition: MusicalPosition | null = null;
   let loopEnabled = false;
   let metronomeEnabled = false;
   let playCalls = 0;
+  let retryCalls = 0;
 
   function publish(nextSnapshot: PlaybackSnapshot): void {
     snapshot = nextSnapshot;
@@ -102,11 +111,21 @@ function createPlaybackHarness({
         ...snapshot,
         duration: loadImmediately && channels.length > 0 ? 30 : 0,
         hasLoadedChannels: loadImmediately && channels.length > 0,
+        preparation: {
+          status: loadImmediately && channels.length > 0 ? "ready" : "preparing",
+          requiredChannelCount: channels.length,
+          readyRequiredChannelCount: loadImmediately ? channels.length : 0,
+          channels: [],
+          failure: null,
+        },
       });
     },
     async play() {
       playCalls += 1;
       publish({ ...snapshot, isPlaying: true });
+    },
+    retryPreparation() {
+      retryCalls += 1;
     },
     pause() {
       publish({ ...snapshot, isPlaying: false });
@@ -173,6 +192,9 @@ function createPlaybackHarness({
     getPlayCalls() {
       return playCalls;
     },
+    getRetryCalls() {
+      return retryCalls;
+    },
   };
 }
 
@@ -186,7 +208,7 @@ function createMemoryStorage(): StorageProvider {
 }
 
 tester.describe("mobile musical timeline playback", () => {
-  tester.it("keeps the transport usable and queues play while selected tracks decode", async () => {
+  tester.it("keeps Play unavailable and refuses an early tap while selected tracks prepare", async () => {
     const playback = createPlaybackHarness({ loadImmediately: false });
     const seekBackwardButton = createButton();
     const seekForwardButton = createButton();
@@ -225,12 +247,79 @@ tester.describe("mobile musical timeline playback", () => {
     }]);
 
     tester.expect(playback.engine.getSnapshot().hasLoadedChannels).toBe(false);
-    tester.expect(playPauseButton.disabled).toBe(false);
-    tester.expect(seekBackwardButton.disabled).toBe(false);
-    tester.expect(stopButton.disabled).toBe(false);
+    tester.expect(playPauseButton.disabled).toBe(true);
+    tester.expect(seekBackwardButton.disabled).toBe(true);
+    tester.expect(stopButton.disabled).toBe(true);
 
     await playPauseButton.click();
-    tester.expect(playback.getPlayCalls()).toBe(1);
+    tester.expect(playback.getPlayCalls()).toBe(0);
+  });
+
+  tester.it("shows authoritative preparation progress and a failed-track retry action", async () => {
+    const playback = createPlaybackHarness({ loadImmediately: false });
+    const preparationElement = { hidden: true, textContent: null as string | null };
+    const preparationMessageElement = { textContent: null as string | null };
+    const preparationRetryButton = createButton();
+    const controller = createAudioPlayerController({
+      playbackEngine: playback.engine,
+      seekBackwardButton: createButton(),
+      seekForwardButton: createButton(),
+      playPauseButton: createButton(),
+      stopButton: createButton(),
+      progressInput: createRangeInput(),
+      timestampElement: { textContent: null },
+      durationElement: { textContent: null },
+      musicalPositionElement: { textContent: null },
+      seekBarInput: createNumberInput(),
+      seekBeatInput: createNumberInput(),
+      seekBarButton: createButton(),
+      trackNameElement: { textContent: null },
+      preparationElement,
+      preparationMessageElement,
+      preparationRetryButton,
+      loopCheckbox: createCheckbox(),
+      metronomeCheckbox: createCheckbox(),
+    });
+
+    controller.init();
+    controller.loadMix([{
+      channelNumber: 1,
+      trackId: "track-1",
+      name: "Bass",
+      audioUrl: "/bass.wav",
+      volume: 1,
+    }]);
+    tester.expect(preparationElement.hidden).toBe(false);
+    tester.expect(preparationMessageElement.textContent).toBe(
+      "Preparing playback… 0 of 1 tracks ready.",
+    );
+
+    playback.publish({
+      ...playback.engine.getSnapshot(),
+      preparation: {
+        status: "failed",
+        requiredChannelCount: 1,
+        readyRequiredChannelCount: 0,
+        channels: [{
+          channelNumber: 1,
+          trackId: "track-1",
+          required: true,
+          status: "failed",
+          failureMessage: "Network failure",
+        }],
+        failure: {
+          channelNumber: 1,
+          trackId: "track-1",
+          message: "Network failure",
+        },
+      },
+    });
+    tester.expect(preparationMessageElement.textContent).toBe(
+      "Could not prepare Bass for playback.",
+    );
+    tester.expect(preparationRetryButton.hidden).toBe(false);
+    await preparationRetryButton.click();
+    tester.expect(playback.getRetryCalls()).toBe(1);
   });
 
   tester.it("renders the diagnostic musical position and bar jump controls", () => {
@@ -244,6 +333,8 @@ tester.describe("mobile musical timeline playback", () => {
     tester.expect(html.includes('id="audio-seek-forward-button"')).toBe(true);
     tester.expect(html.includes('id="microphone-arm-button"')).toBe(true);
     tester.expect(html.includes('id="audio-metronome-checkbox"')).toBe(true);
+    tester.expect(html.includes('id="audio-playback-preparation"')).toBe(true);
+    tester.expect(html.includes('id="audio-playback-preparation-retry"')).toBe(true);
     tester.expect(html.includes("Click")).toBe(true);
   });
 
@@ -323,6 +414,13 @@ tester.describe("mobile musical timeline playback", () => {
       duration: 30,
       isPlaying: true,
       hasLoadedChannels: true,
+      preparation: {
+        status: "ready",
+        requiredChannelCount: 1,
+        readyRequiredChannelCount: 1,
+        channels: [],
+        failure: null,
+      },
     });
 
     tester.expect(musicalPositionElement.textContent).toBe("Bar 2 · Beat 2");
@@ -377,6 +475,13 @@ tester.describe("mobile musical timeline playback", () => {
       duration: 30,
       isPlaying: false,
       hasLoadedChannels: true,
+      preparation: {
+        status: "ready",
+        requiredChannelCount: 1,
+        readyRequiredChannelCount: 1,
+        channels: [],
+        failure: null,
+      },
     });
 
     await seekBackwardButton.click();
@@ -533,6 +638,13 @@ tester.describe("mobile musical timeline playback", () => {
       duration: 30,
       isPlaying: true,
       hasLoadedChannels: true,
+      preparation: {
+        status: "ready",
+        requiredChannelCount: 1,
+        readyRequiredChannelCount: 1,
+        channels: [],
+        failure: null,
+      },
     });
 
     tester.expect(controller.getRecordingStartPosition()).toEqual({ bar: 6, beat: 3 });
@@ -547,6 +659,13 @@ tester.describe("mobile musical timeline playback", () => {
       duration: 30,
       isPlaying: true,
       hasLoadedChannels: true,
+      preparation: {
+        status: "ready",
+        requiredChannelCount: 1,
+        readyRequiredChannelCount: 1,
+        channels: [],
+        failure: null,
+      },
     });
     tester.expect(controller.prepareRecordingStart({ bar: 8, beat: 2 })).toBe(true);
     tester.expect(playback.engine.getSnapshot().isPlaying).toBe(false);

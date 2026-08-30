@@ -27,6 +27,8 @@ tester.describe("audio player template", () => {
         tester.expect(html.includes('type="checkbox"')).toBe(true);
         tester.expect(html.includes("data-audio-loop-checkbox")).toBe(true);
         tester.expect(html.includes('id="audio-metronome-checkbox"')).toBe(true);
+        tester.expect(html.includes('id="audio-playback-preparation"')).toBe(true);
+        tester.expect(html.includes('id="audio-playback-preparation-retry"')).toBe(true);
         tester.expect(html.includes("Click")).toBe(true);
         tester.expect(html.includes("▶")).toBe(true);
         tester.expect(html.includes("❚❚")).toBe(false);

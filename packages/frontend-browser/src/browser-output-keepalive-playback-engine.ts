@@ -282,6 +282,10 @@ export function createBrowserOutputKeepalivePlaybackEngine({
   }
 
   async function play(): Promise<void> {
+    if (playbackEngine.getSnapshot().preparation.status !== "ready") {
+      return;
+    }
+
     keepaliveDesired = true;
     const generation = ++playbackOperationGeneration;
     await prepareOutputRoute();
@@ -416,6 +420,9 @@ export function createBrowserOutputKeepalivePlaybackEngine({
 
   return {
     loadMix: (channels) => playbackEngine.loadMix(channels),
+    ...(playbackEngine.retryPreparation
+      ? { retryPreparation: () => playbackEngine.retryPreparation!() }
+      : {}),
     play,
     pause,
     stop,
