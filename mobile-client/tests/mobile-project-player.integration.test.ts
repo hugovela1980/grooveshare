@@ -354,6 +354,9 @@ tester.describe("mobile Project Player integration", () => {
     tester.expect(contributorMarkup.includes('id="project-details-edit-button"')).toBe(false);
     tester.expect(ownerMarkup.includes('id="microphone-review-view"')).toBe(true);
     tester.expect(ownerMarkup.includes('id="microphone-review-recovered"')).toBe(true);
+    tester.expect(ownerMarkup.includes('id="microphone-recovery-view"')).toBe(true);
+    tester.expect(ownerMarkup.includes('id="microphone-recovery-retry-button"')).toBe(true);
+    tester.expect(ownerMarkup.includes("Draft recovered")).toBe(true);
     tester.expect(ownerMarkup.includes("Take ready")).toBe(true);
     tester.expect(ownerMarkup.includes('id="microphone-audition-volume"')).toBe(true);
     tester.expect(ownerMarkup.includes('id="microphone-alignment-disclosure"')).toBe(true);

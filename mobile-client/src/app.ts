@@ -1056,6 +1056,10 @@ function initializeProjectPlayerPage({
     appElement,
     "#microphone-failure-view",
   );
+  const microphoneRecoveryView = getElement<HTMLElement>(
+    appElement,
+    "#microphone-recovery-view",
+  );
   const microphoneCountInView = getElement<HTMLElement>(
     appElement,
     "#microphone-count-in-view",
@@ -1088,6 +1092,10 @@ function initializeProjectPlayerPage({
     appElement,
     "#microphone-failure-close-button",
   );
+  const microphoneRecoveryCloseButton = getElement<HTMLButtonElement>(
+    appElement,
+    "#microphone-recovery-close-button",
+  );
   const microphoneCancelButton = getElement<HTMLButtonElement>(
     appElement,
     "#microphone-cancel-button",
@@ -1095,6 +1103,10 @@ function initializeProjectPlayerPage({
   const microphoneFailureCancelButton = getElement<HTMLButtonElement>(
     appElement,
     "#microphone-failure-cancel-button",
+  );
+  const microphoneRecoveryCancelButton = getElement<HTMLButtonElement>(
+    appElement,
+    "#microphone-recovery-cancel-button",
   );
   const microphonePermissionRetryButton = getElement<HTMLButtonElement>(
     appElement,
@@ -1131,6 +1143,18 @@ function initializeProjectPlayerPage({
   const microphoneFailureMessage = getElement<HTMLElement>(
     appElement,
     "#microphone-failure-message",
+  );
+  const microphoneRecoveryHeading = getElement<HTMLElement>(
+    appElement,
+    "#microphone-recovery-heading",
+  );
+  const microphoneRecoveryMessage = getElement<HTMLElement>(
+    appElement,
+    "#microphone-recovery-message",
+  );
+  const microphoneRecoveryRetryButton = getElement<HTMLButtonElement>(
+    appElement,
+    "#microphone-recovery-retry-button",
   );
   const microphoneStartPositionButton = getElement<HTMLButtonElement>(
     appElement,
@@ -1357,6 +1381,7 @@ function initializeProjectPlayerPage({
           preparingViewElement: microphonePreparingView ?? undefined,
           readyViewElement: microphoneReadyView ?? undefined,
           failureViewElement: microphoneFailureView ?? undefined,
+          recoveryViewElement: microphoneRecoveryView ?? undefined,
           countInViewElement: microphoneCountInView ?? undefined,
           activeRecordingViewElement: microphoneActiveRecordingView ?? undefined,
           processingViewElement: microphoneProcessingView ?? undefined,
@@ -1366,13 +1391,18 @@ function initializeProjectPlayerPage({
             microphonePreparingCloseButton,
             microphoneReadyCloseButton,
             microphoneFailureCloseButton,
+            microphoneRecoveryCloseButton,
             microphoneCancelButton,
             microphoneFailureCancelButton,
+            microphoneRecoveryCancelButton,
           ].filter((button): button is HTMLButtonElement => Boolean(button)),
           permissionRetryButton: microphonePermissionRetryButton ?? undefined,
           countInCancelButton: microphoneCountInCancelButton ?? undefined,
           failureHeadingElement: microphoneFailureHeading ?? undefined,
           failureMessageElement: microphoneFailureMessage ?? undefined,
+          recoveryHeadingElement: microphoneRecoveryHeading ?? undefined,
+          recoveryMessageElement: microphoneRecoveryMessage ?? undefined,
+          recoveryRetryButton: microphoneRecoveryRetryButton ?? undefined,
           startPositionButton: microphoneStartPositionButton ?? undefined,
           startPositionLabelElement: microphoneStartPositionLabel ?? undefined,
           startPositionEditorElement: microphoneStartPositionEditor ?? undefined,
@@ -1455,11 +1485,7 @@ function initializeProjectPlayerPage({
 
   microphoneRecordingController?.init();
   if (recordingSession) {
-    void recordingSession.restorePendingTake().then((snapshot) => {
-      if (snapshot.status === "stopped" && snapshot.take) {
-        microphoneRecordingController?.markTakeRecovered();
-      }
-    });
+    void recordingSession.restorePendingTake();
   }
 
   const projectTracksApi = invitationForProject

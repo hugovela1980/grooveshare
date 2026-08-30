@@ -61,6 +61,11 @@ export type MicrophoneRecordingCountIn = {
 
 export type MicrophoneTakeReviewStatus = "idle" | "auditioning";
 export type MicrophoneTakeSaveStatus = "idle" | "saving";
+export type MicrophoneTakeRecoveryStatus =
+  | "idle"
+  | "restoring"
+  | "restored"
+  | "failed";
 
 /**
  * Authoritative project position observed immediately after microphone capture
@@ -104,6 +109,8 @@ export type MicrophoneRecordingSnapshot = {
   takeSaveStatus: MicrophoneTakeSaveStatus;
   takeSaveFailure: RecordedTakeUploadFailure | null;
   savedTrack: Track | null;
+  takeRecoveryStatus: MicrophoneTakeRecoveryStatus;
+  takeRecoveryFailure: { message: string } | null;
   /**
    * Signed local capture compensation. Positive values move recorded content
    * later; negative values move it earlier. Zero is the unadjusted baseline.
@@ -234,6 +241,9 @@ export function createMicrophoneRecordingSession({
   let takeSaveStatus: MicrophoneTakeSaveStatus = "idle";
   let takeSaveFailure: RecordedTakeUploadFailure | null = null;
   let savedTrack: Track | null = null;
+  let takeRecoveryStatus: MicrophoneTakeRecoveryStatus = "idle";
+  let takeRecoveryFailure: { message: string } | null = null;
+  let takeTerminalAction: "keep" | "retry" | "discard" | null = null;
   let alignmentCompensationMilliseconds =
     normalizeRecordingAlignmentCompensationMilliseconds(
       initialAlignmentCompensationMilliseconds,
@@ -263,7 +273,7 @@ export function createMicrophoneRecordingSession({
       // Durable draft storage is best-effort. A browser storage failure must
       // not make an otherwise usable in-memory recording session fail.
     });
-    return draftPersistenceQueue;
+    return operation;
   }
 
   function createCurrentDraft(): RecordedTakeDraft | null {
@@ -382,6 +392,10 @@ export function createMicrophoneRecordingSession({
             mediaLeadInSeconds: savedTrack.mediaLeadInSeconds,
           }
         : null,
+      takeRecoveryStatus,
+      takeRecoveryFailure: takeRecoveryFailure
+        ? { ...takeRecoveryFailure }
+        : null,
       alignmentCompensationMilliseconds,
     };
   }
@@ -405,7 +419,8 @@ export function createMicrophoneRecordingSession({
       status === "count-in" ||
       status === "recording" ||
       status === "processing" ||
-      takeSaveStatus === "saving"
+      takeSaveStatus === "saving" ||
+      takeTerminalAction !== null
     ) {
       return getSnapshot();
     }
@@ -420,7 +435,9 @@ export function createMicrophoneRecordingSession({
     alignmentCompensationMilliseconds = nextValue;
     if (take) {
       take.alignmentCompensationMilliseconds = nextValue;
-      void persistCurrentTakeDraft();
+      void persistCurrentTakeDraft().catch(() => {
+        // The in-memory take remains reviewable when browser storage fails.
+      });
     }
     takeReviewFailure = null;
 
@@ -463,6 +480,8 @@ export function createMicrophoneRecordingSession({
     takeSaveStatus = "idle";
     takeSaveFailure = null;
     savedTrack = null;
+    takeRecoveryStatus = "idle";
+    takeRecoveryFailure = null;
   }
 
   function stopSynchronizedPlayback(): void {
@@ -628,31 +647,67 @@ export function createMicrophoneRecordingSession({
   async function restorePendingTake(): Promise<MicrophoneRecordingSnapshot> {
     ensureActive();
 
-    if (!takeDraftPort || !resolvedTakeDraftScopeId || status !== "idle" || take) {
+    if (
+      !takeDraftPort ||
+      !resolvedTakeDraftScopeId ||
+      status !== "idle" ||
+      take ||
+      takeRecoveryStatus === "restoring" ||
+      takeTerminalAction !== null
+    ) {
       return getSnapshot();
     }
+
+    takeRecoveryStatus = "restoring";
+    takeRecoveryFailure = null;
+    notify();
 
     let draft: RecordedTakeDraft | null = null;
     try {
       draft = await takeDraftPort.load(resolvedTakeDraftScopeId);
-    } catch {
-      return getSnapshot();
+    } catch (error) {
+      if (destroyed || status !== "idle" || take) {
+        return getSnapshot();
+      }
+      takeRecoveryStatus = "failed";
+      takeRecoveryFailure = {
+        message: error instanceof Error && error.message.trim()
+          ? error.message
+          : "A recoverable recording draft could not be loaded.",
+      };
+      return notify();
     }
 
     // Loading IndexedDB is asynchronous. If the user has already armed or
     // otherwise changed the recording session while recovery was in flight,
     // the stale draft must not overwrite the newer workflow state.
     if (destroyed || status !== "idle" || take) {
+      if (!destroyed) {
+        takeRecoveryStatus = "idle";
+        takeRecoveryFailure = null;
+      }
       return getSnapshot();
     }
 
     if (!draft) {
-      return getSnapshot();
+      takeRecoveryStatus = "idle";
+      takeRecoveryFailure = null;
+      return notify();
     }
 
     if (!isUsableDraft(draft)) {
-      await removePendingTakeDraft();
-      return getSnapshot();
+      try {
+        await removePendingTakeDraft();
+        takeRecoveryFailure = {
+          message: "An incomplete recording draft could not be recovered and was removed safely.",
+        };
+      } catch {
+        takeRecoveryFailure = {
+          message: "An incomplete recording draft could not be recovered or cleared. Reload to try again.",
+        };
+      }
+      takeRecoveryStatus = "failed";
+      return notify();
     }
 
     const restoredAlignment =
@@ -694,6 +749,8 @@ export function createMicrophoneRecordingSession({
     takeSaveStatus = "idle";
     takeSaveFailure = null;
     savedTrack = null;
+    takeRecoveryStatus = "restored";
+    takeRecoveryFailure = null;
     status = "stopped";
 
     try {
@@ -709,6 +766,10 @@ export function createMicrophoneRecordingSession({
     ensureActive();
 
     if (!ensureAuthorized()) {
+      return getSnapshot();
+    }
+
+    if (takeTerminalAction !== null) {
       return getSnapshot();
     }
 
@@ -768,6 +829,10 @@ export function createMicrophoneRecordingSession({
       return getSnapshot();
     }
 
+    if (takeTerminalAction !== null) {
+      return getSnapshot();
+    }
+
     if (status !== "ready") {
       return getSnapshot();
     }
@@ -791,6 +856,10 @@ export function createMicrophoneRecordingSession({
     ensureActive();
 
     if (!ensureAuthorized()) {
+      return getSnapshot();
+    }
+
+    if (takeTerminalAction !== null) {
       return getSnapshot();
     }
 
@@ -1189,7 +1258,11 @@ export function createMicrophoneRecordingSession({
             mediaLeadInMilliseconds: recordingMediaLeadInSeconds * 1000,
           },
         });
-        await persistCurrentTakeDraft();
+        try {
+          await persistCurrentTakeDraft();
+        } catch {
+          // The in-memory take remains reviewable when browser storage fails.
+        }
       }
 
       completeRecordingAlignment("completed");
@@ -1231,6 +1304,10 @@ export function createMicrophoneRecordingSession({
     ensureActive();
 
     if (!ensureAuthorized()) {
+      return getSnapshot();
+    }
+
+    if (takeTerminalAction !== null) {
       return getSnapshot();
     }
 
@@ -1330,6 +1407,10 @@ export function createMicrophoneRecordingSession({
       return getSnapshot();
     }
 
+    if (takeTerminalAction !== null) {
+      return getSnapshot();
+    }
+
     if (takeReviewStatus !== "auditioning") {
       return getSnapshot();
     }
@@ -1359,41 +1440,48 @@ export function createMicrophoneRecordingSession({
       return getSnapshot();
     }
 
+    if (takeTerminalAction !== null) {
+      return getSnapshot();
+    }
+
     if (status !== "stopped" || !take) {
       takeReviewFailure = { message: "There is no stopped take to retry." };
       return notify();
     }
 
+    takeTerminalAction = "retry";
+
     try {
       await releaseTakePlayback();
-    } catch (error) {
-      takeReviewFailure = {
-        message: error instanceof Error && error.message.trim()
-          ? error.message
-          : "Temporary take playback could not be cleaned up.",
-      };
-      return notify();
-    }
+      await removePendingTakeDraft();
+      clearTakeState();
+      failure = null;
 
-    await removePendingTakeDraft();
-    clearTakeState();
-    failure = null;
+      if (microphonePrepared) {
+        status = "ready";
+        return notify();
+      }
 
-    if (microphonePrepared) {
-      status = "ready";
-      return notify();
-    }
-
-    status = "requesting-permission";
-    notify();
-    try {
+      status = "requesting-permission";
+      notify();
       await recordingPort.prepare();
       microphonePrepared = true;
       status = "ready";
       return notify();
     } catch (error) {
+      if (take) {
+        takeReviewFailure = {
+          message: error instanceof Error && error.message.trim()
+            ? error.message
+            : "Temporary take playback could not be cleaned up.",
+        };
+        status = "stopped";
+        return notify();
+      }
       microphonePrepared = false;
       return setFailure(error);
+    } finally {
+      takeTerminalAction = null;
     }
   }
 
@@ -1404,10 +1492,16 @@ export function createMicrophoneRecordingSession({
       return getSnapshot();
     }
 
+    if (takeTerminalAction !== null) {
+      return getSnapshot();
+    }
+
     if (status !== "stopped" || !take) {
       takeReviewFailure = { message: "There is no stopped take to discard." };
       return notify();
     }
+
+    takeTerminalAction = "discard";
 
     try {
       await releaseTakePlayback();
@@ -1415,7 +1509,15 @@ export function createMicrophoneRecordingSession({
       microphonePrepared = false;
       await removePendingTakeDraft();
     } catch (error) {
-      return setFailure(error);
+      takeReviewFailure = {
+        message: error instanceof Error && error.message.trim()
+          ? error.message
+          : "The temporary take could not be discarded cleanly.",
+      };
+      status = "stopped";
+      return notify();
+    } finally {
+      takeTerminalAction = null;
     }
 
     captureActive = false;
@@ -1429,6 +1531,10 @@ export function createMicrophoneRecordingSession({
     ensureActive();
 
     if (!ensureAuthorized()) {
+      return getSnapshot();
+    }
+
+    if (takeTerminalAction !== null) {
       return getSnapshot();
     }
 
@@ -1456,6 +1562,7 @@ export function createMicrophoneRecordingSession({
     }
 
     const takeToKeep = cloneTake(take) as MicrophoneRecordedTake;
+    takeTerminalAction = "keep";
     takeSaveStatus = "saving";
     takeSaveFailure = null;
     notify();
@@ -1510,11 +1617,17 @@ export function createMicrophoneRecordingSession({
           : "Recorded take could not be saved.",
       };
       return notify();
+    } finally {
+      takeTerminalAction = null;
     }
   }
 
   async function reset(): Promise<MicrophoneRecordingSnapshot> {
     ensureActive();
+
+    if (takeTerminalAction !== null) {
+      return getSnapshot();
+    }
 
     const wasRecording =
       status === "count-in" ||

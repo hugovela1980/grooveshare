@@ -189,6 +189,42 @@ export function renderMicrophoneRecordingControls(): string {
       </div>
 
       <div
+        id="microphone-recovery-view"
+        class="microphone-recording__view microphone-recording__view--failure"
+        data-microphone-workflow-view="recovery"
+        hidden
+      >
+        ${renderCloseButton("microphone-recovery-close-button", "Close recording recovery")}
+
+        <div class="microphone-recording__hero" aria-hidden="true">
+          <span class="microphone-recording__failure-ring">
+            ${renderMicrophoneIcon()}
+            <span class="microphone-recording__warning">!</span>
+          </span>
+        </div>
+
+        <div class="microphone-recording__copy">
+          <h2 id="microphone-recovery-heading">Recording draft unavailable</h2>
+          <p id="microphone-recovery-message">The unfinished take could not be recovered safely.</p>
+        </div>
+
+        <button
+          id="microphone-recovery-retry-button"
+          class="button microphone-recording__primary-action"
+          type="button"
+        >
+          Try recovery again
+        </button>
+        <button
+          id="microphone-recovery-cancel-button"
+          class="button button--secondary microphone-recording__secondary-action"
+          type="button"
+        >
+          Close
+        </button>
+      </div>
+
+      <div
         id="microphone-count-in-view"
         class="microphone-recording__view microphone-recording__view--count-in"
         data-microphone-workflow-view="count-in"
@@ -275,12 +311,14 @@ export function renderMicrophoneRecordingControls(): string {
         <div class="microphone-recording__review-card">
           <div class="microphone-recording__review-heading">
             <div>
-              <h2 id="microphone-review-heading">Take ready</h2>
+              <h2 id="microphone-review-heading" tabindex="-1">Take ready</h2>
               <span
                 id="microphone-review-recovered"
                 class="microphone-recording__recovered-badge"
+                role="status"
+                aria-live="polite"
                 hidden
-              >Recovered draft</span>
+              >Draft recovered</span>
             </div>
             <p id="microphone-review-position">Bar 1 · Beat 1</p>
           </div>

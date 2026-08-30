@@ -94,6 +94,8 @@ function createSessionHarness() {
     takeSaveStatus: "idle",
     takeSaveFailure: null,
     savedTrack: null,
+    takeRecoveryStatus: "idle",
+    takeRecoveryFailure: null,
     alignmentCompensationMilliseconds: 0,
   };
   let listener: ((next: MicrophoneRecordingSnapshot) => void) | null = null;
@@ -179,6 +181,8 @@ function createSessionHarness() {
         takeSaveStatus: "idle",
         takeSaveFailure: null,
         savedTrack: null,
+        takeRecoveryStatus: "idle",
+        takeRecoveryFailure: null,
         alignmentCompensationMilliseconds: snapshot.alignmentCompensationMilliseconds,
       });
     },
@@ -211,6 +215,8 @@ function createSessionHarness() {
         takeSaveStatus: "idle",
         takeSaveFailure: null,
         savedTrack: null,
+        takeRecoveryStatus: "idle",
+        takeRecoveryFailure: null,
         alignmentCompensationMilliseconds: snapshot.alignmentCompensationMilliseconds,
       });
     },
@@ -229,6 +235,8 @@ function createSessionHarness() {
         takeSaveStatus: "idle",
         takeSaveFailure: null,
         savedTrack: null,
+        takeRecoveryStatus: "idle",
+        takeRecoveryFailure: null,
         alignmentCompensationMilliseconds: snapshot.alignmentCompensationMilliseconds,
       });
     },
@@ -247,6 +255,8 @@ function createSessionHarness() {
         takeSaveStatus: "idle",
         takeSaveFailure: null,
         savedTrack: createSavedTrack(trackName.trim()),
+        takeRecoveryStatus: "idle",
+        takeRecoveryFailure: null,
         alignmentCompensationMilliseconds: snapshot.alignmentCompensationMilliseconds,
       });
     },
@@ -287,6 +297,8 @@ function createSessionHarness() {
         takeSaveStatus: "idle",
         takeSaveFailure: null,
         savedTrack: null,
+        takeRecoveryStatus: "idle",
+        takeRecoveryFailure: null,
         alignmentCompensationMilliseconds: snapshot.alignmentCompensationMilliseconds,
       });
     },

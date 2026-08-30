@@ -21,8 +21,10 @@ function makeRequest<T>(initial: T): MutableRequest<T> {
   };
 }
 
-function createFakeIndexedDb(): IDBFactory {
-  const values = new Map<string, unknown>();
+function createFakeIndexedDb(
+  initialValues: ReadonlyMap<string, unknown> = new Map(),
+): IDBFactory {
+  const values = new Map<string, unknown>(initialValues);
   let storeCreated = false;
 
   const objectStore = {
@@ -139,5 +141,55 @@ tester.describe("browser recorded take draft port", () => {
 
   tester.it("reports unavailable when IndexedDB is unavailable", () => {
     tester.expect(createBrowserRecordedTakeDraftPort({ indexedDb: null })).toBe(null);
+  });
+
+  tester.it("removes an incompatible draft and reports recovery failure", async () => {
+    const scopeId = "user-1:project-1";
+    const indexedDb = createFakeIndexedDb(new Map([
+      [scopeId, {
+        scopeId,
+        recordVersion: 999,
+        ...createDraft(),
+      }],
+    ]));
+    const port = createBrowserRecordedTakeDraftPort({ indexedDb });
+    if (!port) throw new Error("Expected IndexedDB draft port.");
+
+    let failureMessage = "";
+    try {
+      await port.load(scopeId);
+    } catch (error) {
+      failureMessage = error instanceof Error ? error.message : String(error);
+    }
+
+    tester.expect(failureMessage).toBe(
+      "A saved recording draft used an unsupported format and was removed safely.",
+    );
+    tester.expect(await port.load(scopeId)).toBe(null);
+  });
+
+  tester.it("removes a malformed draft and reports recovery failure", async () => {
+    const scopeId = "user-1:project-1";
+    const indexedDb = createFakeIndexedDb(new Map([
+      [scopeId, {
+        scopeId,
+        recordVersion: 1,
+        capture: null,
+      }],
+    ]));
+    const port = createBrowserRecordedTakeDraftPort({ indexedDb });
+    if (!port) throw new Error("Expected IndexedDB draft port.");
+
+    let failureMessage = "";
+    try {
+      await port.load(scopeId);
+    } catch (error) {
+      failureMessage = error instanceof Error ? error.message : String(error);
+    }
+
+    tester.expect(failureMessage).toBe(
+      "A saved recording draft was incomplete and was removed safely.",
+    );
+    tester.expect(await port.load(scopeId)).toBe(null);
   });
 });

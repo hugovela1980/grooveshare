@@ -129,7 +129,13 @@ function createSavedTrack(name: string): Track {
   };
 }
 
-function createSessionHarness({ deferArm = false }: { deferArm?: boolean } = {}) {
+function createSessionHarness({
+  deferArm = false,
+  keepFailure = null,
+}: {
+  deferArm?: boolean;
+  keepFailure?: string | null;
+} = {}) {
   let snapshot: MicrophoneRecordingSnapshot = {
     status: "idle",
     countIn: null,
@@ -143,6 +149,8 @@ function createSessionHarness({ deferArm = false }: { deferArm?: boolean } = {})
     takeSaveStatus: "idle",
     takeSaveFailure: null,
     savedTrack: null,
+    takeRecoveryStatus: "idle",
+    takeRecoveryFailure: null,
     alignmentCompensationMilliseconds: 0,
   };
   let listener: ((next: MicrophoneRecordingSnapshot) => void) | null = null;
@@ -262,6 +270,8 @@ function createSessionHarness({ deferArm = false }: { deferArm?: boolean } = {})
         takeSaveStatus: "idle",
         takeSaveFailure: null,
         savedTrack: null,
+        takeRecoveryStatus: "idle",
+        takeRecoveryFailure: null,
         alignmentCompensationMilliseconds: snapshot.alignmentCompensationMilliseconds,
       });
     },
@@ -294,6 +304,8 @@ function createSessionHarness({ deferArm = false }: { deferArm?: boolean } = {})
         takeSaveStatus: "idle",
         takeSaveFailure: null,
         savedTrack: null,
+        takeRecoveryStatus: "idle",
+        takeRecoveryFailure: null,
         alignmentCompensationMilliseconds: snapshot.alignmentCompensationMilliseconds,
       });
     },
@@ -312,11 +324,22 @@ function createSessionHarness({ deferArm = false }: { deferArm?: boolean } = {})
         takeSaveStatus: "idle",
         takeSaveFailure: null,
         savedTrack: null,
+        takeRecoveryStatus: "idle",
+        takeRecoveryFailure: null,
         alignmentCompensationMilliseconds: snapshot.alignmentCompensationMilliseconds,
       });
     },
     keep(trackName) {
       calls.push(`keep:${trackName}`);
+      if (keepFailure) {
+        return publish({
+          ...snapshot,
+          status: "stopped",
+          takeSaveStatus: "idle",
+          takeSaveFailure: { message: keepFailure },
+          savedTrack: null,
+        });
+      }
       return publish({
         status: "idle",
         countIn: null,
@@ -330,6 +353,8 @@ function createSessionHarness({ deferArm = false }: { deferArm?: boolean } = {})
         takeSaveStatus: "idle",
         takeSaveFailure: null,
         savedTrack: createSavedTrack(trackName.trim()),
+        takeRecoveryStatus: "idle",
+        takeRecoveryFailure: null,
         alignmentCompensationMilliseconds: snapshot.alignmentCompensationMilliseconds,
       });
     },
@@ -370,6 +395,8 @@ function createSessionHarness({ deferArm = false }: { deferArm?: boolean } = {})
         takeSaveStatus: "idle",
         takeSaveFailure: null,
         savedTrack: null,
+        takeRecoveryStatus: "idle",
+        takeRecoveryFailure: null,
         alignmentCompensationMilliseconds: snapshot.alignmentCompensationMilliseconds,
       });
     },
@@ -408,6 +435,7 @@ type ControllerHarnessOptions = {
   initialStartPosition?: { bar: number; beat: number };
   beatsPerBar?: number;
   prepareRecordingStartResult?: boolean;
+  keepFailure?: string | null;
 };
 
 function createControllerHarness({
@@ -416,8 +444,9 @@ function createControllerHarness({
   initialStartPosition = { bar: 6, beat: 3 },
   beatsPerBar = 4,
   prepareRecordingStartResult = true,
+  keepFailure = null,
 }: ControllerHarnessOptions = {}) {
-  const sessionHarness = createSessionHarness({ deferArm });
+  const sessionHarness = createSessionHarness({ deferArm, keepFailure });
   const armButton = createButton();
   const workspaceElement = {
     hidden: true,
@@ -429,6 +458,7 @@ function createControllerHarness({
   const preparingViewElement = { hidden: true };
   const readyViewElement = { hidden: true };
   const failureViewElement = { hidden: true };
+  const recoveryViewElement = { hidden: true };
   const countInViewElement = { hidden: true };
   const activeRecordingViewElement = { hidden: true };
   const processingViewElement = { hidden: true };
@@ -448,6 +478,9 @@ function createControllerHarness({
   const statusElement = { textContent: "" as string | null };
   const failureHeadingElement = { textContent: "" as string | null };
   const failureMessageElement = { textContent: "" as string | null };
+  const recoveryHeadingElement = { textContent: "" as string | null };
+  const recoveryMessageElement = { textContent: "" as string | null };
+  const recoveryRetryButton = createButton();
   const startPositionButton = createButton();
   const startPositionLabelElement = { textContent: "" as string | null };
   const startPositionEditorElement = { hidden: true };
@@ -467,7 +500,13 @@ function createControllerHarness({
   const countInPositionElement = { textContent: "" as string | null };
   const recordingElapsedElement = { textContent: "" as string | null };
   const recordingPositionElement = { textContent: "" as string | null };
-  const reviewHeadingElement = { textContent: "" as string | null };
+  const reviewHeadingElement = {
+    textContent: "" as string | null,
+    focusCount: 0,
+    focus() {
+      this.focusCount += 1;
+    },
+  };
   const reviewRecoveredElement = { hidden: true };
   const reviewPositionElement = { textContent: "" as string | null };
   const reviewDurationElement = { textContent: "" as string | null };
@@ -509,6 +548,7 @@ function createControllerHarness({
     preparingViewElement,
     readyViewElement,
     failureViewElement,
+    recoveryViewElement,
     countInViewElement,
     activeRecordingViewElement,
     processingViewElement,
@@ -527,6 +567,9 @@ function createControllerHarness({
     statusElement,
     failureHeadingElement,
     failureMessageElement,
+    recoveryHeadingElement,
+    recoveryMessageElement,
+    recoveryRetryButton,
     startPositionButton,
     startPositionLabelElement,
     startPositionEditorElement,
@@ -598,6 +641,7 @@ function createControllerHarness({
     preparingViewElement,
     readyViewElement,
     failureViewElement,
+    recoveryViewElement,
     countInViewElement,
     activeRecordingViewElement,
     processingViewElement,
@@ -617,6 +661,9 @@ function createControllerHarness({
     statusElement,
     failureHeadingElement,
     failureMessageElement,
+    recoveryHeadingElement,
+    recoveryMessageElement,
+    recoveryRetryButton,
     startPositionButton,
     startPositionLabelElement,
     startPositionEditorElement,
@@ -888,17 +935,47 @@ tester.describe("microphone recording controller", () => {
       status: "stopped",
       capture: take.capture,
       take,
+      takeRecoveryStatus: "restored",
+      takeRecoveryFailure: null,
     });
 
-    harness.controller.markTakeRecovered();
-
     tester.expect(harness.reviewRecoveredElement.hidden).toBe(false);
+    tester.expect(harness.reviewHeadingElement.textContent).toBe("Take restored");
+    tester.expect(harness.reviewHeadingElement.focusCount).toBe(1);
+    tester.expect(harness.reviewPositionElement.textContent).toBe(
+      "From Bar 2 · Beat 4 · Offset 0 ms",
+    );
     tester.expect(harness.getSnapshot().status).toBe("stopped");
     tester.expect(harness.getSnapshot().take).toBe(take);
 
     await harness.retryButton.click();
     await harness.recordButton.click();
     tester.expect(harness.reviewRecoveredElement.hidden).toBe(true);
+  });
+
+  tester.it("shows authoritative recovery failure and retries through the shared draft path", async () => {
+    const harness = createControllerHarness();
+    harness.controller.init();
+
+    harness.publishSnapshot({
+      ...harness.getSnapshot(),
+      takeRecoveryStatus: "failed",
+      takeRecoveryFailure: {
+        message: "The saved recording draft could not be opened.",
+      },
+    });
+
+    tester.expect(harness.workspaceElement.hidden).toBe(false);
+    tester.expect(harness.recoveryViewElement.hidden).toBe(false);
+    tester.expect(harness.recoveryHeadingElement.textContent).toBe(
+      "Recording draft unavailable",
+    );
+    tester.expect(harness.recoveryMessageElement.textContent).toBe(
+      "The saved recording draft could not be opened.",
+    );
+
+    await harness.recoveryRetryButton.click();
+    tester.expect(harness.calls.at(-1)).toBe("restore-pending-take");
   });
 
   tester.it("rejects a Ready beat outside the project meter before recording starts", async () => {
@@ -1109,6 +1186,28 @@ tester.describe("microphone recording controller", () => {
     );
 
     harness.controller.destroy();
+  });
+
+  tester.it("keeps the naming dialog, entered name, and recoverable take after Keep failure", async () => {
+    const harness = createControllerHarness({
+      keepFailure: "The track upload could not be completed.",
+    });
+    harness.controller.init();
+    await harness.armButton.click();
+    await harness.recordButton.click();
+    await harness.stopButton.click();
+    harness.takeNameInput.value = "Room Vocal";
+
+    await harness.keepButton.click();
+    await harness.keepConfirmButton.click();
+
+    tester.expect(harness.keepDialog.open).toBe(true);
+    tester.expect(harness.takeNameInput.value).toBe("Room Vocal");
+    tester.expect(Boolean(harness.getSnapshot().take)).toBe(true);
+    tester.expect(harness.keepStatusElement.textContent).toBe(
+      "The track upload could not be completed.",
+    );
+    tester.expect(harness.keepConfirmButton.disabled).toBe(false);
   });
 
   tester.it("keeps audition unavailable until required playback is ready", async () => {

@@ -48,6 +48,7 @@ type RangeInputLike = {
 
 type TextElementLike = {
   textContent: string | null;
+  focus?: () => void;
 };
 
 type MarkupElementLike = {
@@ -81,6 +82,7 @@ type MicrophoneRecordingControllerOptions = {
   preparingViewElement?: HiddenElementLike;
   readyViewElement?: HiddenElementLike;
   failureViewElement?: HiddenElementLike;
+  recoveryViewElement?: HiddenElementLike;
   countInViewElement?: HiddenElementLike;
   activeRecordingViewElement?: HiddenElementLike;
   processingViewElement?: HiddenElementLike;
@@ -99,6 +101,9 @@ type MicrophoneRecordingControllerOptions = {
   statusElement: TextElementLike;
   failureHeadingElement?: TextElementLike;
   failureMessageElement?: TextElementLike;
+  recoveryHeadingElement?: TextElementLike;
+  recoveryMessageElement?: TextElementLike;
+  recoveryRetryButton?: ButtonElementLike;
   startPositionButton?: ButtonElementLike;
   startPositionLabelElement?: TextElementLike;
   startPositionEditorElement?: HiddenElementLike;
@@ -173,6 +178,14 @@ function describeStoppedTake(take: MicrophoneRecordedTake | null): string {
 }
 
 function getStatusMessage(snapshot: MicrophoneRecordingSnapshot): string {
+  if (snapshot.takeRecoveryStatus === "restoring") {
+    return "Checking for an unfinished recording take…";
+  }
+  if (snapshot.takeRecoveryStatus === "failed") {
+    return snapshot.takeRecoveryFailure?.message ??
+      "An unfinished recording take could not be recovered.";
+  }
+
   switch (snapshot.status) {
     case "idle":
       return snapshot.savedTrack
@@ -262,6 +275,7 @@ export function createMicrophoneRecordingController({
   preparingViewElement,
   readyViewElement,
   failureViewElement,
+  recoveryViewElement,
   countInViewElement,
   activeRecordingViewElement,
   processingViewElement,
@@ -280,6 +294,9 @@ export function createMicrophoneRecordingController({
   statusElement,
   failureHeadingElement,
   failureMessageElement,
+  recoveryHeadingElement,
+  recoveryMessageElement,
+  recoveryRetryButton,
   startPositionButton,
   startPositionLabelElement,
   startPositionEditorElement,
@@ -329,7 +346,8 @@ export function createMicrophoneRecordingController({
   let selectedStartPosition: MusicalPosition | null = null;
   let playbackReady = true;
   let discarding = false;
-  let takeWasRecovered = false;
+  let retrying = false;
+  let recoveredTakeFocused = false;
 
   function getAuthoritativeStartPosition(): MusicalPosition {
     return normalizeStartPosition(
@@ -423,6 +441,10 @@ export function createMicrophoneRecordingController({
     const preparing = workspaceVisible && snapshot.status === "requesting-permission";
     const ready = workspaceVisible && snapshot.status === "ready";
     const failed = workspaceVisible && snapshot.status === "failed";
+    const recovering = workspaceVisible &&
+      snapshot.status === "idle" &&
+      (snapshot.takeRecoveryStatus === "restoring" ||
+        snapshot.takeRecoveryStatus === "failed");
     const countingIn = workspaceVisible && snapshot.status === "count-in";
     const recording = workspaceVisible && snapshot.status === "recording";
     const processing = workspaceVisible && snapshot.status === "processing";
@@ -431,6 +453,7 @@ export function createMicrophoneRecordingController({
     if (preparingViewElement) preparingViewElement.hidden = !preparing;
     if (readyViewElement) readyViewElement.hidden = !ready;
     if (failureViewElement) failureViewElement.hidden = !failed;
+    if (recoveryViewElement) recoveryViewElement.hidden = !recovering;
     if (countInViewElement) countInViewElement.hidden = !countingIn;
     if (activeRecordingViewElement) activeRecordingViewElement.hidden = !recording;
     if (processingViewElement) processingViewElement.hidden = !processing;
@@ -441,7 +464,11 @@ export function createMicrophoneRecordingController({
 
   function render(snapshot: MicrophoneRecordingSnapshot): void {
     const sessionHasWorkspace =
-      snapshot.status !== "idle" || Boolean(snapshot.take) || Boolean(snapshot.failure);
+      snapshot.status !== "idle" ||
+      Boolean(snapshot.take) ||
+      Boolean(snapshot.failure) ||
+      snapshot.takeRecoveryStatus === "restoring" ||
+      snapshot.takeRecoveryStatus === "failed";
     const workspaceVisible = sessionHasWorkspace && !workspaceDismissed;
     if (workspaceElement) {
       workspaceElement.hidden = !workspaceVisible;
@@ -457,24 +484,17 @@ export function createMicrophoneRecordingController({
     if (snapshot.status === "idle") {
       setStartEditorOpen(false);
     }
-    if (
-      snapshot.status === "count-in" ||
-      snapshot.status === "recording" ||
-      snapshot.status === "processing"
-    ) {
-      takeWasRecovered = false;
-    }
-
     const hasStoppedTake = snapshot.status === "stopped" && Boolean(snapshot.take);
+    const isRecoveredTake = hasStoppedTake && snapshot.takeRecoveryStatus === "restored";
     const isSaving = snapshot.takeSaveStatus === "saving";
+    const terminalBusy = isSaving || discarding || retrying;
     const alignmentControlsDisabled =
       !hasStoppedTake ||
       snapshot.status === "requesting-permission" ||
       snapshot.status === "count-in" ||
       snapshot.status === "recording" ||
       snapshot.status === "processing" ||
-      isSaving ||
-      discarding;
+      terminalBusy;
 
     if (hasStoppedTake && !takeNameInitialized) {
       if (!takeNameInput.value.trim()) {
@@ -490,12 +510,12 @@ export function createMicrophoneRecordingController({
       snapshot.status === "count-in" ||
       snapshot.status === "recording" ||
       snapshot.status === "processing" ||
-      isSaving ||
-      discarding;
+      snapshot.takeRecoveryStatus === "restoring" ||
+      terminalBusy;
     recordButton.disabled = snapshot.status !== "ready";
     stopButton.disabled = snapshot.status !== "recording";
     if (reviewCloseButton) {
-      reviewCloseButton.disabled = isSaving || discarding;
+      reviewCloseButton.disabled = terminalBusy;
     }
 
     if (snapshot.countIn) {
@@ -543,11 +563,14 @@ export function createMicrophoneRecordingController({
       if (reviewHeadingElement) {
         reviewHeadingElement.textContent = snapshot.takeReviewStatus === "auditioning"
           ? "Auditioning take"
-          : "Take ready";
+          : isRecoveredTake
+            ? "Take restored"
+            : "Take ready";
       }
       if (reviewPositionElement) {
-        reviewPositionElement.textContent =
-          `Bar ${musicalStart.bar} · Beat ${Math.floor(musicalStart.beat)}`;
+        reviewPositionElement.textContent = isRecoveredTake
+          ? `From Bar ${musicalStart.bar} · Beat ${Math.floor(musicalStart.beat)} · Offset ${alignment}`
+          : `Bar ${musicalStart.bar} · Beat ${Math.floor(musicalStart.beat)}`;
       }
       if (reviewDurationElement) {
         reviewDurationElement.textContent = duration;
@@ -562,7 +585,7 @@ export function createMicrophoneRecordingController({
       }
     }
     if (reviewRecoveredElement) {
-      reviewRecoveredElement.hidden = !hasStoppedTake || !takeWasRecovered;
+      reviewRecoveredElement.hidden = !isRecoveredTake;
     }
 
     auditionButton.hidden = !hasStoppedTake;
@@ -571,23 +594,23 @@ export function createMicrophoneRecordingController({
     keepButton.hidden = !hasStoppedTake;
     takeNameInput.hidden = !hasStoppedTake;
 
-    auditionButton.disabled = !hasStoppedTake || isSaving || discarding || !playbackReady;
-    retryButton.disabled = !hasStoppedTake || isSaving || discarding;
-    discardButton.disabled = !hasStoppedTake || isSaving || discarding;
-    keepButton.disabled = !hasStoppedTake || isSaving || discarding;
-    takeNameInput.disabled = !hasStoppedTake || isSaving || discarding;
+    auditionButton.disabled = !hasStoppedTake || terminalBusy || !playbackReady;
+    retryButton.disabled = !hasStoppedTake || terminalBusy;
+    discardButton.disabled = !hasStoppedTake || terminalBusy;
+    keepButton.disabled = !hasStoppedTake || terminalBusy;
+    takeNameInput.disabled = !hasStoppedTake || terminalBusy;
     if (auditionVolumeInput) {
-      auditionVolumeInput.disabled = !hasStoppedTake || isSaving || discarding;
+      auditionVolumeInput.disabled = !hasStoppedTake || terminalBusy;
     }
     if (keepConfirmButton) {
-      keepConfirmButton.disabled = !hasStoppedTake || isSaving || discarding;
+      keepConfirmButton.disabled = !hasStoppedTake || terminalBusy;
       keepConfirmButton.textContent = isSaving ? "Saving…" : "Keep track";
     }
     if (keepCancelButton) {
       keepCancelButton.disabled = isSaving;
     }
     if (discardConfirmButton) {
-      discardConfirmButton.disabled = !hasStoppedTake || isSaving || discarding;
+      discardConfirmButton.disabled = !hasStoppedTake || terminalBusy;
       discardConfirmButton.textContent = discarding ? "Discarding…" : "Discard take";
     }
     if (discardCancelButton) {
@@ -614,6 +637,7 @@ export function createMicrophoneRecordingController({
     if (reviewStatusElement) {
       reviewStatusElement.textContent = snapshot.takeSaveFailure?.message ??
         snapshot.takeReviewFailure?.message ??
+        (retrying ? "Preparing another take…" : null) ??
         (hasStoppedTake && !playbackReady
           ? "Project playback must be ready before audition."
           : "");
@@ -626,7 +650,7 @@ export function createMicrophoneRecordingController({
     if (discardStatusElement) {
       discardStatusElement.textContent = discarding
         ? "Removing the recoverable draft…"
-        : "";
+        : snapshot.takeReviewFailure?.message ?? "";
     }
     if (!hasStoppedTake) {
       if (keepDialog?.open) keepDialog.close();
@@ -640,6 +664,32 @@ export function createMicrophoneRecordingController({
       }
       if (failureMessageElement) {
         failureMessageElement.textContent = failurePresentation.message;
+      }
+    }
+
+    if (snapshot.takeRecoveryStatus === "restoring") {
+      if (recoveryHeadingElement) {
+        recoveryHeadingElement.textContent = "Recovering recording";
+      }
+      if (recoveryMessageElement) {
+        recoveryMessageElement.textContent =
+          "Checking this project for an unfinished take…";
+      }
+      if (recoveryRetryButton) {
+        recoveryRetryButton.hidden = true;
+        recoveryRetryButton.disabled = true;
+      }
+    } else if (snapshot.takeRecoveryStatus === "failed") {
+      if (recoveryHeadingElement) {
+        recoveryHeadingElement.textContent = "Recording draft unavailable";
+      }
+      if (recoveryMessageElement) {
+        recoveryMessageElement.textContent = snapshot.takeRecoveryFailure?.message ??
+          "The unfinished take could not be recovered safely.";
+      }
+      if (recoveryRetryButton) {
+        recoveryRetryButton.hidden = false;
+        recoveryRetryButton.disabled = false;
       }
     }
 
@@ -668,8 +718,16 @@ export function createMicrophoneRecordingController({
       "aria-pressed",
       String(snapshot.takeReviewStatus === "auditioning"),
     );
+    retryButton.textContent = retrying ? "Preparing…" : "Retry";
     keepButton.textContent = isSaving ? "Saving…" : "Keep";
     statusElement.textContent = getStatusMessage(snapshot);
+
+    if (isRecoveredTake && !recoveredTakeFocused) {
+      recoveredTakeFocused = true;
+      reviewHeadingElement?.focus?.();
+    } else if (!isRecoveredTake) {
+      recoveredTakeFocused = false;
+    }
   }
 
   async function adjustAlignment(deltaMilliseconds: number): Promise<void> {
@@ -726,7 +784,7 @@ export function createMicrophoneRecordingController({
 
   async function closeWorkflow(): Promise<void> {
     const snapshot = recordingSession.getSnapshot();
-    if (snapshot.takeSaveStatus === "saving" || discarding) {
+    if (snapshot.takeSaveStatus === "saving" || discarding || retrying) {
       return;
     }
     workspaceDismissed = true;
@@ -782,7 +840,8 @@ export function createMicrophoneRecordingController({
         !workspaceDismissed &&
         (snapshot.status === "requesting-permission" ||
           snapshot.status === "ready" ||
-          snapshot.status === "failed")
+          snapshot.status === "failed" ||
+          snapshot.takeRecoveryStatus === "failed")
       ) {
         await closeWorkflow();
         return;
@@ -797,6 +856,10 @@ export function createMicrophoneRecordingController({
     reviewCloseButton?.addEventListener("click", closeWorkflow);
 
     permissionRetryButton?.addEventListener("click", openWorkflow);
+    recoveryRetryButton?.addEventListener("click", async () => {
+      workspaceDismissed = false;
+      await recordingSession.restorePendingTake();
+    });
 
     countInCancelButton?.addEventListener("click", async () => {
       await recordingSession.cancelCountIn();
@@ -849,10 +912,21 @@ export function createMicrophoneRecordingController({
     });
 
     retryButton.addEventListener("click", async () => {
-      if (recordingSession.getSnapshot().takeSaveStatus === "saving" || discarding) {
+      if (
+        recordingSession.getSnapshot().takeSaveStatus === "saving" ||
+        discarding ||
+        retrying
+      ) {
         return;
       }
-      await recordingSession.retry();
+      retrying = true;
+      render(recordingSession.getSnapshot());
+      try {
+        await recordingSession.retry();
+      } finally {
+        retrying = false;
+        render(recordingSession.getSnapshot());
+      }
     });
 
     discardButton.addEventListener("click", () => {
@@ -861,6 +935,7 @@ export function createMicrophoneRecordingController({
         snapshot.status !== "stopped" ||
         snapshot.takeSaveStatus === "saving" ||
         discarding ||
+        retrying ||
         discardDialog?.open
       ) {
         return;
@@ -870,7 +945,12 @@ export function createMicrophoneRecordingController({
 
     async function confirmKeep(): Promise<void> {
       const snapshot = recordingSession.getSnapshot();
-      if (snapshot.status !== "stopped" || snapshot.takeSaveStatus === "saving" || discarding) {
+      if (
+        snapshot.status !== "stopped" ||
+        snapshot.takeSaveStatus === "saving" ||
+        discarding ||
+        retrying
+      ) {
         return;
       }
       const result = await recordingSession.keep(takeNameInput.value);
@@ -889,6 +969,7 @@ export function createMicrophoneRecordingController({
         snapshot.status !== "stopped" ||
         snapshot.takeSaveStatus === "saving" ||
         discarding ||
+        retrying ||
         keepDialog?.open
       ) {
         return;
@@ -916,7 +997,8 @@ export function createMicrophoneRecordingController({
       if (
         snapshot.status !== "stopped" ||
         snapshot.takeSaveStatus === "saving" ||
-        discarding
+        discarding ||
+        retrying
       ) {
         return;
       }
@@ -978,18 +1060,8 @@ export function createMicrophoneRecordingController({
     unsubscribePlaybackReadiness = null;
   }
 
-  function markTakeRecovered(): void {
-    const snapshot = recordingSession.getSnapshot();
-    if (snapshot.status !== "stopped" || !snapshot.take) {
-      return;
-    }
-    takeWasRecovered = true;
-    render(snapshot);
-  }
-
   return {
     init,
     destroy,
-    markTakeRecovered,
   };
 }

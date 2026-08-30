@@ -161,6 +161,7 @@ export {
   type MicrophoneRecordingStartPosition,
   type MicrophoneRecordingStateListener,
   type MicrophoneRecordingStatus,
+  type MicrophoneTakeRecoveryStatus,
   type MicrophoneTakeReviewStatus,
   type MicrophoneTakeSaveStatus,
 } from "./recording/microphone-recording-session.js";

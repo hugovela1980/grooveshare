@@ -100,20 +100,43 @@ export function createBrowserRecordedTakeDraftPort({
   if (!indexedDb) {
     return null;
   }
+  const availableIndexedDb = indexedDb;
+
+  async function removeStoredDraft(scopeId: string): Promise<void> {
+    await withObjectStore<undefined>(
+      availableIndexedDb,
+      "readwrite",
+      (store) => store.delete(scopeId) as IDBRequest<undefined>,
+    );
+  }
 
   return {
     async load(scopeId) {
       const stored = await withObjectStore<StoredRecordedTakeDraft | undefined>(
-        indexedDb,
+        availableIndexedDb,
         "readonly",
         (store) => store.get(scopeId),
       );
 
-      if (!stored || stored.recordVersion !== RECORD_VERSION) {
+      if (!stored) {
         return null;
       }
 
-      return cloneDraft(stored);
+      if (stored.recordVersion !== RECORD_VERSION) {
+        await removeStoredDraft(scopeId);
+        throw new Error(
+          "A saved recording draft used an unsupported format and was removed safely.",
+        );
+      }
+
+      try {
+        return cloneDraft(stored);
+      } catch {
+        await removeStoredDraft(scopeId);
+        throw new Error(
+          "A saved recording draft was incomplete and was removed safely.",
+        );
+      }
     },
 
     async save(scopeId, draft) {
@@ -123,18 +146,14 @@ export function createBrowserRecordedTakeDraftPort({
         ...cloneDraft(draft),
       };
       await withObjectStore<IDBValidKey>(
-        indexedDb,
+        availableIndexedDb,
         "readwrite",
         (store) => store.put(stored),
       );
     },
 
     async remove(scopeId) {
-      await withObjectStore<undefined>(
-        indexedDb,
-        "readwrite",
-        (store) => store.delete(scopeId) as IDBRequest<undefined>,
-      );
+      await removeStoredDraft(scopeId);
     },
   };
 }
