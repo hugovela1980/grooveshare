@@ -4,6 +4,7 @@ import type {
   RecordedTakeAuditionOptions,
   RecordingStartMarker,
   SynchronizedRecordingPlaybackStart,
+  SynchronizedRecordingPlaybackSnapshot,
 } from "@hugovela/frontend-core";
 
 type GainParamLike = {
@@ -345,6 +346,10 @@ export function createBrowserOutputKeepalivePlaybackEngine({
     }
   }
 
+  function getSynchronizedRecordingPlaybackSnapshot(): SynchronizedRecordingPlaybackSnapshot | null {
+    return playbackEngine.getSynchronizedRecordingPlaybackSnapshot?.() ?? null;
+  }
+
   async function auditionRecordedTake(
     options: RecordedTakeAuditionOptions,
   ): Promise<void> {
@@ -444,7 +449,12 @@ export function createBrowserOutputKeepalivePlaybackEngine({
     subscribe: (listener: PlaybackStateListener) =>
       playbackEngine.subscribe(listener),
     ...(playbackEngine.startSynchronizedRecordingPlayback
-      ? { startSynchronizedRecordingPlayback }
+      ? {
+        startSynchronizedRecordingPlayback,
+        ...(playbackEngine.getSynchronizedRecordingPlaybackSnapshot
+          ? { getSynchronizedRecordingPlaybackSnapshot }
+          : {}),
+      }
       : {}),
     ...(playbackEngine.auditionRecordedTake
       ? { auditionRecordedTake, stopRecordedTakeAudition }

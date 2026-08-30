@@ -155,6 +155,7 @@ export {
 export {
   createMicrophoneRecordingSession,
   type MicrophoneRecordedTake,
+  type MicrophoneRecordingCountIn,
   type MicrophoneRecordingSession,
   type MicrophoneRecordingSnapshot,
   type MicrophoneRecordingStartPosition,
@@ -181,6 +182,7 @@ export type {
   PlaybackStateListener,
   RecordedTakeAuditionOptions,
   SynchronizedRecordingPlaybackStart,
+  SynchronizedRecordingPlaybackSnapshot,
 } from "./playback/playback-engine.js";
 export {
   createTransport,

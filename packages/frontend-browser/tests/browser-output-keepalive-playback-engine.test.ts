@@ -6,6 +6,7 @@ import type {
   RecordedTakeAuditionOptions,
   RecordingStartMarker,
   SynchronizedRecordingPlaybackStart,
+  SynchronizedRecordingPlaybackSnapshot,
 } from "@hugovela/frontend-core";
 import {
   BROWSER_OUTPUT_KEEPALIVE_FREQUENCY_HZ,
@@ -190,6 +191,19 @@ class FakePlaybackEngine implements PlaybackEngine {
     };
   }
 
+  getSynchronizedRecordingPlaybackSnapshot(): SynchronizedRecordingPlaybackSnapshot {
+    return {
+      phase: "count-in",
+      countIn: {
+        bars: 1,
+        totalBeats: 4,
+        currentBeat: 2,
+        durationSeconds: 2,
+      },
+      elapsedRecordingSeconds: 0,
+    };
+  }
+
   async auditionRecordedTake(options: RecordedTakeAuditionOptions): Promise<void> {
     this.auditionCalls += 1;
     this.lastAuditionOptions = options;
@@ -367,6 +381,16 @@ tester.describe("browser output keepalive playback engine", () => {
     tester.expect(result.marker.audioContextTimeSeconds).toBe(12.5);
     tester.expect(Math.abs(result.mediaLeadInSeconds - 2.43) < 1e-9).toBe(true);
     tester.expect(result.countIn).toEqual({ bars: 1, beats: 4, durationSeconds: 2 });
+    tester.expect(harness.engine.getSynchronizedRecordingPlaybackSnapshot?.()).toEqual({
+      phase: "count-in",
+      countIn: {
+        bars: 1,
+        totalBeats: 4,
+        currentBeat: 2,
+        durationSeconds: 2,
+      },
+      elapsedRecordingSeconds: 0,
+    });
     tester.expect(FakeAudioContext.instances[0]?.closeCalls).toBe(0);
   });
 

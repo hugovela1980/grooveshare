@@ -29,7 +29,10 @@ export function renderAudioPlayer({
         role="status"
         aria-live="polite"
       >
-        <span id="audio-playback-preparation-message">No tracks are available for playback.</span>
+        <span
+          id="audio-playback-preparation-message"
+          class="audio-player__preparation-message"
+        >No tracks are available for playback.</span>
         <button
           id="audio-playback-preparation-retry"
           class="button audio-player__preparation-retry"
@@ -40,7 +43,7 @@ export function renderAudioPlayer({
       </div>
 
       <div class="audio-player__controls">
-        <div class="audio-player__transport" aria-label="Project transport">
+        <div class="audio-player__transport${showMicrophoneControl ? "" : " audio-player__transport--without-microphone"}" aria-label="Project transport">
         <div class="audio-player__seek-back-control">
           <button
             id="audio-seek-back-button"

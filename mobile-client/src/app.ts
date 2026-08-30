@@ -1056,6 +1056,18 @@ function initializeProjectPlayerPage({
     appElement,
     "#microphone-failure-view",
   );
+  const microphoneCountInView = getElement<HTMLElement>(
+    appElement,
+    "#microphone-count-in-view",
+  );
+  const microphoneActiveRecordingView = getElement<HTMLElement>(
+    appElement,
+    "#microphone-active-recording-view",
+  );
+  const microphoneProcessingView = getElement<HTMLElement>(
+    appElement,
+    "#microphone-processing-view",
+  );
   const microphoneLegacyView = getElement<HTMLElement>(
     appElement,
     "#microphone-legacy-view",
@@ -1083,6 +1095,30 @@ function initializeProjectPlayerPage({
   const microphonePermissionRetryButton = getElement<HTMLButtonElement>(
     appElement,
     "#microphone-retry-permission-button",
+  );
+  const microphoneCountInCancelButton = getElement<HTMLButtonElement>(
+    appElement,
+    "#microphone-count-in-cancel-button",
+  );
+  const microphoneCountInNumber = getElement<HTMLElement>(
+    appElement,
+    "#microphone-count-in-number",
+  );
+  const microphoneCountInBeats = getElement<HTMLElement>(
+    appElement,
+    "#microphone-count-in-beats",
+  );
+  const microphoneCountInPosition = getElement<HTMLElement>(
+    appElement,
+    "#microphone-count-in-position",
+  );
+  const microphoneRecordingElapsed = getElement<HTMLElement>(
+    appElement,
+    "#microphone-recording-elapsed",
+  );
+  const microphoneRecordingPosition = getElement<HTMLElement>(
+    appElement,
+    "#microphone-recording-position",
   );
   const microphoneFailureHeading = getElement<HTMLElement>(
     appElement,
@@ -1119,6 +1155,10 @@ function initializeProjectPlayerPage({
   const microphoneStartPositionStatus = getElement<HTMLElement>(
     appElement,
     "#microphone-start-position-status",
+  );
+  const microphoneRecordingStartStatus = getElement<HTMLElement>(
+    appElement,
+    "#microphone-recording-start-status",
   );
   const microphoneRecordButton = getElement<HTMLButtonElement>(
     appElement,
@@ -1240,6 +1280,9 @@ function initializeProjectPlayerPage({
           preparingViewElement: microphonePreparingView ?? undefined,
           readyViewElement: microphoneReadyView ?? undefined,
           failureViewElement: microphoneFailureView ?? undefined,
+          countInViewElement: microphoneCountInView ?? undefined,
+          activeRecordingViewElement: microphoneActiveRecordingView ?? undefined,
+          processingViewElement: microphoneProcessingView ?? undefined,
           legacyViewElement: microphoneLegacyView ?? undefined,
           cancelButtons: [
             microphonePreparingCloseButton,
@@ -1249,6 +1292,7 @@ function initializeProjectPlayerPage({
             microphoneFailureCancelButton,
           ].filter((button): button is HTMLButtonElement => Boolean(button)),
           permissionRetryButton: microphonePermissionRetryButton ?? undefined,
+          countInCancelButton: microphoneCountInCancelButton ?? undefined,
           failureHeadingElement: microphoneFailureHeading ?? undefined,
           failureMessageElement: microphoneFailureMessage ?? undefined,
           startPositionButton: microphoneStartPositionButton ?? undefined,
@@ -1258,10 +1302,21 @@ function initializeProjectPlayerPage({
           startBeatInput: microphoneStartBeatInput ?? undefined,
           startPositionApplyButton: microphoneStartPositionApplyButton ?? undefined,
           startPositionStatusElement: microphoneStartPositionStatus ?? undefined,
+          recordingStartStatusElement: microphoneRecordingStartStatus ?? undefined,
+          countInNumberElement: microphoneCountInNumber ?? undefined,
+          countInBeatsElement: microphoneCountInBeats ?? undefined,
+          countInPositionElement: microphoneCountInPosition ?? undefined,
+          recordingElapsedElement: microphoneRecordingElapsed ?? undefined,
+          recordingPositionElement: microphoneRecordingPosition ?? undefined,
           beatsPerBar: musicalTimeline.timeSignature.numerator,
           getRecordingStartPosition: audioPlayerController.getRecordingStartPosition,
           setRecordingStartPosition: audioPlayerController.seekToMusicalPosition,
           prepareRecordingStart: audioPlayerController.prepareRecordingStart,
+          subscribePlaybackReadiness: (listener) => playbackEngine.subscribe((snapshot) => {
+            listener(
+              snapshot.preparation.status === "ready" && snapshot.hasLoadedChannels,
+            );
+          }),
           recordButton: microphoneRecordButton,
           stopButton: microphoneStopButton,
           auditionButton: microphoneAuditionButton,
@@ -1373,8 +1428,11 @@ function initializeProjectPlayerPage({
   void controller.init();
 
   async function stopActiveRecording(): Promise<void> {
-    if (recordingSession?.getSnapshot().status === "recording") {
-      await recordingSession.stop();
+    const status = recordingSession?.getSnapshot().status;
+    if (status === "count-in") {
+      await recordingSession?.cancelCountIn();
+    } else if (status === "recording" || status === "processing") {
+      await recordingSession?.stop();
     }
   }
 

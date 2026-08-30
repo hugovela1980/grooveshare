@@ -325,6 +325,7 @@ tester.describe("mobile Project Player integration", () => {
     });
 
     tester.expect(ownerMarkup.includes('id="microphone-arm-button"')).toBe(true);
+    tester.expect(ownerMarkup.includes("audio-player__transport--without-microphone")).toBe(false);
     const headerMarkup = ownerMarkup.slice(
       ownerMarkup.indexOf('<header class="page-header project-player-header">'),
       ownerMarkup.indexOf("</header>") + "</header>".length,
@@ -356,7 +357,11 @@ tester.describe("mobile Project Player integration", () => {
     tester.expect(ownerMarkup.includes("Preparing microphone")).toBe(true);
     tester.expect(ownerMarkup.includes('id="microphone-ready-view"')).toBe(true);
     tester.expect(ownerMarkup.includes("Microphone ready")).toBe(true);
+    tester.expect(ownerMarkup.includes('id="microphone-count-in-view"')).toBe(true);
+    tester.expect(ownerMarkup.includes('id="microphone-active-recording-view"')).toBe(true);
+    tester.expect(ownerMarkup.includes('id="microphone-processing-view"')).toBe(true);
     tester.expect(ownerMarkup.includes('id="microphone-start-position-button"')).toBe(true);
+    tester.expect(ownerMarkup.includes('id="microphone-recording-start-status"')).toBe(true);
     tester.expect(ownerMarkup.includes("Start recording")).toBe(true);
     tester.expect(ownerMarkup.includes('id="microphone-failure-view"')).toBe(true);
     tester.expect(ownerMarkup.includes("Try again")).toBe(true);
@@ -365,7 +370,9 @@ tester.describe("mobile Project Player integration", () => {
     tester.expect(contributorMarkup.includes('id="microphone-retry-button"')).toBe(true);
     tester.expect(contributorMarkup.includes('id="microphone-discard-button"')).toBe(true);
     tester.expect(viewerMarkup.includes('id="microphone-record-button"')).toBe(false);
+    tester.expect(viewerMarkup.includes("audio-player__transport--without-microphone")).toBe(true);
     tester.expect(viewerMarkup.includes('id="microphone-preparing-view"')).toBe(false);
+    tester.expect(viewerMarkup.includes('id="microphone-count-in-view"')).toBe(false);
     tester.expect(guestMarkup.includes('id="microphone-record-button"')).toBe(false);
     tester.expect(guestMarkup.includes('id="microphone-preparing-view"')).toBe(false);
   });

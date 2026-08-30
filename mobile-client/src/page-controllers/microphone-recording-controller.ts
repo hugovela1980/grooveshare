@@ -33,6 +33,11 @@ type TextElementLike = {
   textContent: string | null;
 };
 
+type MarkupElementLike = {
+  innerHTML: string;
+  setAttribute?: (name: string, value: string) => void;
+};
+
 type WorkspaceElementLike = {
   hidden: boolean | string;
   setAttribute?: (name: string, value: string) => void;
@@ -55,9 +60,13 @@ type MicrophoneRecordingControllerOptions = {
   preparingViewElement?: HiddenElementLike;
   readyViewElement?: HiddenElementLike;
   failureViewElement?: HiddenElementLike;
+  countInViewElement?: HiddenElementLike;
+  activeRecordingViewElement?: HiddenElementLike;
+  processingViewElement?: HiddenElementLike;
   legacyViewElement?: HiddenElementLike;
   cancelButtons?: ButtonElementLike[];
   permissionRetryButton?: ButtonElementLike;
+  countInCancelButton?: ButtonElementLike;
   recordButton: ButtonElementLike;
   stopButton: ButtonElementLike;
   auditionButton: ButtonElementLike;
@@ -75,10 +84,17 @@ type MicrophoneRecordingControllerOptions = {
   startBeatInput?: NumberInputLike;
   startPositionApplyButton?: ButtonElementLike;
   startPositionStatusElement?: TextElementLike;
+  recordingStartStatusElement?: TextElementLike;
+  countInNumberElement?: TextElementLike;
+  countInBeatsElement?: MarkupElementLike;
+  countInPositionElement?: TextElementLike;
+  recordingElapsedElement?: TextElementLike;
+  recordingPositionElement?: TextElementLike;
   beatsPerBar?: number;
   getRecordingStartPosition?: () => MusicalPosition;
   setRecordingStartPosition?: (position: MusicalPosition) => boolean;
   prepareRecordingStart?: (position: MusicalPosition) => boolean;
+  subscribePlaybackReadiness?: (listener: (ready: boolean) => void) => () => void;
   alignmentValueElement?: TextElementLike;
   alignmentNudgeControls?: AlignmentNudgeControl[];
   alignmentResetButton?: ButtonElementLike;
@@ -92,6 +108,13 @@ function formatMusicalPosition(position: MusicalPosition): string {
 
 function formatStartPosition(position: MusicalPosition): string {
   return `Start at Bar ${position.bar} · Beat ${Math.floor(position.beat)}`;
+}
+
+function formatElapsedTime(seconds: number): string {
+  const totalSeconds = Math.max(0, Math.floor(seconds));
+  const minutes = Math.floor(totalSeconds / 60);
+  const remainingSeconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(remainingSeconds).padStart(2, "0")}`;
 }
 
 function formatAlignmentCompensation(milliseconds: number): string {
@@ -124,10 +147,16 @@ function getStatusMessage(snapshot: MicrophoneRecordingSnapshot): string {
       return "Requesting microphone permission…";
     case "ready":
       return "Microphone ready. Capture will become active before project playback starts.";
+    case "count-in":
+      return snapshot.countIn
+        ? `Count-in beat ${snapshot.countIn.currentBeat} of ${snapshot.countIn.totalBeats}. Get ready.`
+        : "Count-in. Get ready.";
     case "recording":
       return snapshot.startPosition
         ? `Recording from ${formatMusicalPosition(snapshot.startPosition.musical)}…`
         : "Recording…";
+    case "processing":
+      return "Finishing take and saving a recoverable draft…";
     case "stopped": {
       const description = describeStoppedTake(snapshot.take);
       if (snapshot.takeSaveStatus === "saving") {
@@ -198,9 +227,13 @@ export function createMicrophoneRecordingController({
   preparingViewElement,
   readyViewElement,
   failureViewElement,
+  countInViewElement,
+  activeRecordingViewElement,
+  processingViewElement,
   legacyViewElement,
   cancelButtons = [],
   permissionRetryButton,
+  countInCancelButton,
   recordButton,
   stopButton,
   auditionButton,
@@ -218,16 +251,24 @@ export function createMicrophoneRecordingController({
   startBeatInput,
   startPositionApplyButton,
   startPositionStatusElement,
+  recordingStartStatusElement,
+  countInNumberElement,
+  countInBeatsElement,
+  countInPositionElement,
+  recordingElapsedElement,
+  recordingPositionElement,
   beatsPerBar = 4,
   getRecordingStartPosition,
   setRecordingStartPosition,
   prepareRecordingStart,
+  subscribePlaybackReadiness,
   alignmentValueElement,
   alignmentNudgeControls = [],
   alignmentResetButton,
   onTakeKept,
 }: MicrophoneRecordingControllerOptions) {
   let unsubscribe: (() => void) | null = null;
+  let unsubscribePlaybackReadiness: (() => void) | null = null;
   let takeNameInitialized = false;
   let workspaceDismissed = false;
   let selectedStartPosition: MusicalPosition | null = null;
@@ -268,6 +309,9 @@ export function createMicrophoneRecordingController({
     syncStartPositionPresentation();
     if (startPositionStatusElement) {
       startPositionStatusElement.textContent = "";
+    }
+    if (recordingStartStatusElement) {
+      recordingStartStatusElement.textContent = "";
     }
     setStartEditorOpen(false);
   }
@@ -321,11 +365,17 @@ export function createMicrophoneRecordingController({
     const preparing = workspaceVisible && snapshot.status === "requesting-permission";
     const ready = workspaceVisible && snapshot.status === "ready";
     const failed = workspaceVisible && snapshot.status === "failed";
-    const legacy = workspaceVisible && (snapshot.status === "recording" || snapshot.status === "stopped");
+    const countingIn = workspaceVisible && snapshot.status === "count-in";
+    const recording = workspaceVisible && snapshot.status === "recording";
+    const processing = workspaceVisible && snapshot.status === "processing";
+    const legacy = workspaceVisible && snapshot.status === "stopped";
 
     if (preparingViewElement) preparingViewElement.hidden = !preparing;
     if (readyViewElement) readyViewElement.hidden = !ready;
     if (failureViewElement) failureViewElement.hidden = !failed;
+    if (countInViewElement) countInViewElement.hidden = !countingIn;
+    if (activeRecordingViewElement) activeRecordingViewElement.hidden = !recording;
+    if (processingViewElement) processingViewElement.hidden = !processing;
     if (legacyViewElement) legacyViewElement.hidden = !legacy;
 
     workspaceElement?.setAttribute?.("data-recording-state", snapshot.status);
@@ -354,7 +404,9 @@ export function createMicrophoneRecordingController({
     const isSaving = snapshot.takeSaveStatus === "saving";
     const alignmentControlsDisabled =
       snapshot.status === "requesting-permission" ||
+      snapshot.status === "count-in" ||
       snapshot.status === "recording" ||
+      snapshot.status === "processing" ||
       isSaving;
 
     if (hasStoppedTake && !takeNameInitialized) {
@@ -368,10 +420,46 @@ export function createMicrophoneRecordingController({
 
     armButton.disabled =
       snapshot.status === "requesting-permission" ||
+      snapshot.status === "count-in" ||
       snapshot.status === "recording" ||
+      snapshot.status === "processing" ||
       snapshot.status === "stopped";
     recordButton.disabled = snapshot.status !== "ready";
     stopButton.disabled = snapshot.status !== "recording";
+
+    if (snapshot.countIn) {
+      const { currentBeat, totalBeats } = snapshot.countIn;
+      if (countInNumberElement) {
+        countInNumberElement.textContent = String(currentBeat);
+      }
+      if (countInBeatsElement) {
+        countInBeatsElement.innerHTML = Array.from(
+          { length: totalBeats },
+          (_, index) =>
+            `<span${index + 1 === currentBeat ? ' class="is-active"' : ""} aria-hidden="true"></span>`,
+        ).join("");
+        countInBeatsElement.setAttribute?.(
+          "aria-label",
+          `Count-in beat ${currentBeat} of ${totalBeats}`,
+        );
+      }
+    }
+
+    const countInPosition = selectedStartPosition ?? snapshot.startPosition?.musical;
+    if (countInPosition && countInPositionElement) {
+      countInPositionElement.textContent =
+        `Recording starts at Bar ${countInPosition.bar} · Beat ${Math.floor(countInPosition.beat)}`;
+    }
+    const recordingPosition = snapshot.startPosition?.musical ?? selectedStartPosition;
+    if (recordingPosition && recordingPositionElement) {
+      recordingPositionElement.textContent =
+        `From Bar ${recordingPosition.bar} · Beat ${Math.floor(recordingPosition.beat)}`;
+    }
+    if (recordingElapsedElement) {
+      recordingElapsedElement.textContent = formatElapsedTime(
+        snapshot.elapsedRecordingSeconds,
+      );
+    }
 
     auditionButton.hidden = !hasStoppedTake;
     retryButton.hidden = !hasStoppedTake;
@@ -510,6 +598,11 @@ export function createMicrophoneRecordingController({
 
   function init(): void {
     unsubscribe = recordingSession.subscribe(render);
+    unsubscribePlaybackReadiness = subscribePlaybackReadiness?.((ready) => {
+      if (ready && recordingStartStatusElement) {
+        recordingStartStatusElement.textContent = "";
+      }
+    }) ?? null;
 
     armButton.addEventListener("click", async () => {
       const snapshot = recordingSession.getSnapshot();
@@ -532,6 +625,10 @@ export function createMicrophoneRecordingController({
 
     permissionRetryButton?.addEventListener("click", openWorkflow);
 
+    countInCancelButton?.addEventListener("click", async () => {
+      await recordingSession.cancelCountIn();
+    });
+
     startPositionButton?.addEventListener("click", () => {
       const isOpen = startPositionEditorElement?.hidden === false;
       setStartEditorOpen(!isOpen);
@@ -552,11 +649,15 @@ export function createMicrophoneRecordingController({
 
       const position = selectedStartPosition ?? getAuthoritativeStartPosition();
       if (prepareRecordingStart && !prepareRecordingStart(position)) {
-        if (startPositionStatusElement) {
-          startPositionStatusElement.textContent = "Choose a valid recording start position.";
+        if (recordingStartStatusElement) {
+          recordingStartStatusElement.textContent =
+            "Wait for the enabled project tracks to finish preparing, then try again.";
         }
-        setStartEditorOpen(true);
         return;
+      }
+
+      if (recordingStartStatusElement) {
+        recordingStartStatusElement.textContent = "";
       }
 
       await recordingSession.start();
@@ -603,6 +704,8 @@ export function createMicrophoneRecordingController({
   function destroy(): void {
     unsubscribe?.();
     unsubscribe = null;
+    unsubscribePlaybackReadiness?.();
+    unsubscribePlaybackReadiness = null;
   }
 
   return {

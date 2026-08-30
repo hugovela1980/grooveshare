@@ -83,6 +83,8 @@ function createSavedTrack(name: string): Track {
 function createSessionHarness() {
   let snapshot: MicrophoneRecordingSnapshot = {
     status: "idle",
+    countIn: null,
+    elapsedRecordingSeconds: 0,
     capture: null,
     startPosition: null,
     take: null,
@@ -152,6 +154,18 @@ function createSessionHarness() {
         },
       });
     },
+    cancelCountIn() {
+      calls.push("cancel-count-in");
+      return publish({
+        ...snapshot,
+        status: "ready",
+        countIn: null,
+        elapsedRecordingSeconds: 0,
+        capture: null,
+        startPosition: null,
+        take: null,
+      });
+    },
     stop() {
       calls.push("stop");
       const take = createStoppedTake();
@@ -204,6 +218,8 @@ function createSessionHarness() {
       calls.push("discard");
       return publish({
         status: "idle",
+        countIn: null,
+        elapsedRecordingSeconds: 0,
         capture: null,
         startPosition: null,
         take: null,
@@ -220,6 +236,8 @@ function createSessionHarness() {
       calls.push(`keep:${trackName}`);
       return publish({
         status: "idle",
+        countIn: null,
+        elapsedRecordingSeconds: 0,
         capture: null,
         startPosition: null,
         take: null,
@@ -258,6 +276,8 @@ function createSessionHarness() {
       calls.push("reset");
       return publish({
         status: "idle",
+        countIn: null,
+        elapsedRecordingSeconds: 0,
         capture: null,
         startPosition: null,
         take: null,

@@ -793,7 +793,8 @@ function initializeProjectPlayerPage({
             return Boolean(active && recordingWorkspace?.contains(active));
           },
           onPhaseChange(status) {
-            const selector = status === "recording" ? "#microphone-stop-button"
+            if (status === "processing") return;
+            const selector = status === "count-in" || status === "recording" ? "#microphone-stop-button"
               : status === "stopped" ? "#microphone-audition-button"
               : status === "ready" ? "#microphone-record-button"
               : "#microphone-prepare-retry-button";
@@ -868,8 +869,11 @@ function initializeProjectPlayerPage({
   void controller.init();
 
   async function stopActiveRecording(): Promise<void> {
-    if (recordingSession?.getSnapshot().status === "recording") {
-      await recordingSession.stop();
+    const status = recordingSession?.getSnapshot().status;
+    if (status === "count-in") {
+      await recordingSession?.cancelCountIn();
+    } else if (status === "recording" || status === "processing") {
+      await recordingSession?.stop();
     }
   }
 

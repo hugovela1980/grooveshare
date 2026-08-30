@@ -291,8 +291,10 @@ tester.describe("mobile musical timeline playback", () => {
     }]);
     tester.expect(preparationElement.hidden).toBe(false);
     tester.expect(preparationMessageElement.textContent).toBe(
-      "Preparing playback… 0 of 1 tracks ready.",
+      "Preparing playback · 0/1 tracks",
     );
+    tester.expect(preparationRetryButton.hidden).toBe(true);
+    tester.expect(preparationRetryButton.disabled).toBe(true);
 
     playback.publish({
       ...playback.engine.getSnapshot(),
@@ -669,6 +671,24 @@ tester.describe("mobile musical timeline playback", () => {
     });
     tester.expect(controller.prepareRecordingStart({ bar: 8, beat: 2 })).toBe(true);
     tester.expect(playback.engine.getSnapshot().isPlaying).toBe(false);
+    tester.expect(playback.getSoughtMusicalPosition()).toEqual({ bar: 8, beat: 2 });
+    tester.expect(workspace.getAnchor()).toEqual({ bar: 8, beat: 2 });
+
+    playback.publish({
+      currentTime: 18,
+      musicalPosition: { bar: 10, beat: 1 },
+      duration: 30,
+      isPlaying: false,
+      hasLoadedChannels: false,
+      preparation: {
+        status: "preparing",
+        requiredChannelCount: 1,
+        readyRequiredChannelCount: 0,
+        channels: [],
+        failure: null,
+      },
+    });
+    tester.expect(controller.prepareRecordingStart({ bar: 9, beat: 1 })).toBe(false);
     tester.expect(playback.getSoughtMusicalPosition()).toEqual({ bar: 8, beat: 2 });
     tester.expect(workspace.getAnchor()).toEqual({ bar: 8, beat: 2 });
   });

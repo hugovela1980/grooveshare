@@ -731,6 +731,10 @@
         align-items: center;
     }
 
+    .audio-player__transport--without-microphone {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
     .audio-player__seek-back-control {
         display: grid;
     }

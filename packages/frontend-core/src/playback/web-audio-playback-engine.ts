@@ -20,6 +20,7 @@ import type {
   PlaybackStateListener,
   RecordedTakeAuditionOptions,
   SynchronizedRecordingPlaybackStart,
+  SynchronizedRecordingPlaybackSnapshot,
 } from "./playback-engine.js";
 import {
   createTransport,
@@ -245,6 +246,14 @@ export function createWebAudioPlaybackEngine(
   } | null = null;
   let recordedTakeAuditionGeneration = 0;
   let recordedTakeAuditionVolume = 1;
+  let synchronizedRecordingSchedule: {
+    countInBars: number;
+    countInBeats: number;
+    countInDurationSeconds: number;
+    countInStartAtClockTime: number;
+    projectStartAtClockTime: number;
+    secondsPerBeat: number;
+  } | null = null;
   let outputDiagnosticAttemptId: string | null = null;
   let outputDiagnosticReferenceContextTimeSeconds: number | null = null;
   let nextOutputClockSampleIndex = 0;
@@ -300,6 +309,41 @@ export function createWebAudioPlaybackEngine(
   function hasReadyChannels(): boolean {
     const preparation = getPreparationSnapshot();
     return preparation.status === "ready" && preparation.requiredChannelCount > 0;
+  }
+
+  function getSynchronizedRecordingPlaybackSnapshot(): SynchronizedRecordingPlaybackSnapshot | null {
+    const schedule = synchronizedRecordingSchedule;
+    if (!schedule) {
+      return null;
+    }
+
+    const clockTime = audioContext.currentTime;
+    const countInElapsedSeconds = Math.max(
+      0,
+      clockTime - schedule.countInStartAtClockTime,
+    );
+    const currentBeat = schedule.countInBeats > 0
+      ? Math.min(
+          schedule.countInBeats,
+          Math.floor(countInElapsedSeconds / schedule.secondsPerBeat) + 1,
+        )
+      : 0;
+
+    return {
+      phase: clockTime < schedule.projectStartAtClockTime
+        ? "count-in"
+        : "recording",
+      countIn: {
+        bars: schedule.countInBars,
+        totalBeats: schedule.countInBeats,
+        currentBeat,
+        durationSeconds: schedule.countInDurationSeconds,
+      },
+      elapsedRecordingSeconds: Math.max(
+        0,
+        clockTime - schedule.projectStartAtClockTime,
+      ),
+    };
   }
 
   function getMixDuration(): number {
@@ -707,6 +751,7 @@ export function createWebAudioPlaybackEngine(
 
     sourceGenerations = [];
     lastScheduledLoopInstruction = null;
+    synchronizedRecordingSchedule = null;
     clearRecordedTakeAudition();
   }
 
@@ -1039,6 +1084,16 @@ export function createWebAudioPlaybackEngine(
       clearAllClickCues();
       throw new Error("Project playback could not start for synchronized recording.");
     }
+
+    synchronizedRecordingSchedule = {
+      countInBars: normalizedCountInBars,
+      countInBeats,
+      countInDurationSeconds,
+      countInStartAtClockTime: countInStartAt,
+      projectStartAtClockTime: instruction.startAtClockTime,
+      secondsPerBeat,
+    };
+    notify();
 
     return {
       marker: {
@@ -1602,6 +1657,7 @@ export function createWebAudioPlaybackEngine(
     retryPreparation,
     play,
     startSynchronizedRecordingPlayback,
+    getSynchronizedRecordingPlaybackSnapshot,
     auditionRecordedTake,
     setRecordedTakeAuditionVolume,
     stopRecordedTakeAudition,

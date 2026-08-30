@@ -137,6 +137,13 @@ export function renderMicrophoneRecordingControls(): string {
           Start recording
         </button>
 
+        <p
+          id="microphone-recording-start-status"
+          class="microphone-recording__start-status"
+          role="status"
+          aria-live="polite"
+        ></p>
+
         <p class="microphone-recording__headphones-hint">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M4 14v-2a8 8 0 0 1 16 0v2M4 14h3v6H4v-6ZM17 14h3v6h-3v-6Z" />
@@ -181,10 +188,85 @@ export function renderMicrophoneRecordingControls(): string {
         </button>
       </div>
 
+      <div
+        id="microphone-count-in-view"
+        class="microphone-recording__view microphone-recording__view--count-in"
+        data-microphone-workflow-view="count-in"
+        hidden
+      >
+        <p class="microphone-recording__phase-label">Count-in</p>
+        <strong id="microphone-count-in-number" class="microphone-recording__count-in-number">1</strong>
+        <p class="microphone-recording__phase-copy">Get ready</p>
+        <div
+          id="microphone-count-in-beats"
+          class="microphone-recording__count-in-beats"
+          aria-label="Count-in beat 1 of 4"
+        ></div>
+        <p id="microphone-count-in-position" class="microphone-recording__phase-position">
+          Recording starts at Bar 1 · Beat 1
+        </p>
+        <button
+          id="microphone-count-in-cancel-button"
+          class="button button--secondary microphone-recording__secondary-action"
+          type="button"
+        >
+          Cancel
+        </button>
+      </div>
+
+      <div
+        id="microphone-active-recording-view"
+        class="microphone-recording__view microphone-recording__view--active"
+        data-microphone-workflow-view="recording"
+        hidden
+      >
+        <p class="microphone-recording__phase-label microphone-recording__phase-label--recording">
+          <span aria-hidden="true"></span> Recording
+        </p>
+        <div class="microphone-recording__recording-copy">
+          <h2>Recording…</h2>
+          <strong id="microphone-recording-elapsed" class="microphone-recording__elapsed">00:00</strong>
+          <p id="microphone-recording-position" class="microphone-recording__phase-position">
+            From Bar 1 · Beat 1
+          </p>
+        </div>
+        <button
+          id="microphone-stop-button"
+          class="button microphone-recording__stop-action"
+          type="button"
+          disabled
+        >
+          <span aria-hidden="true"></span>
+          Stop recording
+        </button>
+      </div>
+
+      <div
+        id="microphone-processing-view"
+        class="microphone-recording__view microphone-recording__view--processing"
+        data-microphone-workflow-view="processing"
+        hidden
+      >
+        <p class="microphone-recording__phase-label">Processing</p>
+        <span class="microphone-recording__processing-spinner" aria-hidden="true"></span>
+        <div class="microphone-recording__copy">
+          <h2>Finishing take…</h2>
+          <p>Saving a recoverable draft</p>
+        </div>
+        <button
+          class="button microphone-recording__stop-action"
+          type="button"
+          disabled
+        >
+          <span aria-hidden="true"></span>
+          Stop recording
+        </button>
+        <p class="microphone-recording__processing-hint">You can review this take next.</p>
+      </div>
+
       <!--
-        Compatibility presentation for recording/review states that already
-        exist in the shared session. Tasks 3-6 replace this presentation with
-        the approved Count-In / Recording / Processing / Review mobile UX.
+        Compatibility presentation retained for stopped-take review states.
+        Tasks 4-6 replace this with the approved meter and review experiences.
       -->
       <div
         id="microphone-legacy-view"
@@ -225,14 +307,6 @@ export function renderMicrophoneRecordingControls(): string {
         </div>
 
         <div class="microphone-recording__actions">
-          <button
-            id="microphone-stop-button"
-            class="button button--secondary"
-            type="button"
-            disabled
-          >
-            Stop Recording
-          </button>
           <button
             id="microphone-audition-button"
             class="button"

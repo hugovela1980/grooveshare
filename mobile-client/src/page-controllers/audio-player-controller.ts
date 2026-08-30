@@ -185,7 +185,7 @@ export function createAudioPlayerController({
 
         if (preparation.status === "preparing") {
             preparationMessageElement.textContent =
-                `Preparing playback… ${preparation.readyRequiredChannelCount} of ${preparation.requiredChannelCount} tracks ready.`;
+                `Preparing playback · ${preparation.readyRequiredChannelCount}/${preparation.requiredChannelCount} tracks`;
         } else if (preparation.status === "failed") {
             preparationMessageElement.textContent = failedTrack
                 ? `Could not prepare ${failedTrack.name} for playback.`
@@ -370,6 +370,14 @@ export function createAudioPlayerController({
     }
 
     function prepareRecordingStart(position: { bar: number; beat: number }): boolean {
+        const snapshot = playbackEngine.getSnapshot();
+        if (
+            snapshot.preparation.status !== "ready" ||
+            !snapshot.hasLoadedChannels
+        ) {
+            return false;
+        }
+
         stop({ resetWorkspaceAnchor: false });
         return seekToMusicalPosition(position);
     }

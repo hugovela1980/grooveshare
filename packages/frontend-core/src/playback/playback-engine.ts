@@ -100,6 +100,22 @@ export type SynchronizedRecordingPlaybackStart = {
 };
 
 /**
+ * Authoritative phase of a synchronized recording playback schedule.
+ * Values are derived from the playback engine's audio clock; presentation
+ * clients must not advance them with their own timers.
+ */
+export type SynchronizedRecordingPlaybackSnapshot = {
+  phase: "count-in" | "recording";
+  countIn: {
+    bars: number;
+    totalBeats: number;
+    currentBeat: number;
+    durationSeconds: number;
+  };
+  elapsedRecordingSeconds: number;
+};
+
+/**
  * Presentation-independent playback contract used by both GrooveShare clients.
  *
  * The Web Audio implementation delegates project timeline state to the shared
@@ -132,6 +148,8 @@ export interface PlaybackEngine {
    * state so the first project transient cannot outrun MediaRecorder startup.
    */
   startSynchronizedRecordingPlayback?(options?: { countInBars?: number }): Promise<SynchronizedRecordingPlaybackStart>;
+  /** Read the active recording schedule against the authoritative audio clock. */
+  getSynchronizedRecordingPlaybackSnapshot?(): SynchronizedRecordingPlaybackSnapshot | null;
   /**
    * Audition one temporary recorded take on the same authoritative audio clock
    * and source-alignment path used by saved project tracks. Web Audio engines

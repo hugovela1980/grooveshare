@@ -184,6 +184,28 @@ tester.describe("browser microphone recording adapter", () => {
     tester.expect(stream.track.stopCalls).toBe(1);
   });
 
+  tester.it("can discard one capture and start again without releasing the prepared stream", async () => {
+    const stream = new FakeMediaStream();
+    const adapter = createBrowserMicrophoneRecordingAdapter({
+      mediaDevices: createMediaDevices(stream),
+      MediaRecorderConstructor: FakeMediaRecorder,
+    });
+
+    await adapter.prepare();
+    await adapter.start();
+    await adapter.stop();
+    tester.expect(stream.track.stopCalls).toBe(0);
+
+    await adapter.start();
+    const secondCapture = await adapter.stop();
+    tester.expect(FakeMediaRecorder.instances.length).toBe(2);
+    tester.expect(Array.from(secondCapture.bytes)).toEqual([4, 5, 6]);
+    tester.expect(stream.track.stopCalls).toBe(0);
+
+    await adapter.release();
+    tester.expect(stream.track.stopCalls).toBe(1);
+  });
+
   tester.it("restores the browser playback audio session after releasing the microphone", async () => {
     const stream = new FakeMediaStream();
     const assignedTypes: string[] = [];

@@ -425,7 +425,6 @@ tester.describe("WebAudioPlaybackEngine", () => {
     tester.expect(audioContext.sources[1]?.startOffset).toBe(0);
     tester.expect(engine.getSnapshot().duration).toBe(60);
     tester.expect(engine.getSnapshot().isPlaying).toBe(true);
-
     engine.destroy?.();
   });
 
@@ -734,6 +733,35 @@ tester.describe("WebAudioPlaybackEngine", () => {
       880,
     ]);
     tester.expect(engine.getSnapshot().isPlaying).toBe(true);
+    tester.expect(engine.getSynchronizedRecordingPlaybackSnapshot?.()).toEqual({
+      phase: "count-in",
+      countIn: {
+        bars: 1,
+        totalBeats: 4,
+        currentBeat: 1,
+        durationSeconds: 2,
+      },
+      elapsedRecordingSeconds: 0,
+    });
+
+    audioContext.currentTime = 20.6;
+    tester.expect(
+      engine.getSynchronizedRecordingPlaybackSnapshot?.()?.countIn.currentBeat,
+    ).toBe(2);
+
+    audioContext.currentTime = 22.28;
+    tester.expect(engine.getSynchronizedRecordingPlaybackSnapshot?.()?.phase).toBe(
+      "recording",
+    );
+    tester.expect(
+      Math.abs(
+        (engine.getSynchronizedRecordingPlaybackSnapshot?.()
+          ?.elapsedRecordingSeconds ?? 0) - 0.25,
+      ) < 1e-9,
+    ).toBe(true);
+
+    engine.stop();
+    tester.expect(engine.getSynchronizedRecordingPlaybackSnapshot?.()).toBe(null);
 
     engine.destroy?.();
   });

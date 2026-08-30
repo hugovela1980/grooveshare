@@ -108,8 +108,49 @@ tester.describe("microphone recording session", () => {
       "requesting-permission",
       "ready",
       "recording",
+      "processing",
       "stopped",
     ]);
+  });
+
+  tester.it("publishes Processing while finalization is pending and stops only once", async () => {
+    let stopCalls = 0;
+    let resolveStop: (capture: RecordedAudioCapture) => void = () => {
+      throw new Error("Recording stop was not requested.");
+    };
+    const recordingPort: MicrophoneRecordingPort = {
+      async prepare() {},
+      async start() {},
+      stop() {
+        stopCalls += 1;
+        return new Promise<RecordedAudioCapture>((resolve) => {
+          resolveStop = resolve;
+        });
+      },
+      async release() {},
+    };
+    const session = createMicrophoneRecordingSession({
+      role: "owner",
+      recordingPort,
+    });
+
+    await session.arm();
+    await session.start();
+    const stopping = session.stop();
+    tester.expect(session.getSnapshot().status).toBe("processing");
+
+    const duplicateStopping = session.stop();
+    tester.expect(session.getSnapshot().status).toBe("processing");
+    tester.expect(stopCalls).toBe(1);
+
+    resolveStop({
+      bytes: new Uint8Array([9, 8, 7]),
+      mimeType: "audio/webm",
+    });
+    await stopping;
+    tester.expect((await duplicateStopping).status).toBe("stopped");
+    tester.expect(session.getSnapshot().status).toBe("stopped");
+    tester.expect(stopCalls).toBe(1);
   });
 
   tester.it("disarms a prepared microphone, genuinely releases the device, and preserves compensation", async () => {
@@ -277,6 +318,7 @@ type PlaybackHarness = {
   events: string[];
   seekCalls: number[];
   setClockTime(nextTime: number): void;
+  advanceRecordingSchedule(nextTime: number): void;
   pause(): void;
 };
 
@@ -284,6 +326,7 @@ function createPlaybackHarness({
   startPositionSeconds = 0,
   durationSeconds = 60,
   recordingMarkers = true,
+  beginInCountIn = false,
   musicalTimeline = {
     bpm: 120,
     timeSignature: { numerator: 4, denominator: 4 },
@@ -292,20 +335,29 @@ function createPlaybackHarness({
   startPositionSeconds?: number;
   durationSeconds?: number;
   recordingMarkers?: boolean;
+  beginInCountIn?: boolean;
   musicalTimeline?: {
     bpm: number;
     timeSignature: { numerator: number; denominator: number };
   };
 } = {}): PlaybackHarness {
   let clockTime = 100;
+  let intervalHandler: (() => void) | null = null;
+  let synchronizedPhase: "count-in" | "recording" = beginInCountIn
+    ? "count-in"
+    : "recording";
+  let synchronizedRecordingActive = false;
   const events: string[] = [];
   const seekCalls: number[] = [];
   const transport = createTransport({
     getClockTime: () => clockTime,
-    scheduleInterval() {
+    scheduleInterval(handler) {
+      intervalHandler = handler;
       return { fakeInterval: true };
     },
-    clearScheduledInterval() {},
+    clearScheduledInterval() {
+      intervalHandler = null;
+    },
     musicalTimeline,
   });
   const recordingTimeline = createRecordingTimeline(transport);
@@ -324,6 +376,7 @@ function createPlaybackHarness({
     },
     stop() {
       events.push("playback-stop");
+      synchronizedRecordingActive = false;
       transport.stop();
     },
     seek(seconds) {
@@ -387,6 +440,7 @@ function createPlaybackHarness({
       ? {
           async startSynchronizedRecordingPlayback() {
             events.push("playback-start");
+            synchronizedRecordingActive = true;
             transport.play();
             events.push("mark-recording-start");
             const marker = recordingTimeline.markStart();
@@ -401,6 +455,37 @@ function createPlaybackHarness({
                 beats,
                 durationSeconds,
               },
+            };
+          },
+          getSynchronizedRecordingPlaybackSnapshot() {
+            if (!synchronizedRecordingActive) {
+              return null;
+            }
+            const elapsedSinceSchedule = Math.max(0, clockTime - 100);
+            return {
+              phase: synchronizedPhase,
+              countIn: {
+                bars: 1,
+                totalBeats: musicalTimeline.timeSignature.numerator,
+                currentBeat: Math.min(
+                  musicalTimeline.timeSignature.numerator,
+                  Math.floor(
+                    elapsedSinceSchedule /
+                      getSecondsPerMusicalBeat(musicalTimeline),
+                  ) + 1,
+                ),
+                durationSeconds:
+                  musicalTimeline.timeSignature.numerator *
+                  getSecondsPerMusicalBeat(musicalTimeline),
+              },
+              elapsedRecordingSeconds: synchronizedPhase === "recording"
+                ? Math.max(
+                    0,
+                    elapsedSinceSchedule -
+                      musicalTimeline.timeSignature.numerator *
+                        getSecondsPerMusicalBeat(musicalTimeline),
+                  )
+                : 0,
             };
           },
           markRecordingStart() {
@@ -421,6 +506,22 @@ function createPlaybackHarness({
     seekCalls,
     setClockTime(nextTime) {
       clockTime = nextTime;
+      const countInDurationSeconds =
+        musicalTimeline.timeSignature.numerator *
+        getSecondsPerMusicalBeat(musicalTimeline);
+      synchronizedPhase = clockTime >= 100 + countInDurationSeconds
+        ? "recording"
+        : "count-in";
+    },
+    advanceRecordingSchedule(nextTime) {
+      clockTime = nextTime;
+      const countInDurationSeconds =
+        musicalTimeline.timeSignature.numerator *
+        getSecondsPerMusicalBeat(musicalTimeline);
+      synchronizedPhase = clockTime >= 100 + countInDurationSeconds
+        ? "recording"
+        : "count-in";
+      intervalHandler?.();
     },
     pause() {
       engine.pause();
@@ -429,6 +530,109 @@ function createPlaybackHarness({
 }
 
 tester.describe("transport-synchronized microphone recording", () => {
+  tester.it("publishes authoritative count-in beats before active recording elapsed time", async () => {
+    const recordingHarness = createRecordingPortHarness();
+    const playbackHarness = createPlaybackHarness({ beginInCountIn: true });
+    const session = createMicrophoneRecordingSession({
+      role: "owner",
+      recordingPort: recordingHarness.port,
+      playbackEngine: playbackHarness.engine,
+      musicalTimeline: {
+        bpm: 120,
+        timeSignature: { numerator: 4, denominator: 4 },
+      },
+    });
+
+    await session.arm();
+    await session.start();
+    tester.expect(session.getSnapshot().status).toBe("count-in");
+    tester.expect(session.getSnapshot().countIn).toEqual({
+      bars: 1,
+      totalBeats: 4,
+      currentBeat: 1,
+      durationSeconds: 2,
+    });
+
+    playbackHarness.advanceRecordingSchedule(100.6);
+    tester.expect(session.getSnapshot().status).toBe("count-in");
+    tester.expect(session.getSnapshot().countIn?.currentBeat).toBe(2);
+
+    playbackHarness.advanceRecordingSchedule(102.5);
+    tester.expect(session.getSnapshot().status).toBe("recording");
+    tester.expect(session.getSnapshot().elapsedRecordingSeconds).toBe(0.5);
+
+    await session.reset();
+    playbackHarness.engine.destroy?.();
+  });
+
+  tester.it("cancels count-in once, discards capture, and returns to prepared Ready", async () => {
+    const recordingHarness = createRecordingPortHarness();
+    const playbackHarness = createPlaybackHarness({
+      beginInCountIn: true,
+      startPositionSeconds: 6,
+    });
+    const session = createMicrophoneRecordingSession({
+      role: "contributor",
+      recordingPort: recordingHarness.port,
+      playbackEngine: playbackHarness.engine,
+      musicalTimeline: {
+        bpm: 120,
+        timeSignature: { numerator: 4, denominator: 4 },
+      },
+    });
+
+    await session.arm();
+    await session.start();
+    const firstCancellation = session.cancelCountIn();
+    const duplicateCancellation = session.cancelCountIn();
+    playbackHarness.advanceRecordingSchedule(102.1);
+    await Promise.all([firstCancellation, duplicateCancellation]);
+
+    const ready = session.getSnapshot();
+    tester.expect(ready.status).toBe("ready");
+    tester.expect(ready.capture).toBe(null);
+    tester.expect(ready.take).toBe(null);
+    tester.expect(ready.countIn).toBe(null);
+    tester.expect(recordingHarness.stopCalls).toBe(1);
+    tester.expect(recordingHarness.releaseCalls).toBe(0);
+    tester.expect(
+      playbackHarness.events.filter((event) => event === "playback-stop").length,
+    ).toBe(1);
+
+    await session.start();
+    tester.expect(recordingHarness.startCalls).toBe(2);
+    await session.reset();
+    playbackHarness.engine.destroy?.();
+  });
+
+  tester.it("lets the authoritative recording transition win before a late count-in Cancel", async () => {
+    const recordingHarness = createRecordingPortHarness();
+    const playbackHarness = createPlaybackHarness({ beginInCountIn: true });
+    const session = createMicrophoneRecordingSession({
+      role: "owner",
+      recordingPort: recordingHarness.port,
+      playbackEngine: playbackHarness.engine,
+      musicalTimeline: {
+        bpm: 120,
+        timeSignature: { numerator: 4, denominator: 4 },
+      },
+    });
+
+    await session.arm();
+    await session.start();
+    playbackHarness.setClockTime(102.01);
+    tester.expect(session.getSnapshot().status).toBe("count-in");
+
+    const afterLateCancel = await session.cancelCountIn();
+    tester.expect(afterLateCancel.status).toBe("recording");
+    tester.expect(recordingHarness.stopCalls).toBe(0);
+
+    await session.stop();
+    tester.expect(session.getSnapshot().status).toBe("stopped");
+    tester.expect(recordingHarness.stopCalls).toBe(1);
+    playbackHarness.engine.destroy?.();
+  });
+
   tester.it("preserves later musical starts across representative tempos and meters", async () => {
     const cases = [
       {

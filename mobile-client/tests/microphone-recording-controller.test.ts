@@ -86,6 +86,8 @@ function createSavedTrack(name: string): Track {
 function createSessionHarness({ deferArm = false }: { deferArm?: boolean } = {}) {
   let snapshot: MicrophoneRecordingSnapshot = {
     status: "idle",
+    countIn: null,
+    elapsedRecordingSeconds: 0,
     capture: null,
     startPosition: null,
     take: null,
@@ -162,7 +164,14 @@ function createSessionHarness({ deferArm = false }: { deferArm?: boolean } = {})
       calls.push("start");
       return publish({
         ...snapshot,
-        status: "recording",
+        status: "count-in",
+        countIn: {
+          bars: 1,
+          totalBeats: 4,
+          currentBeat: 1,
+          durationSeconds: 2,
+        },
+        elapsedRecordingSeconds: 0,
         take: null,
         capture: null,
         takeReviewStatus: "idle",
@@ -180,6 +189,18 @@ function createSessionHarness({ deferArm = false }: { deferArm?: boolean } = {})
           },
           musical: { bar: 2, beat: 4 },
         },
+      });
+    },
+    cancelCountIn() {
+      calls.push("cancel-count-in");
+      return publish({
+        ...snapshot,
+        status: "ready",
+        countIn: null,
+        elapsedRecordingSeconds: 0,
+        capture: null,
+        startPosition: null,
+        take: null,
       });
     },
     stop() {
@@ -234,6 +255,8 @@ function createSessionHarness({ deferArm = false }: { deferArm?: boolean } = {})
       calls.push("discard");
       return publish({
         status: "idle",
+        countIn: null,
+        elapsedRecordingSeconds: 0,
         capture: null,
         startPosition: null,
         take: null,
@@ -250,6 +273,8 @@ function createSessionHarness({ deferArm = false }: { deferArm?: boolean } = {})
       calls.push(`keep:${trackName}`);
       return publish({
         status: "idle",
+        countIn: null,
+        elapsedRecordingSeconds: 0,
         capture: null,
         startPosition: null,
         take: null,
@@ -288,6 +313,8 @@ function createSessionHarness({ deferArm = false }: { deferArm?: boolean } = {})
       calls.push("reset");
       return publish({
         status: "idle",
+        countIn: null,
+        elapsedRecordingSeconds: 0,
         capture: null,
         startPosition: null,
         take: null,
@@ -334,6 +361,7 @@ type ControllerHarnessOptions = {
   deferArm?: boolean;
   initialStartPosition?: { bar: number; beat: number };
   beatsPerBar?: number;
+  prepareRecordingStartResult?: boolean;
 };
 
 function createControllerHarness({
@@ -341,6 +369,7 @@ function createControllerHarness({
   deferArm = false,
   initialStartPosition = { bar: 6, beat: 3 },
   beatsPerBar = 4,
+  prepareRecordingStartResult = true,
 }: ControllerHarnessOptions = {}) {
   const sessionHarness = createSessionHarness({ deferArm });
   const armButton = createButton();
@@ -354,10 +383,14 @@ function createControllerHarness({
   const preparingViewElement = { hidden: true };
   const readyViewElement = { hidden: true };
   const failureViewElement = { hidden: true };
+  const countInViewElement = { hidden: true };
+  const activeRecordingViewElement = { hidden: true };
+  const processingViewElement = { hidden: true };
   const legacyViewElement = { hidden: true };
   const preparingCloseButton = createButton();
   const cancelButton = createButton();
   const permissionRetryButton = createButton();
+  const countInCancelButton = createButton();
   const recordButton = createButton();
   const stopButton = createButton();
   const auditionButton = createButton();
@@ -375,8 +408,21 @@ function createControllerHarness({
   const startBeatInput = createInput("1");
   const startPositionApplyButton = createButton();
   const startPositionStatusElement = { textContent: "" as string | null };
+  const recordingStartStatusElement = { textContent: "" as string | null };
+  const countInNumberElement = { textContent: "" as string | null };
+  const countInBeatsElement = {
+    innerHTML: "",
+    attributes: new Map<string, string>(),
+    setAttribute(name: string, value: string) {
+      this.attributes.set(name, value);
+    },
+  };
+  const countInPositionElement = { textContent: "" as string | null };
+  const recordingElapsedElement = { textContent: "" as string | null };
+  const recordingPositionElement = { textContent: "" as string | null };
   const selectedPositions: { bar: number; beat: number }[] = [];
   const preparedPositions: { bar: number; beat: number }[] = [];
+  let playbackReadinessListener: ((ready: boolean) => void) | null = null;
   const alignmentValueElement = { textContent: "" as string | null };
   const alignmentEarlier100Button = createButton();
   const alignmentEarlier10Button = createButton();
@@ -392,9 +438,13 @@ function createControllerHarness({
     preparingViewElement,
     readyViewElement,
     failureViewElement,
+    countInViewElement,
+    activeRecordingViewElement,
+    processingViewElement,
     legacyViewElement,
     cancelButtons: [preparingCloseButton, cancelButton],
     permissionRetryButton,
+    countInCancelButton,
     recordButton,
     stopButton,
     auditionButton,
@@ -412,6 +462,12 @@ function createControllerHarness({
     startBeatInput,
     startPositionApplyButton,
     startPositionStatusElement,
+    recordingStartStatusElement,
+    countInNumberElement,
+    countInBeatsElement,
+    countInPositionElement,
+    recordingElapsedElement,
+    recordingPositionElement,
     beatsPerBar,
     getRecordingStartPosition: () => ({ ...initialStartPosition }),
     setRecordingStartPosition(position) {
@@ -420,7 +476,13 @@ function createControllerHarness({
     },
     prepareRecordingStart(position) {
       preparedPositions.push({ ...position });
-      return true;
+      return prepareRecordingStartResult;
+    },
+    subscribePlaybackReadiness(listener) {
+      playbackReadinessListener = listener;
+      return () => {
+        playbackReadinessListener = null;
+      };
     },
     alignmentValueElement,
     alignmentNudgeControls: [
@@ -443,10 +505,14 @@ function createControllerHarness({
     preparingViewElement,
     readyViewElement,
     failureViewElement,
+    countInViewElement,
+    activeRecordingViewElement,
+    processingViewElement,
     legacyViewElement,
     preparingCloseButton,
     cancelButton,
     permissionRetryButton,
+    countInCancelButton,
     recordButton,
     stopButton,
     auditionButton,
@@ -464,8 +530,17 @@ function createControllerHarness({
     startBeatInput,
     startPositionApplyButton,
     startPositionStatusElement,
+    recordingStartStatusElement,
+    countInNumberElement,
+    countInBeatsElement,
+    countInPositionElement,
+    recordingElapsedElement,
+    recordingPositionElement,
     selectedPositions,
     preparedPositions,
+    publishPlaybackReadiness(ready: boolean) {
+      playbackReadinessListener?.(ready);
+    },
     alignmentValueElement,
     alignmentEarlier100Button,
     alignmentEarlier10Button,
@@ -579,9 +654,90 @@ tester.describe("microphone recording controller", () => {
     await harness.recordButton.click();
     tester.expect(harness.preparedPositions).toEqual([{ bar: 8, beat: 2 }]);
     tester.expect(harness.calls.slice(-1)).toEqual(["start"]);
-    tester.expect(harness.legacyViewElement.hidden).toBe(false);
+    tester.expect(harness.countInViewElement.hidden).toBe(false);
+    tester.expect(harness.legacyViewElement.hidden).toBe(true);
 
     harness.controller.destroy();
+  });
+
+  tester.it("renders shared count-in progress and Cancel returns to Ready", async () => {
+    const harness = createControllerHarness();
+    harness.controller.init();
+    await harness.armButton.click();
+    await harness.recordButton.click();
+
+    tester.expect(harness.countInViewElement.hidden).toBe(false);
+    tester.expect(harness.countInNumberElement.textContent).toBe("1");
+    tester.expect(
+      harness.countInBeatsElement.innerHTML.includes('class="is-active"'),
+    ).toBe(true);
+    tester.expect(harness.countInPositionElement.textContent).toBe(
+      "Recording starts at Bar 6 · Beat 3",
+    );
+
+    harness.publishSnapshot({
+      ...harness.getSnapshot(),
+      countIn: {
+        bars: 1,
+        totalBeats: 4,
+        currentBeat: 3,
+        durationSeconds: 2,
+      },
+    });
+    tester.expect(harness.countInNumberElement.textContent).toBe("3");
+    tester.expect(
+      harness.countInBeatsElement.attributes.get("aria-label"),
+    ).toBe("Count-in beat 3 of 4");
+
+    await harness.countInCancelButton.click();
+    tester.expect(harness.getSnapshot().status).toBe("ready");
+    tester.expect(harness.readyViewElement.hidden).toBe(false);
+    tester.expect(harness.countInViewElement.hidden).toBe(true);
+    tester.expect(harness.startPositionLabelElement.textContent).toBe(
+      "Start at Bar 6 · Beat 3",
+    );
+    tester.expect(harness.calls.slice(-1)).toEqual(["cancel-count-in"]);
+  });
+
+  tester.it("renders authoritative recording duration and Processing before stopped review", async () => {
+    const harness = createControllerHarness();
+    harness.controller.init();
+    await harness.armButton.click();
+    await harness.recordButton.click();
+
+    harness.publishSnapshot({
+      ...harness.getSnapshot(),
+      status: "recording",
+      elapsedRecordingSeconds: 78.9,
+    });
+    tester.expect(harness.activeRecordingViewElement.hidden).toBe(false);
+    tester.expect(harness.recordingElapsedElement.textContent).toBe("01:18");
+    tester.expect(harness.recordingPositionElement.textContent).toBe(
+      "From Bar 2 · Beat 4",
+    );
+    tester.expect(harness.stopButton.disabled).toBe(false);
+
+    harness.publishSnapshot({
+      ...harness.getSnapshot(),
+      status: "processing",
+    });
+    tester.expect(harness.processingViewElement.hidden).toBe(false);
+    tester.expect(harness.activeRecordingViewElement.hidden).toBe(true);
+    tester.expect(harness.stopButton.disabled).toBe(true);
+    tester.expect(harness.legacyViewElement.hidden).toBe(true);
+    tester.expect(harness.statusElement.textContent).toBe(
+      "Finishing take and saving a recoverable draft…",
+    );
+
+    const take = createStoppedTake();
+    harness.publishSnapshot({
+      ...harness.getSnapshot(),
+      status: "stopped",
+      capture: take.capture,
+      take,
+    });
+    tester.expect(harness.processingViewElement.hidden).toBe(true);
+    tester.expect(harness.legacyViewElement.hidden).toBe(false);
   });
 
   tester.it("rejects a Ready beat outside the project meter before recording starts", async () => {
@@ -604,6 +760,28 @@ tester.describe("microphone recording controller", () => {
     harness.controller.destroy();
   });
 
+  tester.it("keeps Ready open when project tracks are still preparing", async () => {
+    const harness = createControllerHarness({
+      prepareRecordingStartResult: false,
+    });
+    harness.controller.init();
+    await harness.armButton.click();
+
+    await harness.recordButton.click();
+
+    tester.expect(harness.getSnapshot().status).toBe("ready");
+    tester.expect(harness.failureViewElement.hidden).toBe(true);
+    tester.expect(harness.calls.includes("start")).toBe(false);
+    tester.expect(harness.recordingStartStatusElement.textContent).toBe(
+      "Wait for the enabled project tracks to finish preparing, then try again.",
+    );
+
+    harness.publishPlaybackReadiness(true);
+    tester.expect(harness.recordingStartStatusElement.textContent).toBe("");
+
+    harness.controller.destroy();
+  });
+
   tester.it("drives record, audition, retry, and discard controls from shared state", async () => {
     const harness = createControllerHarness();
     harness.controller.init();
@@ -621,6 +799,12 @@ tester.describe("microphone recording controller", () => {
     );
 
     await harness.recordButton.click();
+    tester.expect(harness.countInViewElement.hidden).toBe(false);
+    harness.publishSnapshot({
+      ...harness.getSnapshot(),
+      status: "recording",
+      elapsedRecordingSeconds: 0,
+    });
     tester.expect(harness.stopButton.disabled).toBe(false);
     tester.expect(harness.statusElement.textContent).toBe("Recording from Bar 2, Beat 4…");
 

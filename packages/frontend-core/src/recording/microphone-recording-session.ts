@@ -46,9 +46,18 @@ export type MicrophoneRecordingStatus =
   | "idle"
   | "requesting-permission"
   | "ready"
+  | "count-in"
   | "recording"
+  | "processing"
   | "stopped"
   | "failed";
+
+export type MicrophoneRecordingCountIn = {
+  bars: number;
+  totalBeats: number;
+  currentBeat: number;
+  durationSeconds: number;
+};
 
 export type MicrophoneTakeReviewStatus = "idle" | "auditioning";
 export type MicrophoneTakeSaveStatus = "idle" | "saving";
@@ -83,6 +92,9 @@ export type MicrophoneRecordedTake = {
 
 export type MicrophoneRecordingSnapshot = {
   status: MicrophoneRecordingStatus;
+  countIn: MicrophoneRecordingCountIn | null;
+  /** Authoritative audio-clock elapsed time after the count-in completes. */
+  elapsedRecordingSeconds: number;
   capture: RecordedAudioCapture | null;
   startPosition: MicrophoneRecordingStartPosition | null;
   take: MicrophoneRecordedTake | null;
@@ -108,6 +120,7 @@ export interface MicrophoneRecordingSession {
   arm(): Promise<MicrophoneRecordingSnapshot>;
   disarm(): Promise<MicrophoneRecordingSnapshot>;
   start(): Promise<MicrophoneRecordingSnapshot>;
+  cancelCountIn(): Promise<MicrophoneRecordingSnapshot>;
   stop(): Promise<MicrophoneRecordingSnapshot>;
   audition(): Promise<MicrophoneRecordingSnapshot>;
   stopAudition(): Promise<MicrophoneRecordingSnapshot>;
@@ -230,6 +243,11 @@ export function createMicrophoneRecordingSession({
   let captureActive = false;
   let microphonePrepared = false;
   let stopInProgress = false;
+  let stopPromise: Promise<MicrophoneRecordingSnapshot> | null = null;
+  let countInCancellationPromise: Promise<MicrophoneRecordingSnapshot> | null = null;
+  let countInCancellationRequested = false;
+  let countIn: MicrophoneRecordingCountIn | null = null;
+  let elapsedRecordingSeconds = 0;
   let recordingMediaLeadInSeconds = 0;
   let draftPersistenceQueue: Promise<void> = Promise.resolve();
   const listeners = new Set<MicrophoneRecordingStateListener>();
@@ -328,8 +346,21 @@ export function createMicrophoneRecordingSession({
   }
 
   function getSnapshot(): MicrophoneRecordingSnapshot {
+    const synchronizedRecording =
+      playbackEngine?.getSynchronizedRecordingPlaybackSnapshot?.() ?? null;
+    const snapshotCountIn = synchronizedRecording
+      ? { ...synchronizedRecording.countIn }
+      : countIn
+        ? { ...countIn }
+        : null;
+    const snapshotElapsedRecordingSeconds = synchronizedRecording
+      ? synchronizedRecording.elapsedRecordingSeconds
+      : elapsedRecordingSeconds;
+
     return {
       status,
+      countIn: snapshotCountIn,
+      elapsedRecordingSeconds: snapshotElapsedRecordingSeconds,
       capture: cloneCapture(capture),
       startPosition: cloneStartPosition(startPosition),
       take: cloneTake(take),
@@ -370,7 +401,12 @@ export function createMicrophoneRecordingSession({
   ): MicrophoneRecordingSnapshot {
     ensureActive();
 
-    if (status === "recording" || takeSaveStatus === "saving") {
+    if (
+      status === "count-in" ||
+      status === "recording" ||
+      status === "processing" ||
+      takeSaveStatus === "saving"
+    ) {
       return getSnapshot();
     }
 
@@ -419,6 +455,8 @@ export function createMicrophoneRecordingSession({
     capture = null;
     startPosition = null;
     recordingMediaLeadInSeconds = 0;
+    countIn = null;
+    elapsedRecordingSeconds = 0;
     take = null;
     takeReviewStatus = "idle";
     takeReviewFailure = null;
@@ -678,7 +716,11 @@ export function createMicrophoneRecordingSession({
       return getSnapshot();
     }
 
-    if (status === "recording") {
+    if (
+      status === "count-in" ||
+      status === "recording" ||
+      status === "processing"
+    ) {
       return setFailure(
         new MicrophoneRecordingError(
           "recording-failed",
@@ -800,12 +842,13 @@ export function createMicrophoneRecordingSession({
 
         if (
           !beforePlayback.isPlaying &&
-          !synchronization.engine.startSynchronizedRecordingPlayback
+          (!synchronization.engine.startSynchronizedRecordingPlayback ||
+            !synchronization.engine.getSynchronizedRecordingPlaybackSnapshot)
         ) {
           return failPreparedRecording(
             new MicrophoneRecordingError(
               "unsupported",
-              "This playback engine cannot start capture-safe synchronized recording playback.",
+              "This playback engine cannot expose authoritative synchronized recording progress.",
             ),
           );
         }
@@ -829,7 +872,12 @@ export function createMicrophoneRecordingSession({
       });
       await recordingPort.start({
         onFailure(nextFailure) {
-          if (destroyed || !captureActive) {
+          if (
+            destroyed ||
+            !captureActive ||
+            stopInProgress ||
+            countInCancellationRequested
+          ) {
             return;
           }
 
@@ -921,9 +969,22 @@ export function createMicrophoneRecordingSession({
           transport: marker,
           musical: { ...marker.musicalPosition },
         };
+
+        if (synchronizedStart?.countIn.beats) {
+          countIn = {
+            bars: synchronizedStart.countIn.bars,
+            totalBeats: synchronizedStart.countIn.beats,
+            currentBeat: 1,
+            durationSeconds: synchronizedStart.countIn.durationSeconds,
+          };
+        }
       }
 
-      status = "recording";
+      const synchronizedRecording =
+        playbackEngine?.getSynchronizedRecordingPlaybackSnapshot?.() ?? null;
+      status = countIn && synchronizedRecording?.phase !== "recording"
+        ? "count-in"
+        : "recording";
       return notify();
     } catch (error) {
       const shouldStopPlayback = captureActive;
@@ -940,7 +1001,70 @@ export function createMicrophoneRecordingSession({
     }
   }
 
-  async function stop(): Promise<MicrophoneRecordingSnapshot> {
+  async function cancelCountIn(): Promise<MicrophoneRecordingSnapshot> {
+    ensureActive();
+
+    if (!ensureAuthorized()) {
+      return getSnapshot();
+    }
+
+    if (countInCancellationPromise) {
+      return countInCancellationPromise;
+    }
+
+    if (status !== "count-in") {
+      return getSnapshot();
+    }
+
+    const synchronizedRecording =
+      playbackEngine?.getSynchronizedRecordingPlaybackSnapshot?.() ?? null;
+    if (synchronizedRecording?.phase === "recording") {
+      countIn = { ...synchronizedRecording.countIn };
+      elapsedRecordingSeconds = synchronizedRecording.elapsedRecordingSeconds;
+      status = "recording";
+      return notify();
+    }
+
+    countInCancellationRequested = true;
+    captureActive = false;
+    stopSynchronizedPlayback();
+    completeRecordingAlignment("aborted");
+
+    const cancellation = (async (): Promise<MicrophoneRecordingSnapshot> => {
+      try {
+        await recordingPort.stop();
+      } catch {
+        // If the recorder cannot stop cleanly, reacquire preparation so the
+        // session still fulfills the Ready contract without leaking capture.
+        try {
+          await recordingPort.release();
+          microphonePrepared = false;
+          await recordingPort.prepare();
+          microphonePrepared = true;
+        } catch (error) {
+          microphonePrepared = false;
+          return setFailure(error);
+        }
+      }
+
+      clearTakeState();
+      failure = null;
+      status = "ready";
+      return notify();
+    })();
+    countInCancellationPromise = cancellation;
+
+    try {
+      return await cancellation;
+    } finally {
+      if (countInCancellationPromise === cancellation) {
+        countInCancellationPromise = null;
+      }
+      countInCancellationRequested = false;
+    }
+  }
+
+  async function completeStop(): Promise<MicrophoneRecordingSnapshot> {
     ensureActive();
 
     if (!ensureAuthorized()) {
@@ -956,14 +1080,22 @@ export function createMicrophoneRecordingSession({
       );
     }
 
-    if (stopInProgress) {
-      return getSnapshot();
-    }
-
     stopInProgress = true;
 
     const beforeStop = playbackEngine?.getSnapshot();
+    const synchronizedRecording =
+      playbackEngine?.getSynchronizedRecordingPlaybackSnapshot?.() ?? null;
+    elapsedRecordingSeconds = synchronizedRecording?.elapsedRecordingSeconds ??
+      (startPosition
+        ? Math.max(
+            0,
+            (beforeStop?.currentTime ?? 0) -
+              startPosition.transport.projectPositionSeconds,
+          )
+        : elapsedRecordingSeconds);
     const shouldRestoreRecordingStart = beforeStop?.isPlaying === true;
+    status = "processing";
+    notify();
     observeRecordingAlignment({
       stage: "recording-stop-requested",
       source: "recording-session",
@@ -1061,6 +1193,9 @@ export function createMicrophoneRecordingSession({
       }
 
       completeRecordingAlignment("completed");
+      countIn = null;
+      elapsedRecordingSeconds =
+        timingResult?.metadata.durationSeconds ?? elapsedRecordingSeconds;
       status = "stopped";
       return notify();
     } catch (error) {
@@ -1068,6 +1203,28 @@ export function createMicrophoneRecordingSession({
     } finally {
       stopInProgress = false;
     }
+  }
+
+  function stop(): Promise<MicrophoneRecordingSnapshot> {
+    if (stopPromise) {
+      return stopPromise;
+    }
+
+    const operation = completeStop();
+    stopPromise = operation;
+    void operation.then(
+      () => {
+        if (stopPromise === operation) {
+          stopPromise = null;
+        }
+      },
+      () => {
+        if (stopPromise === operation) {
+          stopPromise = null;
+        }
+      },
+    );
+    return operation;
   }
 
   async function audition(): Promise<MicrophoneRecordingSnapshot> {
@@ -1359,7 +1516,10 @@ export function createMicrophoneRecordingSession({
   async function reset(): Promise<MicrophoneRecordingSnapshot> {
     ensureActive();
 
-    const wasRecording = status === "recording";
+    const wasRecording =
+      status === "count-in" ||
+      status === "recording" ||
+      status === "processing";
     if (recordingAlignmentDiagnostics?.getActiveAttemptId()) {
       completeRecordingAlignment("aborted");
     }
@@ -1404,17 +1564,53 @@ export function createMicrophoneRecordingSession({
   }
 
   const unsubscribePlayback = playbackEngine?.subscribe((snapshot) => {
-    if (
-      destroyed ||
-      !synchronizationRequested ||
-      status !== "recording" ||
-      stopInProgress ||
-      snapshot.isPlaying
-    ) {
+    if (destroyed || !synchronizationRequested || stopInProgress) {
       return;
     }
 
-    void stop();
+    const synchronizedRecording =
+      playbackEngine.getSynchronizedRecordingPlaybackSnapshot?.() ?? null;
+
+    if (status === "count-in") {
+      if (countInCancellationRequested) {
+        return;
+      }
+
+      if (!snapshot.isPlaying) {
+        void cancelCountIn();
+        return;
+      }
+
+      if (synchronizedRecording) {
+        countIn = { ...synchronizedRecording.countIn };
+        elapsedRecordingSeconds =
+          synchronizedRecording.elapsedRecordingSeconds;
+        if (synchronizedRecording.phase === "recording") {
+          status = "recording";
+        }
+      }
+      notify();
+      return;
+    }
+
+    if (status !== "recording") {
+      return;
+    }
+
+    if (!snapshot.isPlaying) {
+      void stop();
+      return;
+    }
+
+    if (synchronizedRecording) {
+      elapsedRecordingSeconds = synchronizedRecording.elapsedRecordingSeconds;
+    } else if (startPosition) {
+      elapsedRecordingSeconds = Math.max(
+        0,
+        snapshot.currentTime - startPosition.transport.projectPositionSeconds,
+      );
+    }
+    notify();
   });
 
   async function destroy(): Promise<void> {
@@ -1422,7 +1618,10 @@ export function createMicrophoneRecordingSession({
       return;
     }
 
-    const wasRecording = status === "recording";
+    const wasRecording =
+      status === "count-in" ||
+      status === "recording" ||
+      status === "processing";
     const wasAuditioning = takeReviewStatus === "auditioning";
     if (recordingAlignmentDiagnostics?.getActiveAttemptId()) {
       completeRecordingAlignment("aborted");
@@ -1458,6 +1657,7 @@ export function createMicrophoneRecordingSession({
     arm,
     disarm,
     start,
+    cancelCountIn,
     stop,
     audition,
     stopAudition,
