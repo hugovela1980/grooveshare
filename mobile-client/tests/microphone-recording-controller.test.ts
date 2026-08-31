@@ -9,12 +9,14 @@ import { tester } from "./test-runner/tester.js";
 function createButton() {
   let clickHandler: (() => void | Promise<void>) | null = null;
   const attributes = new Map<string, string>();
+  type KeyEvent = { key: string; preventDefault(): void };
 
   return {
     disabled: false,
     hidden: false,
     textContent: "",
     focusCalls: 0,
+    onkeydown: null as ((event: KeyEvent) => void) | null,
     addEventListener(
       eventName: "click",
       handler: () => void | Promise<void>,
@@ -35,6 +37,16 @@ function createButton() {
     async click() {
       await clickHandler?.();
     },
+    keydown(key: string) {
+      let prevented = false;
+      this.onkeydown?.({
+        key,
+        preventDefault() {
+          prevented = true;
+        },
+      });
+      return prevented;
+    },
   };
 }
 
@@ -48,6 +60,42 @@ function createRangeInput(value = "100") {
     },
     input() {
       inputHandler?.();
+    },
+  };
+}
+
+function createReviewMixTrackList() {
+  type ReviewMixTarget = {
+    dataset?: Record<string, string | undefined>;
+    value?: string;
+    checked?: boolean;
+  };
+  let inputHandler: ((event: { target?: ReviewMixTarget | null }) => void) | null = null;
+  const valueElements = new Map<number, { textContent: string | null }>();
+
+  return {
+    innerHTML: "",
+    addEventListener(
+      eventName: "input" | "change",
+      handler: (event: { target?: ReviewMixTarget | null }) => void,
+    ) {
+      if (eventName === "input") inputHandler = handler;
+    },
+    querySelector(selector: string) {
+      const channelNumber = Number(selector.match(/data-review-channel="(\d+)"/)?.[1]);
+      if (!Number.isFinite(channelNumber)) return null;
+      let element = valueElements.get(channelNumber);
+      if (!element) {
+        element = { textContent: null };
+        valueElements.set(channelNumber, element);
+      }
+      return element;
+    },
+    input(target: ReviewMixTarget) {
+      inputHandler?.({ target });
+    },
+    getValue(channelNumber: number) {
+      return valueElements.get(channelNumber)?.textContent ?? null;
     },
   };
 }
@@ -436,6 +484,13 @@ type ControllerHarnessOptions = {
   beatsPerBar?: number;
   prepareRecordingStartResult?: boolean;
   keepFailure?: string | null;
+  projectPlaybackMix?: Array<{
+    channelNumber: number;
+    trackId: string;
+    name: string;
+    volume: number;
+    enabled: boolean;
+  }>;
 };
 
 function createControllerHarness({
@@ -445,6 +500,10 @@ function createControllerHarness({
   beatsPerBar = 4,
   prepareRecordingStartResult = true,
   keepFailure = null,
+  projectPlaybackMix = [
+    { channelNumber: 1, trackId: "bass", name: "Bass", volume: 0.75, enabled: true },
+    { channelNumber: 2, trackId: "vocal", name: "Vocal", volume: 0.72, enabled: false },
+  ],
 }: ControllerHarnessOptions = {}) {
   const sessionHarness = createSessionHarness({ deferArm, keepFailure });
   const armButton = createButton();
@@ -517,6 +576,13 @@ function createControllerHarness({
     },
   };
   const reviewStatusElement = { textContent: "" as string | null };
+  const alignmentTabButton = createButton();
+  const playbackMixTabButton = createButton();
+  const alignmentTabPanel = { hidden: false };
+  const playbackMixTabPanel = { hidden: true };
+  const reviewMixTrackListElement = createReviewMixTrackList();
+  const appliedReviewPlaybackMixes: typeof projectPlaybackMix[] = [];
+  let restoreProjectPlaybackMixCalls = 0;
   const auditionVolumeInput = createRangeInput();
   const auditionVolumeValueElement = { textContent: "100%" as string | null };
   const auditionVolumes: number[] = [];
@@ -589,6 +655,19 @@ function createControllerHarness({
     reviewDurationElement,
     reviewTimelineElement,
     reviewStatusElement,
+    alignmentTabButton,
+    playbackMixTabButton,
+    alignmentTabPanel,
+    playbackMixTabPanel,
+    reviewMixTrackListElement,
+    getProjectPlaybackMix: () => projectPlaybackMix.map((channel) => ({ ...channel })),
+    applyReviewPlaybackMix(channels) {
+      appliedReviewPlaybackMixes.push(channels.map((channel) => ({ ...channel })));
+      return true;
+    },
+    restoreProjectPlaybackMix() {
+      restoreProjectPlaybackMixCalls += 1;
+    },
     auditionVolumeInput,
     auditionVolumeValueElement,
     onAuditionVolumeChanged(volume) {
@@ -683,6 +762,15 @@ function createControllerHarness({
     reviewDurationElement,
     reviewTimelineElement,
     reviewStatusElement,
+    alignmentTabButton,
+    playbackMixTabButton,
+    alignmentTabPanel,
+    playbackMixTabPanel,
+    reviewMixTrackListElement,
+    appliedReviewPlaybackMixes,
+    getRestoreProjectPlaybackMixCalls() {
+      return restoreProjectPlaybackMixCalls;
+    },
     auditionVolumeInput,
     auditionVolumeValueElement,
     auditionVolumes,
@@ -904,6 +992,90 @@ tester.describe("microphone recording controller", () => {
     tester.expect(
       harness.reviewTimelineElement.attributes.get("aria-label"),
     ).toBe("Recorded take duration 00:02");
+  });
+
+  tester.it("defaults Take Review to Alignment and preserves tab state for the same in-memory take", async () => {
+    const harness = createControllerHarness();
+    harness.controller.init();
+    await harness.armButton.click();
+    await harness.recordButton.click();
+    await harness.stopButton.click();
+
+    tester.expect(harness.alignmentTabButton.getAttribute("aria-selected")).toBe("true");
+    tester.expect(harness.playbackMixTabButton.getAttribute("aria-selected")).toBe("false");
+    tester.expect(harness.alignmentTabPanel.hidden).toBe(false);
+    tester.expect(harness.playbackMixTabPanel.hidden).toBe(true);
+
+    await harness.alignmentLater10Button.click();
+    await harness.playbackMixTabButton.click();
+    tester.expect(harness.alignmentTabButton.getAttribute("aria-selected")).toBe("false");
+    tester.expect(harness.playbackMixTabButton.getAttribute("aria-selected")).toBe("true");
+    tester.expect(harness.alignmentTabPanel.hidden).toBe(true);
+    tester.expect(harness.playbackMixTabPanel.hidden).toBe(false);
+    tester.expect(harness.alignmentSummaryElement.textContent).toBe("Offset: +10 ms");
+
+    await harness.reviewCloseButton.click();
+    await harness.armButton.click();
+    tester.expect(harness.playbackMixTabPanel.hidden).toBe(false);
+
+    await harness.alignmentTabButton.click();
+    tester.expect(harness.alignmentTabPanel.hidden).toBe(false);
+    tester.expect(harness.alignmentTabButton.focusCalls).toBe(1);
+    tester.expect(harness.alignmentSummaryElement.textContent).toBe("Offset: +10 ms");
+
+    tester.expect(harness.alignmentTabButton.keydown("ArrowRight")).toBe(true);
+    tester.expect(harness.playbackMixTabPanel.hidden).toBe(false);
+    tester.expect(harness.playbackMixTabButton.keydown("Home")).toBe(true);
+    tester.expect(harness.alignmentTabPanel.hidden).toBe(false);
+  });
+
+  tester.it("keeps review playback-mix changes outside normal mix mutation and persistence paths", async () => {
+    const projectPlaybackMix = [
+      { channelNumber: 1, trackId: "bass", name: "Bass", volume: 0.75, enabled: true },
+      { channelNumber: 2, trackId: "vocal", name: "Vocal", volume: 0.72, enabled: false },
+    ];
+    const harness = createControllerHarness({ projectPlaybackMix });
+    harness.controller.init();
+    await harness.armButton.click();
+    await harness.recordButton.click();
+    await harness.stopButton.click();
+
+    tester.expect(harness.reviewMixTrackListElement.innerHTML.includes("Bass")).toBe(true);
+    tester.expect(harness.reviewMixTrackListElement.innerHTML.includes("Vocal")).toBe(true);
+    tester.expect(harness.reviewMixTrackListElement.innerHTML.includes("75%")).toBe(true);
+    tester.expect(harness.reviewMixTrackListElement.innerHTML.includes("72%")).toBe(true);
+    tester.expect(harness.reviewMixTrackListElement.innerHTML.includes("Add track")).toBe(false);
+    tester.expect(harness.reviewMixTrackListElement.innerHTML.includes("data-channel-volume")).toBe(false);
+    tester.expect(harness.reviewMixTrackListElement.innerHTML.includes("data-channel-enabled")).toBe(false);
+
+    harness.reviewMixTrackListElement.input({
+      dataset: { reviewChannel: "1", reviewChannelVolume: "" },
+      value: "0.4",
+    });
+    harness.reviewMixTrackListElement.input({
+      dataset: { reviewChannel: "2", reviewChannelEnabled: "" },
+      checked: true,
+    });
+
+    const appliedMix = harness.appliedReviewPlaybackMixes.at(-1)!;
+    tester.expect(appliedMix[0]!.volume).toBe(0.4);
+    tester.expect(appliedMix[1]!.enabled).toBe(true);
+    tester.expect(harness.reviewMixTrackListElement.getValue(1)).toBe("40%");
+    tester.expect(projectPlaybackMix).toEqual([
+      { channelNumber: 1, trackId: "bass", name: "Bass", volume: 0.75, enabled: true },
+      { channelNumber: 2, trackId: "vocal", name: "Vocal", volume: 0.72, enabled: false },
+    ]);
+
+    await harness.reviewCloseButton.click();
+    tester.expect(harness.getRestoreProjectPlaybackMixCalls()).toBe(1);
+
+    await harness.armButton.click();
+    const reappliedMix = harness.appliedReviewPlaybackMixes.at(-1)!;
+    tester.expect(reappliedMix[0]!.volume).toBe(0.4);
+    tester.expect(reappliedMix[1]!.enabled).toBe(true);
+
+    await harness.retryButton.click();
+    tester.expect(harness.getRestoreProjectPlaybackMixCalls()).toBe(2);
   });
 
   tester.it("closes and reopens a stopped review without discarding its recoverable take", async () => {
@@ -1226,6 +1398,62 @@ tester.describe("microphone recording controller", () => {
     harness.publishPlaybackReadiness(true);
     tester.expect(harness.auditionButton.disabled).toBe(false);
     tester.expect(harness.reviewStatusElement.textContent).toBe("");
+
+    harness.controller.destroy();
+  });
+
+  tester.it("auditions through the current review mix while volume and alignment remain independent", async () => {
+    const harness = createControllerHarness();
+    harness.controller.init();
+    await harness.armButton.click();
+    await harness.recordButton.click();
+    await harness.stopButton.click();
+
+    harness.reviewMixTrackListElement.input({
+      dataset: { reviewChannel: "1", reviewChannelVolume: "" },
+      value: "0.35",
+    });
+    harness.reviewMixTrackListElement.input({
+      dataset: { reviewChannel: "2", reviewChannelEnabled: "" },
+      checked: true,
+    });
+    const mixBeforeIndependentControls = harness.appliedReviewPlaybackMixes.at(-1)!;
+
+    harness.auditionVolumeInput.value = "65";
+    harness.auditionVolumeInput.input();
+    await harness.alignmentLater10Button.click();
+    tester.expect(harness.auditionVolumes.at(-1)).toBe(0.65);
+    tester.expect(harness.alignmentSummaryElement.textContent).toBe("Offset: +10 ms");
+    tester.expect(harness.appliedReviewPlaybackMixes.at(-1)).toEqual(
+      mixBeforeIndependentControls,
+    );
+
+    harness.publishPlaybackReadiness(false);
+    tester.expect(harness.auditionButton.disabled).toBe(true);
+    tester.expect(harness.reviewStatusElement.textContent).toBe(
+      "Project playback must be ready before audition.",
+    );
+    harness.publishPlaybackReadiness(true);
+
+    const applyCountBeforeAudition = harness.appliedReviewPlaybackMixes.length;
+    await harness.auditionButton.click();
+    tester.expect(harness.appliedReviewPlaybackMixes.length).toBe(
+      applyCountBeforeAudition + 1,
+    );
+    tester.expect(harness.appliedReviewPlaybackMixes.at(-1)![0]!.volume).toBe(0.35);
+    tester.expect(harness.appliedReviewPlaybackMixes.at(-1)![1]!.enabled).toBe(true);
+    tester.expect(harness.calls.at(-1)).toBe("audition");
+
+    harness.reviewMixTrackListElement.input({
+      dataset: { reviewChannel: "1", reviewChannelVolume: "" },
+      value: "0.2",
+    });
+    tester.expect(harness.appliedReviewPlaybackMixes.at(-1)![0]!.volume).toBe(0.2);
+    tester.expect(harness.calls.at(-1)).toBe("audition");
+
+    await harness.auditionButton.click();
+    tester.expect(harness.calls.at(-1)).toBe("stop-audition");
+    tester.expect(harness.appliedReviewPlaybackMixes.at(-1)![0]!.volume).toBe(0.2);
 
     harness.controller.destroy();
   });

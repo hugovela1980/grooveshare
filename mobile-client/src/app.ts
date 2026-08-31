@@ -1252,6 +1252,26 @@ function initializeProjectPlayerPage({
     appElement,
     "#microphone-review-status",
   );
+  const microphoneAlignmentTab = getElement<HTMLButtonElement>(
+    appElement,
+    "#microphone-alignment-tab",
+  );
+  const microphonePlaybackMixTab = getElement<HTMLButtonElement>(
+    appElement,
+    "#microphone-playback-mix-tab",
+  );
+  const microphoneAlignmentPanel = getElement<HTMLElement>(
+    appElement,
+    "#microphone-alignment-panel",
+  );
+  const microphonePlaybackMixPanel = getElement<HTMLElement>(
+    appElement,
+    "#microphone-playback-mix-panel",
+  );
+  const microphoneReviewMixTrackList = getElement<HTMLElement>(
+    appElement,
+    "#microphone-review-mix-track-list",
+  );
   const microphoneAuditionVolumeInput = getElement<HTMLInputElement>(
     appElement,
     "#microphone-audition-volume",
@@ -1422,6 +1442,14 @@ function initializeProjectPlayerPage({
           reviewDurationElement: microphoneReviewDuration ?? undefined,
           reviewTimelineElement: microphoneReviewTimeline ?? undefined,
           reviewStatusElement: microphoneReviewStatus ?? undefined,
+          alignmentTabButton: microphoneAlignmentTab ?? undefined,
+          playbackMixTabButton: microphonePlaybackMixTab ?? undefined,
+          alignmentTabPanel: microphoneAlignmentPanel ?? undefined,
+          playbackMixTabPanel: microphonePlaybackMixPanel ?? undefined,
+          reviewMixTrackListElement: microphoneReviewMixTrackList ?? undefined,
+          getProjectPlaybackMix: audioPlayerController.getReviewPlaybackMix,
+          applyReviewPlaybackMix: audioPlayerController.applyReviewPlaybackMix,
+          restoreProjectPlaybackMix: audioPlayerController.restoreProjectPlaybackMix,
           auditionVolumeInput: microphoneAuditionVolumeInput ?? undefined,
           auditionVolumeValueElement: microphoneAuditionVolumeValue ?? undefined,
           onAuditionVolumeChanged(volume) {
@@ -1484,9 +1512,6 @@ function initializeProjectPlayerPage({
       : null;
 
   microphoneRecordingController?.init();
-  if (recordingSession) {
-    void recordingSession.restorePendingTake();
-  }
 
   const projectTracksApi = invitationForProject
     ? {
@@ -1555,7 +1580,7 @@ function initializeProjectPlayerPage({
   });
 
   refreshProjectTracks = controller.reloadTracks;
-  void controller.init();
+  void controller.init().then(() => recordingSession?.restorePendingTake());
 
   async function stopActiveRecording(): Promise<void> {
     const status = recordingSession?.getSnapshot().status;

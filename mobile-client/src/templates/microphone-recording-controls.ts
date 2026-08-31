@@ -380,40 +380,81 @@ export function renderMicrophoneRecordingControls(): string {
           </label>
         </div>
 
-        <details
-          id="microphone-alignment-disclosure"
-          class="microphone-recording__review-disclosure"
-        >
-          <summary>
-            <span>
-              <strong>Set Recording Alignment</strong>
-              <small id="microphone-alignment-summary">Offset: 0 ms</small>
-            </span>
-            <span class="microphone-recording__disclosure-chevron" aria-hidden="true">›</span>
-          </summary>
+        <div class="microphone-recording__review-tabs">
+          <div class="microphone-recording__tab-list" role="tablist" aria-label="Take review settings">
+            <button
+              id="microphone-alignment-tab"
+              class="microphone-recording__tab"
+              type="button"
+              role="tab"
+              aria-selected="true"
+              aria-controls="microphone-alignment-panel"
+            >
+              Recording Alignment
+            </button>
+            <button
+              id="microphone-playback-mix-tab"
+              class="microphone-recording__tab"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              aria-controls="microphone-playback-mix-panel"
+              tabindex="-1"
+            >
+              Playback Mix
+            </button>
+          </div>
 
           <div
-            class="microphone-recording__alignment"
-            aria-label="Recording alignment controls"
+            id="microphone-alignment-panel"
+            class="microphone-recording__review-tab-panel"
+            role="tabpanel"
+            aria-labelledby="microphone-alignment-tab"
           >
-            <p class="microphone-recording__alignment-instruction">
-              Align your recording to playback in milliseconds
-            </p>
-            <div class="microphone-recording__alignment-direction" aria-hidden="true">
-              <span class="microphone-recording__alignment-direction--earlier">← Move earlier</span>
-              <span class="microphone-recording__alignment-direction--later">Move later →</span>
-            </div>
-            <div class="microphone-recording__alignment-actions">
-              <button id="microphone-alignment-earlier-100" class="button button--secondary" type="button" aria-label="Move recording 100 milliseconds earlier">-100</button>
-              <button id="microphone-alignment-earlier-10" class="button button--secondary" type="button" aria-label="Move recording 10 milliseconds earlier">-10</button>
-              <button id="microphone-alignment-earlier-1" class="button button--secondary" type="button" aria-label="Move recording 1 millisecond earlier">-1</button>
-              <button id="microphone-alignment-reset" class="button button--secondary" type="button" aria-label="Reset recording alignment to zero milliseconds">Reset</button>
-              <button id="microphone-alignment-later-1" class="button button--secondary" type="button" aria-label="Move recording 1 millisecond later">+1</button>
-              <button id="microphone-alignment-later-10" class="button button--secondary" type="button" aria-label="Move recording 10 milliseconds later">+10</button>
-              <button id="microphone-alignment-later-100" class="button button--secondary" type="button" aria-label="Move recording 100 milliseconds later">+100</button>
+            <div
+              class="microphone-recording__alignment"
+              aria-label="Recording alignment controls"
+            >
+              <p id="microphone-alignment-summary" class="microphone-recording__alignment-summary">Offset: 0 ms</p>
+              <p class="microphone-recording__alignment-instruction">
+                Align your recording to playback in milliseconds
+              </p>
+              <div class="microphone-recording__alignment-direction" aria-hidden="true">
+                <span class="microphone-recording__alignment-direction--earlier">← Move earlier</span>
+                <span class="microphone-recording__alignment-direction--later">Move later →</span>
+              </div>
+              <div class="microphone-recording__alignment-actions">
+                <button id="microphone-alignment-earlier-100" class="button button--secondary" type="button" aria-label="Move recording 100 milliseconds earlier">-100</button>
+                <button id="microphone-alignment-earlier-10" class="button button--secondary" type="button" aria-label="Move recording 10 milliseconds earlier">-10</button>
+                <button id="microphone-alignment-earlier-1" class="button button--secondary" type="button" aria-label="Move recording 1 millisecond earlier">-1</button>
+                <button id="microphone-alignment-reset" class="button button--secondary" type="button" aria-label="Reset recording alignment to zero milliseconds">Reset</button>
+                <button id="microphone-alignment-later-1" class="button button--secondary" type="button" aria-label="Move recording 1 millisecond later">+1</button>
+                <button id="microphone-alignment-later-10" class="button button--secondary" type="button" aria-label="Move recording 10 milliseconds later">+10</button>
+                <button id="microphone-alignment-later-100" class="button button--secondary" type="button" aria-label="Move recording 100 milliseconds later">+100</button>
+              </div>
             </div>
           </div>
-        </details>
+
+          <div
+            id="microphone-playback-mix-panel"
+            class="microphone-recording__review-tab-panel microphone-recording__review-tab-panel--mix"
+            role="tabpanel"
+            aria-labelledby="microphone-playback-mix-tab"
+            hidden
+          >
+            <div class="microphone-recording__playback-mix-heading">
+              <strong>Playback Mix</strong>
+              <span>Project tracks during this audition only</span>
+            </div>
+            <div
+              id="microphone-review-mix-track-list"
+              class="microphone-recording__review-mix-track-list"
+              role="region"
+              aria-label="Review playback mix tracks"
+              tabindex="0"
+            ></div>
+          </div>
+        </div>
 
         <p id="microphone-review-status" class="microphone-recording__review-status" role="status" aria-live="polite"></p>
 

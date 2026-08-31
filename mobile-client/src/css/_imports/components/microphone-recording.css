@@ -19,6 +19,7 @@
 
 .microphone-recording[hidden],
 .microphone-recording__view[hidden],
+.microphone-recording__review-tab-panel[hidden],
 .microphone-recording__start-editor[hidden],
 .microphone-recording__actions .button[hidden],
 .microphone-recording__review-actions .button[hidden],
@@ -40,6 +41,7 @@
 .microphone-recording[data-recording-state="stopped"] {
     top: calc(max(0.65rem, env(safe-area-inset-top)) + 2.75rem);
     max-height: none;
+    overflow: hidden;
     padding-top: 0.65rem;
 }
 
@@ -447,14 +449,20 @@
 }
 
 .microphone-recording__view--review {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
     gap: 0.65rem;
-    min-height: calc(100% - 0.5rem);
+    min-height: 0;
+    height: calc(100% - 0.5rem);
     align-content: start;
     padding-top: 0;
+    overflow: hidden;
 }
 
 .microphone-recording__review-card {
     display: grid;
+    flex: 0 0 auto;
     gap: 0.7rem;
     padding: 0.8rem;
     border: 1px solid var(--border-dark);
@@ -568,52 +576,197 @@
     accent-color: var(--color-accent-hover);
 }
 
-.microphone-recording__review-disclosure {
+.microphone-recording__review-tabs {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+    border: 1px solid var(--border-dark);
+    border-radius: 0.85rem;
+    background: rgba(0, 0, 0, 0.12);
+}
+
+.microphone-recording__tab-list {
+    display: grid;
+    flex: 0 0 auto;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     border-bottom: 1px solid var(--border-dark);
 }
 
-.microphone-recording__review-disclosure summary {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 0.75rem;
-    align-items: center;
-    min-height: 3.3rem;
-    padding: 0.35rem 0.45rem;
-    list-style: none;
+.microphone-recording__tab {
+    position: relative;
+    min-width: 0;
+    min-height: 2.9rem;
+    padding: 0.55rem 0.35rem;
+    border: 0;
+    color: var(--color-text-muted-cool);
+    background: transparent;
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 750;
+    line-height: 1.2;
     cursor: pointer;
 }
 
-.microphone-recording__review-disclosure summary::-webkit-details-marker {
-    display: none;
+.microphone-recording__tab + .microphone-recording__tab {
+    border-left: 1px solid var(--border-dark);
 }
 
-.microphone-recording__review-disclosure summary > span:first-child {
+.microphone-recording__tab[aria-selected="true"] {
+    color: var(--color-text);
+    background: rgba(134, 239, 172, 0.1);
+    box-shadow: inset 0 -0.2rem 0 var(--color-accent-hover);
+}
+
+.microphone-recording__tab:hover,
+.microphone-recording__tab:focus-visible {
+    color: var(--color-text);
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.microphone-recording__review-tab-panel {
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 0.65rem;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.microphone-recording__review-tab-panel--mix {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.microphone-recording__playback-mix-heading {
     display: grid;
+    flex: 0 0 auto;
     gap: 0.2rem;
+    padding: 0.1rem 0.15rem 0.65rem;
+    text-align: center;
 }
 
-.microphone-recording__review-disclosure summary small {
+.microphone-recording__playback-mix-heading span {
+    color: var(--color-text-muted-cool);
+    font-size: 0.76rem;
+}
+
+.microphone-recording__review-mix-track-list {
+    display: grid;
+    flex: 1 1 auto;
+    gap: 0.55rem;
+    min-height: 0;
+    align-content: start;
+    padding-right: 0.15rem;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.microphone-recording__review-mix-track {
+    display: grid;
+    grid-template-columns: minmax(4.5rem, 0.8fr) auto minmax(7rem, 1.35fr);
+    gap: 0.55rem;
+    align-items: center;
+    min-width: 0;
+    padding: 0.65rem;
+    border: 1px solid var(--border-dark);
+    border-radius: 0.7rem;
+    background: rgba(255, 255, 255, 0.035);
+}
+
+.microphone-recording__review-mix-track-name {
+    overflow: hidden;
+    font-size: 0.82rem;
+    font-weight: 750;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.microphone-recording__review-mix-toggle {
+    position: relative;
+    display: inline-grid;
+    cursor: pointer;
+}
+
+.microphone-recording__review-mix-toggle input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    opacity: 0;
+}
+
+.microphone-recording__review-mix-toggle span {
+    display: grid;
+    min-width: 2.8rem;
+    min-height: 2.35rem;
+    place-items: center;
+    padding: 0.3rem 0.5rem;
+    border: 1px solid var(--border-dark);
+    border-radius: 0.55rem;
+    color: var(--color-text-muted-cool);
+    background: rgba(255, 255, 255, 0.045);
+    font-size: 0.78rem;
+    font-weight: 800;
+}
+
+.microphone-recording__review-mix-toggle input:checked + span {
+    border-color: rgba(134, 239, 172, 0.62);
+    color: var(--color-page-bg);
+    background: var(--color-accent-hover);
+}
+
+.microphone-recording__review-mix-toggle input:focus-visible + span {
+    outline: 2px solid var(--color-accent-hover);
+    outline-offset: 2px;
+}
+
+.microphone-recording__review-mix-volume {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 2.6rem;
+    gap: 0.45rem;
+    align-items: center;
+    min-width: 0;
+}
+
+.microphone-recording__review-mix-volume input {
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    accent-color: var(--color-accent-hover);
+}
+
+.microphone-recording__review-mix-volume output {
+    font-size: 0.78rem;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.microphone-recording__review-mix-track[data-review-enabled="false"] .microphone-recording__review-mix-track-name,
+.microphone-recording__review-mix-track[data-review-enabled="false"] .microphone-recording__review-mix-volume {
+    color: var(--color-text-muted);
+    opacity: 0.5;
+}
+
+.microphone-recording__review-mix-empty {
+    margin: auto;
+    color: var(--color-text-muted-cool);
+    font-size: 0.82rem;
+    text-align: center;
+}
+
+.microphone-recording__alignment-summary {
+    margin: 0;
     color: var(--color-text-muted-cool);
     font-size: 0.78rem;
-    font-weight: 500;
     font-variant-numeric: tabular-nums;
-}
-
-.microphone-recording__disclosure-chevron {
-    font-size: 1.8rem;
-    font-weight: 300;
-    line-height: 1;
-    transition: transform 160ms ease;
-}
-
-.microphone-recording__review-disclosure[open] .microphone-recording__disclosure-chevron {
-    transform: rotate(90deg);
 }
 
 .microphone-recording__alignment {
     display: grid;
     gap: 0.65rem;
-    margin-bottom: 0.55rem;
+    margin: 0;
     padding: 0.75rem 0.6rem;
     border: 1px solid var(--border-dark);
     border-radius: 0.85rem;
@@ -803,6 +956,14 @@
 
     .microphone-recording__alignment-actions .button {
         font-size: 0.72rem;
+    }
+
+    .microphone-recording__review-mix-track {
+        grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    .microphone-recording__review-mix-volume {
+        grid-column: 1 / -1;
     }
 
     .microphone-recording__hero {

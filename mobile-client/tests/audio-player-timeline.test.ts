@@ -99,6 +99,8 @@ function createPlaybackHarness({
   let metronomeEnabled = false;
   let playCalls = 0;
   let retryCalls = 0;
+  const channelVolumes = new Map<number, number>();
+  const channelEnabledStates = new Map<number, boolean>();
 
   function publish(nextSnapshot: PlaybackSnapshot): void {
     snapshot = nextSnapshot;
@@ -107,6 +109,12 @@ function createPlaybackHarness({
 
   const engine: PlaybackEngine = {
     loadMix(channels: PlaybackChannel[]) {
+      channelVolumes.clear();
+      channelEnabledStates.clear();
+      for (const channel of channels) {
+        channelVolumes.set(channel.channelNumber, channel.volume);
+        channelEnabledStates.set(channel.channelNumber, channel.enabled);
+      }
       publish({
         ...snapshot,
         duration: loadImmediately && channels.length > 0 ? 30 : 0,
@@ -154,10 +162,14 @@ function createPlaybackHarness({
     setMetronomeEnabled(enabled: boolean) {
       metronomeEnabled = enabled;
     },
-    setChannelVolume() {
+    setChannelVolume(channelNumber, volume) {
+      if (!channelVolumes.has(channelNumber)) return false;
+      channelVolumes.set(channelNumber, volume);
       return true;
     },
-    setChannelEnabled() {
+    setChannelEnabled(channelNumber, enabled) {
+      if (!channelEnabledStates.has(channelNumber)) return false;
+      channelEnabledStates.set(channelNumber, enabled);
       return true;
     },
     getSnapshot() {
@@ -194,6 +206,12 @@ function createPlaybackHarness({
     },
     getRetryCalls() {
       return retryCalls;
+    },
+    getChannelVolume(channelNumber: number) {
+      return channelVolumes.get(channelNumber) ?? null;
+    },
+    getChannelEnabled(channelNumber: number) {
+      return channelEnabledStates.get(channelNumber) ?? null;
     },
   };
 }
@@ -370,6 +388,72 @@ tester.describe("mobile musical timeline playback", () => {
     }]);
 
     tester.expect(seekBarInput.value).toBe("9");
+  });
+
+  tester.it("applies an isolated review mix and restores the cloned project mix", () => {
+    const playback = createPlaybackHarness();
+    const controller = createAudioPlayerController({
+      playbackEngine: playback.engine,
+      seekBackwardButton: createButton(),
+      playPauseButton: createButton(),
+      stopButton: createButton(),
+      progressInput: createRangeInput(),
+      timestampElement: { textContent: null },
+      durationElement: { textContent: null },
+      musicalPositionElement: { textContent: null },
+      seekBarInput: createNumberInput(),
+      seekBarButton: createButton(),
+      trackNameElement: { textContent: null },
+      loopCheckbox: createCheckbox(),
+      metronomeCheckbox: createCheckbox(),
+    });
+    controller.init();
+    controller.loadMix([
+      {
+        channelNumber: 1,
+        trackId: "bass",
+        name: "Bass",
+        audioUrl: "/bass.wav",
+        volume: 0.75,
+        enabled: true,
+      },
+      {
+        channelNumber: 2,
+        trackId: "vocal",
+        name: "Vocal",
+        audioUrl: "/vocal.wav",
+        volume: 0.72,
+        enabled: false,
+      },
+    ]);
+
+    const reviewMix = controller.getReviewPlaybackMix();
+    reviewMix[0]!.volume = 0.4;
+    reviewMix[1]!.enabled = true;
+    tester.expect(controller.applyReviewPlaybackMix(reviewMix)).toBe(true);
+    tester.expect(playback.getChannelVolume(1)).toBe(0.4);
+    tester.expect(playback.getChannelEnabled(2)).toBe(true);
+
+    tester.expect(controller.getReviewPlaybackMix()).toEqual([
+      {
+        channelNumber: 1,
+        trackId: "bass",
+        name: "Bass",
+        volume: 0.75,
+        enabled: true,
+      },
+      {
+        channelNumber: 2,
+        trackId: "vocal",
+        name: "Vocal",
+        volume: 0.72,
+        enabled: false,
+      },
+    ]);
+
+    controller.restoreProjectPlaybackMix();
+    tester.expect(playback.getChannelVolume(1)).toBe(0.75);
+    tester.expect(playback.getChannelEnabled(2)).toBe(false);
   });
 
   tester.it("displays shared musical state and delegates bar jumps to the playback engine", async () => {

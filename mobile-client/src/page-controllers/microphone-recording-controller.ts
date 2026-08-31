@@ -4,6 +4,7 @@ import type {
   MicrophoneRecordingSnapshot,
   Track,
 } from "@hugovela/frontend-core";
+import type { ReviewPlaybackMixChannel } from "./audio-player-controller.js";
 
 type MusicalPosition = { bar: number; beat: number };
 
@@ -56,6 +57,22 @@ type MarkupElementLike = {
   setAttribute?: (name: string, value: string) => void;
 };
 
+type ReviewMixEventTargetLike = {
+  checked?: boolean;
+  closest?: (selector: string) => AttributeElementLike | null;
+  dataset?: Record<string, string | undefined>;
+  nextElementSibling?: TextElementLike | null;
+  value?: string;
+};
+
+type ReviewMixTrackListElementLike = MarkupElementLike & {
+  addEventListener: (
+    eventName: "input" | "change",
+    handler: (event: { target?: ReviewMixEventTargetLike | null }) => void,
+  ) => void;
+  querySelector?: (selector: string) => TextElementLike | null;
+};
+
 type AttributeElementLike = {
   setAttribute?: (name: string, value: string) => void;
 };
@@ -73,6 +90,8 @@ type AlignmentNudgeControl = {
   button: ButtonElementLike;
   deltaMilliseconds: number;
 };
+
+type ReviewTab = "alignment" | "playback-mix";
 
 type MicrophoneRecordingControllerOptions = {
   recordingSession: MicrophoneRecordingSession;
@@ -123,6 +142,14 @@ type MicrophoneRecordingControllerOptions = {
   reviewDurationElement?: TextElementLike;
   reviewTimelineElement?: AttributeElementLike;
   reviewStatusElement?: TextElementLike;
+  alignmentTabButton?: ButtonElementLike;
+  playbackMixTabButton?: ButtonElementLike;
+  alignmentTabPanel?: HiddenElementLike;
+  playbackMixTabPanel?: HiddenElementLike;
+  reviewMixTrackListElement?: ReviewMixTrackListElementLike;
+  getProjectPlaybackMix?: () => ReviewPlaybackMixChannel[];
+  applyReviewPlaybackMix?: (channels: readonly ReviewPlaybackMixChannel[]) => boolean;
+  restoreProjectPlaybackMix?: () => void;
   auditionVolumeInput?: RangeInputLike;
   auditionVolumeValueElement?: TextElementLike;
   onAuditionVolumeChanged?: (volume: number) => void;
@@ -165,6 +192,15 @@ function formatElapsedTime(seconds: number): string {
 
 function formatAlignmentCompensation(milliseconds: number): string {
   return `${milliseconds > 0 ? "+" : ""}${milliseconds} ms`;
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
 function describeStoppedTake(take: MicrophoneRecordedTake | null): string {
@@ -316,6 +352,14 @@ export function createMicrophoneRecordingController({
   reviewDurationElement,
   reviewTimelineElement,
   reviewStatusElement,
+  alignmentTabButton,
+  playbackMixTabButton,
+  alignmentTabPanel,
+  playbackMixTabPanel,
+  reviewMixTrackListElement,
+  getProjectPlaybackMix,
+  applyReviewPlaybackMix,
+  restoreProjectPlaybackMix,
   auditionVolumeInput,
   auditionVolumeValueElement,
   onAuditionVolumeChanged,
@@ -348,6 +392,121 @@ export function createMicrophoneRecordingController({
   let discarding = false;
   let retrying = false;
   let recoveredTakeFocused = false;
+  let activeReviewTab: ReviewTab = "alignment";
+  let hadStoppedTake = false;
+  let reviewPlaybackMix: ReviewPlaybackMixChannel[] | null = null;
+
+  function setActiveReviewTab(tab: ReviewTab, focus = false): void {
+    activeReviewTab = tab;
+    const alignmentActive = tab === "alignment";
+    alignmentTabButton?.setAttribute?.("aria-selected", String(alignmentActive));
+    alignmentTabButton?.setAttribute?.("tabindex", alignmentActive ? "0" : "-1");
+    playbackMixTabButton?.setAttribute?.("aria-selected", String(!alignmentActive));
+    playbackMixTabButton?.setAttribute?.("tabindex", alignmentActive ? "-1" : "0");
+    if (alignmentTabPanel) alignmentTabPanel.hidden = !alignmentActive;
+    if (playbackMixTabPanel) playbackMixTabPanel.hidden = alignmentActive;
+    if (focus) {
+      (alignmentActive ? alignmentTabButton : playbackMixTabButton)?.focus?.();
+    }
+  }
+
+  function bindReviewTabKeyboard(button: ButtonElementLike | undefined): void {
+    if (!button) return;
+    const keyboardButton = button as ButtonElementLike & {
+      onkeydown?: ((event: { key: string; preventDefault(): void }) => void) | null;
+    };
+    keyboardButton.onkeydown = (event) => {
+      let nextTab: ReviewTab | null = null;
+      if (event.key === "Home") nextTab = "alignment";
+      if (event.key === "End") nextTab = "playback-mix";
+      if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+        nextTab = activeReviewTab === "alignment" ? "playback-mix" : "alignment";
+      }
+      if (!nextTab) return;
+      event.preventDefault();
+      setActiveReviewTab(nextTab, true);
+    };
+  }
+
+  function renderReviewPlaybackMix(): void {
+    if (!reviewMixTrackListElement) {
+      return;
+    }
+
+    if (!reviewPlaybackMix || reviewPlaybackMix.length === 0) {
+      reviewMixTrackListElement.innerHTML =
+        '<p class="microphone-recording__review-mix-empty">No project tracks are available for audition.</p>';
+      return;
+    }
+
+    reviewMixTrackListElement.innerHTML = reviewPlaybackMix.map((channel) => {
+      const escapedName = escapeHtml(channel.name);
+      const percentage = Math.round(channel.volume * 100);
+      return /*html*/ `
+        <article
+          class="microphone-recording__review-mix-track"
+          data-review-mix-track
+          data-review-channel="${channel.channelNumber}"
+          data-review-enabled="${channel.enabled}"
+        >
+          <span
+            id="microphone-review-mix-track-${channel.channelNumber}"
+            class="microphone-recording__review-mix-track-name"
+          >${escapedName}</span>
+          <label class="microphone-recording__review-mix-toggle">
+            <input
+              type="checkbox"
+              data-review-channel-enabled
+              data-review-channel="${channel.channelNumber}"
+              aria-label="Use ${escapedName} during take audition"
+              ${channel.enabled ? "checked" : ""}
+            />
+            <span aria-hidden="true">${channel.enabled ? "On" : "Off"}</span>
+          </label>
+          <label class="microphone-recording__review-mix-volume">
+            <span class="visually-hidden">${escapedName} audition playback volume</span>
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value="${channel.volume}"
+              data-review-channel-volume
+              data-review-channel="${channel.channelNumber}"
+              aria-label="${escapedName} audition playback volume"
+            />
+            <output
+              data-review-channel-volume-value
+              data-review-channel="${channel.channelNumber}"
+            >${percentage}%</output>
+          </label>
+        </article>
+      `;
+    }).join("");
+  }
+
+  function applyCurrentReviewPlaybackMix(): boolean {
+    return reviewPlaybackMix
+      ? applyReviewPlaybackMix?.(reviewPlaybackMix) ?? true
+      : true;
+  }
+
+  function initializeReviewPlaybackMix(): void {
+    reviewPlaybackMix = (getProjectPlaybackMix?.() ?? []).map((channel) => ({
+      ...channel,
+      volume: Math.max(0, Math.min(1, channel.volume)),
+    }));
+    renderReviewPlaybackMix();
+    if (!workspaceDismissed) {
+      applyCurrentReviewPlaybackMix();
+    }
+  }
+
+  function finishReviewPlaybackMix(): void {
+    reviewPlaybackMix = null;
+    renderReviewPlaybackMix();
+    restoreProjectPlaybackMix?.();
+  }
 
   function getAuthoritativeStartPosition(): MusicalPosition {
     return normalizeStartPosition(
@@ -485,6 +644,18 @@ export function createMicrophoneRecordingController({
       setStartEditorOpen(false);
     }
     const hasStoppedTake = snapshot.status === "stopped" && Boolean(snapshot.take);
+    const enteredStoppedTake = hasStoppedTake && !hadStoppedTake;
+    const leftStoppedTake = !hasStoppedTake && hadStoppedTake;
+    if (enteredStoppedTake || leftStoppedTake) {
+      activeReviewTab = "alignment";
+    }
+    hadStoppedTake = hasStoppedTake;
+    setActiveReviewTab(activeReviewTab);
+    if (enteredStoppedTake) {
+      initializeReviewPlaybackMix();
+    } else if (leftStoppedTake) {
+      finishReviewPlaybackMix();
+    }
     const isRecoveredTake = hasStoppedTake && snapshot.takeRecoveryStatus === "restored";
     const isSaving = snapshot.takeSaveStatus === "saving";
     const terminalBusy = isSaving || discarding || retrying;
@@ -760,6 +931,50 @@ export function createMicrophoneRecordingController({
     }
   }
 
+  function handleReviewPlaybackMixInput(
+    event: { target?: ReviewMixEventTargetLike | null },
+  ): void {
+    const target = event.target;
+    const channelNumber = Number(target?.dataset?.reviewChannel);
+    if (!reviewPlaybackMix || !Number.isFinite(channelNumber)) {
+      return;
+    }
+
+    const channel = reviewPlaybackMix.find((currentChannel) => {
+      return currentChannel.channelNumber === channelNumber;
+    });
+    if (!channel) {
+      return;
+    }
+
+    if (target?.dataset?.reviewChannelVolume !== undefined) {
+      const volume = Number(target.value);
+      if (!Number.isFinite(volume)) {
+        return;
+      }
+      channel.volume = Math.max(0, Math.min(1, volume));
+      const valueElement = reviewMixTrackListElement?.querySelector?.(
+        `[data-review-channel-volume-value][data-review-channel="${channelNumber}"]`,
+      );
+      if (valueElement) {
+        valueElement.textContent = `${Math.round(channel.volume * 100)}%`;
+      }
+    } else if (target?.dataset?.reviewChannelEnabled !== undefined) {
+      channel.enabled = target.checked ?? false;
+      if (target.nextElementSibling) {
+        target.nextElementSibling.textContent = channel.enabled ? "On" : "Off";
+      }
+      target.closest?.("[data-review-mix-track]")?.setAttribute?.(
+        "data-review-enabled",
+        String(channel.enabled),
+      );
+    } else {
+      return;
+    }
+
+    applyCurrentReviewPlaybackMix();
+  }
+
   async function settleDismissedArm(snapshot: MicrophoneRecordingSnapshot): Promise<void> {
     if (!workspaceDismissed) {
       return;
@@ -805,8 +1020,11 @@ export function createMicrophoneRecordingController({
       return;
     }
 
-    if (snapshot.status === "stopped" && snapshot.takeReviewStatus === "auditioning") {
-      await recordingSession.stopAudition();
+    if (snapshot.status === "stopped") {
+      if (snapshot.takeReviewStatus === "auditioning") {
+        await recordingSession.stopAudition();
+      }
+      restoreProjectPlaybackMix?.();
       return;
     }
 
@@ -830,6 +1048,7 @@ export function createMicrophoneRecordingController({
       if (snapshot.status === "stopped") {
         if (workspaceDismissed) {
           workspaceDismissed = false;
+          applyCurrentReviewPlaybackMix();
           render(snapshot);
         } else {
           await closeWorkflow();
@@ -854,6 +1073,19 @@ export function createMicrophoneRecordingController({
       button.addEventListener("click", closeWorkflow);
     }
     reviewCloseButton?.addEventListener("click", closeWorkflow);
+
+    alignmentTabButton?.addEventListener("click", () => {
+      setActiveReviewTab("alignment", true);
+    });
+    playbackMixTabButton?.addEventListener("click", () => {
+      setActiveReviewTab("playback-mix", true);
+    });
+    bindReviewTabKeyboard(alignmentTabButton);
+    bindReviewTabKeyboard(playbackMixTabButton);
+    reviewMixTrackListElement?.addEventListener(
+      "input",
+      handleReviewPlaybackMixInput,
+    );
 
     permissionRetryButton?.addEventListener("click", openWorkflow);
     recoveryRetryButton?.addEventListener("click", async () => {
@@ -908,6 +1140,7 @@ export function createMicrophoneRecordingController({
         await recordingSession.stopAudition();
         return;
       }
+      applyCurrentReviewPlaybackMix();
       await recordingSession.audition();
     });
 
@@ -1054,6 +1287,7 @@ export function createMicrophoneRecordingController({
   }
 
   function destroy(): void {
+    restoreProjectPlaybackMix?.();
     unsubscribe?.();
     unsubscribe = null;
     unsubscribePlaybackReadiness?.();

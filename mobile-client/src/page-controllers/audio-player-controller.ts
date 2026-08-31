@@ -22,6 +22,14 @@ type MixChannelForPlayer = {
     };
 };
 
+export type ReviewPlaybackMixChannel = {
+    channelNumber: number;
+    trackId: string;
+    name: string;
+    volume: number;
+    enabled: boolean;
+};
+
 type ButtonElementLike = {
     disabled: boolean;
     hidden?: boolean | "until-found";
@@ -488,6 +496,56 @@ export function createAudioPlayerController({
         return true;
     }
 
+    function getReviewPlaybackMix(): ReviewPlaybackMixChannel[] {
+        return loadedMixChannels.map((channel) => ({
+            channelNumber: channel.channelNumber,
+            trackId: channel.trackId,
+            name: channel.name,
+            volume: channel.volume,
+            enabled: channel.enabled !== false,
+        }));
+    }
+
+    function applyReviewPlaybackMix(
+        channels: readonly ReviewPlaybackMixChannel[],
+    ): boolean {
+        let appliedEveryChannel = true;
+
+        for (const reviewChannel of channels) {
+            const projectChannel = loadedMixChannels.find((channel) => {
+                return channel.channelNumber === reviewChannel.channelNumber &&
+                    channel.trackId === reviewChannel.trackId;
+            });
+
+            if (!projectChannel) {
+                appliedEveryChannel = false;
+                continue;
+            }
+
+            const volumeApplied = playbackEngine.setChannelVolume(
+                reviewChannel.channelNumber,
+                reviewChannel.volume,
+            );
+            const enabledApplied = playbackEngine.setChannelEnabled(
+                reviewChannel.channelNumber,
+                reviewChannel.enabled,
+            );
+            appliedEveryChannel = volumeApplied && enabledApplied && appliedEveryChannel;
+        }
+
+        return appliedEveryChannel;
+    }
+
+    function restoreProjectPlaybackMix(): void {
+        for (const channel of loadedMixChannels) {
+            playbackEngine.setChannelVolume(channel.channelNumber, channel.volume);
+            playbackEngine.setChannelEnabled(
+                channel.channelNumber,
+                channel.enabled !== false,
+            );
+        }
+    }
+
     function setTrackName(trackId: string, name: string): boolean {
         const channel = loadedMixChannels.find((currentChannel) => {
             return currentChannel.trackId === trackId;
@@ -559,6 +617,9 @@ export function createAudioPlayerController({
         loadMix,
         setChannelVolume,
         setChannelEnabled,
+        getReviewPlaybackMix,
+        applyReviewPlaybackMix,
+        restoreProjectPlaybackMix,
         setTrackName,
         seekToMusicalPosition,
         getRecordingStartPosition,

@@ -359,7 +359,15 @@ tester.describe("mobile Project Player integration", () => {
     tester.expect(ownerMarkup.includes("Draft recovered")).toBe(true);
     tester.expect(ownerMarkup.includes("Take ready")).toBe(true);
     tester.expect(ownerMarkup.includes('id="microphone-audition-volume"')).toBe(true);
-    tester.expect(ownerMarkup.includes('id="microphone-alignment-disclosure"')).toBe(true);
+    tester.expect(ownerMarkup.includes('id="microphone-alignment-disclosure"')).toBe(false);
+    tester.expect(ownerMarkup.includes('role="tablist"')).toBe(true);
+    tester.expect(ownerMarkup.includes('id="microphone-alignment-tab"')).toBe(true);
+    tester.expect(ownerMarkup.includes('id="microphone-playback-mix-tab"')).toBe(true);
+    tester.expect(ownerMarkup.includes('id="microphone-alignment-panel"')).toBe(true);
+    tester.expect(ownerMarkup.includes('id="microphone-playback-mix-panel"')).toBe(true);
+    tester.expect(ownerMarkup.includes('id="microphone-review-mix-track-list"')).toBe(true);
+    tester.expect(ownerMarkup.includes('aria-label="Review playback mix tracks"')).toBe(true);
+    tester.expect(ownerMarkup.includes('tabindex="0"')).toBe(true);
     tester.expect(ownerMarkup.includes("Align your recording to playback in milliseconds")).toBe(true);
     tester.expect(ownerMarkup.includes("← Move earlier")).toBe(true);
     tester.expect(ownerMarkup.includes("Move later →")).toBe(true);
