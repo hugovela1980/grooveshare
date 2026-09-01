@@ -3,6 +3,7 @@ import "./audio-player-timeline.test.js";
 import "./project-invitation-controller.test.js";
 import "./mobile-guest-invitation.integration.test.js";
 import "./mobile-app.integration.test.js";
+import "./mobile-audio-file-picker.test.js";
 import "./mobile-project-player.integration.test.js";
 
 import "./project-actions-menu-controller.test.js";

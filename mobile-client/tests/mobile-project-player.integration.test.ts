@@ -440,13 +440,29 @@ tester.describe("mobile Project Player integration", () => {
     tester.expect(ownerMarkup.includes('id="microphone-review-mix-track-list"')).toBe(true);
     tester.expect(ownerMarkup.includes('aria-label="Review playback mix tracks"')).toBe(true);
     tester.expect(ownerMarkup.includes('tabindex="0"')).toBe(true);
-    tester.expect(ownerMarkup.includes("Align your recording to playback in milliseconds")).toBe(true);
+    tester.expect(ownerMarkup.includes("Synchronize")).toBe(true);
+    tester.expect(ownerMarkup.includes("Mix")).toBe(true);
+    tester.expect(ownerMarkup.includes("Sync your recording to playback in milliseconds")).toBe(true);
+    tester.expect(ownerMarkup.includes("Align your recording to playback in milliseconds")).toBe(false);
     tester.expect(ownerMarkup.includes("← Move earlier")).toBe(true);
     tester.expect(ownerMarkup.includes("Move later →")).toBe(true);
     tester.expect(ownerMarkup.includes('id="microphone-alignment-heading"')).toBe(false);
     tester.expect(ownerMarkup.includes('id="microphone-keep-dialog"')).toBe(true);
+    tester.expect(ownerMarkup.includes("<strong>Playback Mix</strong>")).toBe(false);
+    tester.expect(ownerMarkup.includes("microphone-recording__playback-mix-heading")).toBe(false);
+    const keepDialogMarkup = ownerMarkup.slice(
+      ownerMarkup.indexOf('id="microphone-keep-dialog"'),
+      ownerMarkup.indexOf('id="microphone-discard-dialog"'),
+    );
+    tester.expect(keepDialogMarkup.includes("microphone-recording__phase-label")).toBe(false);
     tester.expect(ownerMarkup.includes('id="microphone-discard-dialog"')).toBe(true);
     tester.expect(ownerMarkup.includes("Discard Take")).toBe(true);
+    const reviewActionsMarkup = ownerMarkup.slice(
+      ownerMarkup.indexOf('class="microphone-recording__review-actions"'),
+      ownerMarkup.indexOf('class="microphone-recording__audition-volume"'),
+    );
+    tester.expect(reviewActionsMarkup.includes('id="microphone-discard-button"')).toBe(true);
+    tester.expect(reviewActionsMarkup.includes('aria-label="Discard Take"')).toBe(true);
     tester.expect(ownerMarkup.includes('id="microphone-preparing-view"')).toBe(true);
     tester.expect(ownerMarkup.includes("Preparing microphone")).toBe(true);
     tester.expect(ownerMarkup.includes('id="microphone-ready-view"')).toBe(true);

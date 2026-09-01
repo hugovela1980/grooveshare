@@ -363,6 +363,16 @@ export function renderMicrophoneRecordingControls(): string {
             >
               Keep
             </button>
+            <button
+              id="microphone-discard-button"
+              class="button microphone-recording__review-action microphone-recording__review-action--discard"
+              type="button"
+              aria-label="Discard Take"
+              disabled
+              hidden
+            >
+              Discard
+            </button>
           </div>
 
           <label class="microphone-recording__audition-volume" for="microphone-audition-volume">
@@ -390,7 +400,7 @@ export function renderMicrophoneRecordingControls(): string {
               aria-selected="true"
               aria-controls="microphone-alignment-panel"
             >
-              Recording Alignment
+              Synchronize
             </button>
             <button
               id="microphone-playback-mix-tab"
@@ -401,7 +411,7 @@ export function renderMicrophoneRecordingControls(): string {
               aria-controls="microphone-playback-mix-panel"
               tabindex="-1"
             >
-              Playback Mix
+              Mix
             </button>
           </div>
 
@@ -417,7 +427,7 @@ export function renderMicrophoneRecordingControls(): string {
             >
               <p id="microphone-alignment-summary" class="microphone-recording__alignment-summary">Offset: 0 ms</p>
               <p class="microphone-recording__alignment-instruction">
-                Align your recording to playback in milliseconds
+                Sync your recording to playback in milliseconds
               </p>
               <div class="microphone-recording__alignment-direction" aria-hidden="true">
                 <span class="microphone-recording__alignment-direction--earlier">← Move earlier</span>
@@ -442,10 +452,6 @@ export function renderMicrophoneRecordingControls(): string {
             aria-labelledby="microphone-playback-mix-tab"
             hidden
           >
-            <div class="microphone-recording__playback-mix-heading">
-              <strong>Playback Mix</strong>
-              <span>Project tracks during this audition only</span>
-            </div>
             <div
               id="microphone-review-mix-track-list"
               class="microphone-recording__review-mix-track-list"
@@ -458,15 +464,6 @@ export function renderMicrophoneRecordingControls(): string {
 
         <p id="microphone-review-status" class="microphone-recording__review-status" role="status" aria-live="polite"></p>
 
-        <button
-          id="microphone-discard-button"
-          class="microphone-recording__discard-link"
-          type="button"
-          disabled
-          hidden
-        >
-          Discard Take
-        </button>
       </div>
 
       <dialog
@@ -474,7 +471,6 @@ export function renderMicrophoneRecordingControls(): string {
         class="microphone-recording__confirmation-dialog"
         aria-labelledby="microphone-keep-heading"
       >
-        <p class="microphone-recording__phase-label">Keep take</p>
         <h2 id="microphone-keep-heading">Keep this take?</h2>
         <label for="microphone-take-name-input">Track name</label>
         <input

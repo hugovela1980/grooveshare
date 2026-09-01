@@ -52,7 +52,7 @@ export function renderAudioPlayer({
             aria-label="Seek backward 5 seconds"
             disabled
           >
-            <span aria-hidden="true">↶5</span>
+            <span aria-hidden="true">&lt;&lt;</span>
           </button>
 
         </div>
@@ -101,7 +101,7 @@ export function renderAudioPlayer({
           aria-label="Seek forward 5 seconds"
           disabled
         >
-          <span aria-hidden="true">5↷</span>
+          <span aria-hidden="true">&gt;&gt;</span>
         </button>
         </div>
 

@@ -34,6 +34,8 @@ type ValueInputLike = {
   disabled: boolean;
   hidden: boolean | string;
   value: string;
+  focus?: () => void;
+  select?: () => void;
 };
 
 type NumberInputLike = {
@@ -61,7 +63,6 @@ type ReviewMixEventTargetLike = {
   checked?: boolean;
   closest?: (selector: string) => AttributeElementLike | null;
   dataset?: Record<string, string | undefined>;
-  nextElementSibling?: TextElementLike | null;
   value?: string;
 };
 
@@ -449,10 +450,6 @@ export function createMicrophoneRecordingController({
           data-review-channel="${channel.channelNumber}"
           data-review-enabled="${channel.enabled}"
         >
-          <span
-            id="microphone-review-mix-track-${channel.channelNumber}"
-            class="microphone-recording__review-mix-track-name"
-          >${escapedName}</span>
           <label class="microphone-recording__review-mix-toggle">
             <input
               type="checkbox"
@@ -461,7 +458,7 @@ export function createMicrophoneRecordingController({
               aria-label="Use ${escapedName} during take audition"
               ${channel.enabled ? "checked" : ""}
             />
-            <span aria-hidden="true">${channel.enabled ? "On" : "Off"}</span>
+            <span aria-hidden="true">${escapedName}</span>
           </label>
           <label class="microphone-recording__review-mix-volume">
             <span class="visually-hidden">${escapedName} audition playback volume</span>
@@ -961,9 +958,6 @@ export function createMicrophoneRecordingController({
       }
     } else if (target?.dataset?.reviewChannelEnabled !== undefined) {
       channel.enabled = target.checked ?? false;
-      if (target.nextElementSibling) {
-        target.nextElementSibling.textContent = channel.enabled ? "On" : "Off";
-      }
       target.closest?.("[data-review-mix-track]")?.setAttribute?.(
         "data-review-enabled",
         String(channel.enabled),
@@ -1208,6 +1202,8 @@ export function createMicrophoneRecordingController({
         return;
       }
       keepDialog?.showModal();
+      takeNameInput.focus?.();
+      takeNameInput.select?.();
     });
     keepConfirmButton?.addEventListener("click", confirmKeep);
 

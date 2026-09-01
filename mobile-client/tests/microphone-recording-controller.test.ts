@@ -133,6 +133,14 @@ function createInput(value = "") {
     disabled: false,
     hidden: false,
     value,
+    focusCalls: 0,
+    selectCalls: 0,
+    focus() {
+      this.focusCalls += 1;
+    },
+    select() {
+      this.selectCalls += 1;
+    },
   };
 }
 
@@ -1044,6 +1052,13 @@ tester.describe("microphone recording controller", () => {
     tester.expect(harness.reviewMixTrackListElement.innerHTML.includes("Vocal")).toBe(true);
     tester.expect(harness.reviewMixTrackListElement.innerHTML.includes("75%")).toBe(true);
     tester.expect(harness.reviewMixTrackListElement.innerHTML.includes("72%")).toBe(true);
+    tester.expect(
+      harness.reviewMixTrackListElement.innerHTML.includes(
+        "microphone-recording__review-mix-track-name",
+      ),
+    ).toBe(false);
+    tester.expect(harness.reviewMixTrackListElement.innerHTML.includes(">On<")).toBe(false);
+    tester.expect(harness.reviewMixTrackListElement.innerHTML.includes(">Off<")).toBe(false);
     tester.expect(harness.reviewMixTrackListElement.innerHTML.includes("Add track")).toBe(false);
     tester.expect(harness.reviewMixTrackListElement.innerHTML.includes("data-channel-volume")).toBe(false);
     tester.expect(harness.reviewMixTrackListElement.innerHTML.includes("data-channel-enabled")).toBe(false);
@@ -1337,6 +1352,14 @@ tester.describe("microphone recording controller", () => {
     harness.takeNameInput.value = "Harmony Vocal";
     await harness.keepButton.click();
     tester.expect(harness.keepDialog.open).toBe(true);
+    tester.expect(harness.takeNameInput.focusCalls).toBe(1);
+    tester.expect(harness.takeNameInput.selectCalls).toBe(1);
+    harness.takeNameInput.value = "Harmony Vocal Edit";
+    harness.publishPlaybackReadiness(false);
+    tester.expect(harness.takeNameInput.value).toBe("Harmony Vocal Edit");
+    tester.expect(harness.takeNameInput.focusCalls).toBe(1);
+    tester.expect(harness.takeNameInput.selectCalls).toBe(1);
+    harness.takeNameInput.value = "Harmony Vocal";
     tester.expect(harness.keepMetadataElement.textContent).toBe(
       "Bar 2 · Beat 4 · Offset 0 ms",
     );
@@ -1346,6 +1369,8 @@ tester.describe("microphone recording controller", () => {
     tester.expect(Boolean(harness.getSnapshot().take)).toBe(true);
 
     await harness.keepButton.click();
+    tester.expect(harness.takeNameInput.focusCalls).toBe(2);
+    tester.expect(harness.takeNameInput.selectCalls).toBe(2);
     await harness.keepConfirmButton.click();
 
     tester.expect(harness.calls.at(-1)).toBe("keep:Harmony Vocal");

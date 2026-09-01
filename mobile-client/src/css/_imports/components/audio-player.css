@@ -205,6 +205,23 @@
     }
 }
 
+/* Touch browsers may keep the global button :hover state after a tap. These
+   controls are momentary actions, so restore their resting presentation. */
+@media (hover: none), (pointer: coarse) {
+    .audio-player__seek-back-button:hover:not(:disabled),
+    .audio-player__seek-forward-button:hover:not(:disabled),
+    .audio-player__stop-button:hover:not(:disabled) {
+        color: var(--color-text);
+        border-color: var(--border-dark);
+        background: var(--color-surface-strong);
+    }
+
+    .audio-player__seek-back-button:hover:not(:disabled),
+    .audio-player__seek-forward-button:hover:not(:disabled) {
+        color: var(--color-text-muted);
+    }
+}
+
 @media (min-width: 0rem) {
     .audio-player__controls {
         grid-template-columns: repeat(4, minmax(4.5rem, 1fr));

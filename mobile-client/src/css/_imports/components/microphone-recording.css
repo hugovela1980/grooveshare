@@ -538,22 +538,145 @@
 
 .microphone-recording__review-actions {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.65rem;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.5rem;
 }
 
 .microphone-recording__review-action {
+    display: flex;
     width: 100%;
     min-width: 0;
-    min-height: 3.1rem;
-    padding-inline: 0.45rem;
-    border-radius: 0.65rem;
-    font-size: 0.85rem;
+    min-height: 5.1rem;
+    flex-direction: column;
+    gap: 0.45rem;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    font-size: 0.78rem;
+    line-height: 1.15;
+    background: transparent;
 }
 
-.microphone-recording__review-action--primary[aria-pressed="true"] {
+.microphone-recording__review-action::before {
+    display: grid;
+    width: min(100%, 4.1rem);
+    aspect-ratio: 1;
+    place-items: center;
+    border: 1px solid var(--border-dark);
+    border-radius: 0.75rem;
+    background-color: rgba(255, 255, 255, 0.035);
+    font-size: 1.55rem;
+    font-weight: 500;
+    line-height: 1;
+}
+
+.microphone-recording__review-action:focus-visible::before {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+}
+
+#microphone-retry-button {
+    color: var(--color-text);
+    background: transparent;
+}
+
+#microphone-retry-button::before {
+    content: "↻";
+}
+
+#microphone-audition-button {
+    color: var(--color-text);
+    background: transparent;
+}
+
+#microphone-audition-button::before {
+    content: "▶";
+    border-color: rgba(134, 239, 172, 0.72);
+    color: var(--color-text);
+}
+
+#microphone-audition-button[aria-pressed="true"] {
+    color: var(--color-accent-hover);
+    background: transparent;
+}
+
+#microphone-audition-button[aria-pressed="true"]::before {
+    content: "■";
+    border-color: var(--color-accent-hover);
+    color: var(--color-accent-hover);
+    background-color: rgba(134, 239, 172, 0.08);
+}
+
+#microphone-keep-button {
+    color: var(--color-accent-hover);
+    background: transparent;
+}
+
+#microphone-keep-button::before {
+    content: "✓";
+    border-color: var(--color-accent-hover);
     color: var(--color-page-bg);
-    background: var(--color-accent-hover);
+    background-color: var(--color-accent-hover);
+}
+
+#microphone-retry-button:hover:not(:disabled) {
+    background: transparent;
+}
+
+#microphone-retry-button:hover:not(:disabled)::before {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+#microphone-audition-button:hover:not(:disabled) {
+    color: var(--color-text);
+    background: transparent;
+}
+
+#microphone-audition-button:hover:not(:disabled)::before {
+    background-color: rgba(134, 239, 172, 0.08);
+}
+
+#microphone-audition-button[aria-pressed="true"]:hover:not(:disabled) {
+    color: var(--color-accent-hover);
+    background: transparent;
+}
+
+#microphone-audition-button[aria-pressed="true"]:hover:not(:disabled)::before {
+    background-color: rgba(134, 239, 172, 0.12);
+}
+
+#microphone-keep-button:hover:not(:disabled) {
+    color: var(--color-accent-hover);
+    background: transparent;
+}
+
+#microphone-keep-button:hover:not(:disabled)::before {
+    background-color: var(--color-accent);
+}
+
+#microphone-discard-button {
+    color: #f87171;
+    background: transparent;
+}
+
+#microphone-discard-button::before {
+    content: "";
+    border-color: rgba(248, 113, 113, 0.72);
+    background-color: rgba(127, 29, 29, 0.08);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f87171' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 6h18M8 6V4h8v2M6 6l1 15h10l1-15M10 10v7M14 10v7'/%3E%3C/svg%3E");
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: 1.55rem;
+}
+
+#microphone-discard-button:hover:not(:disabled) {
+    color: #f87171;
+    background: transparent;
+}
+
+#microphone-discard-button:hover:not(:disabled)::before {
+    border-color: #f87171;
+    background-color: rgba(185, 28, 28, 0.18);
 }
 
 .microphone-recording__audition-volume {
@@ -582,24 +705,29 @@
     flex-direction: column;
     min-height: 0;
     overflow: hidden;
-    border: 1px solid var(--border-dark);
-    border-radius: 0.85rem;
-    background: rgba(0, 0, 0, 0.12);
+    background: transparent;
 }
 
 .microphone-recording__tab-list {
     display: grid;
+    width: 100%;
     flex: 0 0 auto;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0;
+    padding: 0;
     border-bottom: 1px solid var(--border-dark);
+    background: rgba(0, 0, 0, 0.1);
 }
 
 .microphone-recording__tab {
     position: relative;
+    width: 100%;
     min-width: 0;
-    min-height: 2.9rem;
-    padding: 0.55rem 0.35rem;
+    min-height: 3rem;
+    padding: 0.65rem 0.5rem;
+    margin: 0;
     border: 0;
+    border-radius: 0;
     color: var(--color-text-muted-cool);
     background: transparent;
     font: inherit;
@@ -610,19 +738,41 @@
 }
 
 .microphone-recording__tab + .microphone-recording__tab {
-    border-left: 1px solid var(--border-dark);
+    border-left: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.microphone-recording__tab::after {
+    content: "";
+    position: absolute;
+    right: 18%;
+    bottom: -1px;
+    left: 18%;
+    height: 0.2rem;
+    border-radius: var(--radius-pill) var(--radius-pill) 0 0;
+    background: transparent;
 }
 
 .microphone-recording__tab[aria-selected="true"] {
-    color: var(--color-text);
-    background: rgba(134, 239, 172, 0.1);
-    box-shadow: inset 0 -0.2rem 0 var(--color-accent-hover);
+    z-index: 1;
+    color: var(--color-accent-hover);
+    background: linear-gradient(180deg, rgba(134, 239, 172, 0.08), rgba(134, 239, 172, 0.025));
+    box-shadow: none;
+}
+
+.microphone-recording__tab[aria-selected="true"]::after {
+    background: var(--color-accent-hover);
 }
 
 .microphone-recording__tab:hover,
 .microphone-recording__tab:focus-visible {
     color: var(--color-text);
-    background: rgba(255, 255, 255, 0.06);
+    background: rgba(255, 255, 255, 0.045);
+}
+
+.microphone-recording__tab[aria-selected="true"]:hover,
+.microphone-recording__tab[aria-selected="true"]:focus-visible {
+    color: var(--color-accent-hover);
+    background: linear-gradient(180deg, rgba(134, 239, 172, 0.11), rgba(134, 239, 172, 0.035));
 }
 
 .microphone-recording__review-tab-panel {
@@ -630,26 +780,18 @@
     min-height: 0;
     padding: 0.65rem;
     overflow-y: auto;
+    border: 1px solid var(--border-dark);
+    border-top: 0;
+    border-radius: 0 0 0.7rem 0.7rem;
+    background: rgba(0, 0, 0, 0.12);
     overscroll-behavior: contain;
 }
 
 .microphone-recording__review-tab-panel--mix {
     display: flex;
     flex-direction: column;
+    padding-bottom: 0;
     overflow: hidden;
-}
-
-.microphone-recording__playback-mix-heading {
-    display: grid;
-    flex: 0 0 auto;
-    gap: 0.2rem;
-    padding: 0.1rem 0.15rem 0.65rem;
-    text-align: center;
-}
-
-.microphone-recording__playback-mix-heading span {
-    color: var(--color-text-muted-cool);
-    font-size: 0.76rem;
 }
 
 .microphone-recording__review-mix-track-list {
@@ -665,7 +807,7 @@
 
 .microphone-recording__review-mix-track {
     display: grid;
-    grid-template-columns: minmax(4.5rem, 0.8fr) auto minmax(7rem, 1.35fr);
+    grid-template-columns: minmax(5.75rem, 0.85fr) minmax(0, 1.8fr);
     gap: 0.55rem;
     align-items: center;
     min-width: 0;
@@ -675,17 +817,10 @@
     background: rgba(255, 255, 255, 0.035);
 }
 
-.microphone-recording__review-mix-track-name {
-    overflow: hidden;
-    font-size: 0.82rem;
-    font-weight: 750;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
 .microphone-recording__review-mix-toggle {
     position: relative;
-    display: inline-grid;
+    display: grid;
+    min-width: 0;
     cursor: pointer;
 }
 
@@ -698,23 +833,37 @@
 }
 
 .microphone-recording__review-mix-toggle span {
-    display: grid;
-    min-width: 2.8rem;
+    display: flex;
+    min-width: 0;
     min-height: 2.35rem;
-    place-items: center;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
     padding: 0.3rem 0.5rem;
+    overflow: hidden;
     border: 1px solid var(--border-dark);
     border-radius: 0.55rem;
     color: var(--color-text-muted-cool);
     background: rgba(255, 255, 255, 0.045);
     font-size: 0.78rem;
     font-weight: 800;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.microphone-recording__review-mix-toggle span::before {
+    content: "−";
+    flex: 0 0 auto;
 }
 
 .microphone-recording__review-mix-toggle input:checked + span {
     border-color: rgba(134, 239, 172, 0.62);
     color: var(--color-page-bg);
     background: var(--color-accent-hover);
+}
+
+.microphone-recording__review-mix-toggle input:checked + span::before {
+    content: "✓";
 }
 
 .microphone-recording__review-mix-toggle input:focus-visible + span {
@@ -743,7 +892,6 @@
     text-align: right;
 }
 
-.microphone-recording__review-mix-track[data-review-enabled="false"] .microphone-recording__review-mix-track-name,
 .microphone-recording__review-mix-track[data-review-enabled="false"] .microphone-recording__review-mix-volume {
     color: var(--color-text-muted);
     opacity: 0.5;
@@ -851,25 +999,6 @@
 .microphone-recording__review-status:empty,
 .microphone-recording__confirmation-status:empty {
     display: none;
-}
-
-.microphone-recording__discard-link {
-    width: 100%;
-    min-height: 3rem;
-    padding: 0.6rem 1rem;
-    border: 1px solid rgba(248, 113, 113, 0.72);
-    border-radius: 0.7rem;
-    color: #fca5a5;
-    background: rgba(127, 29, 29, 0.18);
-    font-size: 0.9rem;
-    font-weight: 800;
-}
-
-.microphone-recording__discard-link:hover:not(:disabled),
-.microphone-recording__discard-link:focus-visible {
-    color: #fff;
-    border-color: #f87171;
-    background: rgba(185, 28, 28, 0.34);
 }
 
 .microphone-recording__confirmation-dialog {

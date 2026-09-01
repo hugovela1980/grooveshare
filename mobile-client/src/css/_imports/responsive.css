@@ -103,6 +103,11 @@
 
     .project-player-header {
         margin-bottom: 0.65rem;
+        padding: 0.35rem;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: var(--radius-lg);
+        background: rgba(0, 0, 0, 0.22);
+        box-shadow: 0 0.35rem 0.9rem rgba(0, 0, 0, 0.16);
     }
 
     .project-player-header__actions {
@@ -761,8 +766,9 @@
     }
 
     .audio-player__microphone-button {
-        width: 3.35rem;
-        height: 3.35rem;
+        width: 4rem;
+        height: 4rem;
+        min-height: 4rem;
         color: #fff;
         border-color: #ef4444;
         background: linear-gradient(180deg, #ef4444, #c81e1e);
@@ -778,8 +784,9 @@
     }
 
     .audio-player__stop-button {
-        width: 3.25rem;
-        height: 3.25rem;
+        width: 4rem;
+        height: 4rem;
+        min-height: 4rem;
         color: var(--color-text);
         background: var(--color-surface-strong);
         font-size: 1.15rem;
@@ -805,8 +812,9 @@
         min-height: 2.75rem;
         flex-direction: row;
         align-items: center;
-        justify-content: space-between;
-        padding-inline: 0.6rem;
+        justify-content: center;
+        gap: 0.55rem;
+        padding-inline: 0.4rem;
     }
 
     .audio-player__switch {
@@ -1057,6 +1065,7 @@
     }
 
     .mix-channel-slot--empty .mix-channel-slot__strip {
+        grid-template-rows: none;
         place-items: center;
     }
 
@@ -1099,6 +1108,13 @@
         height: 3.5rem;
     }
 
+    .audio-player__microphone-button,
+    .audio-player__stop-button {
+        width: 3.5rem;
+        height: 3.5rem;
+        min-height: 3.5rem;
+    }
+
     .audio-player__bar-jump {
         grid-template-columns: auto minmax(0, 1fr);
     }
@@ -1106,6 +1122,15 @@
     .audio-player__bar-jump-button {
         grid-column: 1 / -1;
         width: 100%;
+    }
+}
+
+/* Touch browsers can retain :hover after the native file picker closes. */
+@media (hover: none), (pointer: coarse) {
+    .mix-channel-slot__add-track-button:hover:not(:disabled) {
+        border-color: var(--border-input);
+        color: var(--color-text-muted);
+        background: transparent;
     }
 }
 
