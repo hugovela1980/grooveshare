@@ -118,6 +118,9 @@ function createSessionHarness() {
     },
     disarm() {
       calls.push("disarm");
+      if (snapshot.status === "stopped") {
+        return publish(snapshot);
+      }
       return publish({
         ...snapshot,
         status: "idle",
@@ -434,6 +437,7 @@ tester.describe("microphone recording controller", () => {
     await h.closeButton.click();
     tester.expect(h.armButton.getAttribute("aria-expanded")).toBe("false");
     tester.expect(h.session.getSnapshot().take).toBe(take);
+    tester.expect(h.calls.at(-1)).toBe("disarm");
     await h.armButton.click();
     tester.expect(h.armButton.getAttribute("aria-expanded")).toBe("true");
     tester.expect(h.session.getSnapshot().take).toBe(take);
@@ -622,9 +626,14 @@ tester.describe("microphone recording controller", () => {
     await h.closeButton.click();
     tester.expect(h.workspace.open).toBe(false);
     tester.expect(h.session.getSnapshot().status).toBe("stopped");
+    tester.expect(h.calls).toEqual(["arm", "disarm", "arm", "start", "stop", "disarm"]);
     await h.armButton.click();
     tester.expect(h.workspace.open).toBe(true);
     tester.expect(h.session.getSnapshot().status).toBe("stopped");
+    await h.armButton.click();
+    tester.expect(h.workspace.open).toBe(false);
+    tester.expect(h.session.getSnapshot().status).toBe("stopped");
+    tester.expect(h.calls.at(-1)).toBe("disarm");
   });
 
   tester.it("closes pending permission safely and releases a late microphone acquisition", async () => {

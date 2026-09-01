@@ -833,17 +833,23 @@ export function createMicrophoneRecordingSession({
       return getSnapshot();
     }
 
-    if (status !== "ready") {
+    if (status !== "ready" && status !== "stopped") {
       return getSnapshot();
     }
 
     captureActive = false;
 
-    try {
-      await recordingPort.release();
-      microphonePrepared = false;
-    } catch (error) {
-      return setFailure(error);
+    if (microphonePrepared) {
+      try {
+        await recordingPort.release();
+        microphonePrepared = false;
+      } catch (error) {
+        return setFailure(error);
+      }
+    }
+
+    if (status === "stopped") {
+      return getSnapshot();
     }
 
     clearTakeState();
@@ -1265,6 +1271,17 @@ export function createMicrophoneRecordingSession({
         }
       }
 
+      // A stopped take is fully independent from microphone ownership. Wait
+      // until MediaRecorder finalization and durable draft establishment have
+      // completed, then release the prepared stream before publishing review.
+      try {
+        await recordingPort.release();
+      } catch {
+        // Browser adapters release tracks in cleanup finally blocks. A
+        // secondary diagnostic cleanup failure must not destroy a valid take.
+      }
+      microphonePrepared = false;
+
       completeRecordingAlignment("completed");
       countIn = null;
       elapsedRecordingSeconds =
@@ -1505,8 +1522,10 @@ export function createMicrophoneRecordingSession({
 
     try {
       await releaseTakePlayback();
-      await recordingPort.release();
-      microphonePrepared = false;
+      if (microphonePrepared) {
+        await recordingPort.release();
+        microphonePrepared = false;
+      }
       await removePendingTakeDraft();
     } catch (error) {
       takeReviewFailure = {
@@ -1586,7 +1605,9 @@ export function createMicrophoneRecordingSession({
       });
 
       try {
-        await recordingPort.release();
+        if (microphonePrepared) {
+          await recordingPort.release();
+        }
       } catch {
         // The track is already persisted. Treat post-upload microphone cleanup
         // as best effort rather than reporting a false upload failure.

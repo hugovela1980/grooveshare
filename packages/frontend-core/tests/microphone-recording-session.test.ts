@@ -103,6 +103,7 @@ tester.describe("microphone recording session", () => {
     tester.expect(Array.from(stopped.capture?.bytes ?? [])).toEqual([1, 2, 3]);
     tester.expect(stopped.capture?.mimeType).toBe("audio/webm");
     tester.expect(harness.stopCalls).toBe(1);
+    tester.expect(harness.releaseCalls).toBe(1);
     tester.expect(statuses).toEqual([
       "idle",
       "requesting-permission",
@@ -115,6 +116,7 @@ tester.describe("microphone recording session", () => {
 
   tester.it("publishes Processing while finalization is pending and stops only once", async () => {
     let stopCalls = 0;
+    let releaseCalls = 0;
     let resolveStop: (capture: RecordedAudioCapture) => void = () => {
       throw new Error("Recording stop was not requested.");
     };
@@ -127,7 +129,9 @@ tester.describe("microphone recording session", () => {
           resolveStop = resolve;
         });
       },
-      async release() {},
+      async release() {
+        releaseCalls += 1;
+      },
     };
     const session = createMicrophoneRecordingSession({
       role: "owner",
@@ -142,6 +146,7 @@ tester.describe("microphone recording session", () => {
     const duplicateStopping = session.stop();
     tester.expect(session.getSnapshot().status).toBe("processing");
     tester.expect(stopCalls).toBe(1);
+    tester.expect(releaseCalls).toBe(0);
 
     resolveStop({
       bytes: new Uint8Array([9, 8, 7]),
@@ -151,6 +156,7 @@ tester.describe("microphone recording session", () => {
     tester.expect((await duplicateStopping).status).toBe("stopped");
     tester.expect(session.getSnapshot().status).toBe("stopped");
     tester.expect(stopCalls).toBe(1);
+    tester.expect(releaseCalls).toBe(1);
   });
 
   tester.it("disarms a prepared microphone, genuinely releases the device, and preserves compensation", async () => {
@@ -169,6 +175,9 @@ tester.describe("microphone recording session", () => {
     tester.expect(disarmed.capture).toBe(null);
     tester.expect(disarmed.take).toBe(null);
     tester.expect(disarmed.alignmentCompensationMilliseconds).toBe(180);
+    tester.expect(harness.releaseCalls).toBe(1);
+
+    tester.expect((await session.disarm()).status).toBe("idle");
     tester.expect(harness.releaseCalls).toBe(1);
 
     await session.arm();
@@ -824,6 +833,7 @@ tester.describe("transport-synchronized microphone recording", () => {
     playbackHarness.engine.stop();
     await Promise.resolve();
     await Promise.resolve();
+    await Promise.resolve();
 
     tester.expect(recordingHarness.stopCalls).toBe(1);
     tester.expect(session.getSnapshot().status).toBe("stopped");
@@ -851,6 +861,7 @@ tester.describe("transport-synchronized microphone recording", () => {
     await session.start();
     playbackHarness.setClockTime(101.5);
     playbackHarness.pause();
+    await Promise.resolve();
     await Promise.resolve();
     await Promise.resolve();
 
@@ -1141,6 +1152,58 @@ tester.describe("recording alignment compensation", () => {
 });
 
 tester.describe("durable pending recording workflow", () => {
+  tester.it("releases the microphone only after the recoverable take draft is established", async () => {
+    const recordingHarness = createRecordingPortHarness();
+    const playbackHarness = createPlaybackHarness({ startPositionSeconds: 4 });
+    let savedDraft: RecordedTakeDraft | null = null;
+    let resolveSave: () => void = () => {
+      throw new Error("Draft persistence did not start.");
+    };
+    const takeDraftPort: RecordedTakeDraftPort = {
+      async load() {
+        return null;
+      },
+      save(_scopeId, draft) {
+        savedDraft = cloneDraft(draft);
+        return new Promise<void>((resolve) => {
+          resolveSave = resolve;
+        });
+      },
+      async remove() {},
+    };
+    const session = createMicrophoneRecordingSession({
+      role: "contributor",
+      recordingPort: recordingHarness.port,
+      takeDraftPort,
+      projectId: "project-1",
+      playbackEngine: playbackHarness.engine,
+      musicalTimeline: {
+        bpm: 120,
+        timeSignature: { numerator: 4, denominator: 4 },
+      },
+    });
+
+    await session.arm();
+    await session.start();
+    playbackHarness.setClockTime(102);
+    const stopping = session.stop();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    tester.expect(session.getSnapshot().status).toBe("processing");
+    tester.expect(Boolean(savedDraft)).toBe(true);
+    tester.expect(recordingHarness.releaseCalls).toBe(0);
+
+    resolveSave();
+    const stopped = await stopping;
+    tester.expect(stopped.status).toBe("stopped");
+    tester.expect(Boolean(stopped.take)).toBe(true);
+    tester.expect(recordingHarness.releaseCalls).toBe(1);
+
+    await session.destroy();
+    playbackHarness.engine.destroy?.();
+  });
+
   tester.it("surfaces draft storage failures without creating a phantom review", async () => {
     const session = createMicrophoneRecordingSession({
       role: "contributor",
@@ -1512,7 +1575,7 @@ tester.describe("local microphone take review", () => {
     playbackHarness.engine.destroy?.();
   });
 
-  tester.it("retries at the same anchor without releasing the microphone and retains shared device compensation", async () => {
+  tester.it("retries at the same anchor by reacquiring the microphone and retains shared device compensation", async () => {
     const recordingHarness = createRecordingPortHarness();
     const playbackHarness = createPlaybackHarness({ startPositionSeconds: 1 });
     const takePlaybackHarness = createTakePlaybackHarness();
@@ -1530,7 +1593,8 @@ tester.describe("local microphone take review", () => {
     tester.expect(session.getSnapshot().take).toBe(null);
     tester.expect(session.getSnapshot().capture).toBe(null);
     tester.expect(session.getSnapshot().takeReviewStatus).toBe("idle");
-    tester.expect(recordingHarness.releaseCalls).toBe(0);
+    tester.expect(recordingHarness.releaseCalls).toBe(1);
+    tester.expect(recordingHarness.prepareCalls).toBe(2);
     tester.expect(takePlaybackHarness.releaseCalls).toBe(1);
     tester.expect(session.getSnapshot().alignmentCompensationMilliseconds).toBe(175);
     tester.expect(playbackHarness.engine.getSnapshot().currentTime).toBe(1);
@@ -1549,11 +1613,40 @@ tester.describe("local microphone take review", () => {
     ).toBe(175);
     tester.expect(recordingHarness.startCalls).toBe(2);
     tester.expect(recordingHarness.stopCalls).toBe(2);
+    tester.expect(recordingHarness.releaseCalls).toBe(2);
 
     await session.audition();
     tester.expect(takePlaybackHarness.playCalls).toBe(2);
     takePlaybackHarness.end();
     tester.expect(session.getSnapshot().takeReviewStatus).toBe("idle");
+
+    await session.destroy();
+    playbackHarness.engine.destroy?.();
+  });
+
+  tester.it("keeps a stopped take reviewable when disarmed after capture release", async () => {
+    const recordingHarness = createRecordingPortHarness();
+    const playbackHarness = createPlaybackHarness({ startPositionSeconds: 2 });
+    const takePlaybackHarness = createTakePlaybackHarness();
+    const session = await recordStoppedTakeForReview({
+      recordingHarness,
+      playbackHarness,
+      takePlaybackHarness,
+    });
+    const stoppedTake = session.getSnapshot().take;
+
+    tester.expect(recordingHarness.releaseCalls).toBe(1);
+    const disarmed = await session.disarm();
+
+    tester.expect(disarmed.status).toBe("stopped");
+    tester.expect(disarmed.take).toEqual(stoppedTake);
+    tester.expect(recordingHarness.releaseCalls).toBe(1);
+    tester.expect(recordingHarness.prepareCalls).toBe(1);
+
+    await session.audition();
+    tester.expect(session.getSnapshot().takeReviewStatus).toBe("auditioning");
+    tester.expect(takePlaybackHarness.playCalls).toBe(1);
+    tester.expect(recordingHarness.prepareCalls).toBe(1);
 
     await session.destroy();
     playbackHarness.engine.destroy?.();
@@ -1719,7 +1812,7 @@ tester.describe("keep reviewed microphone take", () => {
     tester.expect(result.takeReviewFailure?.message).toBe(
       "Temporary take resources could not be released.",
     );
-    tester.expect(recordingHarness.releaseCalls).toBe(0);
+    tester.expect(recordingHarness.releaseCalls).toBe(1);
 
     takePlaybackHarness.releaseError = null;
     await session.destroy();
@@ -1835,7 +1928,7 @@ tester.describe("keep reviewed microphone take", () => {
     tester.expect(failed.takeSaveFailure?.message).toBe("Upload connection failed.");
     tester.expect(failed.savedTrack).toBe(null);
     tester.expect(failed.alignmentCompensationMilliseconds).toBe(-35);
-    tester.expect(recordingHarness.releaseCalls).toBe(0);
+    tester.expect(recordingHarness.releaseCalls).toBe(1);
     tester.expect(takeDraftHarness.drafts.has("project-1")).toBe(true);
 
     takeUploadHarness.uploadError = null;

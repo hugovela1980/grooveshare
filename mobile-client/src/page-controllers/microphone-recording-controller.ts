@@ -1019,6 +1019,7 @@ export function createMicrophoneRecordingController({
         await recordingSession.stopAudition();
       }
       restoreProjectPlaybackMix?.();
+      await recordingSession.disarm();
       return;
     }
 

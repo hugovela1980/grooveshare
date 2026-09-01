@@ -256,6 +256,9 @@ function createSessionHarness({
     },
     disarm() {
       calls.push("disarm");
+      if (snapshot.status === "stopped") {
+        return publish(snapshot);
+      }
       return publish({
         ...snapshot,
         status: "idle",
@@ -1022,9 +1025,18 @@ tester.describe("microphone recording controller", () => {
     tester.expect(harness.playbackMixTabPanel.hidden).toBe(false);
     tester.expect(harness.alignmentSummaryElement.textContent).toBe("Offset: +10 ms");
 
+    const stoppedTake = harness.getSnapshot().take;
     await harness.reviewCloseButton.click();
+    tester.expect(harness.workspaceElement.hidden).toBe(true);
+    tester.expect(harness.getSnapshot().take).toEqual(stoppedTake);
+    tester.expect(harness.calls.at(-1)).toBe("disarm");
     await harness.armButton.click();
     tester.expect(harness.playbackMixTabPanel.hidden).toBe(false);
+    await harness.armButton.click();
+    tester.expect(harness.workspaceElement.hidden).toBe(true);
+    tester.expect(harness.getSnapshot().take).toEqual(stoppedTake);
+    tester.expect(harness.calls.at(-1)).toBe("disarm");
+    await harness.armButton.click();
 
     await harness.alignmentTabButton.click();
     tester.expect(harness.alignmentTabPanel.hidden).toBe(false);

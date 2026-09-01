@@ -183,7 +183,7 @@ export function createMicrophoneRecordingController({
     const status = recordingSession.getSnapshot().status;
     if (starting || isActiveCaptureStatus(status) || recordingSession.getSnapshot().takeSaveStatus === "saving") return;
     workspace?.close();
-    if (status === "ready") {
+    if (status === "ready" || status === "stopped") {
       const result = await recordingSession.disarm();
       if (disposed) return;
       if (result.status === "failed") {
