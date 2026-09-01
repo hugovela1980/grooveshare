@@ -801,6 +801,10 @@ function initializeProjectPlayerPage({
     appElement,
     "#project-edit-description-input",
   );
+  const projectEditTracksElement = getElement<HTMLElement>(
+    appElement,
+    "#project-edit-track-list",
+  );
   const projectEditSaveButton = getElement<HTMLButtonElement>(
     appElement,
     "#save-project-edit-button",
@@ -1548,6 +1552,7 @@ function initializeProjectPlayerPage({
     projectEditForm,
     projectEditTitleInput,
     projectEditDescriptionInput,
+    projectEditTracksElement,
     projectEditSaveButton,
     projectEditCancelButton,
     projectEditCloseButton,

@@ -235,6 +235,62 @@
     gap: 0.45rem;
 }
 
+.project-player-edit-section {
+    overflow: hidden;
+    border: 1px solid var(--border-light-strong);
+    border-radius: var(--radius-lg);
+}
+
+.project-player-edit-section > summary {
+    min-height: 3rem;
+    padding: 0.8rem 0.9rem;
+    color: #f8fafc;
+    background: #334155;
+    font-weight: 750;
+    cursor: pointer;
+}
+
+.project-player-edit-section > summary:focus-visible {
+    outline: 2px solid #166534;
+    outline-offset: -2px;
+}
+
+.project-player-edit-section__content {
+    display: grid;
+    gap: 0.9rem;
+    padding: 0.9rem;
+    border-top: 1px solid var(--border-light);
+}
+
+.project-player-edit-track {
+    display: grid;
+    gap: 0.65rem;
+    padding: 0.85rem;
+    border: 1px solid var(--border-light-strong);
+    border-radius: var(--radius-md);
+    background: rgba(248, 250, 252, 0.72);
+    box-shadow: 0 0.2rem 0.65rem rgba(15, 23, 42, 0.08);
+}
+
+.project-player-edit-track__delete {
+    justify-self: start;
+    min-height: 2.75rem;
+    border-color: rgba(185, 28, 28, 0.45);
+    color: #991b1b;
+}
+
+.project-player-edit-track__delete:hover:not(:disabled),
+.project-player-edit-track__delete:focus-visible {
+    border-color: #b91c1c;
+    color: #7f1d1d;
+    background: #fee2e2;
+}
+
+.project-player-edit-tracks__empty {
+    margin: 0;
+    color: var(--color-light-muted);
+}
+
 .project-player-edit-form input,
 .project-player-edit-form textarea {
     width: 100%;
@@ -353,6 +409,11 @@
 }
 
 @media (min-width: 44rem) {
+    .project-player-edit-track {
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: end;
+    }
+
     .project-member-row {
         grid-template-columns: minmax(0, 1fr) minmax(10rem, 0.45fr) auto;
         align-items: end;

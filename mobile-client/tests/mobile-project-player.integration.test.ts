@@ -256,6 +256,72 @@ function createTextInput(initialValue = "") {
   };
 }
 
+function createProjectEditTracksElement() {
+  const handlers = new Map<string, (event: { target: EventTarget | null }) => void | Promise<void>>();
+  const values = new Map<string, string>();
+  const focusCounts = new Map<string, number>();
+  let markup = "";
+
+  return {
+    get innerHTML() {
+      return markup;
+    },
+    set innerHTML(value: string) {
+      markup = value;
+    },
+    setAttribute() {},
+    removeAttribute() {},
+    addEventListener(
+      eventName: "input" | "click",
+      handler: (event: { target: EventTarget | null }) => void | Promise<void>,
+    ) {
+      handlers.set(eventName, handler);
+    },
+    querySelector(selector: string) {
+      const trackId = selector.match(/data-track-id="([^"]+)"/)?.[1];
+      if (!trackId) return null;
+      return {
+        focus() {
+          focusCounts.set(trackId, (focusCounts.get(trackId) ?? 0) + 1);
+        },
+      };
+    },
+    async inputTrackName(trackId: string, value: string) {
+      values.set(trackId, value);
+      await handlers.get("input")?.({
+        target: {
+          value,
+          dataset: { projectEditTrackName: "", trackId },
+        } as unknown as EventTarget,
+      });
+    },
+    async clickDeleteTrack(trackId: string) {
+      const deleteButton = {
+        disabled: false,
+        dataset: { trackId },
+        setAttribute() {},
+        removeAttribute() {},
+      };
+      await handlers.get("click")?.({
+        target: {
+          closest(selector: string) {
+            return selector === "[data-project-edit-track-delete]"
+              ? deleteButton
+              : null;
+          },
+        } as unknown as EventTarget,
+      });
+      return deleteButton;
+    },
+    getInputValue(trackId: string) {
+      return values.get(trackId) ?? null;
+    },
+    getFocusCount(trackId: string) {
+      return focusCounts.get(trackId) ?? 0;
+    },
+  };
+}
+
 function createNoopTracksApi(tracks: Track[] = []) {
   return {
     async getTracksByProjectId() {
@@ -351,6 +417,12 @@ tester.describe("mobile Project Player integration", () => {
     tester.expect(ownerMarkup.includes("Bar 1 at project start")).toBe(false);
     tester.expect(ownerMarkup.includes('id="project-details-track-names"')).toBe(true);
     tester.expect(ownerMarkup.includes('id="project-details-edit-button"')).toBe(true);
+    tester.expect((ownerMarkup.match(/class="project-player-edit-section" open/g) ?? []).length).toBe(1);
+    tester.expect(ownerMarkup.includes("<summary>Project details</summary>")).toBe(true);
+    tester.expect(ownerMarkup.includes("<summary>Tracks</summary>")).toBe(true);
+    tester.expect(ownerMarkup.includes('<details class="project-player-edit-section">\n            <summary>Tracks</summary>')).toBe(true);
+    tester.expect(ownerMarkup.includes('id="project-edit-track-list"')).toBe(true);
+    tester.expect(ownerMarkup.includes("Save Changes")).toBe(true);
     tester.expect(contributorMarkup.includes('id="project-details-edit-button"')).toBe(false);
     tester.expect(ownerMarkup.includes('id="microphone-review-view"')).toBe(true);
     tester.expect(ownerMarkup.includes('id="microphone-review-recovered"')).toBe(true);
@@ -546,6 +618,7 @@ tester.describe("mobile Project Player integration", () => {
     const form = createForm();
     const titleInput = createTextInput();
     const descriptionInput = createTextInput();
+    const editTracksElement = { innerHTML: "" };
     const mobileTitleElement = { textContent: project.title as string | null };
     const saveButton = createControllerButton();
     const detailsEditButton = createControllerButton();
@@ -559,9 +632,10 @@ tester.describe("mobile Project Player integration", () => {
       projectEditForm: form,
       projectEditTitleInput: titleInput,
       projectEditDescriptionInput: descriptionInput,
+      projectEditTracksElement: editTracksElement,
       projectEditSaveButton: saveButton,
       projectDetailsEditButton: detailsEditButton,
-      tracksApi: createNoopTracksApi(),
+      tracksApi: createNoopTracksApi([track]),
       projectsApi: {
         async deleteProject() {
           return project;
@@ -588,6 +662,10 @@ tester.describe("mobile Project Player integration", () => {
     await detailsEditButton.click();
     tester.expect(modal.hidden).toBe(false);
     tester.expect(titleInput.value).toBe("Mobile Song");
+    tester.expect(editTracksElement.innerHTML.includes("Track 1")).toBe(true);
+    tester.expect(editTracksElement.innerHTML.includes('value="Guitar"')).toBe(true);
+    tester.expect(editTracksElement.innerHTML.includes("Delete Track")).toBe(true);
+    tester.expect(editTracksElement.innerHTML.includes("Start bar")).toBe(false);
     modal.hidden = true;
 
     const triggerButton = createMenuButton();
@@ -625,6 +703,494 @@ tester.describe("mobile Project Player integration", () => {
     tester.expect(project.title).toBe("Mobile Song Revised");
     tester.expect(titleInput.getBlurCallCount()).toBe(1);
     tester.expect(descriptionInput.getBlurCallCount()).toBe(1);
+  });
+
+  tester.it("saves only changed track names without modifying timing metadata", async () => {
+    const project = structuredClone(ownerProject);
+    const placedTrack: Track = {
+      ...track,
+      musicalPlacement: {
+        start: { bar: 3, beat: 2 },
+        spanBeats: 12,
+      },
+    };
+    const trackListElement = createTrackListElement();
+    const modal = { hidden: true };
+    const form = createForm();
+    const titleInput = createTextInput();
+    const descriptionInput = createTextInput();
+    const editTracksElement = createProjectEditTracksElement();
+    const updateDetailsCalls: Array<{ trackId: string; details: { name?: string; musicalPlacement?: unknown } }> = [];
+    let projectUpdateCount = 0;
+
+    const controller = createProjectPlayerPageController({
+      project,
+      trackListElement,
+      projectEditModal: modal,
+      projectEditForm: form,
+      projectEditTitleInput: titleInput,
+      projectEditDescriptionInput: descriptionInput,
+      projectEditTracksElement: editTracksElement,
+      projectEditSaveButton: createControllerButton(),
+      tracksApi: {
+        async getTracksByProjectId() {
+          return [placedTrack];
+        },
+        async deleteTrack() {
+          return placedTrack;
+        },
+        async updateTrackDetails(_projectId, trackId, details) {
+          updateDetailsCalls.push({ trackId, details });
+          return { ...placedTrack, name: details.name ?? placedTrack.name };
+        },
+      },
+      projectsApi: {
+        async deleteProject() {
+          return project;
+        },
+        async updateProjectDetails() {
+          projectUpdateCount += 1;
+          return project;
+        },
+      },
+      renderTrackList(tracks) {
+        return tracks.map((currentTrack) => currentTrack.name).join(", ");
+      },
+      projectRole: "owner",
+      currentUserId: "user-1",
+    });
+
+    await controller.init();
+    controller.openProjectEditor();
+    await editTracksElement.inputTrackName(placedTrack.id, "  Lead   Guitar  ");
+    await form.submit();
+
+    tester.expect(projectUpdateCount).toBe(0);
+    tester.expect(updateDetailsCalls).toEqual([
+      { trackId: placedTrack.id, details: { name: "Lead Guitar" } },
+    ]);
+    tester.expect(updateDetailsCalls[0]!.details.musicalPlacement).toBe(undefined);
+    tester.expect(trackListElement.innerHTML).toBe("Lead Guitar");
+    tester.expect(modal.hidden).toBe(true);
+  });
+
+  tester.it("saves combined project and changed-track edits while skipping unchanged tracks", async () => {
+    const project = structuredClone(ownerProject);
+    const tracks = [
+      track,
+      { ...track, id: "track-2", name: "Drums" },
+      { ...track, id: "track-3", name: "Bass" },
+    ];
+    const trackListElement = createTrackListElement();
+    const modal = { hidden: true };
+    const form = createForm();
+    const titleInput = createTextInput();
+    const descriptionInput = createTextInput();
+    const editTracksElement = createProjectEditTracksElement();
+    const updatedTrackIds: string[] = [];
+    let projectUpdateCount = 0;
+
+    const controller = createProjectPlayerPageController({
+      project,
+      trackListElement,
+      projectEditModal: modal,
+      projectEditForm: form,
+      projectEditTitleInput: titleInput,
+      projectEditDescriptionInput: descriptionInput,
+      projectEditTracksElement: editTracksElement,
+      projectEditSaveButton: createControllerButton(),
+      tracksApi: {
+        async getTracksByProjectId() {
+          return tracks;
+        },
+        async deleteTrack() {
+          return track;
+        },
+        async updateTrackDetails(_projectId, trackId, details) {
+          updatedTrackIds.push(trackId);
+          const currentTrack = tracks.find((candidate) => candidate.id === trackId)!;
+          return { ...currentTrack, name: details.name ?? currentTrack.name };
+        },
+      },
+      projectsApi: {
+        async deleteProject() {
+          return project;
+        },
+        async updateProjectDetails(_projectId, input) {
+          projectUpdateCount += 1;
+          return {
+            ...project,
+            title: input.title ?? project.title,
+            description: input.description ?? project.description,
+          };
+        },
+      },
+      renderTrackList(currentTracks) {
+        return currentTracks.map((currentTrack) => currentTrack.name).join(", ");
+      },
+      projectRole: "owner",
+      currentUserId: "user-1",
+    });
+
+    await controller.init();
+    controller.openProjectEditor();
+    titleInput.value = "Revised Project";
+    descriptionInput.value = "Revised description";
+    await editTracksElement.inputTrackName("track-1", "Electric Guitar");
+    await editTracksElement.inputTrackName("track-2", "Live Drums");
+    await form.submit();
+
+    tester.expect(projectUpdateCount).toBe(1);
+    tester.expect(updatedTrackIds).toEqual(["track-1", "track-2"]);
+    tester.expect(updatedTrackIds.includes("track-3")).toBe(false);
+    tester.expect(project.title).toBe("Revised Project");
+    tester.expect(trackListElement.innerHTML).toBe("Electric Guitar, Live Drums, Bass");
+    tester.expect(modal.hidden).toBe(true);
+  });
+
+  tester.it("rejects blank staged track names and keeps the editor open", async () => {
+    const project = structuredClone(ownerProject);
+    const trackListElement = createTrackListElement();
+    const modal = { hidden: true };
+    const form = createForm();
+    const editTracksElement = createProjectEditTracksElement();
+    const editStatus = { textContent: "" as string | null };
+    let trackUpdateCount = 0;
+    const controller = createProjectPlayerPageController({
+      project,
+      trackListElement,
+      projectEditModal: modal,
+      projectEditForm: form,
+      projectEditTitleInput: createTextInput(),
+      projectEditDescriptionInput: createTextInput(),
+      projectEditTracksElement: editTracksElement,
+      projectEditSaveButton: createControllerButton(),
+      projectEditStatusElement: editStatus,
+      tracksApi: {
+        async getTracksByProjectId() { return [track]; },
+        async deleteTrack() { return track; },
+        async updateTrackName(_projectId, _trackId, name) {
+          trackUpdateCount += 1;
+          return { ...track, name };
+        },
+      },
+      renderTrackList() { return "Guitar"; },
+      projectRole: "owner",
+      currentUserId: "user-1",
+    });
+
+    await controller.init();
+    controller.openProjectEditor();
+    await editTracksElement.inputTrackName(track.id, "   ");
+    await form.submit();
+
+    tester.expect(trackUpdateCount).toBe(0);
+    tester.expect(modal.hidden).toBe(false);
+    tester.expect(editStatus.textContent).toBe('Track name for "Guitar" is required.');
+    tester.expect(editTracksElement.getFocusCount(track.id)).toBe(1);
+  });
+
+  tester.it("keeps confirmed partial saves consistent when a later track update fails", async () => {
+    const project = structuredClone(ownerProject);
+    const tracks = [track, { ...track, id: "track-2", name: "Drums" }];
+    const trackListElement = createTrackListElement();
+    const modal = { hidden: true };
+    const form = createForm();
+    const editTracksElement = createProjectEditTracksElement();
+    const editStatus = { textContent: "" as string | null };
+    const controller = createProjectPlayerPageController({
+      project,
+      trackListElement,
+      projectEditModal: modal,
+      projectEditForm: form,
+      projectEditTitleInput: createTextInput(),
+      projectEditDescriptionInput: createTextInput(),
+      projectEditTracksElement: editTracksElement,
+      projectEditSaveButton: createControllerButton(),
+      projectEditStatusElement: editStatus,
+      tracksApi: {
+        async getTracksByProjectId() { return tracks; },
+        async deleteTrack() { return track; },
+        async updateTrackName(_projectId, trackId, name) {
+          if (trackId === "track-2") throw new Error("Save failed");
+          return { ...track, name };
+        },
+      },
+      renderTrackList(currentTracks) {
+        return currentTracks.map((currentTrack) => currentTrack.name).join(", ");
+      },
+      projectRole: "owner",
+      currentUserId: "user-1",
+    });
+
+    await controller.init();
+    controller.openProjectEditor();
+    await editTracksElement.inputTrackName("track-1", "Lead Guitar");
+    await editTracksElement.inputTrackName("track-2", "Live Drums");
+    await form.submit();
+
+    tester.expect(modal.hidden).toBe(false);
+    tester.expect(trackListElement.innerHTML).toBe("Lead Guitar, Drums");
+    tester.expect(editTracksElement.getInputValue("track-2")).toBe("Live Drums");
+    tester.expect(editStatus.textContent?.includes("remaining edits are still here")).toBe(true);
+  });
+
+  tester.it("does not submit track changes when the preceding project update fails", async () => {
+    const project = structuredClone(ownerProject);
+    const modal = { hidden: true };
+    const form = createForm();
+    const titleInput = createTextInput();
+    const editTracksElement = createProjectEditTracksElement();
+    const editStatus = { textContent: "" as string | null };
+    let trackUpdateCount = 0;
+    const controller = createProjectPlayerPageController({
+      project,
+      trackListElement: createTrackListElement(),
+      projectEditModal: modal,
+      projectEditForm: form,
+      projectEditTitleInput: titleInput,
+      projectEditDescriptionInput: createTextInput(),
+      projectEditTracksElement: editTracksElement,
+      projectEditSaveButton: createControllerButton(),
+      projectEditStatusElement: editStatus,
+      tracksApi: {
+        async getTracksByProjectId() { return [track]; },
+        async deleteTrack() { return track; },
+        async updateTrackName(_projectId, _trackId, name) {
+          trackUpdateCount += 1;
+          return { ...track, name };
+        },
+      },
+      projectsApi: {
+        async deleteProject() { return project; },
+        async updateProjectDetails() { throw new Error("Project save failed"); },
+      },
+      renderTrackList() { return "Guitar"; },
+      projectRole: "owner",
+      currentUserId: "user-1",
+    });
+
+    await controller.init();
+    controller.openProjectEditor();
+    titleInput.value = "Unsaved title";
+    await editTracksElement.inputTrackName(track.id, "Unsaved Guitar");
+    await form.submit();
+
+    tester.expect(trackUpdateCount).toBe(0);
+    tester.expect(modal.hidden).toBe(false);
+    tester.expect(editStatus.textContent).toBe(
+      "Could not save project details. Track name changes were not submitted.",
+    );
+  });
+
+  tester.it("blocks duplicate Save Changes submissions while requests are pending", async () => {
+    const project = structuredClone(ownerProject);
+    const form = createForm();
+    const editTracksElement = createProjectEditTracksElement();
+    let updateCount = 0;
+    const deferredUpdate: { finish: (() => void) | null } = { finish: null };
+    const controller = createProjectPlayerPageController({
+      project,
+      trackListElement: createTrackListElement(),
+      projectEditModal: { hidden: true },
+      projectEditForm: form,
+      projectEditTitleInput: createTextInput(),
+      projectEditDescriptionInput: createTextInput(),
+      projectEditTracksElement: editTracksElement,
+      projectEditSaveButton: createControllerButton(),
+      tracksApi: {
+        async getTracksByProjectId() { return [track]; },
+        async deleteTrack() { return track; },
+        updateTrackName(_projectId, _trackId, name) {
+          updateCount += 1;
+          return new Promise<Track>((resolve) => {
+            deferredUpdate.finish = () => resolve({ ...track, name });
+          });
+        },
+      },
+      renderTrackList() { return "Guitar"; },
+      projectRole: "owner",
+      currentUserId: "user-1",
+    });
+
+    await controller.init();
+    controller.openProjectEditor();
+    await editTracksElement.inputTrackName(track.id, "Lead Guitar");
+    const firstSave = form.submit();
+    const duplicateSave = form.submit();
+
+    tester.expect(updateCount).toBe(1);
+    deferredUpdate.finish?.();
+    await Promise.all([firstSave, duplicateSave]);
+    tester.expect(updateCount).toBe(1);
+  });
+
+  tester.it("cancels Edit Project track deletion without changing staged edits", async () => {
+    const project = structuredClone(ownerProject);
+    const trackListElement = createTrackListElement();
+    const modal = { hidden: true };
+    const editTracksElement = createProjectEditTracksElement();
+    let deleteCount = 0;
+    let confirmationMessage = "";
+    const controller = createProjectPlayerPageController({
+      project,
+      trackListElement,
+      projectEditModal: modal,
+      projectEditTitleInput: createTextInput(),
+      projectEditDescriptionInput: createTextInput(),
+      projectEditTracksElement: editTracksElement,
+      tracksApi: {
+        async getTracksByProjectId() { return [track]; },
+        async deleteTrack() {
+          deleteCount += 1;
+          return track;
+        },
+      },
+      renderTrackList() { return "Guitar"; },
+      confirmDeleteTrack(message) {
+        confirmationMessage = message;
+        return false;
+      },
+      projectRole: "owner",
+      currentUserId: "user-1",
+    });
+
+    await controller.init();
+    controller.openProjectEditor();
+    await editTracksElement.inputTrackName(track.id, "Unsaved Guitar");
+    await editTracksElement.clickDeleteTrack(track.id);
+
+    tester.expect(confirmationMessage).toBe('Delete "Guitar" from this project?');
+    tester.expect(deleteCount).toBe(0);
+    tester.expect(editTracksElement.getInputValue(track.id)).toBe("Unsaved Guitar");
+    tester.expect(modal.hidden).toBe(false);
+  });
+
+  tester.it("deletes a track immediately and preserves unrelated unsaved modal fields", async () => {
+    const project = structuredClone(ownerProject);
+    const drums = { ...track, id: "track-2", name: "Drums" };
+    let currentTracks = [track, drums];
+    const trackListElement = createTrackListElement();
+    const modal = { hidden: true };
+    const titleInput = createTextInput();
+    const descriptionInput = createTextInput();
+    const editTracksElement = createProjectEditTracksElement();
+    const detailsNames = { textContent: "" as string | null };
+    let deleteCount = 0;
+    const controller = createProjectPlayerPageController({
+      project,
+      trackListElement,
+      projectDetailsTrackNamesElement: detailsNames,
+      projectEditModal: modal,
+      projectEditTitleInput: titleInput,
+      projectEditDescriptionInput: descriptionInput,
+      projectEditTracksElement: editTracksElement,
+      tracksApi: {
+        async getTracksByProjectId() { return currentTracks; },
+        async deleteTrack(_projectId, trackId) {
+          deleteCount += 1;
+          const deletedTrack = currentTracks.find((candidate) => candidate.id === trackId)!;
+          currentTracks = currentTracks.filter((candidate) => candidate.id !== trackId);
+          return deletedTrack;
+        },
+      },
+      renderTrackList(tracks) {
+        return tracks.map((currentTrack) => currentTrack.name).join(", ");
+      },
+      confirmDeleteTrack() { return true; },
+      projectRole: "owner",
+      currentUserId: "user-1",
+    });
+
+    await controller.init();
+    controller.openProjectEditor();
+    titleInput.value = "Unsaved Project Title";
+    descriptionInput.value = "Unsaved project description";
+    await editTracksElement.inputTrackName(drums.id, "Unsaved Live Drums");
+    await editTracksElement.clickDeleteTrack(track.id);
+
+    tester.expect(deleteCount).toBe(1);
+    tester.expect(modal.hidden).toBe(false);
+    tester.expect(titleInput.value).toBe("Unsaved Project Title");
+    tester.expect(descriptionInput.value).toBe("Unsaved project description");
+    tester.expect(editTracksElement.innerHTML.includes('data-track-id="track-1"')).toBe(false);
+    tester.expect(editTracksElement.innerHTML.includes('value="Unsaved Live Drums"')).toBe(true);
+    tester.expect(trackListElement.innerHTML).toBe("Drums");
+    tester.expect(detailsNames.textContent).toBe("Drums");
+  });
+
+  tester.it("keeps Edit Project usable with staged values after track deletion fails", async () => {
+    const project = structuredClone(ownerProject);
+    const trackListElement = createTrackListElement();
+    const modal = { hidden: true };
+    const titleInput = createTextInput();
+    const editTracksElement = createProjectEditTracksElement();
+    const editStatus = { textContent: "" as string | null };
+    const controller = createProjectPlayerPageController({
+      project,
+      trackListElement,
+      projectEditModal: modal,
+      projectEditTitleInput: titleInput,
+      projectEditDescriptionInput: createTextInput(),
+      projectEditTracksElement: editTracksElement,
+      projectEditStatusElement: editStatus,
+      tracksApi: {
+        async getTracksByProjectId() { return [track]; },
+        async deleteTrack() { throw new Error("Delete failed"); },
+      },
+      renderTrackList() { return "Guitar"; },
+      confirmDeleteTrack() { return true; },
+      projectRole: "owner",
+      currentUserId: "user-1",
+    });
+
+    await controller.init();
+    controller.openProjectEditor();
+    titleInput.value = "Unsaved title";
+    await editTracksElement.inputTrackName(track.id, "Unsaved Guitar");
+    const deleteButton = await editTracksElement.clickDeleteTrack(track.id);
+
+    tester.expect(modal.hidden).toBe(false);
+    tester.expect(titleInput.value).toBe("Unsaved title");
+    tester.expect(editTracksElement.getInputValue(track.id)).toBe("Unsaved Guitar");
+    tester.expect(deleteButton.disabled).toBe(false);
+    tester.expect(editStatus.textContent).toBe("Could not delete track. Your edits are still here.");
+  });
+
+  tester.it("blocks unauthorized Edit Project track deletion", async () => {
+    const project: Project = { ...structuredClone(ownerProject), role: "contributor" };
+    const protectedTrack = { ...track, uploadedByUserId: "another-user" };
+    const editTracksElement = createProjectEditTracksElement();
+    const editStatus = { textContent: "" as string | null };
+    let deleteCount = 0;
+    const controller = createProjectPlayerPageController({
+      project,
+      trackListElement: createTrackListElement(),
+      projectEditModal: { hidden: true },
+      projectEditTitleInput: createTextInput(),
+      projectEditDescriptionInput: createTextInput(),
+      projectEditTracksElement: editTracksElement,
+      projectEditStatusElement: editStatus,
+      tracksApi: {
+        async getTracksByProjectId() { return [protectedTrack]; },
+        async deleteTrack() {
+          deleteCount += 1;
+          return protectedTrack;
+        },
+      },
+      renderTrackList() { return "Guitar"; },
+      confirmDeleteTrack() { return true; },
+      projectRole: "contributor",
+      currentUserId: "user-1",
+    });
+
+    await controller.init();
+    controller.openProjectEditor();
+    tester.expect(editTracksElement.innerHTML).toBe("");
+    await editTracksElement.clickDeleteTrack(protectedTrack.id);
+
+    tester.expect(deleteCount).toBe(0);
+    tester.expect(editStatus.textContent).toBe("Track access denied.");
   });
 
   tester.it("opens track editing without forcing the keyboard and selects the name after deliberate focus", async () => {

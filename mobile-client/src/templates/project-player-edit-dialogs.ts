@@ -1,3 +1,51 @@
+import type { Track } from "../types.js";
+
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+export function renderProjectEditTrackRows(tracks: readonly Track[]): string {
+  if (tracks.length === 0) {
+    return '<p class="project-player-edit-tracks__empty">No editable tracks.</p>';
+  }
+
+  return tracks.map((track, index) => {
+    const trackId = escapeHtml(track.id);
+    const trackName = escapeHtml(track.name);
+    return /*html*/ `
+      <div class="project-player-edit-track" data-project-edit-track data-track-id="${trackId}">
+        <label class="project-player-edit-form__field" for="project-edit-track-name-${trackId}">
+          <span>Track ${index + 1}</span>
+          <input
+            id="project-edit-track-name-${trackId}"
+            type="text"
+            value="${trackName}"
+            required
+            autocomplete="off"
+            data-project-edit-track-name
+            data-track-id="${trackId}"
+            aria-label="Track ${index + 1} name"
+          />
+        </label>
+        <button
+          class="button button--secondary-light project-player-edit-track__delete"
+          type="button"
+          data-project-edit-track-delete
+          data-track-id="${trackId}"
+          aria-label="Delete ${trackName} from this project"
+        >
+          Delete Track
+        </button>
+      </div>
+    `;
+  }).join("");
+}
+
 export function renderProjectEditDialog(): string {
   return /*html*/ `
     <div id="project-edit-modal" class="modal" hidden>
@@ -24,25 +72,38 @@ export function renderProjectEditDialog(): string {
         </div>
 
         <form id="project-edit-form" class="project-player-edit-form">
-          <label class="project-player-edit-form__field">
-            <span>Project title</span>
-            <input
-              id="project-edit-title-input"
-              type="text"
-              required
-              autocomplete="off"
-              enterkeyhint="next"
-            />
-          </label>
+          <details class="project-player-edit-section" open>
+            <summary>Project details</summary>
+            <div class="project-player-edit-section__content">
+              <label class="project-player-edit-form__field">
+                <span>Project title</span>
+                <input
+                  id="project-edit-title-input"
+                  type="text"
+                  required
+                  autocomplete="off"
+                  enterkeyhint="next"
+                />
+              </label>
 
-          <label class="project-player-edit-form__field">
-            <span>Description</span>
-            <textarea
-              id="project-edit-description-input"
-              rows="5"
-              enterkeyhint="enter"
-            ></textarea>
-          </label>
+              <label class="project-player-edit-form__field">
+                <span>Description</span>
+                <textarea
+                  id="project-edit-description-input"
+                  rows="5"
+                  enterkeyhint="enter"
+                ></textarea>
+              </label>
+            </div>
+          </details>
+
+          <details class="project-player-edit-section">
+            <summary>Tracks</summary>
+            <div
+              id="project-edit-track-list"
+              class="project-player-edit-section__content project-player-edit-tracks"
+            ></div>
+          </details>
 
           <p
             id="project-edit-status"
@@ -64,7 +125,7 @@ export function renderProjectEditDialog(): string {
               class="button"
               type="submit"
             >
-              Save Project
+              Save Changes
             </button>
           </div>
         </form>
