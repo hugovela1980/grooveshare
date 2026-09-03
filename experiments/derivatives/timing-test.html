@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>GrooveShare Derivative Timing Test</title>
+</head>
+<body>
+  <h1>GrooveShare Derivative Timing Test</h1>
+  <button id="run">Run test</button>
+  <pre id="output"></pre>
+
+  <script>
+    const FILES = [
+      "timing-fixture.wav",
+      "timing-fixture-192.opus",
+      "timing-fixture-256.opus",
+    ];
+
+    const MARKERS = Array.from({ length: 15 }, (_, i) => 1 + i * 10);
+
+    const output = document.querySelector("#output");
+
+    function log(line = "") {
+      output.textContent += line + "\n";
+      console.log(line);
+    }
+
+    async function decode(context, file) {
+      const started = performance.now();
+
+      const response = await fetch(file);
+      const encoded = await response.arrayBuffer();
+
+      const downloadFinished = performance.now();
+      const decoded = await context.decodeAudioData(encoded.slice(0));
+      const decodeFinished = performance.now();
+
+      return {
+        file,
+        encodedBytes: encoded.byteLength,
+        buffer: decoded,
+        fetchMs: downloadFinished - started,
+        decodeMs: decodeFinished - downloadFinished,
+      };
+    }
+
+    // Calculate the center of acoustic energy around one known marker.
+    // This is more useful than looking for one particular sample because
+    // lossy codecs can slightly reshape a transient without moving it.
+    function energyCentroid(buffer, expectedSeconds, radiusSeconds = 0.03) {
+      const samples = buffer.getChannelData(0);
+      const sr = buffer.sampleRate;
+
+      const start = Math.max(
+        0,
+        Math.floor((expectedSeconds - radiusSeconds) * sr)
+      );
+
+      const end = Math.min(
+        samples.length,
+        Math.ceil((expectedSeconds + radiusSeconds) * sr)
+      );
+
+      let totalEnergy = 0;
+      let weightedSample = 0;
+
+      for (let i = start; i < end; i++) {
+        const energy = samples[i] * samples[i];
+
+        totalEnergy += energy;
+        weightedSample += i * energy;
+      }
+
+      if (totalEnergy === 0) {
+        throw new Error(`No energy found near ${expectedSeconds}s`);
+      }
+
+      return weightedSample / totalEnergy / sr;
+    }
+
+    function summarizeOffsets(name, reference, candidate) {
+      const offsets = MARKERS.map((marker) => {
+        const referenceCenter = energyCentroid(reference, marker);
+        const candidateCenter = energyCentroid(candidate, marker);
+
+        return {
+          marker,
+          referenceCenter,
+          candidateCenter,
+          offsetMs: (candidateCenter - referenceCenter) * 1000,
+        };
+      });
+
+      log("");
+      log(`=== ${name} vs WAV ===`);
+
+      for (const result of offsets) {
+        log(
+          `${result.marker.toFixed(0).padStart(3)}s: ` +
+          `${result.offsetMs >= 0 ? "+" : ""}` +
+          `${result.offsetMs.toFixed(4)} ms`
+        );
+      }
+
+      const values = offsets.map((result) => result.offsetMs);
+      const mean = values.reduce((a, b) => a + b, 0) / values.length;
+      const min = Math.min(...values);
+      const max = Math.max(...values);
+      const firstToLast = values.at(-1) - values[0];
+
+      log("");
+      log(`Mean offset:       ${mean.toFixed(4)} ms`);
+      log(`Minimum offset:    ${min.toFixed(4)} ms`);
+      log(`Maximum offset:    ${max.toFixed(4)} ms`);
+      log(`First→last change: ${firstToLast.toFixed(4)} ms`);
+    }
+
+    document.querySelector("#run").addEventListener("click", async () => {
+      output.textContent = "";
+
+      try {
+        const context = new AudioContext({ sampleRate: 48000 });
+
+        log(`Browser AudioContext sample rate: ${context.sampleRate} Hz`);
+        log("");
+
+        const results = [];
+
+        for (const file of FILES) {
+          log(`Loading ${file}...`);
+
+          const result = await decode(context, file);
+          results.push(result);
+
+          log(
+            `  ${(result.encodedBytes / 1024 / 1024).toFixed(3)} MB`
+          );
+          log(
+            `  decoded duration: ${result.buffer.duration.toFixed(6)} sec`
+          );
+          log(
+            `  decoded samples:  ${result.buffer.length}`
+          );
+          log(
+            `  decode time:      ${result.decodeMs.toFixed(2)} ms`
+          );
+        }
+
+        const wav = results[0].buffer;
+
+        summarizeOffsets("192 kbps Opus", wav, results[1].buffer);
+        summarizeOffsets("256 kbps Opus", wav, results[2].buffer);
+
+        log("");
+        log("TEST COMPLETE");
+      } catch (error) {
+        console.error(error);
+        log("");
+        log(`ERROR: ${error.message}`);
+      }
+    });
+  </script>
+</body>
+</html>

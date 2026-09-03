@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>GrooveShare Derivative Listening Test</title>
+</head>
+<body>
+  <h1>GrooveShare Derivative Listening Test</h1>
+
+  <p>
+    Play the same section repeatedly and switch between A, B, and C.
+    Try not to inspect which file is assigned to each letter until you're done.
+  </p>
+
+  <button id="a">A</button>
+  <button id="b">B</button>
+  <button id="c">C</button>
+
+  <button id="back">-10 sec</button>
+  <button id="forward">+10 sec</button>
+
+  <p id="time"></p>
+
+  <button id="reveal">Reveal identities</button>
+  <pre id="result"></pre>
+
+  <script>
+    const files = [
+      { name: "WAV original", file: "music-test.wav" },
+      { name: "192 kbps Opus", file: "music-test-192.opus" },
+      { name: "256 kbps Opus", file: "music-test-256.opus" },
+    ];
+
+    // Randomize assignment each page load.
+    const shuffled = [...files].sort(() => Math.random() - 0.5);
+
+    const audio = new Audio();
+    let activeIndex = null;
+
+    async function switchTo(index) {
+      const position = Number.isFinite(audio.currentTime)
+        ? audio.currentTime
+        : 0;
+
+      const wasPlaying = !audio.paused;
+
+      audio.src = shuffled[index].file;
+      audio.currentTime = position;
+
+      activeIndex = index;
+
+      if (wasPlaying || position === 0) {
+        await audio.play();
+      }
+    }
+
+    document.querySelector("#a").onclick = () => switchTo(0);
+    document.querySelector("#b").onclick = () => switchTo(1);
+    document.querySelector("#c").onclick = () => switchTo(2);
+
+    document.querySelector("#back").onclick = () => {
+      audio.currentTime = Math.max(0, audio.currentTime - 10);
+    };
+
+    document.querySelector("#forward").onclick = () => {
+      audio.currentTime += 10;
+    };
+
+    audio.ontimeupdate = () => {
+      document.querySelector("#time").textContent =
+        `Position: ${audio.currentTime.toFixed(1)} sec`;
+    };
+
+    document.querySelector("#reveal").onclick = () => {
+      document.querySelector("#result").textContent =
+        `A = ${shuffled[0].name}\n` +
+        `B = ${shuffled[1].name}\n` +
+        `C = ${shuffled[2].name}`;
+    };
+  </script>
+</body>
+</html>
