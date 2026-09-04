@@ -1,5 +1,6 @@
 import "./projects-json-store.test.js";
 import "./tracks-json-store.test.js";
+import "./playback-derivative-generator.test.js";
 import "./upload-paths.test.js";
 import "./multipart-form-data.test.js";
 import "./upload-validation.test.js";

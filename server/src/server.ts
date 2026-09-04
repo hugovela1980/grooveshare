@@ -2,6 +2,7 @@ import { createAppServer } from "./app.js";
 import { loadLocalEnvironmentFile } from "./config/load-environment.js";
 import { createServerConfig } from "./config/server-config.js";
 import { createDatabasePool } from "./db/pool.js";
+import { createPlaybackDerivativeGenerator } from "./playback-derivative-generator.js";
 import { resetDevelopmentData } from "./dev/reset-development-data.js";
 import { createProjectMembershipsPostgresStore } from "./stores/project-memberships-postgres-store.js";
 import { createProjectInvitationsPostgresStore } from "./stores/project-invitations-postgres-store.js";
@@ -21,6 +22,11 @@ pool.on("error", (error) => {
 
 const projectsStore = createProjectsPostgresStore(pool);
 const tracksStore = createTracksPostgresStore(pool);
+const playbackDerivativeGenerator = createPlaybackDerivativeGenerator({
+  tracksStore,
+  ffmpegPath: config.ffmpegPath,
+  ffprobePath: config.ffprobePath,
+});
 const usersStore = createUsersPostgresStore(pool);
 const sessionsStore = createSessionsPostgresStore(pool);
 const projectMembershipsStore =
@@ -31,6 +37,7 @@ const projectInvitationsStore =
 const server = createAppServer({
   projectsStore,
   tracksStore,
+  playbackDerivativeGenerator,
   usersStore,
   sessionsStore,
   projectMembershipsStore,

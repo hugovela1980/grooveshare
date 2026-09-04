@@ -18,6 +18,8 @@ export type ServerConfig = {
   port: number;
   clientOrigin: string;
   uploadRoot: string;
+  ffmpegPath: string;
+  ffprobePath: string;
   database: GrooveShareDatabaseConfig;
   secureCookies: boolean;
   developmentRoutesEnabled: boolean;
@@ -30,6 +32,8 @@ const DEFAULT_CLIENT_ORIGIN = "http://localhost:5173";
 const DEFAULT_DATABASE_HOST = "localhost";
 const DEFAULT_DATABASE_NAME = "grooveshare_dev";
 const DEFAULT_DATABASE_USER = "grooveshare_app";
+const DEFAULT_FFMPEG_PATH = "ffmpeg";
+const DEFAULT_FFPROBE_PATH = "ffprobe";
 
 function readTrimmed(
   env: NodeJS.ProcessEnv,
@@ -201,6 +205,8 @@ export function createServerConfig(
     port: parsePositiveInteger(portText, "PORT"),
     clientOrigin,
     uploadRoot,
+    ffmpegPath: readTrimmed(env, "FFMPEG_PATH") ?? DEFAULT_FFMPEG_PATH,
+    ffprobePath: readTrimmed(env, "FFPROBE_PATH") ?? DEFAULT_FFPROBE_PATH,
     database: createDatabaseConfig(env),
     secureCookies: isProduction,
     developmentRoutesEnabled: !isProduction,

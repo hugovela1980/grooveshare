@@ -2,6 +2,9 @@ import { access, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import type http from "node:http";
 import path from "node:path";
 import { createAppServer } from "../src/app.js";
+import type {
+  PlaybackDerivativeGenerator,
+} from "../src/playback-derivative-generator.js";
 import {
   CURRENT_PLAYBACK_DERIVATIVE_VERSION,
   createPendingPlaybackDerivative,
@@ -35,6 +38,12 @@ type ApiResponse<T> = {
   ok: boolean;
   data?: T;
   error?: string;
+};
+
+type TestServerOptions = {
+  createPlaybackDerivativeGenerator?: (
+    tracksStore: TracksStore,
+  ) => PlaybackDerivativeGenerator;
 };
 
 async function resetTestDatabase(): Promise<void> {
@@ -105,7 +114,9 @@ function closeServer(server: http.Server): Promise<void> {
   });
 }
 
-async function createTestServer(): Promise<{
+async function createTestServer(
+  options: TestServerOptions = {},
+): Promise<{
   baseUrl: string;
   server: http.Server;
   usersStore: UsersStore;
@@ -119,6 +130,8 @@ async function createTestServer(): Promise<{
     createProjectsJsonStore(TEST_DB_FILE_PATH);
   const tracksStore =
     createTracksJsonStore(TEST_DB_FILE_PATH);
+  const playbackDerivativeGenerator =
+    options.createPlaybackDerivativeGenerator?.(tracksStore);
   const usersStore =
     createTestUsersStore();
   const sessionsStore =
@@ -150,6 +163,7 @@ async function createTestServer(): Promise<{
   const server = createAppServer({
     projectsStore,
     tracksStore,
+    playbackDerivativeGenerator,
     usersStore,
     sessionsStore,
     projectMembershipsStore,
@@ -185,6 +199,101 @@ async function createTestServer(): Promise<{
     tracksStore,
     authCookie,
     request,
+  };
+}
+
+function createSuccessfulTestGenerator(
+  tracksStore: TracksStore,
+  onGenerate?: (track: Track, persistedTrack: Track | null) => void,
+): PlaybackDerivativeGenerator {
+  return {
+    async generate(track) {
+      const persistedTrack = await tracksStore.getTrackById(
+        track.projectId,
+        track.id,
+      );
+      onGenerate?.(track, persistedTrack);
+
+      const processing = await tracksStore.updatePlaybackDerivative(
+        track.projectId,
+        track.id,
+        {
+          status: "processing",
+          version: CURRENT_PLAYBACK_DERIVATIVE_VERSION,
+          filePath: null,
+          mimeType: null,
+          fileSize: null,
+        },
+      );
+      if (!processing.ok) {
+        throw new Error("Expected processing state to persist.");
+      }
+
+      const derivativePath = path.join(
+        path.dirname(track.filePath),
+        "playback-derivatives",
+        `${track.id}-${CURRENT_PLAYBACK_DERIVATIVE_VERSION}.opus`,
+      );
+      const ready = await tracksStore.updatePlaybackDerivative(
+        track.projectId,
+        track.id,
+        {
+          status: "ready",
+          version: CURRENT_PLAYBACK_DERIVATIVE_VERSION,
+          filePath: derivativePath,
+          mimeType: "audio/ogg",
+          fileSize: 16,
+        },
+      );
+      if (!ready.ok) {
+        throw new Error("Expected ready state to persist.");
+      }
+
+      return { ok: true, track: ready.updatedTrack };
+    },
+  };
+}
+
+function createFailedTestGenerator(
+  tracksStore: TracksStore,
+): PlaybackDerivativeGenerator {
+  return {
+    async generate(track) {
+      const processing = await tracksStore.updatePlaybackDerivative(
+        track.projectId,
+        track.id,
+        {
+          status: "processing",
+          version: CURRENT_PLAYBACK_DERIVATIVE_VERSION,
+          filePath: null,
+          mimeType: null,
+          fileSize: null,
+        },
+      );
+      if (!processing.ok) {
+        throw new Error("Expected processing state to persist.");
+      }
+      const failed = await tracksStore.updatePlaybackDerivative(
+        track.projectId,
+        track.id,
+        {
+          status: "failed",
+          version: CURRENT_PLAYBACK_DERIVATIVE_VERSION,
+          filePath: null,
+          mimeType: null,
+          fileSize: null,
+        },
+      );
+      if (!failed.ok) {
+        throw new Error("Expected failed state to persist.");
+      }
+
+      return {
+        ok: false,
+        track: failed.updatedTrack,
+        error: new Error("Simulated derivative failure."),
+      };
+    },
   };
 }
 
@@ -398,7 +507,18 @@ tester.describe("project API routes", () => {
   });
 
   tester.it("uploads an audio file for an existing project", async () => {
-    const { baseUrl, server, request } = await createTestServer();
+    let originalWasPersistedBeforeGeneration = false;
+    const { baseUrl, server, request } = await createTestServer({
+      createPlaybackDerivativeGenerator: (tracksStore) => {
+        return createSuccessfulTestGenerator(
+          tracksStore,
+          (_track, persistedTrack) => {
+            originalWasPersistedBeforeGeneration =
+              persistedTrack?.playbackDerivative.status === "pending";
+          },
+        );
+      },
+    });
     const boundary = "----GrooveShareBoundary";
     const fileData = Buffer.from("fake wav data", "utf-8");
 
@@ -462,8 +582,10 @@ tester.describe("project API routes", () => {
       tester.expect(uploadBody.data?.originalFilename).toBe("guitar-riff.wav");
       tester.expect(uploadBody.data?.mimeType).toBe("audio/wav");
       tester.expect(uploadBody.data?.fileSize).toBe(fileData.length);
-      tester.expect(uploadBody.data?.playbackDerivative).toEqual(
-        createPendingPlaybackDerivative(),
+      tester.expect(originalWasPersistedBeforeGeneration).toBe(true);
+      tester.expect(uploadBody.data?.playbackDerivative.status).toBe("ready");
+      tester.expect(uploadBody.data?.playbackDerivative.version).toBe(
+        CURRENT_PLAYBACK_DERIVATIVE_VERSION,
       );
       tester.expect(typeof uploadBody.data?.filePath).toBe("string");
       tester.expect(
@@ -475,8 +597,90 @@ tester.describe("project API routes", () => {
     }
   });
 
+  tester.it("keeps the uploaded original available when derivative generation fails", async () => {
+    const { baseUrl, server, request } = await createTestServer({
+      createPlaybackDerivativeGenerator: createFailedTestGenerator,
+    });
+    const boundary = "----GrooveShareDerivativeFailureBoundary";
+    const fileData = Buffer.from("original audio", "utf-8");
+
+    try {
+      const createProjectResponse = await request(`${baseUrl}/api/projects`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: "Derivative Failure",
+          description: "Original remains available",
+        }),
+      });
+      const projectBody =
+        (await createProjectResponse.json()) as ApiResponse<Project>;
+      const projectId = projectBody.data?.id;
+      if (!projectId) {
+        throw new Error("Created project did not include an ID.");
+      }
+
+      const multipartBody = createMultipartBody({
+        boundary,
+        parts: [
+          createTextPart({ boundary, name: "trackName", value: "Original" }),
+          createFilePart({
+            boundary,
+            fieldName: "audioFile",
+            filename: "original.wav",
+            mimeType: "audio/wav",
+            data: fileData,
+          }),
+        ],
+      });
+      const uploadResponse = await request(
+        `${baseUrl}/api/projects/${projectId}/tracks`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": `multipart/form-data; boundary=${boundary}`,
+          },
+          body: bufferToArrayBuffer(multipartBody),
+        },
+      );
+      const uploadBody = (await uploadResponse.json()) as ApiResponse<Track>;
+      const uploadedTrack = uploadBody.data;
+
+      tester.expect(uploadResponse.status).toBe(201);
+      tester.expect(uploadedTrack?.playbackDerivative).toEqual({
+        status: "failed",
+        version: CURRENT_PLAYBACK_DERIVATIVE_VERSION,
+        filePath: null,
+        mimeType: null,
+        fileSize: null,
+      });
+      if (!uploadedTrack) {
+        throw new Error("Uploaded track was missing from response.");
+      }
+
+      const audioResponse = await request(
+        `${baseUrl}/api/projects/${projectId}/tracks/${uploadedTrack.id}/audio`,
+      );
+      const audioBody = Buffer.from(await audioResponse.arrayBuffer());
+
+      tester.expect(audioResponse.status).toBe(200);
+      tester.expect(audioResponse.headers.get("Content-Type")).toBe("audio/wav");
+      tester.expect(audioBody).toEqual(fileData);
+      tester.expect(await fileExists(uploadedTrack.filePath)).toBe(true);
+    } finally {
+      await closeServer(server);
+    }
+  });
+
   tester.it("uploads recorded-take placement, structural media lead-in, and signed alignment independently", async () => {
-    const { baseUrl, server, request } = await createTestServer();
+    let generationCalls = 0;
+    const { baseUrl, server, request } = await createTestServer({
+      createPlaybackDerivativeGenerator: (tracksStore) => {
+        return createSuccessfulTestGenerator(tracksStore, () => {
+          generationCalls += 1;
+        });
+      },
+    });
     const boundary = "----GrooveShareRecordedTakeAlignmentBoundary";
     const fileData = Buffer.from("recorded take", "utf-8");
 
@@ -536,6 +740,8 @@ tester.describe("project API routes", () => {
       });
       tester.expect(uploadBody.data?.alignmentOffsetSeconds).toBe(0.163);
       tester.expect(uploadBody.data?.mediaLeadInSeconds).toBe(2.43);
+      tester.expect(uploadBody.data?.playbackDerivative.status).toBe("ready");
+      tester.expect(generationCalls).toBe(1);
 
       const tracksResponse = await request(
         `${baseUrl}/api/projects/${projectId}/tracks`,

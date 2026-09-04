@@ -43,6 +43,8 @@ tester.describe("server configuration", () => {
     );
     tester.expect(config.uploadRoot).toBeTruthy();
     tester.expect(path.isAbsolute(config.uploadRoot)).toBe(true);
+    tester.expect(config.ffmpegPath).toBe("ffmpeg");
+    tester.expect(config.ffprobePath).toBe("ffprobe");
     tester.expect(config.database).toEqual({
       host: "localhost",
       port: 5432,
@@ -70,6 +72,8 @@ tester.describe("server configuration", () => {
       PGDATABASE: "grooveshare",
       PGUSER: "grooveshare_app",
       PGPASSWORD: "production-password",
+      FFMPEG_PATH: "/opt/media/ffmpeg",
+      FFPROBE_PATH: "/opt/media/ffprobe",
     });
 
     tester.expect(config.nodeEnv).toBe("production");
@@ -79,6 +83,8 @@ tester.describe("server configuration", () => {
       "https://music.example.com",
     );
     tester.expect(config.uploadRoot).toBe(uploadRoot);
+    tester.expect(config.ffmpegPath).toBe("/opt/media/ffmpeg");
+    tester.expect(config.ffprobePath).toBe("/opt/media/ffprobe");
     tester.expect(config.secureCookies).toBe(true);
     tester.expect(config.developmentRoutesEnabled).toBe(false);
   });

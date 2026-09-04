@@ -2,6 +2,12 @@ import { createReadStream } from "node:fs";
 import { rm, rmdir, stat, writeFile } from "node:fs/promises";
 import http, { type IncomingMessage, type ServerResponse } from "node:http";
 import path from "node:path";
+import {
+  type PlaybackDerivativeGenerator,
+} from "./playback-derivative-generator.js";
+import {
+  CURRENT_PLAYBACK_DERIVATIVE_VERSION,
+} from "./playback-derivative.js";
 import { handleDevResetRoute } from "./dev/dev-reset-route.js";
 import { handleDevAuthorizationSeedRoute } from "./dev/dev-authorization-seed-route.js";
 import {
@@ -77,6 +83,7 @@ type JsonResponse = Record<string, unknown>;
 type AppOptions = {
   projectsStore: ProjectsStore;
   tracksStore: TracksStore;
+  playbackDerivativeGenerator?: PlaybackDerivativeGenerator;
   usersStore: UsersStore;
   clientOrigin?: string;
   uploadRoot?: string;
@@ -551,6 +558,7 @@ function sanitizeFilename(filename: string): string {
 export function createAppServer({
   projectsStore,
   tracksStore,
+  playbackDerivativeGenerator,
   usersStore,
   sessionsStore,
   projectMembershipsStore,
@@ -1037,12 +1045,49 @@ export function createAppServer({
       mediaLeadInSeconds: mediaLeadInSeconds ?? 0,
     });
 
+    let responseTrack = track;
+
+    if (playbackDerivativeGenerator) {
+      try {
+        const generationResult =
+          await playbackDerivativeGenerator.generate(track);
+        responseTrack = generationResult.track;
+      } catch (generationError) {
+        console.error(
+          "Unexpected playback derivative generator failure.",
+          generationError,
+        );
+
+        try {
+          const failedResult = await tracksStore.updatePlaybackDerivative(
+            track.projectId,
+            track.id,
+            {
+              status: "failed",
+              version: CURRENT_PLAYBACK_DERIVATIVE_VERSION,
+              filePath: null,
+              mimeType: null,
+              fileSize: null,
+            },
+          );
+          if (failedResult.ok) {
+            responseTrack = failedResult.updatedTrack;
+          }
+        } catch (persistenceError) {
+          console.error(
+            "Could not persist unexpected playback derivative failure.",
+            persistenceError,
+          );
+        }
+      }
+    }
+
     sendJson(
       res,
       201,
       {
         ok: true,
-        data: track,
+        data: responseTrack,
       },
       clientOrigin,
     );

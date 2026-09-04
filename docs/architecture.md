@@ -374,7 +374,9 @@ Operational rule: if a migration is executed by a PostgreSQL administrative role
 
 ### Filesystem audio
 
-Uploaded audio bytes are stored on disk rather than in PostgreSQL. Each track's existing file path, MIME type, size, and original filename describe the authoritative original. PostgreSQL also models one disposable, regeneratable playback derivative with `pending`, `processing`, `ready`, or `failed` status and nullable artifact metadata. New and legacy tracks start pending with profile version `opus-playback-v1`; server-side generation begins in the next milestone, and later backfill work will handle legacy media.
+Uploaded audio bytes are stored on disk rather than in PostgreSQL. Each track's existing file path, MIME type, size, and original filename describe the authoritative original. PostgreSQL also models one disposable, regeneratable playback derivative with `pending`, `processing`, `ready`, or `failed` status and nullable artifact metadata. New and legacy tracks start pending with profile version `opus-playback-v1`; later backfill work will handle legacy media.
+
+The server persists a newly uploaded original before awaiting playback-derivative generation. A reusable generator invokes FFmpeg/libopus with the versioned Ogg/Opus, 48 kHz, 256 kbps VBR profile, writes to a temporary sibling artifact, and uses FFprobe to verify a non-empty Opus audio stream, sample rate, and positive duration before atomic finalization and `ready` persistence. Generation or validation failure cleans partial artifacts, records `failed`, and never invalidates the original. Kept recorded takes use this same upload path. The generator can be reused for regeneration and future backfill; authenticated derivative delivery remains Milestone 4.
 
 Production and Labs use persistent upload directories outside their Git checkouts. Deploying application code therefore does not replace uploaded audio.
 

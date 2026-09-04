@@ -1,6 +1,20 @@
 import type { PlaybackDerivative } from "./types.js";
 
-export const CURRENT_PLAYBACK_DERIVATIVE_VERSION = "opus-playback-v1";
+export const CURRENT_PLAYBACK_DERIVATIVE_PROFILE = {
+    version: "opus-playback-v1",
+    container: "ogg",
+    fileExtension: ".opus",
+    mimeType: "audio/ogg",
+    codec: "libopus",
+    probeCodecName: "opus",
+    sampleRate: 48_000,
+    targetBitrate: "256k",
+    variableBitrate: "on",
+    application: "audio",
+} as const;
+
+export const CURRENT_PLAYBACK_DERIVATIVE_VERSION =
+    CURRENT_PLAYBACK_DERIVATIVE_PROFILE.version;
 
 export function createPendingPlaybackDerivative(): PlaybackDerivative {
     return {
