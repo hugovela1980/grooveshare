@@ -27,6 +27,10 @@ import {
   type PlaybackScheduleInstruction,
 } from "./transport.js";
 import { createRecordingTimeline } from "./recording-timeline.js";
+import {
+  DEFAULT_PLAYBACK_MEDIA_PREPARATION_POLICY,
+  type PlaybackMediaPreparationPolicy,
+} from "./playback-media.js";
 
 type AudioBufferLike = {
   duration: number;
@@ -97,10 +101,13 @@ type AudioContextLike = {
 
 type LoadedWebAudioChannel = {
   channel: PlaybackChannel;
-  buffer: AudioBufferLike | null;
+  activePlaybackBuffer: AudioBufferLike | null;
+  preparedOriginalBuffer: AudioBufferLike | null;
   gainNode: GainNodeLike | null;
-  preparationStatus: PlaybackChannelPreparationStatus;
-  failureMessage: string | null;
+  derivativePreparationStatus: PlaybackChannelPreparationStatus;
+  derivativeFailureMessage: string | null;
+  originalPreparationStatus: PlaybackChannelPreparationStatus;
+  originalFailureMessage: string | null;
 };
 
 type ActiveSource = {
@@ -130,6 +137,7 @@ type WebAudioPlaybackEngineOptions = {
   onLoadError?: (error: unknown) => void;
   musicalTimeline?: MusicalTimeline;
   recordingAlignmentDiagnostics?: RecordingAlignmentDiagnosticsPort;
+  mediaPreparationPolicy?: PlaybackMediaPreparationPolicy;
 };
 
 const END_EPSILON_SECONDS = 0.01;
@@ -218,6 +226,8 @@ export function createWebAudioPlaybackEngine(
     options.clearScheduledInterval ?? clearBrowserInterval;
   const normalizedMusicalTimeline = normalizeMusicalTimeline(options.musicalTimeline);
   const recordingAlignmentDiagnostics = options.recordingAlignmentDiagnostics;
+  const mediaPreparationPolicy =
+    options.mediaPreparationPolicy ?? DEFAULT_PLAYBACK_MEDIA_PREPARATION_POLICY;
   const onLoadError = options.onLoadError ?? ((error: unknown) => {
     console.error("Could not prepare GrooveShare audio playback.", error);
   });
@@ -271,8 +281,15 @@ export function createWebAudioPlaybackEngine(
       channelNumber: loadedChannel.channel.channelNumber,
       trackId: loadedChannel.channel.trackId,
       required: loadedChannel.channel.enabled,
-      status: loadedChannel.preparationStatus,
-      failureMessage: loadedChannel.failureMessage,
+      status: loadedChannel.derivativePreparationStatus,
+      failureMessage: loadedChannel.derivativeFailureMessage,
+      activeSource: loadedChannel.activePlaybackBuffer
+        ? "playback-derivative" as const
+        : null,
+      preparedSources: {
+        playbackDerivative: loadedChannel.derivativePreparationStatus,
+        original: loadedChannel.originalPreparationStatus,
+      },
     }));
     const requiredChannels = channels.filter(({ required }) => required);
     const failedRequiredChannel = requiredChannels.find(({ status }) => {
@@ -347,8 +364,8 @@ export function createWebAudioPlaybackEngine(
   }
 
   function getMixDuration(): number {
-    return loadedChannels.reduce((longestDuration, { channel, buffer }) => {
-      const duration = buffer?.duration ?? 0;
+    return loadedChannels.reduce((longestDuration, { channel, activePlaybackBuffer }) => {
+      const duration = activePlaybackBuffer?.duration ?? 0;
 
       if (!Number.isFinite(duration) || duration <= 0) {
         return longestDuration;
@@ -789,7 +806,7 @@ export function createWebAudioPlaybackEngine(
     scheduleStartAtClockTime = instruction.startAtClockTime,
     scheduleProjectPosition = instruction.projectPositionSeconds,
   ): ActiveSource | null {
-    const buffer = loadedChannel.buffer;
+    const buffer = loadedChannel.activePlaybackBuffer;
     const gainNode = loadedChannel.gainNode;
 
     if (!buffer || !gainNode) {
@@ -1361,11 +1378,11 @@ export function createWebAudioPlaybackEngine(
     }
 
     if (enabled) {
-      if (loadedChannel.preparationStatus === "failed") {
-        loadedChannel.preparationStatus = "unloaded";
-        loadedChannel.failureMessage = null;
+      if (loadedChannel.derivativePreparationStatus === "failed") {
+        loadedChannel.derivativePreparationStatus = "unloaded";
+        loadedChannel.derivativeFailureMessage = null;
       }
-      if (loadedChannel.preparationStatus === "ready") {
+      if (loadedChannel.derivativePreparationStatus === "ready") {
         attachPreparedChannelToActivePlayback(loadedChannel);
       } else {
         void prepareChannel(loadedChannel, loadGeneration);
@@ -1428,7 +1445,7 @@ export function createWebAudioPlaybackEngine(
     const transportSnapshot = transport.getSnapshot();
     if (
       !loadedChannel.channel.enabled ||
-      loadedChannel.preparationStatus !== "ready" ||
+      loadedChannel.derivativePreparationStatus !== "ready" ||
       transportSnapshot.playbackState !== "playing"
     ) {
       return;
@@ -1481,11 +1498,25 @@ export function createWebAudioPlaybackEngine(
           }
           if (
             loadedChannel.channel.enabled ||
-            loadedChannel.preparationStatus !== "unloaded"
+            loadedChannel.derivativePreparationStatus !== "unloaded"
           ) {
             continue;
           }
           await prepareChannel(loadedChannel, generation);
+        }
+
+        if (mediaPreparationPolicy !== "derivative-plus-original") {
+          return;
+        }
+
+        for (const loadedChannel of loadedChannels) {
+          if (destroyed || generation !== loadGeneration) {
+            return;
+          }
+          if (loadedChannel.originalPreparationStatus !== "unloaded") {
+            continue;
+          }
+          await prepareOriginal(loadedChannel, generation);
         }
       } finally {
         if (backgroundPreparationGeneration === generation) {
@@ -1522,23 +1553,27 @@ export function createWebAudioPlaybackEngine(
     if (
       destroyed ||
       generation !== loadGeneration ||
-      loadedChannel.preparationStatus === "fetching" ||
-      loadedChannel.preparationStatus === "decoding" ||
-      loadedChannel.preparationStatus === "ready"
+      loadedChannel.derivativePreparationStatus === "fetching" ||
+      loadedChannel.derivativePreparationStatus === "decoding" ||
+      loadedChannel.derivativePreparationStatus === "ready"
     ) {
       return;
     }
 
     try {
-      loadedChannel.preparationStatus = "fetching";
-      loadedChannel.failureMessage = null;
+      loadedChannel.derivativePreparationStatus = "fetching";
+      loadedChannel.derivativeFailureMessage = null;
       handlePreparationChange(generation);
-      const audioData = await fetchAudioData(loadedChannel.channel.audioUrl);
+      const derivativeUrl = loadedChannel.channel.playbackDerivativeUrl;
+      if (!derivativeUrl) {
+        throw new Error("Playback derivative is not available.");
+      }
+      const audioData = await fetchAudioData(derivativeUrl);
       if (destroyed || generation !== loadGeneration) {
         return;
       }
 
-      loadedChannel.preparationStatus = "decoding";
+      loadedChannel.derivativePreparationStatus = "decoding";
       handlePreparationChange(generation);
       const buffer = await audioContext.decodeAudioData(audioData);
       if (destroyed || generation !== loadGeneration) {
@@ -1546,9 +1581,9 @@ export function createWebAudioPlaybackEngine(
       }
 
       const gainNode = audioContext.createGain();
-      loadedChannel.buffer = buffer;
+      loadedChannel.activePlaybackBuffer = buffer;
       loadedChannel.gainNode = gainNode;
-      loadedChannel.preparationStatus = "ready";
+      loadedChannel.derivativePreparationStatus = "ready";
       setGainValue(gainNode, loadedChannel.channel);
       gainNode.connect(audioContext.destination);
       updatePreparedMixDuration();
@@ -1558,10 +1593,62 @@ export function createWebAudioPlaybackEngine(
       if (destroyed || generation !== loadGeneration) {
         return;
       }
-      loadedChannel.preparationStatus = "failed";
-      loadedChannel.failureMessage = getLoadFailureMessage(error);
+      loadedChannel.derivativePreparationStatus = "failed";
+      loadedChannel.derivativeFailureMessage = getLoadFailureMessage(error);
       handlePreparationChange(generation);
       onLoadError(error);
+    }
+  }
+
+  async function prepareOriginal(
+    loadedChannel: LoadedWebAudioChannel,
+    generation: number,
+  ): Promise<void> {
+    if (
+      destroyed ||
+      generation !== loadGeneration ||
+      loadedChannel.originalPreparationStatus === "fetching" ||
+      loadedChannel.originalPreparationStatus === "decoding" ||
+      loadedChannel.originalPreparationStatus === "ready"
+    ) {
+      return;
+    }
+
+    const originalAudioUrl = loadedChannel.channel.originalAudioUrl;
+    if (!originalAudioUrl) {
+      loadedChannel.originalPreparationStatus = "failed";
+      loadedChannel.originalFailureMessage = "Original media is not available.";
+      notify();
+      return;
+    }
+
+    try {
+      loadedChannel.originalPreparationStatus = "fetching";
+      loadedChannel.originalFailureMessage = null;
+      notify();
+      const audioData = await fetchAudioData(originalAudioUrl);
+      if (destroyed || generation !== loadGeneration) {
+        return;
+      }
+
+      loadedChannel.originalPreparationStatus = "decoding";
+      notify();
+      const buffer = await audioContext.decodeAudioData(audioData);
+      if (destroyed || generation !== loadGeneration) {
+        return;
+      }
+
+      loadedChannel.preparedOriginalBuffer = buffer;
+      loadedChannel.originalPreparationStatus = "ready";
+      notify();
+    } catch (error: unknown) {
+      if (destroyed || generation !== loadGeneration) {
+        return;
+      }
+
+      loadedChannel.originalPreparationStatus = "failed";
+      loadedChannel.originalFailureMessage = getLoadFailureMessage(error);
+      notify();
     }
   }
 
@@ -1573,12 +1660,12 @@ export function createWebAudioPlaybackEngine(
     const generation = loadGeneration;
     const failedRequiredChannels = loadedChannels.filter((loadedChannel) => {
       return loadedChannel.channel.enabled &&
-        loadedChannel.preparationStatus === "failed";
+        loadedChannel.derivativePreparationStatus === "failed";
     });
 
     for (const loadedChannel of failedRequiredChannels) {
-      loadedChannel.preparationStatus = "unloaded";
-      loadedChannel.failureMessage = null;
+      loadedChannel.derivativePreparationStatus = "unloaded";
+      loadedChannel.derivativeFailureMessage = null;
       void prepareChannel(loadedChannel, generation);
     }
 
@@ -1608,10 +1695,13 @@ export function createWebAudioPlaybackEngine(
         ...channel,
         volume: clampVolume(channel.volume),
       },
-      buffer: null,
+      activePlaybackBuffer: null,
+      preparedOriginalBuffer: null,
       gainNode: null,
-      preparationStatus: "unloaded",
-      failureMessage: null,
+      derivativePreparationStatus: "unloaded",
+      derivativeFailureMessage: null,
+      originalPreparationStatus: "unloaded",
+      originalFailureMessage: null,
     }));
     pendingSeekSeconds = preservedPositionSeconds > 0
       ? preservedPositionSeconds

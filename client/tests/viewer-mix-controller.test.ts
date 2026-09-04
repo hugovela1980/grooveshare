@@ -181,7 +181,7 @@ tester.describe("permission-aware mix loading", () => {
           loadCount += 1;
         },
       },
-      getTrackAudioUrl: () => "http://localhost/audio.wav",
+      getTrackMediaSources: () => ({ playbackDerivativeUrl: "http://localhost/derivative.opus" }),
     });
 
     await controller.init();
@@ -220,7 +220,7 @@ tester.describe("permission-aware mix loading", () => {
           loadCount += 1;
         },
       },
-      getTrackAudioUrl: () => "http://localhost/audio.wav",
+      getTrackMediaSources: () => ({ playbackDerivativeUrl: "http://localhost/derivative.opus" }),
     });
 
     await controller.init();
@@ -259,7 +259,7 @@ tester.describe("permission-aware mix loading", () => {
       audioPlayerController: {
         loadMix() {},
       },
-      getTrackAudioUrl: () => "http://localhost/audio.wav",
+      getTrackMediaSources: () => ({ playbackDerivativeUrl: "http://localhost/derivative.opus" }),
     });
 
     await controller.init();

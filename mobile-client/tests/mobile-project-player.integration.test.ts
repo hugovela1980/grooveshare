@@ -548,8 +548,13 @@ tester.describe("mobile Project Player integration", () => {
           loadedChannels = channels;
         },
       },
-      getTrackAudioUrl(projectId, trackId) {
-        return `/api/projects/${projectId}/tracks/${trackId}/audio`;
+      getTrackMediaSources(track) {
+        return {
+          playbackDerivativeUrl:
+            `/api/projects/${track.projectId}/tracks/${track.id}/playback-derivative`,
+          originalAudioUrl:
+            `/api/projects/${track.projectId}/tracks/${track.id}/audio`,
+        };
       },
       projectRole: "owner",
       currentUserId: "user-1",
@@ -566,7 +571,9 @@ tester.describe("mobile Project Player integration", () => {
         channelNumber: 1,
         trackId: "track-1",
         name: "Guitar",
-        audioUrl: "/api/projects/project-1/tracks/track-1/audio",
+        playbackDerivativeUrl:
+          "/api/projects/project-1/tracks/track-1/playback-derivative",
+        originalAudioUrl: "/api/projects/project-1/tracks/track-1/audio",
         volume: 0.8,
         enabled: true,
       },
@@ -1306,8 +1313,8 @@ tester.describe("mobile Project Player integration", () => {
           return true;
         },
       },
-      getTrackAudioUrl() {
-        return "/audio/track-1";
+      getTrackMediaSources() {
+        return { playbackDerivativeUrl: "/derivative/track-1" };
       },
       projectRole: "contributor",
       currentUserId: "user-1",

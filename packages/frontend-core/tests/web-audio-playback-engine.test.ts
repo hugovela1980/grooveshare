@@ -218,14 +218,14 @@ const twoChannelMix = [
   {
     channelNumber: 1,
     trackId: "track-1",
-    audioUrl: "/drums.wav",
+    playbackDerivativeUrl: "/drums.wav",
     volume: 0.8,
     enabled: true,
   },
   {
     channelNumber: 2,
     trackId: "track-2",
-    audioUrl: "/bass.wav",
+    playbackDerivativeUrl: "/bass.wav",
     volume: 0.5,
     enabled: true,
   },
@@ -250,6 +250,348 @@ tester.describe("WebAudioPlaybackEngine", () => {
     await rawEngine.play();
     tester.expect(rawEngine.getSnapshot().isPlaying).toBe(true);
     rawEngine.destroy?.();
+  });
+
+  tester.it("uses derivatives exclusively under the derivative-only policy", async () => {
+    const audioContext = createFakeAudioContext();
+    const fetchedUrls: string[] = [];
+    const engine = createWebAudioPlaybackEngine({
+      audioContext,
+      mediaPreparationPolicy: "derivative-only",
+      async fetchAudioData(url) {
+        fetchedUrls.push(url);
+        return new Uint8Array([24]).buffer;
+      },
+      scheduleInterval() { return {}; },
+      clearScheduledInterval() {},
+      onLoadError() {},
+    });
+
+    engine.loadMix([{
+      channelNumber: 1,
+      trackId: "derivative-only-track",
+      playbackDerivativeUrl: "/tracks/1/playback-derivative",
+      originalAudioUrl: "/tracks/1/audio",
+      volume: 1,
+      enabled: true,
+    }]);
+
+    await waitForPlaybackReady(engine);
+    const prepared = engine.getSnapshot().preparation.channels[0]!;
+    tester.expect(fetchedUrls).toEqual(["/tracks/1/playback-derivative"]);
+    tester.expect(prepared.activeSource).toBe("playback-derivative");
+    tester.expect(prepared.preparedSources.playbackDerivative).toBe("ready");
+    tester.expect(prepared.preparedSources.original).toBe("unloaded");
+
+    await engine.play();
+    tester.expect(audioContext.sources[0]?.buffer?.duration).toBe(24);
+    engine.destroy?.();
+  });
+
+  tester.it("switches original requests by changing only the shared media policy", async () => {
+    const requestsByPolicy: Record<string, string[]> = {};
+
+    for (const policy of [
+      "derivative-only",
+      "derivative-plus-original",
+    ] as const) {
+      const audioContext = createFakeAudioContext();
+      const requests: string[] = [];
+      requestsByPolicy[policy] = requests;
+      const engine = createWebAudioPlaybackEngine({
+        audioContext,
+        mediaPreparationPolicy: policy,
+        async fetchAudioData(url) {
+          requests.push(url);
+          return new Uint8Array([24]).buffer;
+        },
+        scheduleInterval() { return {}; },
+        clearScheduledInterval() {},
+        onLoadError() {},
+      });
+
+      engine.loadMix([{
+        channelNumber: 1,
+        trackId: "policy-track",
+        playbackDerivativeUrl: "/policy/playback-derivative",
+        originalAudioUrl: "/policy/audio",
+        volume: 1,
+        enabled: true,
+      }]);
+      await waitForPlaybackReady(engine);
+      for (let attempt = 0; attempt < 10; attempt += 1) {
+        await Promise.resolve();
+      }
+      engine.destroy?.();
+    }
+
+    tester.expect(requestsByPolicy["derivative-only"]).toEqual([
+      "/policy/playback-derivative",
+    ]);
+    tester.expect(requestsByPolicy["derivative-plus-original"]).toEqual([
+      "/policy/playback-derivative",
+      "/policy/audio",
+    ]);
+  });
+
+  tester.it("reports an unavailable required derivative without requesting the original", async () => {
+    const audioContext = createFakeAudioContext();
+    const fetchedUrls: string[] = [];
+    const engine = createWebAudioPlaybackEngine({
+      audioContext,
+      mediaPreparationPolicy: "derivative-only",
+      async fetchAudioData(url) {
+        fetchedUrls.push(url);
+        return new Uint8Array([24]).buffer;
+      },
+      scheduleInterval() { return {}; },
+      clearScheduledInterval() {},
+      onLoadError() {},
+    });
+
+    engine.loadMix([{
+      channelNumber: 1,
+      trackId: "unavailable-derivative",
+      playbackDerivativeUrl: null,
+      originalAudioUrl: "/tracks/1/audio",
+      volume: 1,
+      enabled: true,
+    }]);
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      await Promise.resolve();
+    }
+
+    tester.expect(engine.getSnapshot().preparation.status).toBe("failed");
+    tester.expect(
+      engine.getSnapshot().preparation.failure?.message,
+    ).toBe("Playback derivative is not available.");
+    tester.expect(fetchedUrls).toEqual([]);
+    engine.destroy?.();
+  });
+
+  tester.it("prepares originals after derivatives without replacing the active buffer", async () => {
+    const audioContext = createFakeAudioContext();
+    const fetchedUrls: string[] = [];
+    let resolveOriginal: ((audioData: ArrayBuffer) => void) | null = null;
+    const originalAudio = new Promise<ArrayBuffer>((resolve) => {
+      resolveOriginal = resolve;
+    });
+    const engine = createWebAudioPlaybackEngine({
+      audioContext,
+      mediaPreparationPolicy: "derivative-plus-original",
+      fetchAudioData(url) {
+        fetchedUrls.push(url);
+        return url.endsWith("/audio")
+          ? originalAudio
+          : Promise.resolve(new Uint8Array([24]).buffer);
+      },
+      scheduleInterval() { return {}; },
+      clearScheduledInterval() {},
+      onLoadError() {},
+    });
+
+    engine.loadMix([{
+      channelNumber: 1,
+      trackId: "dual-source-track",
+      playbackDerivativeUrl: "/tracks/1/playback-derivative",
+      originalAudioUrl: "/tracks/1/audio",
+      volume: 1,
+      enabled: true,
+    }]);
+    await waitForPlaybackReady(engine);
+
+    const readyBeforeOriginal = engine.getSnapshot();
+    tester.expect(readyBeforeOriginal.preparation.status).toBe("ready");
+    tester.expect(
+      readyBeforeOriginal.preparation.channels[0]?.preparedSources.original,
+    ).toBe("fetching");
+    tester.expect(fetchedUrls).toEqual([
+      "/tracks/1/playback-derivative",
+      "/tracks/1/audio",
+    ]);
+
+    await engine.play();
+    const activeDerivativeBuffer = audioContext.sources[0]?.buffer;
+    tester.expect(activeDerivativeBuffer?.duration).toBe(24);
+
+    resolveOriginal!(new Uint8Array([60]).buffer);
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      if (
+        engine.getSnapshot().preparation.channels[0]
+          ?.preparedSources.original === "ready"
+      ) {
+        break;
+      }
+      await Promise.resolve();
+    }
+
+    const afterOriginal = engine.getSnapshot().preparation.channels[0]!;
+    tester.expect(afterOriginal.preparedSources.original).toBe("ready");
+    tester.expect(afterOriginal.activeSource).toBe("playback-derivative");
+    tester.expect(audioContext.sources.length).toBe(1);
+    tester.expect(audioContext.sources[0]?.buffer).toBe(activeDerivativeBuffer);
+    engine.destroy?.();
+  });
+
+  tester.it("keeps derivative playback ready when background original preparation fails", async () => {
+    const audioContext = createFakeAudioContext();
+    const engine = createWebAudioPlaybackEngine({
+      audioContext,
+      mediaPreparationPolicy: "derivative-plus-original",
+      fetchAudioData(url) {
+        return url.endsWith("/audio")
+          ? Promise.reject(new Error("Original unavailable"))
+          : Promise.resolve(new Uint8Array([24]).buffer);
+      },
+      scheduleInterval() { return {}; },
+      clearScheduledInterval() {},
+      onLoadError() {},
+    });
+
+    engine.loadMix([{
+      channelNumber: 1,
+      trackId: "original-failure-track",
+      playbackDerivativeUrl: "/tracks/1/playback-derivative",
+      originalAudioUrl: "/tracks/1/audio",
+      volume: 1,
+      enabled: true,
+    }]);
+    await waitForPlaybackReady(engine);
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      if (
+        engine.getSnapshot().preparation.channels[0]
+          ?.preparedSources.original === "failed"
+      ) {
+        break;
+      }
+      await Promise.resolve();
+    }
+
+    const snapshot = engine.getSnapshot();
+    tester.expect(snapshot.preparation.status).toBe("ready");
+    tester.expect(snapshot.hasLoadedChannels).toBe(true);
+    tester.expect(
+      snapshot.preparation.channels[0]?.preparedSources.original,
+    ).toBe("failed");
+    tester.expect(snapshot.preparation.failure).toBe(null);
+    engine.destroy?.();
+  });
+
+  tester.it("finishes all derivatives before background originals", async () => {
+    const audioContext = createFakeAudioContext();
+    const fetchedUrls: string[] = [];
+    const engine = createWebAudioPlaybackEngine({
+      audioContext,
+      mediaPreparationPolicy: "derivative-plus-original",
+      async fetchAudioData(url) {
+        fetchedUrls.push(url);
+        return new Uint8Array([24]).buffer;
+      },
+      scheduleInterval() { return {}; },
+      clearScheduledInterval() {},
+      onLoadError() {},
+    });
+
+    engine.loadMix([
+      {
+        channelNumber: 1,
+        trackId: "enabled",
+        playbackDerivativeUrl: "/enabled/playback-derivative",
+        originalAudioUrl: "/enabled/audio",
+        volume: 1,
+        enabled: true,
+      },
+      {
+        channelNumber: 2,
+        trackId: "disabled",
+        playbackDerivativeUrl: "/disabled/playback-derivative",
+        originalAudioUrl: "/disabled/audio",
+        volume: 1,
+        enabled: false,
+      },
+    ]);
+    await waitForPlaybackReady(engine);
+    for (let attempt = 0; attempt < 30; attempt += 1) {
+      if (
+        engine.getSnapshot().preparation.channels.every((channel) =>
+          channel.preparedSources.original === "ready"
+        )
+      ) {
+        break;
+      }
+      await Promise.resolve();
+    }
+
+    tester.expect(fetchedUrls).toEqual([
+      "/enabled/playback-derivative",
+      "/disabled/playback-derivative",
+      "/enabled/audio",
+      "/disabled/audio",
+    ]);
+    tester.expect(engine.getSnapshot().preparation.status).toBe("ready");
+    engine.destroy?.();
+  });
+
+  tester.it("ignores stale background originals and clears both representations on destroy", async () => {
+    const audioContext = createFakeAudioContext();
+    let resolveOldOriginal: ((audioData: ArrayBuffer) => void) | null = null;
+    let resolveNewOriginal: ((audioData: ArrayBuffer) => void) | null = null;
+    const oldOriginal = new Promise<ArrayBuffer>((resolve) => {
+      resolveOldOriginal = resolve;
+    });
+    const newOriginal = new Promise<ArrayBuffer>((resolve) => {
+      resolveNewOriginal = resolve;
+    });
+    const engine = createWebAudioPlaybackEngine({
+      audioContext,
+      mediaPreparationPolicy: "derivative-plus-original",
+      fetchAudioData(url) {
+        if (url === "/old/audio") return oldOriginal;
+        if (url === "/new/audio") return newOriginal;
+        return Promise.resolve(new Uint8Array([24]).buffer);
+      },
+      scheduleInterval() { return {}; },
+      clearScheduledInterval() {},
+      onLoadError() {},
+    });
+
+    engine.loadMix([{
+      channelNumber: 1,
+      trackId: "old",
+      playbackDerivativeUrl: "/old/playback-derivative",
+      originalAudioUrl: "/old/audio",
+      volume: 1,
+      enabled: true,
+    }]);
+    await waitForPlaybackReady(engine);
+
+    engine.loadMix([{
+      channelNumber: 1,
+      trackId: "new",
+      playbackDerivativeUrl: "/new/playback-derivative",
+      originalAudioUrl: "/new/audio",
+      volume: 1,
+      enabled: true,
+    }]);
+    await waitForPlaybackReady(engine);
+    resolveOldOriginal!(new Uint8Array([90]).buffer);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    let currentChannel = engine.getSnapshot().preparation.channels[0]!;
+    tester.expect(currentChannel.trackId).toBe("new");
+    tester.expect(currentChannel.preparedSources.original).toBe("fetching");
+
+    resolveNewOriginal!(new Uint8Array([60]).buffer);
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      currentChannel = engine.getSnapshot().preparation.channels[0]!;
+      if (currentChannel.preparedSources.original === "ready") break;
+      await Promise.resolve();
+    }
+    tester.expect(currentChannel.preparedSources.original).toBe("ready");
+
+    engine.destroy?.();
+    tester.expect(engine.getSnapshot().preparation.channels).toEqual([]);
   });
 
   tester.it("loads enabled tracks concurrently before starting disabled background preparation", async () => {
@@ -366,7 +708,7 @@ tester.describe("WebAudioPlaybackEngine", () => {
 
       const saved = createEngineHarness();
       saved.engine.loadMix([{
-        channelNumber: 1, trackId: "saved", audioUrl: "/long-take.m4a",
+        channelNumber: 1, trackId: "saved", playbackDerivativeUrl: "/long-take.m4a",
         volume: 0.7, enabled: true, timelineOffsetSeconds: 8,
         mediaLeadInSeconds: 2, alignmentOffsetSeconds,
       }]);
@@ -469,7 +811,7 @@ tester.describe("WebAudioPlaybackEngine", () => {
     engine.loadMix([...twoChannelMix, {
       channelNumber: 3,
       trackId: "track-3",
-      audioUrl: "/long-take.m4a",
+      playbackDerivativeUrl: "/long-take.m4a",
       volume: 1,
       enabled: true,
     }]);
@@ -527,7 +869,7 @@ tester.describe("WebAudioPlaybackEngine", () => {
       {
         channelNumber: 2,
         trackId: "recorded-take",
-        audioUrl: "/recorded-take.webm",
+        playbackDerivativeUrl: "/recorded-take.webm",
         volume: 1,
         enabled: true,
         timelineOffsetSeconds: 3.5,
@@ -565,7 +907,7 @@ tester.describe("WebAudioPlaybackEngine", () => {
       {
         channelNumber: 1,
         trackId: "legacy-seeded-track",
-        audioUrl: "/legacy-seeded-track.wav",
+        playbackDerivativeUrl: "/legacy-seeded-track.wav",
         volume: 1,
         enabled: true,
         timelineOffsetSeconds: 3.5,
@@ -594,14 +936,14 @@ tester.describe("WebAudioPlaybackEngine", () => {
       {
         channelNumber: 1,
         trackId: "legacy-default",
-        audioUrl: "/drums.wav",
+        playbackDerivativeUrl: "/drums.wav",
         volume: 1,
         enabled: true,
       },
       {
         channelNumber: 2,
         trackId: "later-track",
-        audioUrl: "/recorded-take.webm",
+        playbackDerivativeUrl: "/recorded-take.webm",
         volume: 1,
         enabled: true,
         timelineOffsetSeconds: 99,
@@ -646,7 +988,7 @@ tester.describe("WebAudioPlaybackEngine", () => {
     engine.loadMix([{
       channelNumber: 1,
       trackId: "counted-in-take",
-      audioUrl: "/recorded-take.webm",
+      playbackDerivativeUrl: "/recorded-take.webm",
       volume: 1,
       enabled: true,
       musicalPlacement: { start: { bar: 2, beat: 1 }, spanBeats: 2 },
@@ -666,7 +1008,7 @@ tester.describe("WebAudioPlaybackEngine", () => {
     earlierHarness.engine.loadMix([{
       channelNumber: 1,
       trackId: "late-take",
-      audioUrl: "/recorded-take.webm",
+      playbackDerivativeUrl: "/recorded-take.webm",
       volume: 1,
       enabled: true,
       musicalPlacement: { start: { bar: 2, beat: 1 }, spanBeats: 4 },
@@ -683,7 +1025,7 @@ tester.describe("WebAudioPlaybackEngine", () => {
     laterHarness.engine.loadMix([{
       channelNumber: 1,
       trackId: "early-take",
-      audioUrl: "/recorded-take.webm",
+      playbackDerivativeUrl: "/recorded-take.webm",
       volume: 1,
       enabled: true,
       musicalPlacement: { start: { bar: 2, beat: 1 }, spanBeats: 4 },
@@ -873,7 +1215,7 @@ tester.describe("WebAudioPlaybackEngine", () => {
     loopHarness.engine.loadMix([{
       channelNumber: 1,
       trackId: "loop",
-      audioUrl: "/loop.wav",
+      playbackDerivativeUrl: "/loop.wav",
       volume: 1,
       enabled: true,
     }]);
@@ -1045,14 +1387,14 @@ tester.describe("WebAudioPlaybackEngine", () => {
       {
         channelNumber: 1,
         trackId: "track-1",
-        audioUrl: "/loop.wav",
+        playbackDerivativeUrl: "/loop.wav",
         volume: 1,
         enabled: true,
       },
       {
         channelNumber: 2,
         trackId: "track-2",
-        audioUrl: "/long-take.m4a",
+        playbackDerivativeUrl: "/long-take.m4a",
         volume: 1,
         enabled: true,
       },
@@ -1081,14 +1423,14 @@ tester.describe("WebAudioPlaybackEngine", () => {
       {
         channelNumber: 1,
         trackId: "short-track",
-        audioUrl: "/loop.wav",
+        playbackDerivativeUrl: "/loop.wav",
         volume: 1,
         enabled: true,
       },
       {
         channelNumber: 2,
         trackId: "long-track",
-        audioUrl: "/long-take.m4a",
+        playbackDerivativeUrl: "/long-take.m4a",
         volume: 1,
         enabled: true,
       },

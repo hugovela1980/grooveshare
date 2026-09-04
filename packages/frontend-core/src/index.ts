@@ -60,6 +60,8 @@ export type {
   MixSettings,
   MusicalPosition,
   MusicalTimeline,
+  PlaybackDerivative,
+  PlaybackDerivativeStatus,
   Project,
   ProjectMember,
   ProjectRole,
@@ -215,6 +217,12 @@ export {
   type RecordingTimeline,
   type RecordingTimelineResult,
 } from "./playback/recording-timeline.js";
+export {
+  DEFAULT_PLAYBACK_MEDIA_PREPARATION_POLICY,
+  type PlaybackChannelMediaSources,
+  type PlaybackMediaPreparationPolicy,
+  type PlaybackMediaRepresentation,
+} from "./playback/playback-media.js";
 export {
   createHtmlAudioPlaybackEngine,
   type HtmlAudioElementLike,

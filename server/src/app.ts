@@ -474,6 +474,27 @@ function getTrackAudioRouteParams(
   };
 }
 
+function getTrackPlaybackDerivativeRouteParams(
+  url: string | undefined,
+): { projectId: string; trackId: string } | null {
+  if (!url) {
+    return null;
+  }
+
+  const match = url.match(
+    /^\/api\/projects\/([^/]+)\/tracks\/([^/]+)\/playback-derivative$/,
+  );
+
+  if (!match) {
+    return null;
+  }
+
+  return {
+    projectId: match[1],
+    trackId: match[2],
+  };
+}
+
 type ByteRange = {
   start: number;
   end: number;
@@ -1126,50 +1147,30 @@ export function createAppServer({
     );
   }
 
-  async function handleGetTrackAudio(
+  async function streamMediaFile(
     req: IncomingMessage,
     res: ServerResponse,
-    projectId: string,
-    trackId: string,
+    media: {
+      filePath: string;
+      mimeType: string;
+      fileSize?: number;
+    },
   ): Promise<void> {
-    const project = await projectsStore.getProjectById(projectId);
-
-    if (!project) {
-      sendJson(
-        res,
-        404,
-        {
-          ok: false,
-          error: "Project not found.",
-        },
-        clientOrigin,
-      );
-
-      return;
-    }
-
-    const track = await tracksStore.getTrackById(projectId, trackId);
-
-    if (!track) {
-      sendJson(
-        res,
-        404,
-        {
-          ok: false,
-          error: "Track not found.",
-        },
-        clientOrigin,
-      );
-
-      return;
-    }
-
-    const absoluteFilePath = path.isAbsolute(track.filePath)
-      ? track.filePath
-      : path.resolve(process.cwd(), track.filePath);
+    const absoluteFilePath = path.isAbsolute(media.filePath)
+      ? media.filePath
+      : path.resolve(process.cwd(), media.filePath);
 
     const fileStats = await stat(absoluteFilePath);
-    const fileSize = fileStats.size;
+    const fileSize = media.fileSize ?? fileStats.size;
+
+    if (
+      media.fileSize !== undefined &&
+      (!fileStats.isFile() || fileStats.size !== media.fileSize)
+    ) {
+      throw new Error(
+        `Media artifact does not match its stored size: ${absoluteFilePath}`,
+      );
+    }
 
     const byteRange = parseByteRange(
       req.headers.range,
@@ -1182,7 +1183,7 @@ export function createAppServer({
       const contentLength = end - start + 1;
 
       res.writeHead(206, {
-        "Content-Type": track.mimeType,
+        "Content-Type": media.mimeType,
         "Content-Length": contentLength,
         "Content-Range":
           `bytes ${start}-${end}/${fileSize}`,
@@ -1202,7 +1203,7 @@ export function createAppServer({
     }
 
     res.writeHead(200, {
-      "Content-Type": track.mimeType,
+      "Content-Type": media.mimeType,
       "Content-Length": fileSize,
       "Accept-Ranges": "bytes",
       "Access-Control-Allow-Origin":
@@ -1212,6 +1213,124 @@ export function createAppServer({
     });
 
     createReadStream(absoluteFilePath).pipe(res);
+  }
+
+  async function getTrackForMediaDelivery(
+    res: ServerResponse,
+    projectId: string,
+    trackId: string,
+  ): Promise<Track | null> {
+    const project = await projectsStore.getProjectById(projectId);
+
+    if (!project) {
+      sendJson(
+        res,
+        404,
+        {
+          ok: false,
+          error: "Project not found.",
+        },
+        clientOrigin,
+      );
+
+      return null;
+    }
+
+    const track = await tracksStore.getTrackById(projectId, trackId);
+
+    if (!track) {
+      sendJson(
+        res,
+        404,
+        {
+          ok: false,
+          error: "Track not found.",
+        },
+        clientOrigin,
+      );
+
+      return null;
+    }
+
+    return track;
+  }
+
+  async function handleGetTrackAudio(
+    req: IncomingMessage,
+    res: ServerResponse,
+    projectId: string,
+    trackId: string,
+  ): Promise<void> {
+    const track = await getTrackForMediaDelivery(
+      res,
+      projectId,
+      trackId,
+    );
+
+    if (!track) {
+      return;
+    }
+
+    await streamMediaFile(req, res, {
+      filePath: track.filePath,
+      mimeType: track.mimeType,
+    });
+  }
+
+  async function handleGetTrackPlaybackDerivative(
+    req: IncomingMessage,
+    res: ServerResponse,
+    projectId: string,
+    trackId: string,
+  ): Promise<void> {
+    const track = await getTrackForMediaDelivery(
+      res,
+      projectId,
+      trackId,
+    );
+
+    if (!track) {
+      return;
+    }
+
+    const derivative = track.playbackDerivative;
+
+    if (derivative.status !== "ready") {
+      sendJson(
+        res,
+        404,
+        {
+          ok: false,
+          error: "Playback derivative not available.",
+        },
+        clientOrigin,
+      );
+
+      return;
+    }
+
+    try {
+      await streamMediaFile(req, res, {
+        filePath: derivative.filePath,
+        mimeType: derivative.mimeType,
+        fileSize: derivative.fileSize,
+      });
+    } catch (error) {
+      console.error(
+        `Ready playback derivative artifact is unavailable for project ${projectId}, track ${trackId}.`,
+        error,
+      );
+
+      sendJson(
+        res,
+        404,
+        {
+          ok: false,
+          error: "Playback derivative not available.",
+        },
+        clientOrigin,
+      );
+    }
   }
 
   async function deleteUploadedTrackFile(filePath: string): Promise<void> {
@@ -1987,6 +2106,35 @@ export function createAppServer({
           res,
           trackAudioRouteParams.projectId,
           trackAudioRouteParams.trackId,
+        );
+
+        return;
+      }
+
+      const trackPlaybackDerivativeRouteParams =
+        getTrackPlaybackDerivativeRouteParams(req.url);
+
+      if (
+        req.method === "GET" &&
+        trackPlaybackDerivativeRouteParams
+      ) {
+        logApiRequest(req, "Stream track playback derivative");
+        if (
+          !await requireProjectPermission(
+            req,
+            res,
+            trackPlaybackDerivativeRouteParams.projectId,
+            "read",
+          )
+        ) {
+          return;
+        }
+
+        await handleGetTrackPlaybackDerivative(
+          req,
+          res,
+          trackPlaybackDerivativeRouteParams.projectId,
+          trackPlaybackDerivativeRouteParams.trackId,
         );
 
         return;

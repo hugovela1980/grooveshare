@@ -51,8 +51,8 @@ tester.describe("HtmlAudioPlaybackEngine", () => {
     });
 
     engine.loadMix([
-      { channelNumber: 1, trackId: "track-1", audioUrl: "/1.wav", volume: 1, enabled: true },
-      { channelNumber: 2, trackId: "track-2", audioUrl: "/2.wav", volume: 1, enabled: false },
+      { channelNumber: 1, trackId: "track-1", playbackDerivativeUrl: "/1.wav", volume: 1, enabled: true },
+      { channelNumber: 2, trackId: "track-2", playbackDerivativeUrl: "/2.wav", volume: 1, enabled: false },
     ]);
     tester.expect(engine.getSnapshot().preparation.status).toBe("preparing");
     tester.expect(first.loadCallCount).toBe(1);
@@ -74,7 +74,7 @@ tester.describe("HtmlAudioPlaybackEngine", () => {
       const audio = createFakeAudioElement();
       const engine = createHtmlAudioPlaybackEngine({ primaryAudioElement: audio, createAudioElement: createFakeAudioElement });
       engine.loadMix([{
-        channelNumber: 1, trackId: "take", audioUrl: "/take.wav", volume: 0.6,
+        channelNumber: 1, trackId: "take", playbackDerivativeUrl: "/take.wav", volume: 0.6,
         enabled: true, timelineOffsetSeconds: 4, mediaLeadInSeconds: 2,
         alignmentOffsetSeconds,
       }]);
@@ -99,14 +99,14 @@ tester.describe("HtmlAudioPlaybackEngine", () => {
       {
         channelNumber: 1,
         trackId: "track-1",
-        audioUrl: "/drums.wav",
+        playbackDerivativeUrl: "/drums.wav",
         volume: 0.75,
         enabled: true,
       },
       {
         channelNumber: 2,
         trackId: "track-2",
-        audioUrl: "/bass.wav",
+        playbackDerivativeUrl: "/bass.wav",
         volume: 0.4,
         enabled: true,
       },
@@ -134,8 +134,8 @@ tester.describe("HtmlAudioPlaybackEngine", () => {
     });
 
     engine.loadMix([
-      { channelNumber: 1, trackId: "track-1", audioUrl: "/1.wav", volume: 1, enabled: true },
-      { channelNumber: 2, trackId: "track-2", audioUrl: "/2.wav", volume: 1, enabled: true },
+      { channelNumber: 1, trackId: "track-1", playbackDerivativeUrl: "/1.wav", volume: 1, enabled: true },
+      { channelNumber: 2, trackId: "track-2", playbackDerivativeUrl: "/2.wav", volume: 1, enabled: true },
     ]);
 
     engine.seek(50);
@@ -162,7 +162,7 @@ tester.describe("HtmlAudioPlaybackEngine", () => {
     engine.loadMix([{
       channelNumber: 1,
       trackId: "track-1",
-      audioUrl: "/first.wav",
+      playbackDerivativeUrl: "/first.wav",
       volume: 1,
       enabled: true,
     }]);
@@ -172,14 +172,14 @@ tester.describe("HtmlAudioPlaybackEngine", () => {
       {
         channelNumber: 1,
         trackId: "track-1",
-        audioUrl: "/first.wav",
+        playbackDerivativeUrl: "/first.wav",
         volume: 1,
         enabled: true,
       },
       {
         channelNumber: 2,
         trackId: "track-2",
-        audioUrl: "/second.wav",
+        playbackDerivativeUrl: "/second.wav",
         volume: 1,
         enabled: true,
       },
@@ -206,14 +206,14 @@ tester.describe("HtmlAudioPlaybackEngine", () => {
       {
         channelNumber: 1,
         trackId: "track-1",
-        audioUrl: "/rhythm.wav",
+        playbackDerivativeUrl: "/rhythm.wav",
         volume: 1,
         enabled: true,
       },
       {
         channelNumber: 2,
         trackId: "track-2",
-        audioUrl: "/late-take.wav",
+        playbackDerivativeUrl: "/late-take.wav",
         volume: 1,
         enabled: true,
         musicalPlacement: {
@@ -249,7 +249,7 @@ tester.describe("HtmlAudioPlaybackEngine", () => {
     engine.loadMix([{
       channelNumber: 1,
       trackId: "recorded-take",
-      audioUrl: "/take.webm",
+      playbackDerivativeUrl: "/take.webm",
       volume: 1,
       enabled: true,
       musicalPlacement: { start: { bar: 2, beat: 1 }, spanBeats: 20 },
@@ -279,14 +279,14 @@ tester.describe("HtmlAudioPlaybackEngine", () => {
       {
         channelNumber: 1,
         trackId: "track-1",
-        audioUrl: "/rhythm.wav",
+        playbackDerivativeUrl: "/rhythm.wav",
         volume: 1,
         enabled: true,
       },
       {
         channelNumber: 2,
         trackId: "track-2",
-        audioUrl: "/late-take.wav",
+        playbackDerivativeUrl: "/late-take.wav",
         volume: 1,
         enabled: true,
         musicalPlacement: {
@@ -322,8 +322,8 @@ tester.describe("HtmlAudioPlaybackEngine", () => {
     });
 
     engine.loadMix([
-      { channelNumber: 1, trackId: "track-1", audioUrl: "/loop.wav", volume: 1, enabled: true },
-      { channelNumber: 2, trackId: "track-2", audioUrl: "/long-take.m4a", volume: 1, enabled: true },
+      { channelNumber: 1, trackId: "track-1", playbackDerivativeUrl: "/loop.wav", volume: 1, enabled: true },
+      { channelNumber: 2, trackId: "track-2", playbackDerivativeUrl: "/long-take.m4a", volume: 1, enabled: true },
     ]);
 
     await second.trigger("loadedmetadata");
@@ -347,8 +347,8 @@ tester.describe("HtmlAudioPlaybackEngine", () => {
     });
 
     engine.loadMix([
-      { channelNumber: 1, trackId: "track-1", audioUrl: "/loop.wav", volume: 1, enabled: true },
-      { channelNumber: 2, trackId: "track-2", audioUrl: "/long-take.m4a", volume: 1, enabled: true },
+      { channelNumber: 1, trackId: "track-1", playbackDerivativeUrl: "/loop.wav", volume: 1, enabled: true },
+      { channelNumber: 2, trackId: "track-2", playbackDerivativeUrl: "/long-take.m4a", volume: 1, enabled: true },
     ]);
     await engine.play();
 
@@ -376,7 +376,7 @@ tester.describe("HtmlAudioPlaybackEngine", () => {
     });
 
     engine.loadMix([
-      { channelNumber: 1, trackId: "track-1", audioUrl: "/1.wav", volume: 0.8, enabled: true },
+      { channelNumber: 1, trackId: "track-1", playbackDerivativeUrl: "/1.wav", volume: 0.8, enabled: true },
     ]);
     const loadCount = first.loadCallCount;
 
@@ -400,8 +400,8 @@ tester.describe("HtmlAudioPlaybackEngine", () => {
     });
 
     engine.loadMix([
-      { channelNumber: 1, trackId: "track-1", audioUrl: "/1.wav", volume: 1, enabled: true },
-      { channelNumber: 2, trackId: "track-2", audioUrl: "/2.wav", volume: 1, enabled: true },
+      { channelNumber: 1, trackId: "track-1", playbackDerivativeUrl: "/1.wav", volume: 1, enabled: true },
+      { channelNumber: 2, trackId: "track-2", playbackDerivativeUrl: "/2.wav", volume: 1, enabled: true },
     ]);
     engine.setLoopEnabled(true);
     await engine.play();
@@ -426,7 +426,7 @@ tester.describe("HtmlAudioPlaybackEngine", () => {
 
     engine.subscribe((snapshot) => snapshots.push(snapshot));
     engine.loadMix([
-      { channelNumber: 1, trackId: "track-1", audioUrl: "/1.wav", volume: 1, enabled: true },
+      { channelNumber: 1, trackId: "track-1", playbackDerivativeUrl: "/1.wav", volume: 1, enabled: true },
     ]);
     first.currentTime = 30;
     first.duration = 120;
@@ -448,6 +448,11 @@ tester.describe("HtmlAudioPlaybackEngine", () => {
           required: true,
           status: "ready",
           failureMessage: null,
+          activeSource: "playback-derivative",
+          preparedSources: {
+            playbackDerivative: "ready",
+            original: "unloaded",
+          },
         }],
         failure: null,
       },

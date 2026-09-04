@@ -374,9 +374,13 @@ Operational rule: if a migration is executed by a PostgreSQL administrative role
 
 ### Filesystem audio
 
-Uploaded audio bytes are stored on disk rather than in PostgreSQL. Each track's existing file path, MIME type, size, and original filename describe the authoritative original. PostgreSQL also models one disposable, regeneratable playback derivative with `pending`, `processing`, `ready`, or `failed` status and nullable artifact metadata. New and legacy tracks start pending with profile version `opus-playback-v1`; later backfill work will handle legacy media.
+Uploaded audio bytes are stored on disk rather than in PostgreSQL. Each track's file path, MIME type, size, and original filename describe the authoritative original. PostgreSQL also models one disposable, regeneratable playback derivative with `pending`, `processing`, `ready`, or `failed` status and nullable artifact metadata. New uploads start pending with profile version `opus-playback-v1` and pass through the normal generation pipeline.
 
-The server persists a newly uploaded original before awaiting playback-derivative generation. A reusable generator invokes FFmpeg/libopus with the versioned Ogg/Opus, 48 kHz, 256 kbps VBR profile, writes to a temporary sibling artifact, and uses FFprobe to verify a non-empty Opus audio stream, sample rate, and positive duration before atomic finalization and `ready` persistence. Generation or validation failure cleans partial artifacts, records `failed`, and never invalidates the original. Kept recorded takes use this same upload path. The generator can be reused for regeneration and future backfill; authenticated derivative delivery remains Milestone 4.
+The server persists a newly uploaded original before awaiting playback-derivative generation. A reusable generator invokes FFmpeg/libopus with the versioned Ogg/Opus, 48 kHz, 256 kbps VBR profile, writes to a temporary sibling artifact, and uses FFprobe to verify a non-empty Opus audio stream, sample rate, and positive duration before atomic finalization and `ready` persistence. Generation or validation failure cleans partial artifacts, records `failed`, and never invalidates the original. Kept recorded takes use this same upload path.
+
+Original and derivative media are separate protected representations. `GET /api/projects/:projectId/tracks/:trackId/audio` remains the authoritative original route, while `GET /api/projects/:projectId/tracks/:trackId/playback-derivative` streams only a `ready` derivative using its stored path, MIME type, and size. Both routes use the same project-read authorization model, including valid read-only Guest invitations, and both stream from disk with byte-range support. A non-ready or physically missing derivative is unavailable: the server does not substitute the original, generate lazily, or mutate lifecycle state during delivery.
+
+There is no existing-track backfill or compatibility layer. Pre-derivative development tracks are disposable test data; desired tracks will be re-uploaded before derivative playback rollout testing so they use the current upload/generation path.
 
 Production and Labs use persistent upload directories outside their Git checkouts. Deploying application code therefore does not replace uploaded audio.
 
@@ -420,6 +424,15 @@ The current audio architecture is the foundation for Version 3 recording.
 
 Both presentation clients depend on the shared `PlaybackEngine` contract rather than directly controlling Web Audio nodes.
 
+Playback channels identify the protected playback-derivative and authoritative-original sources separately. A ready derivative is the immediate active `AudioBuffer`; required enabled derivatives determine playback readiness, while disabled derivatives retain their established background/nonblocking preparation behavior. A missing or failed required derivative uses the normal playback-preparation failure state and never falls back to the original.
+
+One shared `PlaybackMediaPreparationPolicy`, selected at the common client composition boundary, controls optional original preparation for both desktop and mobile:
+
+- `derivative-only` fetches and decodes derivatives only;
+- `derivative-plus-original` prepares derivatives first, declares playback ready from them, then fetches and decodes originals in lower-priority background work.
+
+In the second policy, the original buffer is retained separately and its failure does not invalidate derivative readiness. Completing original preparation does not replace the active derivative or alter an in-flight schedule. Future entitlement/tier code may select the policy, but the playback engine knows only the policy value and has no account or billing semantics. Original promotion/source switching remains Milestone 6.
+
 Current operations include:
 
 - load mix;
@@ -435,7 +448,7 @@ Current operations include:
 
 ### Primary Web Audio engine
 
-`WebAudioPlaybackEngine` fetches/decodes project audio into `AudioBuffer`s and owns:
+`WebAudioPlaybackEngine` fetches/decodes project media into distinct derivative/original `AudioBuffer` slots and owns:
 
 - decoded channel buffers;
 - per-channel `GainNode`s;

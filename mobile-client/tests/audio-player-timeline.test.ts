@@ -260,7 +260,7 @@ tester.describe("mobile musical timeline playback", () => {
       channelNumber: 1,
       trackId: "track-1",
       name: "Bass",
-      audioUrl: "/tracks/track-1/audio",
+      playbackDerivativeUrl: "/tracks/track-1/audio",
       volume: 1,
     }]);
 
@@ -304,7 +304,7 @@ tester.describe("mobile musical timeline playback", () => {
       channelNumber: 1,
       trackId: "track-1",
       name: "Bass",
-      audioUrl: "/bass.wav",
+      playbackDerivativeUrl: "/bass.wav",
       volume: 1,
     }]);
     tester.expect(preparationElement.hidden).toBe(false);
@@ -326,6 +326,11 @@ tester.describe("mobile musical timeline playback", () => {
           required: true,
           status: "failed",
           failureMessage: "Network failure",
+          activeSource: null,
+          preparedSources: {
+            playbackDerivative: "failed",
+            original: "unloaded",
+          },
         }],
         failure: {
           channelNumber: 1,
@@ -384,7 +389,7 @@ tester.describe("mobile musical timeline playback", () => {
       channelNumber: 1,
       trackId: "track-1",
       name: "Guitar",
-      audioUrl: "/track-1.wav",
+      playbackDerivativeUrl: "/track-1.wav",
       volume: 1,
       enabled: true,
     }]);
@@ -415,7 +420,7 @@ tester.describe("mobile musical timeline playback", () => {
         channelNumber: 1,
         trackId: "bass",
         name: "Bass",
-        audioUrl: "/bass.wav",
+        playbackDerivativeUrl: "/bass.wav",
         volume: 0.75,
         enabled: true,
       },
@@ -423,7 +428,7 @@ tester.describe("mobile musical timeline playback", () => {
         channelNumber: 2,
         trackId: "vocal",
         name: "Vocal",
-        audioUrl: "/vocal.wav",
+        playbackDerivativeUrl: "/vocal.wav",
         volume: 0.72,
         enabled: false,
       },
@@ -490,7 +495,7 @@ tester.describe("mobile musical timeline playback", () => {
         channelNumber: 1,
         trackId: "track-1",
         name: "Guitar",
-        audioUrl: "/track-1.wav",
+        playbackDerivativeUrl: "/track-1.wav",
         volume: 1,
         enabled: true,
       },
@@ -554,7 +559,7 @@ tester.describe("mobile musical timeline playback", () => {
       channelNumber: 1,
       trackId: "track-1",
       name: "Guitar",
-      audioUrl: "/track.wav",
+      playbackDerivativeUrl: "/track.wav",
       volume: 1,
     }]);
     playback.publish({
@@ -639,7 +644,7 @@ tester.describe("mobile musical timeline playback", () => {
       channelNumber: 1,
       trackId: "track-1",
       name: "Guitar",
-      audioUrl: "/track.wav",
+      playbackDerivativeUrl: "/track.wav",
       volume: 1,
     }]);
     firstSeekInput.value = "16";
@@ -677,7 +682,7 @@ tester.describe("mobile musical timeline playback", () => {
       channelNumber: 1,
       trackId: "track-1",
       name: "Guitar",
-      audioUrl: "/track.wav",
+      playbackDerivativeUrl: "/track.wav",
       volume: 1,
     }]);
 
@@ -717,7 +722,7 @@ tester.describe("mobile musical timeline playback", () => {
       channelNumber: 1,
       trackId: "track-1",
       name: "Guitar",
-      audioUrl: "/track.wav",
+      playbackDerivativeUrl: "/track.wav",
       volume: 1,
     }]);
     playback.publish({

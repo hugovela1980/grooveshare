@@ -1179,7 +1179,8 @@ tester.describe("project player page controller", () => {
       channelNumber: number;
       trackId: string;
       name: string;
-      audioUrl: string;
+      playbackDerivativeUrl: string | null;
+      originalAudioUrl?: string;
       volume: number;
       enabled: boolean;
       timelineOffsetSeconds?: number;
@@ -1203,8 +1204,13 @@ tester.describe("project player page controller", () => {
           loadedMixChannels = channels;
         },
       },
-      getTrackAudioUrl(projectId, trackId) {
-        return `http://localhost:3000/api/projects/${projectId}/tracks/${trackId}/audio`;
+      getTrackMediaSources(track) {
+        return {
+          playbackDerivativeUrl:
+            `http://localhost:3000/api/projects/${track.projectId}/tracks/${track.id}/playback-derivative`,
+          originalAudioUrl:
+            `http://localhost:3000/api/projects/${track.projectId}/tracks/${track.id}/audio`,
+        };
       },
     });
 
@@ -1215,7 +1221,9 @@ tester.describe("project player page controller", () => {
         channelNumber: 1,
         trackId: "track-1",
         name: "Guitar",
-        audioUrl:
+        playbackDerivativeUrl:
+          "http://localhost:3000/api/projects/project-1/tracks/track-1/playback-derivative",
+        originalAudioUrl:
           "http://localhost:3000/api/projects/project-1/tracks/track-1/audio",
         volume: 0.75,
         enabled: true,
@@ -1224,7 +1232,9 @@ tester.describe("project player page controller", () => {
         channelNumber: 2,
         trackId: "track-2",
         name: "Bass",
-        audioUrl:
+        playbackDerivativeUrl:
+          "http://localhost:3000/api/projects/project-1/tracks/track-2/playback-derivative",
+        originalAudioUrl:
           "http://localhost:3000/api/projects/project-1/tracks/track-2/audio",
         volume: 0.25,
         enabled: false,
@@ -1383,8 +1393,8 @@ tester.describe("project player page controller", () => {
           loadMixCallCount += 1;
         },
       },
-      getTrackAudioUrl() {
-        return "audio-url";
+      getTrackMediaSources() {
+        return { playbackDerivativeUrl: "derivative-url" };
       },
     });
 
@@ -1420,7 +1430,8 @@ tester.describe("project player page controller", () => {
       channelNumber: number;
       trackId: string;
       name: string;
-      audioUrl: string;
+      playbackDerivativeUrl: string | null;
+      originalAudioUrl?: string;
       volume: number;
       enabled: boolean;
     }> = [];
@@ -1439,8 +1450,13 @@ tester.describe("project player page controller", () => {
           loadedMixChannels = channels;
         },
       },
-      getTrackAudioUrl(projectId, trackId) {
-        return `http://localhost:3000/api/projects/${projectId}/tracks/${trackId}/audio`;
+      getTrackMediaSources(track) {
+        return {
+          playbackDerivativeUrl:
+            `http://localhost:3000/api/projects/${track.projectId}/tracks/${track.id}/playback-derivative`,
+          originalAudioUrl:
+            `http://localhost:3000/api/projects/${track.projectId}/tracks/${track.id}/audio`,
+        };
       },
     });
 
@@ -1451,7 +1467,9 @@ tester.describe("project player page controller", () => {
         channelNumber: 1,
         trackId: "track-1",
         name: "Guitar",
-        audioUrl:
+        playbackDerivativeUrl:
+          "http://localhost:3000/api/projects/project-1/tracks/track-1/playback-derivative",
+        originalAudioUrl:
           "http://localhost:3000/api/projects/project-1/tracks/track-1/audio",
         volume: 1,
         enabled: false,
@@ -1515,8 +1533,8 @@ tester.describe("project player page controller", () => {
           return true;
         },
       },
-      getTrackAudioUrl() {
-        return "audio-url";
+      getTrackMediaSources() {
+        return { playbackDerivativeUrl: "derivative-url" };
       },
     });
 
@@ -1603,8 +1621,8 @@ tester.describe("project player page controller", () => {
           return true;
         },
       },
-      getTrackAudioUrl() {
-        return "audio-url";
+      getTrackMediaSources() {
+        return { playbackDerivativeUrl: "derivative-url" };
       },
     });
 
@@ -2074,8 +2092,8 @@ tester.describe("project player page controller", () => {
           return true;
         },
       },
-      getTrackAudioUrl() {
-        return "audio-url";
+      getTrackMediaSources() {
+        return { playbackDerivativeUrl: "derivative-url" };
       },
     });
 

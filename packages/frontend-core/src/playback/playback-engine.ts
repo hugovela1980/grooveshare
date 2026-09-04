@@ -7,11 +7,14 @@ import type {
   RecordingTimelineResult,
 } from "./recording-timeline.js";
 import type { RecordedAudioCapture } from "../platform/microphone-recording-port.js";
+import type {
+  PlaybackChannelMediaSources,
+  PlaybackMediaRepresentation,
+} from "./playback-media.js";
 
-export type PlaybackChannel = {
+export type PlaybackChannel = PlaybackChannelMediaSources & {
   channelNumber: number;
   trackId: string;
-  audioUrl: string;
   volume: number;
   enabled: boolean;
   /** Project-time position where this track begins. Omitted tracks begin at 0. */
@@ -49,6 +52,11 @@ export type PlaybackChannelPreparationSnapshot = {
   required: boolean;
   status: PlaybackChannelPreparationStatus;
   failureMessage: string | null;
+  activeSource: Extract<PlaybackMediaRepresentation, "playback-derivative"> | null;
+  preparedSources: {
+    playbackDerivative: PlaybackChannelPreparationStatus;
+    original: PlaybackChannelPreparationStatus;
+  };
 };
 
 export type PlaybackPreparationSnapshot = {

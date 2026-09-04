@@ -7,6 +7,7 @@ import {
     getTrackMusicalPlacement,
     musicalSpanBarsToBeats,
     musicalSpanBeatsToBars,
+    type PlaybackChannelMediaSources,
     type StorageProvider,
 } from "@hugovela/frontend-core";
 import {
@@ -84,7 +85,8 @@ type MixChannelForPlayer = {
     channelNumber: number;
     trackId: string;
     name: string;
-    audioUrl: string;
+    playbackDerivativeUrl: string | null;
+    originalAudioUrl?: string;
     volume: number;
     enabled: boolean;
     timelineOffsetSeconds?: number;
@@ -269,7 +271,9 @@ type ProjectPlayerPageControllerOptions = {
     confirmDeleteTrack?: (message: string) => boolean;
     onProjectDeleted?: () => void;
     audioPlayerController?: AudioPlayerController;
-    getTrackAudioUrl?: (projectId: string, trackId: string) => string;
+    getTrackMediaSources?: (
+        track: Pick<Track, "id" | "projectId" | "playbackDerivative">,
+    ) => PlaybackChannelMediaSources;
     chooseAudioFile?: ChooseAudioFile;
     getTrackNameFromFile?: GetTrackNameFromFile;
     selectAllText?: SelectAllText;
@@ -380,7 +384,7 @@ export function createProjectPlayerPageController({
     confirmDeleteTrack = globalThis.confirm,
     onProjectDeleted,
     audioPlayerController,
-    getTrackAudioUrl,
+    getTrackMediaSources,
     chooseAudioFile = async () => null,
     getTrackNameFromFile = getDefaultTrackNameFromFile,
     selectAllText = selectAllEditableText,
@@ -529,7 +533,7 @@ export function createProjectPlayerPageController({
     function getMixChannelsForPlayer(
         mixSettings: MixSettings,
     ): MixChannelForPlayer[] {
-        if (!getTrackAudioUrl) {
+        if (!getTrackMediaSources) {
             return [];
         }
 
@@ -547,10 +551,7 @@ export function createProjectPlayerPageController({
                     channelNumber: channel.channelNumber,
                     trackId: track.id,
                     name: track.name,
-                    audioUrl: getTrackAudioUrl(
-                        project.id,
-                        track.id,
-                    ),
+                    ...getTrackMediaSources(track),
                     volume: channel.volume,
                     enabled: channel.enabled,
                     ...(track.timelineOffsetSeconds !== undefined

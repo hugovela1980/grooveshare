@@ -235,6 +235,13 @@ export function createHtmlAudioPlaybackEngine({
       required: loadedChannel.channel.enabled,
       status: loadedChannel.preparationStatus,
       failureMessage: loadedChannel.failureMessage,
+      activeSource: loadedChannel.preparationStatus === "ready"
+        ? "playback-derivative" as const
+        : null,
+      preparedSources: {
+        playbackDerivative: loadedChannel.preparationStatus,
+        original: "unloaded" as const,
+      },
     }));
     const requiredChannels = channels.filter(({ required }) => required);
     const failedRequiredChannel = requiredChannels.find(({ status }) => {
@@ -555,8 +562,15 @@ export function createHtmlAudioPlaybackEngine({
 
     loadedChannel.preparationStatus = "fetching";
     loadedChannel.failureMessage = null;
+    const derivativeUrl = loadedChannel.channel.playbackDerivativeUrl;
+    if (!derivativeUrl) {
+      loadedChannel.preparationStatus = "failed";
+      loadedChannel.failureMessage = "Playback derivative is not available.";
+      handlePreparationChange();
+      return;
+    }
     loadedChannel.audioElement.crossOrigin = "use-credentials";
-    loadedChannel.audioElement.src = loadedChannel.channel.audioUrl;
+    loadedChannel.audioElement.src = derivativeUrl;
     loadedChannel.audioElement.currentTime = 0;
     loadedChannel.audioElement.load?.();
     notify();

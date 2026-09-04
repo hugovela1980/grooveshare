@@ -1,4 +1,5 @@
 import {
+  DEFAULT_PLAYBACK_MEDIA_PREPARATION_POLICY,
   PROJECT_INVITATION_HEADER,
   createFrontendServices,
   type ApiRequestOptions,
@@ -202,6 +203,48 @@ tester.describe("frontend-core shared frontend services", () => {
       headers: { [PROJECT_INVITATION_HEADER]: "secret-token" },
       notifyOnUnauthorized: false,
     });
+  });
+
+  tester.it("builds explicit original and ready-derivative media sources centrally", () => {
+    const services = createFrontendServices<string>({
+      apiBaseUrl: "https://grooveshare.example",
+      transport: createRecordingTransport(track).transport,
+      multipartBodyFactory: {
+        createTrackUploadBody() {
+          return "multipart";
+        },
+      },
+    });
+    const readyTrack: Track = {
+      ...track,
+      playbackDerivative: {
+        status: "ready",
+        version: "opus-playback-v1",
+        filePath: "/private/derivative.opus",
+        mimeType: "audio/ogg",
+        fileSize: 123,
+      },
+    };
+
+    tester.expect(services.tracks.getTrackMediaSources(readyTrack)).toEqual({
+      playbackDerivativeUrl:
+        "https://grooveshare.example/api/projects/project-1/tracks/track-1/playback-derivative",
+      originalAudioUrl:
+        "https://grooveshare.example/api/projects/project-1/tracks/track-1/audio",
+    });
+    tester.expect(services.tracks.getTrackMediaSources({
+      ...readyTrack,
+      playbackDerivative: {
+        status: "processing",
+        version: "opus-playback-v1",
+        filePath: null,
+        mimeType: null,
+        fileSize: null,
+      },
+    }).playbackDerivativeUrl).toBe(null);
+    tester.expect(DEFAULT_PLAYBACK_MEDIA_PREPARATION_POLICY).toBe(
+      "derivative-only",
+    );
   });
 
   tester.it("normalizes member email in the shared membership service", async () => {

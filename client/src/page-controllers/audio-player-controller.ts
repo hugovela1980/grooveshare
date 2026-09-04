@@ -13,7 +13,8 @@ type MixChannelForPlayer = {
     channelNumber: number;
     trackId: string;
     name: string;
-    audioUrl: string;
+    playbackDerivativeUrl: string | null;
+    originalAudioUrl?: string;
     volume: number;
     enabled?: boolean;
     timelineOffsetSeconds?: number;
@@ -376,7 +377,10 @@ export function createAudioPlayerController({
         const playbackChannels: PlaybackChannel[] = channels.map((channel) => ({
             channelNumber: channel.channelNumber,
             trackId: channel.trackId,
-            audioUrl: channel.audioUrl,
+            playbackDerivativeUrl: channel.playbackDerivativeUrl,
+            ...(channel.originalAudioUrl
+                ? { originalAudioUrl: channel.originalAudioUrl }
+                : {}),
             volume: channel.volume,
             enabled: channel.enabled !== false,
             ...(channel.timelineOffsetSeconds !== undefined

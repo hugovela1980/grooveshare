@@ -64,6 +64,20 @@ export type UpdateProjectDetailsInput = {
   musicalTimeline?: MusicalTimeline;
 };
 
+export type PlaybackDerivativeStatus =
+  | "pending"
+  | "processing"
+  | "ready"
+  | "failed";
+
+export type PlaybackDerivative = {
+  status: PlaybackDerivativeStatus;
+  version: string;
+  filePath: string | null;
+  mimeType: string | null;
+  fileSize: number | null;
+};
+
 export type Track = {
   id: string;
   projectId: string;
@@ -72,6 +86,7 @@ export type Track = {
   filePath: string;
   mimeType: string;
   fileSize: number;
+  playbackDerivative?: PlaybackDerivative;
   uploadedByUserId?: string | null;
   /**
    * Legacy transport-time offset retained for recording-clock compatibility.

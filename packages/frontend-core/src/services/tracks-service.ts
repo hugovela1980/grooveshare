@@ -9,6 +9,7 @@ import {
   type MultipartBodyFactory,
 } from "./api-transport.js";
 import { PROJECT_INVITATION_HEADER } from "./invitations-service.js";
+import type { PlaybackChannelMediaSources } from "../playback/playback-media.js";
 
 export interface TracksService<TAudioFile = unknown> {
   getTracksByProjectId(
@@ -43,6 +44,10 @@ export function createTracksService<TAudioFile>(input: {
   multipartBodyFactory: MultipartBodyFactory<TAudioFile>;
 }): TracksService<TAudioFile> & {
   getTrackAudioUrl(projectId: string, trackId: string): string;
+  getTrackPlaybackDerivativeUrl(projectId: string, trackId: string): string;
+  getTrackMediaSources(
+    track: Pick<Track, "id" | "projectId" | "playbackDerivative">,
+  ): PlaybackChannelMediaSources;
   createInvitationAudioDataFetcher(
     invitationToken: string,
   ): (audioUrl: string) => Promise<ArrayBuffer>;
@@ -91,6 +96,29 @@ export function createTracksService<TAudioFile>(input: {
       return `${apiBaseUrl}/api/projects/${encodeURIComponent(
         projectId,
       )}/tracks/${encodeURIComponent(trackId)}/audio`;
+    },
+
+    getTrackPlaybackDerivativeUrl(projectId, trackId) {
+      return `${apiBaseUrl}/api/projects/${encodeURIComponent(
+        projectId,
+      )}/tracks/${encodeURIComponent(trackId)}/playback-derivative`;
+    },
+
+    getTrackMediaSources(track) {
+      const originalAudioUrl = `${apiBaseUrl}/api/projects/${encodeURIComponent(
+        track.projectId,
+      )}/tracks/${encodeURIComponent(track.id)}/audio`;
+      const playbackDerivativeUrl =
+        track.playbackDerivative?.status === "ready"
+          ? `${apiBaseUrl}/api/projects/${encodeURIComponent(
+              track.projectId,
+            )}/tracks/${encodeURIComponent(track.id)}/playback-derivative`
+          : null;
+
+      return {
+        playbackDerivativeUrl,
+        originalAudioUrl,
+      };
     },
 
     createInvitationAudioDataFetcher(invitationToken) {

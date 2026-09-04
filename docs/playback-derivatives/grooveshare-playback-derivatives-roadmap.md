@@ -99,37 +99,53 @@ The frontend does **not** transcode media.
 
 ---
 
-## Milestone 4 — Derivative Delivery + Existing-Track Backfill
+## Milestone 4 — Derivative Delivery
 
-Expose derivatives through GrooveShare's authenticated media system and support existing tracks.
+Expose ready playback derivatives through GrooveShare's protected media architecture while preserving original media delivery.
 
 ### Work
 
-- Add derivative delivery through the existing authenticated media architecture.
-- Preserve original media delivery.
-- Build a controlled backfill command/process for tracks that predate derivative support.
-- Make backfill safe to rerun.
-- Generate derivatives for existing Labs tracks before rollout testing.
+- Add a separate protected derivative route using the same authorization and byte-range streaming behavior as original media.
+- Preserve the authoritative original media route unchanged.
+- Serve only `ready` derivative artifacts; do not fall back to originals or generate derivatives during delivery.
+
+### Development-stage data policy
+
+Pre-derivative projects and tracks are disposable test data. Before derivative playback rollout testing, desired tracks will be re-uploaded so they pass through the current normal generation pipeline. No existing-track backfill, compatibility layer, migration-time transcoding, lazy generation, or background repair process will be built.
 
 ---
 
 ## Milestone 5 — Frontend Dual-Source Preparation
 
-Allow the shared playback layer to prepare derivatives first while originals load quietly in the background.
+Allow the shared playback layer to use derivatives for immediate readiness while making authoritative-original background preparation an explicit shared policy choice.
 
 ### Work
 
-Each track may expose:
+Each playback channel exposes distinct sources for:
 
 - playback derivative
 - authoritative original
 
-On project open:
+One shared `PlaybackMediaPreparationPolicy` controls both clients:
 
-1. fetch/decode required enabled derivatives;
-2. declare playback ready when required derivatives are ready;
-3. begin downloading/decoding originals in the background;
-4. continue using the same authoritative Web Audio transport and timeline.
+- `derivative-only`
+  - fetch/decode playback derivatives;
+  - use derivatives as the active playback representation;
+  - do not request or retain originals.
+- `derivative-plus-original`
+  - fetch/decode required enabled derivatives first;
+  - declare playback ready when required derivatives are ready;
+  - prepare other derivatives according to the existing disabled-track background behavior;
+  - then fetch/decode originals as nonblocking background work and retain them separately.
+
+In both policies:
+
+1. the derivative remains the active playback buffer;
+2. required derivative failure uses playback-preparation failure semantics without original fallback;
+3. original state never gates derivative readiness;
+4. the same authoritative Web Audio transport, scheduler, timeline, placement, alignment, and mixer behavior remain in use.
+
+A future entitlement or tier layer may select the policy without introducing account concepts into the playback engine. Milestone 5 does not promote a prepared original or switch sources during playback; source-promotion behavior remains Milestone 6.
 
 ### Invariants
 
@@ -223,7 +239,7 @@ The dominant problem is network transfer size, not browser decoding.
 
 - apply migrations;
 - install FFmpeg/runtime dependencies if required;
-- generate/backfill Labs derivatives;
+- re-upload any desired disposable Labs test tracks through the normal generation pipeline;
 - deploy server and frontend changes;
 - verify all health checks.
 

@@ -1,5 +1,6 @@
 import {
   createGuestMixStorageProvider,
+  DEFAULT_PLAYBACK_MEDIA_PREPARATION_POLICY,
   createHtmlAudioPlaybackEngine,
   createMicrophoneRecordingSession,
   createProjectDraftState,
@@ -83,7 +84,7 @@ const projectsApi = frontendServices.projects;
 const projectMembersApi = frontendServices.projectMembers;
 const tracksApi = frontendServices.tracks;
 const invitationsApi = frontendServices.invitations;
-const getTrackAudioUrl = tracksApi.getTrackAudioUrl;
+const getTrackMediaSources = tracksApi.getTrackMediaSources;
 const createInvitationAudioDataFetcher =
   tracksApi.createInvitationAudioDataFetcher;
 
@@ -598,6 +599,7 @@ function initializeProjectPlayerPage({
   const playbackEngine = createWebAudioPlaybackEngine({
     musicalTimeline,
     recordingAlignmentDiagnostics,
+    mediaPreparationPolicy: DEFAULT_PLAYBACK_MEDIA_PREPARATION_POLICY,
     ...(invitationForProject ? { fetchAudioData: createInvitationAudioDataFetcher(invitationForProject.token) } : {}),
     createFallbackEngine: () => createHtmlAudioPlaybackEngine({ primaryAudioElement: audioElement, createAudioElement: () => document.createElement("audio"), musicalTimeline }),
   });
@@ -857,7 +859,7 @@ function initializeProjectPlayerPage({
     tracksApi: projectTracksApi,
     projectsApi,
     audioPlayerController,
-    getTrackAudioUrl,
+    getTrackMediaSources,
     chooseAudioFile,
     renderTrackList: renderMixChannelSlots,
     projectRole: selectedProject.role ?? "viewer",

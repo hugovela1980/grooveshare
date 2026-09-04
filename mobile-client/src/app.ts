@@ -1,5 +1,6 @@
 import {
   createGuestMixStorageProvider,
+  DEFAULT_PLAYBACK_MEDIA_PREPARATION_POLICY,
   createHtmlAudioPlaybackEngine,
   createMicrophoneRecordingSession,
   createProjectDraftState,
@@ -86,7 +87,7 @@ const projectsApi = frontendServices.projects;
 const projectMembersApi = frontendServices.projectMembers;
 const tracksApi = frontendServices.tracks;
 const invitationsApi = frontendServices.invitations;
-const getTrackAudioUrl = tracksApi.getTrackAudioUrl;
+const getTrackMediaSources = tracksApi.getTrackMediaSources;
 const createInvitationAudioDataFetcher =
   tracksApi.createInvitationAudioDataFetcher;
 
@@ -995,6 +996,7 @@ function initializeProjectPlayerPage({
   const basePlaybackEngine = createWebAudioPlaybackEngine({
     musicalTimeline,
     recordingAlignmentDiagnostics,
+    mediaPreparationPolicy: DEFAULT_PLAYBACK_MEDIA_PREPARATION_POLICY,
     ...(invitationForProject
       ? {
           fetchAudioData: createInvitationAudioDataFetcher(
@@ -1578,7 +1580,7 @@ function initializeProjectPlayerPage({
     tracksApi: projectTracksApi,
     projectsApi,
     audioPlayerController,
-    getTrackAudioUrl,
+    getTrackMediaSources,
     chooseAudioFile,
     renderTrackList: renderMixChannelSlots,
     // Guest is not a Viewer membership. The shared controller receives the

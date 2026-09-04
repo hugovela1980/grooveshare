@@ -308,7 +308,7 @@ tester.describe("audio player controller", () => {
                 channelNumber: 1,
                 trackId: "track-1",
                 name: "Guitar Take",
-                audioUrl: "http://localhost:3000/audio/guitar.wav",
+                playbackDerivativeUrl: "http://localhost:3000/audio/guitar.wav",
                 volume: 1,
             },
         ]);
@@ -336,7 +336,7 @@ tester.describe("audio player controller", () => {
             channelNumber: 1,
             trackId: "track-1",
             name: "Guitar Take",
-            audioUrl: "/guitar.wav",
+            playbackDerivativeUrl: "/guitar.wav",
             volume: 1,
         }]);
 
@@ -346,13 +346,13 @@ tester.describe("audio player controller", () => {
             channelNumber: 1,
             trackId: "track-1",
             name: "Guitar Take",
-            audioUrl: "/guitar.wav",
+            playbackDerivativeUrl: "/guitar.wav",
             volume: 1,
         }, {
             channelNumber: 2,
             trackId: "recorded-track",
             name: "Recorded Take",
-            audioUrl: "/recorded.webm",
+            playbackDerivativeUrl: "/recorded.webm",
             volume: 1,
         }]);
 
@@ -377,7 +377,7 @@ tester.describe("audio player controller", () => {
             channelNumber: 1,
             trackId: "track-1",
             name: "Guitar",
-            audioUrl: "/guitar.wav",
+            playbackDerivativeUrl: "/guitar.wav",
             volume: 1,
         }]);
 
@@ -390,13 +390,13 @@ tester.describe("audio player controller", () => {
             channelNumber: 1,
             trackId: "track-1",
             name: "Guitar",
-            audioUrl: "/guitar.wav",
+            playbackDerivativeUrl: "/guitar.wav",
             volume: 1,
         }, {
             channelNumber: 2,
             trackId: "kept-take",
             name: "Kept Take",
-            audioUrl: "/kept.webm",
+            playbackDerivativeUrl: "/kept.webm",
             volume: 1,
         }]);
         tester.expect(first.audioElement.currentTime).toBe(22);
@@ -420,7 +420,7 @@ tester.describe("audio player controller", () => {
             channelNumber: 1,
             trackId: "track-1",
             name: "Guitar",
-            audioUrl: "/guitar.wav",
+            playbackDerivativeUrl: "/guitar.wav",
             volume: 1,
         }]);
         tester.expect(second.seekBarInput.value).toBe("1");
@@ -451,7 +451,7 @@ tester.describe("audio player controller", () => {
             channelNumber: 1,
             trackId: "track-1",
             name: "Guitar Take",
-            audioUrl: "/guitar.wav",
+            playbackDerivativeUrl: "/guitar.wav",
             volume: 1,
         }]);
 
@@ -485,7 +485,7 @@ tester.describe("audio player controller", () => {
                 channelNumber: 1,
                 trackId: "track-1",
                 name: "Guitar Take",
-                audioUrl: "http://localhost:3000/audio/guitar.wav",
+                playbackDerivativeUrl: "http://localhost:3000/audio/guitar.wav",
                 volume: 1,
             },
         ]);
@@ -524,7 +524,7 @@ tester.describe("audio player controller", () => {
                 channelNumber: 1,
                 trackId: "track-1",
                 name: "Guitar Take",
-                audioUrl: "http://localhost:3000/audio/guitar.wav",
+                playbackDerivativeUrl: "http://localhost:3000/audio/guitar.wav",
                 volume: 1,
             },
         ]);
@@ -554,7 +554,7 @@ tester.describe("audio player controller", () => {
                 channelNumber: 1,
                 trackId: "track-1",
                 name: "Guitar Take",
-                audioUrl: "http://localhost:3000/audio/guitar.wav",
+                playbackDerivativeUrl: "http://localhost:3000/audio/guitar.wav",
                 volume: 1,
             },
         ]);
@@ -591,7 +591,7 @@ tester.describe("audio player controller", () => {
                 channelNumber: 1,
                 trackId: "track-1",
                 name: "Guitar Take",
-                audioUrl: "http://localhost:3000/audio/guitar.wav",
+                playbackDerivativeUrl: "http://localhost:3000/audio/guitar.wav",
                 volume: 1,
             },
         ]);
@@ -622,7 +622,7 @@ tester.describe("audio player controller", () => {
                 channelNumber: 1,
                 trackId: "track-1",
                 name: "Guitar Take",
-                audioUrl: "http://localhost:3000/audio/guitar.wav",
+                playbackDerivativeUrl: "http://localhost:3000/audio/guitar.wav",
                 volume: 1,
             },
         ]);
@@ -652,7 +652,7 @@ tester.describe("audio player controller", () => {
                 channelNumber: 1,
                 trackId: "track-1",
                 name: "Guitar Take",
-                audioUrl: "http://localhost:3000/audio/guitar.wav",
+                playbackDerivativeUrl: "http://localhost:3000/audio/guitar.wav",
                 volume: 1,
             },
         ]);
@@ -684,14 +684,14 @@ tester.describe("audio player controller", () => {
                 channelNumber: 1,
                 trackId: "track-1",
                 name: "Drums",
-                audioUrl: "http://localhost:3000/audio/drums.wav",
+                playbackDerivativeUrl: "http://localhost:3000/audio/drums.wav",
                 volume: 1,
             },
             {
                 channelNumber: 2,
                 trackId: "track-2",
                 name: "Bass",
-                audioUrl: "http://localhost:3000/audio/bass.wav",
+                playbackDerivativeUrl: "http://localhost:3000/audio/bass.wav",
                 volume: 1,
             },
         ]);
@@ -718,7 +718,7 @@ tester.describe("audio player controller", () => {
                 channelNumber: 1,
                 trackId: "track-1",
                 name: "Guitar",
-                audioUrl: "http://localhost:3000/audio/guitar.wav",
+                playbackDerivativeUrl: "http://localhost:3000/audio/guitar.wav",
                 volume: 1,
             },
         ]);
@@ -732,7 +732,7 @@ tester.describe("audio player controller", () => {
     tester.it("keeps the local Bar/Beat destination separate from playback and validates Go", async () => {
         const h = createControllerTestSetup({ musicalTimeline: { bpm: 120, timeSignature: { numerator: 6, denominator: 8 } } });
         h.controller.init();
-        h.controller.loadMix([{ channelNumber: 1, trackId: "t", name: "Take", audioUrl: "/take.wav", volume: 1 }]);
+        h.controller.loadMix([{ channelNumber: 1, trackId: "t", name: "Take", playbackDerivativeUrl: "/take.wav", volume: 1 }]);
         h.seekBarInput.value = "3";
         h.seekBeatInput.value = "4";
         h.seekBeatInput.enter();
@@ -770,7 +770,7 @@ tester.describe("audio player controller", () => {
             musicalTimeline: { bpm: 120, timeSignature: { numerator: 6, denominator: 8 } },
         });
         controller.init();
-        controller.loadMix([{ channelNumber: 1, trackId: "track-1", name: "Guitar", audioUrl: "/audio/guitar.wav", volume: 1 }]);
+        controller.loadMix([{ channelNumber: 1, trackId: "track-1", name: "Guitar", playbackDerivativeUrl: "/audio/guitar.wav", volume: 1 }]);
         audioElement.duration = 10;
         progressInput.value = "21.3";
         progressInput.input();
@@ -802,7 +802,7 @@ tester.describe("audio player controller", () => {
             channelNumber: 1,
             trackId: "track-1",
             name: "Guitar",
-            audioUrl: "http://localhost:3000/audio/guitar.wav",
+            playbackDerivativeUrl: "http://localhost:3000/audio/guitar.wav",
             volume: 1,
         }]);
 
@@ -832,7 +832,7 @@ tester.describe("audio player controller", () => {
                 channelNumber: 1,
                 trackId: "track-1",
                 name: "Drums",
-                audioUrl:
+                playbackDerivativeUrl:
                     "http://localhost:3000/audio/drums.wav",
                 volume: 1,
             },
@@ -840,7 +840,7 @@ tester.describe("audio player controller", () => {
                 channelNumber: 2,
                 trackId: "track-2",
                 name: "Bass",
-                audioUrl:
+                playbackDerivativeUrl:
                     "http://localhost:3000/audio/bass.wav",
                 volume: 1,
             },
@@ -884,14 +884,14 @@ tester.describe("audio player controller", () => {
                     channelNumber: 1,
                     trackId: "track-1",
                     name: "Drums",
-                    audioUrl: "http://localhost:3000/audio/drums.wav",
+                    playbackDerivativeUrl: "http://localhost:3000/audio/drums.wav",
                     volume: 0.75,
                 },
                 {
                     channelNumber: 2,
                     trackId: "track-2",
                     name: "Bass",
-                    audioUrl: "http://localhost:3000/audio/bass.wav",
+                    playbackDerivativeUrl: "http://localhost:3000/audio/bass.wav",
                     volume: 0.5,
                 },
             ],
@@ -927,14 +927,14 @@ tester.describe("audio player controller", () => {
                 channelNumber: 1,
                 trackId: "track-1",
                 name: "Drums",
-                audioUrl: "http://localhost:3000/audio/drums.wav",
+                playbackDerivativeUrl: "http://localhost:3000/audio/drums.wav",
                 volume: 0.75,
             },
             {
                 channelNumber: 2,
                 trackId: "track-2",
                 name: "Bass",
-                audioUrl: "http://localhost:3000/audio/bass.wav",
+                playbackDerivativeUrl: "http://localhost:3000/audio/bass.wav",
                 volume: 0.5,
             },
         ]);
@@ -975,7 +975,7 @@ tester.describe("audio player controller", () => {
                 channelNumber: 1,
                 trackId: "track-1",
                 name: "Drums",
-                audioUrl: "http://localhost:3000/audio/drums.wav",
+                playbackDerivativeUrl: "http://localhost:3000/audio/drums.wav",
                 volume: 0.75,
                 enabled: true,
             },
@@ -983,7 +983,7 @@ tester.describe("audio player controller", () => {
                 channelNumber: 2,
                 trackId: "track-2",
                 name: "Bass",
-                audioUrl: "http://localhost:3000/audio/bass.wav",
+                playbackDerivativeUrl: "http://localhost:3000/audio/bass.wav",
                 volume: 0.5,
                 enabled: false,
             },
@@ -1026,7 +1026,7 @@ tester.describe("audio player controller", () => {
                 channelNumber: 1,
                 trackId: "track-1",
                 name: "Guitar",
-                audioUrl: "http://localhost:3000/audio/guitar.wav",
+                playbackDerivativeUrl: "http://localhost:3000/audio/guitar.wav",
                 volume: 0.8,
                 enabled: false,
             },
@@ -1058,7 +1058,7 @@ tester.describe("audio player controller", () => {
                 channelNumber: 1,
                 trackId: "track-1",
                 name: "Guitar",
-                audioUrl: "http://localhost:3000/audio/guitar.wav",
+                playbackDerivativeUrl: "http://localhost:3000/audio/guitar.wav",
                 volume: 0.8,
                 enabled: false,
             },
@@ -1090,7 +1090,7 @@ tester.describe("audio player controller", () => {
                 channelNumber: 1,
                 trackId: "track-1",
                 name: "Guitar",
-                audioUrl: "http://localhost:3000/audio/guitar.wav",
+                playbackDerivativeUrl: "http://localhost:3000/audio/guitar.wav",
                 volume: 1,
                 enabled: true,
             },
@@ -1118,7 +1118,7 @@ tester.describe("audio player controller", () => {
                 channelNumber: 1,
                 trackId: "track-1",
                 name: "Guitar",
-                audioUrl: "http://localhost:3000/audio/guitar.wav",
+                playbackDerivativeUrl: "http://localhost:3000/audio/guitar.wav",
                 volume: 1,
                 enabled: true,
             },
@@ -1150,14 +1150,14 @@ tester.describe("audio player controller", () => {
                 channelNumber: 1,
                 trackId: "track-1",
                 name: "Drums",
-                audioUrl: "http://localhost:3000/audio/drums.wav",
+                playbackDerivativeUrl: "http://localhost:3000/audio/drums.wav",
                 volume: 1,
             },
             {
                 channelNumber: 2,
                 trackId: "track-2",
                 name: "Bass",
-                audioUrl: "http://localhost:3000/audio/bass.wav",
+                playbackDerivativeUrl: "http://localhost:3000/audio/bass.wav",
                 volume: 0.5,
             },
         ]);
@@ -1194,14 +1194,14 @@ tester.describe("audio player controller", () => {
                 channelNumber: 1,
                 trackId: "track-1",
                 name: "Drums",
-                audioUrl: "http://localhost:3000/audio/drums.wav",
+                playbackDerivativeUrl: "http://localhost:3000/audio/drums.wav",
                 volume: 1,
             },
             {
                 channelNumber: 2,
                 trackId: "track-2",
                 name: "Bass",
-                audioUrl: "http://localhost:3000/audio/bass.wav",
+                playbackDerivativeUrl: "http://localhost:3000/audio/bass.wav",
                 volume: 0.5,
             },
         ]);
@@ -1348,7 +1348,7 @@ tester.describe("audio player controller playback boundary", () => {
             channelNumber: 1,
             trackId: "track-1",
             name: "Guitar",
-            audioUrl: "/audio/guitar.wav",
+            playbackDerivativeUrl: "/audio/guitar.wav",
             volume: 0.8,
             enabled: true,
             timelineOffsetSeconds: 3.5,

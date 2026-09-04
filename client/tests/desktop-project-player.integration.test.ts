@@ -189,7 +189,12 @@ tester.describe("desktop Project Player integration", () => {
       tracksApi: { async getTracksByProjectId() { return [ownedTrack]; }, async deleteTrack() { return ownedTrack; }, async updateTrackName(_projectId, trackId, name) { tester.expect(trackId).toBe("track-1"); savedName = name; return { ...ownedTrack, name }; } },
       renderTrackList() { return "Guitar"; }, projectRole: "owner", currentUserId: "user-1",
       audioPlayerController: { loadMix() {}, setTrackName(trackId, name) { tester.expect(trackId).toBe("track-1"); playbackName = name; return true; } },
-      getTrackAudioUrl() { return "/api/projects/project-1/tracks/track-1/audio"; },
+      getTrackMediaSources() {
+        return {
+          playbackDerivativeUrl: "/api/projects/project-1/tracks/track-1/playback-derivative",
+          originalAudioUrl: "/api/projects/project-1/tracks/track-1/audio",
+        };
+      },
     });
     await controller.init();
     const result = await trackListElement.editTrackNameOnEnter("track-1", "  Lead Guitar  ");

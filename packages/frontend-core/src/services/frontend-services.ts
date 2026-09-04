@@ -16,12 +16,18 @@ import {
   createTracksService,
   type TracksService,
 } from "./tracks-service.js";
+import type { Track } from "../domain/types.js";
+import type { PlaybackChannelMediaSources } from "../playback/playback-media.js";
 
 export type FrontendServices<TAudioFile = unknown> = {
   auth: AuthService;
   projects: ProjectsService;
   tracks: TracksService<TAudioFile> & {
     getTrackAudioUrl(projectId: string, trackId: string): string;
+    getTrackPlaybackDerivativeUrl(projectId: string, trackId: string): string;
+    getTrackMediaSources(
+      track: Pick<Track, "id" | "projectId" | "playbackDerivative">,
+    ): PlaybackChannelMediaSources;
     createInvitationAudioDataFetcher(
       invitationToken: string,
     ): (audioUrl: string) => Promise<ArrayBuffer>;
