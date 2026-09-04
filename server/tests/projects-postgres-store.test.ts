@@ -1,4 +1,5 @@
 import { createProjectsPostgresStore } from "../src/stores/projects-postgres-store.js";
+import { CURRENT_PLAYBACK_DERIVATIVE_VERSION } from "../src/playback-derivative.js";
 import {
     postgresTestPool,
     resetPostgresTestDatabase,
@@ -386,6 +387,20 @@ tester.describe("projects PostgreSQL store", () => {
             const trackId =
                 await createTestTrack(project.id);
 
+            await postgresTestPool.query(
+                `
+          UPDATE tracks
+          SET
+            playback_derivative_status = 'ready',
+            playback_derivative_version = $2,
+            playback_derivative_file_path = 'uploads/guitar.opus',
+            playback_derivative_mime_type = 'audio/ogg',
+            playback_derivative_file_size = 4321
+          WHERE id = $1
+        `,
+                [trackId, CURRENT_PLAYBACK_DERIVATIVE_VERSION],
+            );
+
             const result =
                 await store.deleteProjectById(project.id);
 
@@ -406,6 +421,15 @@ tester.describe("projects PostgreSQL store", () => {
             tester.expect(result.deletedTracks[0]?.id).toBe(
                 trackId,
             );
+            tester.expect(
+                result.deletedTracks[0]?.playbackDerivative,
+            ).toEqual({
+                status: "ready",
+                version: CURRENT_PLAYBACK_DERIVATIVE_VERSION,
+                filePath: "uploads/guitar.opus",
+                mimeType: "audio/ogg",
+                fileSize: 4321,
+            });
 
             const projectRows =
                 await postgresTestPool.query(

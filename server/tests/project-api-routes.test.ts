@@ -2,11 +2,16 @@ import { access, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import type http from "node:http";
 import path from "node:path";
 import { createAppServer } from "../src/app.js";
+import {
+  CURRENT_PLAYBACK_DERIVATIVE_VERSION,
+  createPendingPlaybackDerivative,
+} from "../src/playback-derivative.js";
 import type {
   ProjectMembershipsStore,
 } from "../src/stores/project-memberships-store.js";
 import { createProjectsJsonStore } from "../src/stores/projects-json-store.js";
 import type { SessionsStore } from "../src/stores/sessions-store.js";
+import type { TracksStore } from "../src/stores/tracks-store.js";
 import { createTracksJsonStore } from "../src/stores/tracks-json-store.js";
 import type { UsersStore } from "../src/stores/users-store.js";
 import type { Database, Project, Track } from "../src/types.js";
@@ -106,6 +111,7 @@ async function createTestServer(): Promise<{
   usersStore: UsersStore;
   sessionsStore: SessionsStore;
   projectMembershipsStore: ProjectMembershipsStore;
+  tracksStore: TracksStore;
   authCookie: string;
   request: typeof fetch;
 }> {
@@ -176,6 +182,7 @@ async function createTestServer(): Promise<{
     usersStore,
     sessionsStore,
     projectMembershipsStore,
+    tracksStore,
     authCookie,
     request,
   };
@@ -455,6 +462,9 @@ tester.describe("project API routes", () => {
       tester.expect(uploadBody.data?.originalFilename).toBe("guitar-riff.wav");
       tester.expect(uploadBody.data?.mimeType).toBe("audio/wav");
       tester.expect(uploadBody.data?.fileSize).toBe(fileData.length);
+      tester.expect(uploadBody.data?.playbackDerivative).toEqual(
+        createPendingPlaybackDerivative(),
+      );
       tester.expect(typeof uploadBody.data?.filePath).toBe("string");
       tester.expect(
         path.isAbsolute(uploadBody.data?.filePath ?? ""),
@@ -935,7 +945,7 @@ tester.describe("project API routes", () => {
   });
 
   tester.it("serves an uploaded audio file for a track", async () => {
-    const { baseUrl, server, request } = await createTestServer();
+    const { baseUrl, server, request, tracksStore } = await createTestServer();
     const boundary = "----GrooveShareBoundary";
     const fileData = Buffer.from("fake wav data", "utf-8");
 
@@ -995,6 +1005,24 @@ tester.describe("project API routes", () => {
       if (!uploadedTrack) {
         throw new Error("Uploaded track was missing from response.");
       }
+
+      const derivativePath = path.join(
+        path.dirname(uploadedTrack.filePath),
+        `${uploadedTrack.id}.opus`,
+      );
+      await writeFile(derivativePath, "derivative audio", "utf-8");
+      const derivativeUpdate = await tracksStore.updatePlaybackDerivative(
+        projectId,
+        uploadedTrack.id,
+        {
+          status: "ready",
+          version: CURRENT_PLAYBACK_DERIVATIVE_VERSION,
+          filePath: derivativePath,
+          mimeType: "audio/ogg",
+          fileSize: 16,
+        },
+      );
+      tester.expect(derivativeUpdate.ok).toBe(true);
 
       const audioResponse = await request(
         `${baseUrl}/api/projects/${projectId}/tracks/${uploadedTrack.id}/audio`,
@@ -1157,7 +1185,7 @@ tester.describe("project API routes", () => {
   });
 
   tester.it("deletes a track and its uploaded audio file", async () => {
-    const { baseUrl, server, request } = await createTestServer();
+    const { baseUrl, server, request, tracksStore } = await createTestServer();
     const boundary = "----GrooveShareBoundary";
     const fileData = Buffer.from("fake wav data", "utf-8");
 
@@ -1223,8 +1251,26 @@ tester.describe("project API routes", () => {
         uploadedTrack.filePath,
       );
       const projectUploadDir = path.dirname(absoluteUploadedFilePath);
+      const derivativePath = path.join(
+        projectUploadDir,
+        `${uploadedTrack.id}.opus`,
+      );
+      const readyDerivative = {
+        status: "ready" as const,
+        version: CURRENT_PLAYBACK_DERIVATIVE_VERSION,
+        filePath: derivativePath,
+        mimeType: "audio/ogg",
+        fileSize: 16,
+      };
+      await writeFile(derivativePath, "derivative audio", "utf-8");
+      await tracksStore.updatePlaybackDerivative(
+        projectId,
+        uploadedTrack.id,
+        readyDerivative,
+      );
 
       tester.expect(await fileExists(absoluteUploadedFilePath)).toBe(true);
+      tester.expect(await fileExists(derivativePath)).toBe(true);
       tester.expect(await fileExists(projectUploadDir)).toBe(true);
 
       const deleteResponse = await request(
@@ -1238,12 +1284,14 @@ tester.describe("project API routes", () => {
 
       tester.expect(deleteResponse.status).toBe(200);
       tester.expect(deleteBody.ok).toBe(true);
-      tester.expect(deleteBody.data).toEqual(uploadedTrack);
+      tester.expect(deleteBody.data?.id).toBe(uploadedTrack.id);
+      tester.expect(deleteBody.data?.playbackDerivative).toEqual(readyDerivative);
 
       const database = await readTestDatabase();
 
       tester.expect(database.tracks).toEqual([]);
       tester.expect(await fileExists(absoluteUploadedFilePath)).toBe(false);
+      tester.expect(await fileExists(derivativePath)).toBe(false);
       tester.expect(await fileExists(projectUploadDir)).toBe(false);
     } finally {
       await closeServer(server);
@@ -1948,6 +1996,7 @@ tester.describe("project API routes", () => {
       filePath: "uploads/projects/project-1/guitar.wav",
       mimeType: "audio/wav",
       fileSize: 100,
+      playbackDerivative: createPendingPlaybackDerivative(),
       uploadedByUserId: null,
       createdAt: "2026-01-01T00:00:00.000Z",
     };
@@ -2012,6 +2061,7 @@ tester.describe("project API routes", () => {
       filePath: "uploads/projects/project-1/guitar.wav",
       mimeType: "audio/wav",
       fileSize: 100,
+      playbackDerivative: createPendingPlaybackDerivative(),
       uploadedByUserId: null,
       createdAt: "2026-01-01T00:00:00.000Z",
     };
@@ -2084,6 +2134,7 @@ tester.describe("project API routes", () => {
       filePath: "uploads/projects/project-1/guitar.wav",
       mimeType: "audio/wav",
       fileSize: 100,
+      playbackDerivative: createPendingPlaybackDerivative(),
       uploadedByUserId: null,
       createdAt: "2026-01-01T00:00:00.000Z",
     };
@@ -2137,6 +2188,7 @@ tester.describe("project API routes", () => {
       filePath: "uploads/projects/project-1/guitar.wav",
       mimeType: "audio/wav",
       fileSize: 100,
+      playbackDerivative: createPendingPlaybackDerivative(),
       uploadedByUserId: null,
       createdAt: "2026-01-01T00:00:00.000Z",
     };

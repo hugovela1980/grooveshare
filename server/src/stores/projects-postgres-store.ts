@@ -11,6 +11,7 @@ import type {
     UpdateProjectDetailsInput,
 } from "../types.js";
 import { normalizeMusicalTimeline } from "../musical-timeline.js";
+import { validatePlaybackDerivative } from "../playback-derivative.js";
 import type {
     DeleteProjectResult,
     ProjectsStore,
@@ -43,6 +44,11 @@ type TrackRow = {
     mime_type: string;
     file_size: number;
     uploaded_by_user_id: string | null;
+    playback_derivative_status: Track["playbackDerivative"]["status"];
+    playback_derivative_version: string;
+    playback_derivative_file_path: string | null;
+    playback_derivative_mime_type: string | null;
+    playback_derivative_file_size: number | null;
     created_at: Date;
 };
 
@@ -60,6 +66,22 @@ function mixChannelRowToMixChannelSetting(
 function trackRowToTrack(
     row: TrackRow,
 ): Track {
+    const playbackDerivative = row.playback_derivative_status === "ready"
+        ? validatePlaybackDerivative({
+            status: "ready",
+            version: row.playback_derivative_version,
+            filePath: row.playback_derivative_file_path ?? "",
+            mimeType: row.playback_derivative_mime_type ?? "",
+            fileSize: row.playback_derivative_file_size ?? -1,
+        })
+        : validatePlaybackDerivative({
+            status: row.playback_derivative_status,
+            version: row.playback_derivative_version,
+            filePath: null,
+            mimeType: null,
+            fileSize: null,
+        });
+
     return {
         id: row.id,
         projectId: row.project_id,
@@ -68,6 +90,7 @@ function trackRowToTrack(
         filePath: row.file_path,
         mimeType: row.mime_type,
         fileSize: row.file_size,
+        playbackDerivative,
         uploadedByUserId: row.uploaded_by_user_id,
         createdAt: row.created_at.toISOString(),
     };
@@ -469,6 +492,11 @@ export function createProjectsPostgresStore(
               mime_type,
               file_size,
               uploaded_by_user_id,
+              playback_derivative_status,
+              playback_derivative_version,
+              playback_derivative_file_path,
+              playback_derivative_mime_type,
+              playback_derivative_file_size,
               created_at
             FROM tracks
             WHERE project_id = $1

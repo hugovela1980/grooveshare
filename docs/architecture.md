@@ -368,13 +368,13 @@ Current schema evolution lives under:
 server/db/migrations/
 ```
 
-Migrations currently cover the initial project/track schema plus users, sessions, memberships, upload ownership, and project invitations.
+Migrations currently cover the initial project/track schema plus users, sessions, memberships, upload ownership, project invitations, musical placement/alignment metadata, and playback-derivative lifecycle metadata.
 
 Operational rule: if a migration is executed by a PostgreSQL administrative role, newly created objects must still be owned by or granted to the runtime GrooveShare database role. Creating a table as `postgres` without application-role privileges can leave production code unable to use that table even though the migration itself succeeded.
 
 ### Filesystem audio
 
-Uploaded audio bytes are stored on disk rather than in PostgreSQL. PostgreSQL stores track metadata and the path/reference needed to locate the file.
+Uploaded audio bytes are stored on disk rather than in PostgreSQL. Each track's existing file path, MIME type, size, and original filename describe the authoritative original. PostgreSQL also models one disposable, regeneratable playback derivative with `pending`, `processing`, `ready`, or `failed` status and nullable artifact metadata. New and legacy tracks start pending with profile version `opus-playback-v1`; server-side generation begins in the next milestone, and later backfill work will handle legacy media.
 
 Production and Labs use persistent upload directories outside their Git checkouts. Deploying application code therefore does not replace uploaded audio.
 

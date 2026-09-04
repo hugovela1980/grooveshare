@@ -1,5 +1,9 @@
 import { createTracksPostgresStore } from "../src/stores/tracks-postgres-store.js";
 import {
+    CURRENT_PLAYBACK_DERIVATIVE_VERSION,
+    createPendingPlaybackDerivative,
+} from "../src/playback-derivative.js";
+import {
     postgresTestPool,
     resetPostgresTestDatabase,
 } from "./db/postgres-test-db.js";
@@ -79,6 +83,9 @@ tester.describe("tracks PostgreSQL store", () => {
 
             tester.expect(track.mimeType).toBe("audio/wav");
             tester.expect(track.fileSize).toBe(123456);
+            tester.expect(track.playbackDerivative).toEqual(
+                createPendingPlaybackDerivative(),
+            );
             tester.expect(track.musicalPlacement).toEqual({
                 start: { bar: 3, beat: 2.5 },
                 spanBeats: 8,
@@ -544,6 +551,147 @@ tester.describe("tracks PostgreSQL store", () => {
 
             tester.expect(savedTrack?.uploadedByUserId).toBe(
                 userId,
+            );
+        },
+    );
+
+    tester.it(
+        "persists derivative lifecycle changes without mutating original media",
+        async () => {
+            const store = createTracksPostgresStore(postgresTestPool);
+            const projectId = await createTestProject();
+            const track = await store.createTrack({
+                projectId,
+                name: "Guitar",
+                originalFilename: "guitar.wav",
+                filePath: "uploads/guitar.wav",
+                mimeType: "audio/wav",
+                fileSize: 123456,
+                uploadedByUserId: null,
+                musicalPlacement: {
+                    start: { bar: 3, beat: 2 },
+                    spanBeats: 8,
+                },
+                alignmentOffsetSeconds: 0.25,
+                mediaLeadInSeconds: 1.5,
+            });
+            const originalFields = {
+                originalFilename: track.originalFilename,
+                filePath: track.filePath,
+                mimeType: track.mimeType,
+                fileSize: track.fileSize,
+                musicalPlacement: track.musicalPlacement,
+                alignmentOffsetSeconds: track.alignmentOffsetSeconds,
+                mediaLeadInSeconds: track.mediaLeadInSeconds,
+            };
+
+            const processing = await store.updatePlaybackDerivative(
+                projectId,
+                track.id,
+                {
+                    status: "processing",
+                    version: CURRENT_PLAYBACK_DERIVATIVE_VERSION,
+                    filePath: null,
+                    mimeType: null,
+                    fileSize: null,
+                },
+            );
+            tester.expect(
+                processing.ok && processing.updatedTrack.playbackDerivative.status,
+            ).toBe("processing");
+
+            const ready = await store.updatePlaybackDerivative(
+                projectId,
+                track.id,
+                {
+                    status: "ready",
+                    version: CURRENT_PLAYBACK_DERIVATIVE_VERSION,
+                    filePath: "uploads/guitar.opus",
+                    mimeType: "audio/ogg",
+                    fileSize: 5432,
+                },
+            );
+            tester.expect(ready.ok && ready.updatedTrack.playbackDerivative).toEqual({
+                status: "ready",
+                version: CURRENT_PLAYBACK_DERIVATIVE_VERSION,
+                filePath: "uploads/guitar.opus",
+                mimeType: "audio/ogg",
+                fileSize: 5432,
+            });
+            tester.expect(
+                (await store.getTrackById(projectId, track.id))
+                    ?.playbackDerivative,
+            ).toEqual(ready.ok ? ready.updatedTrack.playbackDerivative : null);
+
+            const failed = await store.updatePlaybackDerivative(
+                projectId,
+                track.id,
+                {
+                    status: "failed",
+                    version: CURRENT_PLAYBACK_DERIVATIVE_VERSION,
+                    filePath: null,
+                    mimeType: null,
+                    fileSize: null,
+                },
+            );
+            tester.expect(failed.ok && failed.updatedTrack.playbackDerivative).toEqual({
+                status: "failed",
+                version: CURRENT_PLAYBACK_DERIVATIVE_VERSION,
+                filePath: null,
+                mimeType: null,
+                fileSize: null,
+            });
+
+            const reset = await store.updatePlaybackDerivative(
+                projectId,
+                track.id,
+                createPendingPlaybackDerivative(),
+            );
+            if (!reset.ok) {
+                throw new Error("Expected derivative reset to succeed.");
+            }
+            tester.expect(reset.updatedTrack.playbackDerivative).toEqual(
+                createPendingPlaybackDerivative(),
+            );
+            tester.expect({
+                originalFilename: reset.updatedTrack.originalFilename,
+                filePath: reset.updatedTrack.filePath,
+                mimeType: reset.updatedTrack.mimeType,
+                fileSize: reset.updatedTrack.fileSize,
+                musicalPlacement: reset.updatedTrack.musicalPlacement,
+                alignmentOffsetSeconds: reset.updatedTrack.alignmentOffsetSeconds,
+                mediaLeadInSeconds: reset.updatedTrack.mediaLeadInSeconds,
+            }).toEqual(originalFields);
+        },
+    );
+
+    tester.it(
+        "retains ready derivative metadata in the delete result",
+        async () => {
+            const store = createTracksPostgresStore(postgresTestPool);
+            const projectId = await createTestProject();
+            const track = await store.createTrack({
+                projectId,
+                name: "Guitar",
+                originalFilename: "guitar.wav",
+                filePath: "uploads/guitar.wav",
+                mimeType: "audio/wav",
+                fileSize: 100,
+                uploadedByUserId: null,
+            });
+            const readyDerivative = {
+                status: "ready" as const,
+                version: CURRENT_PLAYBACK_DERIVATIVE_VERSION,
+                filePath: "uploads/guitar.opus",
+                mimeType: "audio/ogg",
+                fileSize: 4321,
+            };
+
+            await store.updatePlaybackDerivative(projectId, track.id, readyDerivative);
+            const result = await store.deleteTrackById(projectId, track.id);
+
+            tester.expect(result.ok && result.deletedTrack.playbackDerivative).toEqual(
+                readyDerivative,
             );
         },
     );

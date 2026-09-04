@@ -1,5 +1,9 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import {
+  CURRENT_PLAYBACK_DERIVATIVE_VERSION,
+  createPendingPlaybackDerivative,
+} from "../src/playback-derivative.js";
 import { createTracksJsonStore } from "../src/stores/tracks-json-store.js";
 import type { Database, Project, Track } from "../src/types.js";
 import { tester } from "./test-runner/tester.js";
@@ -56,6 +60,7 @@ function createTestTrack(overrides: Partial<Track> = {}): Track {
     filePath: "uploads/projects/project-1/track-1-guitar.wav",
     mimeType: "audio/wav",
     fileSize: 100,
+    playbackDerivative: createPendingPlaybackDerivative(),
     uploadedByUserId: null,
     createdAt: "2026-01-01T00:00:00.000Z",
     ...overrides,
@@ -91,6 +96,9 @@ tester.describe("tracks JSON store", () => {
     );
     tester.expect(track.mimeType).toBe("audio/wav");
     tester.expect(track.fileSize).toBe(123456);
+    tester.expect(track.playbackDerivative).toEqual(
+      createPendingPlaybackDerivative(),
+    );
     tester.expect(track.alignmentOffsetSeconds).toBe(0.163);
     tester.expect(track.mediaLeadInSeconds).toBe(2.43);
     tester.expect(typeof track.createdAt).toBe("string");
@@ -174,6 +182,122 @@ tester.describe("tracks JSON store", () => {
 
     tester.expect(database.tracks.length).toBe(1);
     tester.expect(database.tracks[0]).toEqual(track);
+  });
+
+  tester.it("normalizes a legacy track without derivative state to pending", async () => {
+    const { playbackDerivative: _derivative, ...legacyTrack } = createTestTrack();
+    const legacyDatabase = {
+      projects: [createTestProject("project-1")],
+      tracks: [legacyTrack],
+    };
+
+    await writeFile(
+      TEST_DB_FILE_PATH,
+      `${JSON.stringify(legacyDatabase, null, 2)}\n`,
+      "utf-8",
+    );
+
+    const store = createTracksJsonStore(TEST_DB_FILE_PATH);
+    const track = await store.getTrackById("project-1", "track-1");
+
+    tester.expect(track?.playbackDerivative).toEqual(
+      createPendingPlaybackDerivative(),
+    );
+  });
+
+  tester.it("persists derivative lifecycle changes and clears completed metadata", async () => {
+    const track = createTestTrack();
+    await writeTestDatabase({
+      projects: [createTestProject("project-1")],
+      tracks: [track],
+    });
+    const store = createTracksJsonStore(TEST_DB_FILE_PATH);
+
+    const processing = await store.updatePlaybackDerivative(
+      "project-1",
+      "track-1",
+      {
+        status: "processing",
+        version: CURRENT_PLAYBACK_DERIVATIVE_VERSION,
+        filePath: null,
+        mimeType: null,
+        fileSize: null,
+      },
+    );
+    tester.expect(processing.ok && processing.updatedTrack.playbackDerivative.status)
+      .toBe("processing");
+
+    const ready = await store.updatePlaybackDerivative("project-1", "track-1", {
+      status: "ready",
+      version: CURRENT_PLAYBACK_DERIVATIVE_VERSION,
+      filePath: "uploads/projects/project-1/guitar.opus",
+      mimeType: "audio/ogg",
+      fileSize: 4321,
+    });
+    tester.expect(ready.ok && ready.updatedTrack.playbackDerivative).toEqual({
+      status: "ready",
+      version: CURRENT_PLAYBACK_DERIVATIVE_VERSION,
+      filePath: "uploads/projects/project-1/guitar.opus",
+      mimeType: "audio/ogg",
+      fileSize: 4321,
+    });
+    tester.expect(
+      (await readTestDatabase()).tracks[0]?.playbackDerivative,
+    ).toEqual(ready.ok ? ready.updatedTrack.playbackDerivative : null);
+
+    const failed = await store.updatePlaybackDerivative("project-1", "track-1", {
+      status: "failed",
+      version: CURRENT_PLAYBACK_DERIVATIVE_VERSION,
+      filePath: null,
+      mimeType: null,
+      fileSize: null,
+    });
+    tester.expect(failed.ok && failed.updatedTrack.playbackDerivative).toEqual({
+      status: "failed",
+      version: CURRENT_PLAYBACK_DERIVATIVE_VERSION,
+      filePath: null,
+      mimeType: null,
+      fileSize: null,
+    });
+
+    const reset = await store.updatePlaybackDerivative(
+      "project-1",
+      "track-1",
+      createPendingPlaybackDerivative(),
+    );
+    tester.expect(reset.ok && reset.updatedTrack.playbackDerivative).toEqual(
+      createPendingPlaybackDerivative(),
+    );
+
+    const database = await readTestDatabase();
+    tester.expect(database.tracks[0]?.playbackDerivative).toEqual(
+      createPendingPlaybackDerivative(),
+    );
+  });
+
+  tester.it("preserves derivative state during ordinary track updates", async () => {
+    const track = createTestTrack({
+      playbackDerivative: {
+        status: "ready",
+        version: CURRENT_PLAYBACK_DERIVATIVE_VERSION,
+        filePath: "uploads/projects/project-1/guitar.opus",
+        mimeType: "audio/ogg",
+        fileSize: 4321,
+      },
+    });
+    await writeTestDatabase({
+      projects: [createTestProject("project-1")],
+      tracks: [track],
+    });
+    const store = createTracksJsonStore(TEST_DB_FILE_PATH);
+
+    const result = await store.updateTrackName("project-1", "track-1", {
+      name: "Lead Guitar",
+    });
+
+    tester.expect(result.ok && result.updatedTrack.playbackDerivative).toEqual(
+      track.playbackDerivative,
+    );
   });
 
   tester.it("returns tracks by project ID", async () => {

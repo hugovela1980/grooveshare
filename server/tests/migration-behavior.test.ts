@@ -1,6 +1,7 @@
 import { createProjectsPostgresStore } from "../src/stores/projects-postgres-store.js";
 import { createTracksPostgresStore } from "../src/stores/tracks-postgres-store.js";
 import { createUsersPostgresStore } from "../src/stores/users-postgres-store.js";
+import { createPendingPlaybackDerivative } from "../src/playback-derivative.js";
 import {
   postgresTestPool,
   resetPostgresTestDatabase,
@@ -146,6 +147,24 @@ tester.describe("database migration behavior", () => {
       });
       tester.expect(track?.alignmentOffsetSeconds).toBe(0);
       tester.expect(track?.mediaLeadInSeconds).toBe(0);
+      tester.expect(track?.playbackDerivative).toEqual(
+        createPendingPlaybackDerivative(),
+      );
+      tester.expect(track?.originalFilename).toBe("stem.wav");
+      tester.expect(track?.filePath).toBe("uploads/stem.wav");
+      tester.expect(track?.mimeType).toBe("audio/wav");
+      tester.expect(track?.fileSize).toBe(100);
+
+      let invalidReadyStateRejected = false;
+      try {
+        await postgresTestPool.query(
+          `UPDATE tracks SET playback_derivative_status = 'ready' WHERE id = $1`,
+          [trackId],
+        );
+      } catch {
+        invalidReadyStateRejected = true;
+      }
+      tester.expect(invalidReadyStateRejected).toBe(true);
     },
   );
 

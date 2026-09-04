@@ -1,5 +1,6 @@
 import http from "node:http";
 import { createAppServer } from "../src/app.js";
+import { createPendingPlaybackDerivative } from "../src/playback-derivative.js";
 import type { Project, Track } from "../src/types.js";
 import type { ProjectsStore } from "../src/stores/projects-store.js";
 import type { TracksStore } from "../src/stores/tracks-store.js";
@@ -99,6 +100,7 @@ function createTracksStore(): TracksStore {
         filePath: input.filePath,
         mimeType: input.mimeType,
         fileSize: input.fileSize,
+        playbackDerivative: createPendingPlaybackDerivative(),
         uploadedByUserId: input.uploadedByUserId,
         createdAt: new Date().toISOString(),
       };
@@ -107,6 +109,9 @@ function createTracksStore(): TracksStore {
       return { ok: false as const, reason: "track-not-found" as const };
     },
     async updateTrackName() {
+      return { ok: false as const, reason: "track-not-found" as const };
+    },
+    async updatePlaybackDerivative() {
       return { ok: false as const, reason: "track-not-found" as const };
     },
     async deleteTrackById() {

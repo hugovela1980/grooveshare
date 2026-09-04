@@ -29,6 +29,34 @@ export type TrackMusicalPlacement = {
     spanBeats: number | null;
 };
 
+export type PlaybackDerivativeStatus =
+    | "pending"
+    | "processing"
+    | "ready"
+    | "failed";
+
+type PlaybackDerivativeWithoutArtifact = {
+    status: Exclude<PlaybackDerivativeStatus, "ready">;
+    version: string;
+    filePath: null;
+    mimeType: null;
+    fileSize: null;
+};
+
+type ReadyPlaybackDerivative = {
+    status: "ready";
+    version: string;
+    filePath: string;
+    mimeType: string;
+    fileSize: number;
+};
+
+export type PlaybackDerivative =
+    | PlaybackDerivativeWithoutArtifact
+    | ReadyPlaybackDerivative;
+
+export type UpdatePlaybackDerivativeInput = PlaybackDerivative;
+
 export type Project = {
     id: string;
     title: string;
@@ -47,6 +75,7 @@ export type Track = {
     filePath: string;
     mimeType: string;
     fileSize: number;
+    playbackDerivative: PlaybackDerivative;
     uploadedByUserId: string | null;
     musicalPlacement?: TrackMusicalPlacement;
     alignmentOffsetSeconds?: number;

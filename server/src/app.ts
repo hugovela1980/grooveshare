@@ -15,6 +15,7 @@ import type {
   CreateProjectInput,
   MixSettings,
   MusicalTimeline,
+  Track,
   TrackMusicalPlacement,
   UpdateProjectDetailsInput,
   UpdateTrackDetailsInput,
@@ -1178,6 +1179,20 @@ export function createAppServer({
     });
   }
 
+  async function deleteTrackMediaFiles(
+    track: Pick<Track, "filePath" | "playbackDerivative">,
+  ): Promise<void> {
+    const filePaths = new Set([track.filePath]);
+
+    if (track.playbackDerivative.status === "ready") {
+      filePaths.add(track.playbackDerivative.filePath);
+    }
+
+    await Promise.all(
+      [...filePaths].map((filePath) => deleteUploadedTrackFile(filePath)),
+    );
+  }
+
   async function deleteProjectUploadDirIfEmpty(projectId: string): Promise<void> {
     const projectUploadDir = getProjectUploadDir({
       uploadRoot,
@@ -1306,7 +1321,7 @@ export function createAppServer({
       return;
     }
 
-    await deleteUploadedTrackFile(result.deletedTrack.filePath);
+    await deleteTrackMediaFiles(result.deletedTrack);
     await deleteProjectUploadDirIfEmpty(projectId);
 
     sendJson(
@@ -1342,7 +1357,7 @@ export function createAppServer({
 
     await Promise.all(
       result.deletedTracks.map((track) => {
-        return deleteUploadedTrackFile(track.filePath);
+        return deleteTrackMediaFiles(track);
       }),
     );
 

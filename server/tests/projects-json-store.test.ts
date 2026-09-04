@@ -1,5 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { createPendingPlaybackDerivative } from "../src/playback-derivative.js";
 import { createProjectsJsonStore } from "../src/stores/projects-json-store.js";
 import type { Database, Project, Track } from "../src/types.js";
 import { tester } from "./test-runner/tester.js";
@@ -40,6 +41,7 @@ function createTestTrack(overrides: Partial<Track> = {}): Track {
     filePath: "uploads/projects/project-1/track-1-guitar.wav",
     mimeType: "audio/wav",
     fileSize: 100,
+    playbackDerivative: createPendingPlaybackDerivative(),
     createdAt: "2026-01-01T00:00:00.000Z",
     ...overrides,
     uploadedByUserId: overrides.uploadedByUserId ?? null,

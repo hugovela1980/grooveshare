@@ -2,9 +2,11 @@ import type { Pool } from "pg";
 import type {
     CreateTrackInput,
     Track,
+    UpdatePlaybackDerivativeInput,
     UpdateTrackDetailsInput,
     UpdateTrackNameInput,
 } from "../types.js";
+import { validatePlaybackDerivative } from "../playback-derivative.js";
 import type {
     DeleteTrackResult,
     TracksStore,
@@ -25,12 +27,33 @@ type TrackRow = {
     musical_span_beats: number | null;
     alignment_offset_seconds: number;
     media_lead_in_seconds: number;
+    playback_derivative_status: Track["playbackDerivative"]["status"];
+    playback_derivative_version: string;
+    playback_derivative_file_path: string | null;
+    playback_derivative_mime_type: string | null;
+    playback_derivative_file_size: number | null;
     created_at: Date;
 };
 
 function trackRowToTrack(
     row: TrackRow,
 ): Track {
+    const playbackDerivative = row.playback_derivative_status === "ready"
+        ? validatePlaybackDerivative({
+            status: "ready",
+            version: row.playback_derivative_version,
+            filePath: row.playback_derivative_file_path ?? "",
+            mimeType: row.playback_derivative_mime_type ?? "",
+            fileSize: row.playback_derivative_file_size ?? -1,
+        })
+        : validatePlaybackDerivative({
+            status: row.playback_derivative_status,
+            version: row.playback_derivative_version,
+            filePath: null,
+            mimeType: null,
+            fileSize: null,
+        });
+
     return {
         id: row.id,
         projectId: row.project_id,
@@ -39,6 +62,7 @@ function trackRowToTrack(
         filePath: row.file_path,
         mimeType: row.mime_type,
         fileSize: row.file_size,
+        playbackDerivative,
         uploadedByUserId: row.uploaded_by_user_id,
         musicalPlacement: {
             start: {
@@ -76,6 +100,11 @@ export function createTracksPostgresStore(
             musical_span_beats,
             alignment_offset_seconds,
             media_lead_in_seconds,
+            playback_derivative_status,
+            playback_derivative_version,
+            playback_derivative_file_path,
+            playback_derivative_mime_type,
+            playback_derivative_file_size,
             created_at
           FROM tracks
           WHERE project_id = $1
@@ -108,6 +137,11 @@ export function createTracksPostgresStore(
             musical_span_beats,
             alignment_offset_seconds,
             media_lead_in_seconds,
+            playback_derivative_status,
+            playback_derivative_version,
+            playback_derivative_file_path,
+            playback_derivative_mime_type,
+            playback_derivative_file_size,
             created_at
           FROM tracks
           WHERE project_id = $1
@@ -180,6 +214,11 @@ export function createTracksPostgresStore(
             musical_span_beats,
             alignment_offset_seconds,
             media_lead_in_seconds,
+            playback_derivative_status,
+            playback_derivative_version,
+            playback_derivative_file_path,
+            playback_derivative_mime_type,
+            playback_derivative_file_size,
             created_at
         `,
                 [
@@ -262,6 +301,11 @@ export function createTracksPostgresStore(
             musical_span_beats,
             alignment_offset_seconds,
             media_lead_in_seconds,
+            playback_derivative_status,
+            playback_derivative_version,
+            playback_derivative_file_path,
+            playback_derivative_mime_type,
+            playback_derivative_file_size,
             created_at
         `,
                 [
@@ -299,6 +343,71 @@ export function createTracksPostgresStore(
         return updateTrackDetails(projectId, trackId, {
             name: trackInput.name,
         });
+    }
+
+    async function updatePlaybackDerivative(
+        projectId: string,
+        trackId: string,
+        derivativeInput: UpdatePlaybackDerivativeInput,
+    ): Promise<UpdateTrackResult> {
+        const derivative = validatePlaybackDerivative(derivativeInput);
+        const projectResult = await pool.query(
+            `SELECT id FROM projects WHERE id = $1`,
+            [projectId],
+        );
+
+        if (!projectResult.rows[0]) {
+            return { ok: false, reason: "project-not-found" };
+        }
+
+        const result = await pool.query<TrackRow>(
+            `
+          UPDATE tracks
+          SET
+            playback_derivative_status = $3,
+            playback_derivative_version = $4,
+            playback_derivative_file_path = $5,
+            playback_derivative_mime_type = $6,
+            playback_derivative_file_size = $7
+          WHERE project_id = $1
+            AND id = $2
+          RETURNING
+            id,
+            project_id,
+            name,
+            original_filename,
+            file_path,
+            mime_type,
+            file_size,
+            uploaded_by_user_id,
+            musical_start_bar,
+            musical_start_beat,
+            musical_span_beats,
+            alignment_offset_seconds,
+            media_lead_in_seconds,
+            playback_derivative_status,
+            playback_derivative_version,
+            playback_derivative_file_path,
+            playback_derivative_mime_type,
+            playback_derivative_file_size,
+            created_at
+        `,
+            [
+                projectId,
+                trackId,
+                derivative.status,
+                derivative.version,
+                derivative.filePath,
+                derivative.mimeType,
+                derivative.fileSize,
+            ],
+        );
+
+        const row = result.rows[0];
+
+        return row
+            ? { ok: true, updatedTrack: trackRowToTrack(row) }
+            : { ok: false, reason: "track-not-found" };
     }
 
     async function deleteTrackById(
@@ -354,6 +463,11 @@ export function createTracksPostgresStore(
             musical_span_beats,
             alignment_offset_seconds,
             media_lead_in_seconds,
+            playback_derivative_status,
+            playback_derivative_version,
+            playback_derivative_file_path,
+            playback_derivative_mime_type,
+            playback_derivative_file_size,
             created_at
         `,
                     [
@@ -393,6 +507,7 @@ export function createTracksPostgresStore(
         createTrack,
         updateTrackDetails,
         updateTrackName,
+        updatePlaybackDerivative,
         deleteTrackById,
     };
 }
