@@ -205,7 +205,7 @@ tester.describe("frontend-core shared frontend services", () => {
     });
   });
 
-  tester.it("builds explicit original and ready-derivative media sources centrally", () => {
+  tester.it("builds media sources with truthful derivative lifecycle state centrally", () => {
     const services = createFrontendServices<string>({
       apiBaseUrl: "https://grooveshare.example",
       transport: createRecordingTransport(track).transport,
@@ -229,19 +229,27 @@ tester.describe("frontend-core shared frontend services", () => {
     tester.expect(services.tracks.getTrackMediaSources(readyTrack)).toEqual({
       playbackDerivativeUrl:
         "https://grooveshare.example/api/projects/project-1/tracks/track-1/playback-derivative",
+      playbackDerivativeStatus: "ready",
       originalAudioUrl:
         "https://grooveshare.example/api/projects/project-1/tracks/track-1/audio",
     });
-    tester.expect(services.tracks.getTrackMediaSources({
-      ...readyTrack,
-      playbackDerivative: {
-        status: "processing",
-        version: "opus-playback-v1",
-        filePath: null,
-        mimeType: null,
-        fileSize: null,
-      },
-    }).playbackDerivativeUrl).toBe(null);
+    for (const status of ["pending", "processing", "failed"] as const) {
+      tester.expect(services.tracks.getTrackMediaSources({
+        ...readyTrack,
+        playbackDerivative: {
+          status,
+          version: "opus-playback-v1",
+          filePath: null,
+          mimeType: null,
+          fileSize: null,
+        },
+      })).toEqual({
+        playbackDerivativeUrl: null,
+        playbackDerivativeStatus: status,
+        originalAudioUrl:
+          "https://grooveshare.example/api/projects/project-1/tracks/track-1/audio",
+      });
+    }
     tester.expect(DEFAULT_PLAYBACK_MEDIA_PREPARATION_POLICY).toBe(
       "derivative-only",
     );

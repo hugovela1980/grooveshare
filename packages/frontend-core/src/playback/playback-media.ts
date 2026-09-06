@@ -1,3 +1,5 @@
+import type { PlaybackDerivativeStatus } from "../domain/types.js";
+
 export type PlaybackMediaPreparationPolicy =
   | "derivative-only"
   | "derivative-plus-original";
@@ -16,5 +18,7 @@ export type PlaybackMediaRepresentation =
 
 export type PlaybackChannelMediaSources = {
   playbackDerivativeUrl: string | null;
+  /** Server lifecycle observed when this channel's media sources were resolved. */
+  playbackDerivativeStatus?: PlaybackDerivativeStatus;
   originalAudioUrl?: string;
 };

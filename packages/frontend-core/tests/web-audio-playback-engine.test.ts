@@ -252,6 +252,54 @@ tester.describe("WebAudioPlaybackEngine", () => {
     rawEngine.destroy?.();
   });
 
+  tester.it("publishes fetching and decoding as distinct not-ready states", async () => {
+    const audioContext = createFakeAudioContext();
+    let resolveFetch: ((audioData: ArrayBuffer) => void) | null = null;
+    let resolveDecode: ((buffer: FakeBuffer) => void) | null = null;
+    const fetchedAudio = new Promise<ArrayBuffer>((resolve) => {
+      resolveFetch = resolve;
+    });
+    const decodedAudio = new Promise<FakeBuffer>((resolve) => {
+      resolveDecode = resolve;
+    });
+    audioContext.decodeAudioData = () => decodedAudio;
+    const engine = createWebAudioPlaybackEngine({
+      audioContext,
+      fetchAudioData() {
+        return fetchedAudio;
+      },
+      scheduleInterval() { return {}; },
+      clearScheduledInterval() {},
+      onLoadError() {},
+    });
+
+    engine.loadMix([{
+      channelNumber: 1,
+      trackId: "state-track",
+      playbackDerivativeUrl: "/state/playback-derivative",
+      volume: 1,
+      enabled: true,
+    }]);
+    tester.expect(engine.getSnapshot().preparation.status).toBe("preparing");
+    tester.expect(engine.getSnapshot().preparation.channels[0]?.status).toBe(
+      "fetching",
+    );
+
+    resolveFetch!(new Uint8Array([24]).buffer);
+    await Promise.resolve();
+    tester.expect(engine.getSnapshot().preparation.status).toBe("preparing");
+    tester.expect(engine.getSnapshot().preparation.channels[0]?.status).toBe(
+      "decoding",
+    );
+
+    resolveDecode!({ duration: 24 });
+    await waitForPlaybackReady(engine);
+    tester.expect(engine.getSnapshot().preparation.channels[0]?.status).toBe(
+      "ready",
+    );
+    engine.destroy?.();
+  });
+
   tester.it("uses derivatives exclusively under the derivative-only policy", async () => {
     const audioContext = createFakeAudioContext();
     const fetchedUrls: string[] = [];
@@ -392,9 +440,74 @@ tester.describe("WebAudioPlaybackEngine", () => {
     tester.expect(engine.getSnapshot().preparation.status).toBe("failed");
     tester.expect(
       engine.getSnapshot().preparation.failure?.message,
-    ).toBe("Playback derivative is not available.");
+    ).toBe("This track's audio is unavailable.");
+    tester.expect(
+      engine.getSnapshot().preparation.failure?.kind,
+    ).toBe("derivative-unavailable");
     tester.expect(fetchedUrls).toEqual([]);
     engine.destroy?.();
+  });
+
+  tester.it("classifies non-ready lifecycle states without requesting any media fallback", async () => {
+    for (const expectation of [
+      {
+        status: "pending" as const,
+        kind: "derivative-not-ready",
+        message: "This track's audio is still being prepared.",
+      },
+      {
+        status: "processing" as const,
+        kind: "derivative-not-ready",
+        message: "This track's audio is still being prepared.",
+      },
+      {
+        status: "failed" as const,
+        kind: "derivative-generation-failed",
+        message: "This track's audio could not be prepared.",
+      },
+    ] as const) {
+      const audioContext = createFakeAudioContext();
+      const fetchedUrls: string[] = [];
+      const engine = createWebAudioPlaybackEngine({
+        audioContext,
+        mediaPreparationPolicy: "derivative-plus-original",
+        async fetchAudioData(url) {
+          fetchedUrls.push(url);
+          return new Uint8Array([24]).buffer;
+        },
+        scheduleInterval() { return {}; },
+        clearScheduledInterval() {},
+        onLoadError() {},
+      });
+
+      engine.loadMix([{
+        channelNumber: 1,
+        trackId: `lifecycle-${expectation.status}`,
+        playbackDerivativeUrl: null,
+        playbackDerivativeStatus: expectation.status,
+        originalAudioUrl: `/tracks/${expectation.status}/audio`,
+        volume: 1,
+        enabled: true,
+      }]);
+      for (let attempt = 0; attempt < 10; attempt += 1) {
+        await Promise.resolve();
+      }
+
+      let failure = engine.getSnapshot().preparation.failure;
+      tester.expect(engine.getSnapshot().preparation.status).toBe("failed");
+      tester.expect(failure?.kind).toBe(expectation.kind);
+      tester.expect(failure?.message).toBe(expectation.message);
+      tester.expect(fetchedUrls).toEqual([]);
+
+      engine.retryPreparation?.();
+      for (let attempt = 0; attempt < 10; attempt += 1) {
+        await Promise.resolve();
+      }
+      failure = engine.getSnapshot().preparation.failure;
+      tester.expect(failure?.kind).toBe(expectation.kind);
+      tester.expect(fetchedUrls).toEqual([]);
+      engine.destroy?.();
+    }
   });
 
   tester.it("promotes an original only after Stop starts a new transport run", async () => {
@@ -575,6 +688,52 @@ tester.describe("WebAudioPlaybackEngine", () => {
     engine.stop();
     await engine.startSynchronizedRecordingPlayback?.();
     tester.expect(audioContext.sources.at(-1)?.buffer?.duration).toBe(24);
+    engine.destroy?.();
+  });
+
+  tester.it("keeps derivative playback ready when background original decoding fails", async () => {
+    const audioContext = createFakeAudioContext();
+    const decodeAudioData = audioContext.decodeAudioData.bind(audioContext);
+    audioContext.decodeAudioData = (audioData) => {
+      return new Uint8Array(audioData)[0] === 60
+        ? Promise.reject(new Error("Original decode unavailable"))
+        : decodeAudioData(audioData);
+    };
+    const engine = createWebAudioPlaybackEngine({
+      audioContext,
+      mediaPreparationPolicy: "derivative-plus-original",
+      async fetchAudioData(url) {
+        return new Uint8Array([url.endsWith("/audio") ? 60 : 24]).buffer;
+      },
+      scheduleInterval() { return {}; },
+      clearScheduledInterval() {},
+      onLoadError() {},
+    });
+
+    engine.loadMix([{
+      channelNumber: 1,
+      trackId: "original-decode-failure-track",
+      playbackDerivativeUrl: "/tracks/1/playback-derivative",
+      originalAudioUrl: "/tracks/1/audio",
+      volume: 1,
+      enabled: true,
+    }]);
+    await waitForPlaybackReady(engine);
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      if (
+        engine.getSnapshot().preparation.channels[0]
+          ?.preparedSources.original === "failed"
+      ) break;
+      await Promise.resolve();
+    }
+
+    tester.expect(engine.getSnapshot().preparation.status).toBe("ready");
+    tester.expect(engine.getSnapshot().preparation.failure).toBe(null);
+    await engine.play();
+    tester.expect(audioContext.sources.at(-1)?.buffer?.duration).toBe(24);
+    tester.expect(
+      engine.getSnapshot().preparation.channels[0]?.activeSource,
+    ).toBe("playback-derivative");
     engine.destroy?.();
   });
 
@@ -903,9 +1062,11 @@ tester.describe("WebAudioPlaybackEngine", () => {
   tester.it("reports required failures, retries them, and does not let disabled failures tear down ready playback", async () => {
     const audioContext = createFakeAudioContext();
     let requiredAttempts = 0;
+    const fetchedUrls: string[] = [];
     const engine = createWebAudioPlaybackEngine({
       audioContext,
       fetchAudioData(audioUrl) {
+        fetchedUrls.push(audioUrl);
         if (audioUrl === "/drums.wav" && requiredAttempts++ === 0) {
           return Promise.reject(new Error("Drums unavailable"));
         }
@@ -936,6 +1097,24 @@ tester.describe("WebAudioPlaybackEngine", () => {
     ).toBe("failed");
     await engine.play();
     tester.expect(engine.getSnapshot().isPlaying).toBe(true);
+
+    engine.setChannelEnabled(2, true);
+    tester.expect(engine.getSnapshot().preparation.status).toBe("preparing");
+    for (let attempt = 0; attempt < 10; attempt += 1) await Promise.resolve();
+    tester.expect(engine.getSnapshot().preparation.status).toBe("failed");
+    tester.expect(engine.getSnapshot().preparation.failure?.trackId).toBe("track-2");
+    tester.expect(engine.getSnapshot().preparation.failure?.kind).toBe(
+      "derivative-download-failed",
+    );
+    tester.expect(
+      fetchedUrls.filter((url) => url === "/drums.wav").length,
+    ).toBe(2);
+    tester.expect(
+      fetchedUrls.filter((url) => url === "/bass.wav").length,
+    ).toBe(2);
+
+    engine.setChannelEnabled(2, false);
+    tester.expect(engine.getSnapshot().preparation.status).toBe("ready");
     engine.destroy?.();
   });
 
@@ -1357,6 +1536,95 @@ tester.describe("WebAudioPlaybackEngine", () => {
     tester.expect(engine.getSynchronizedRecordingPlaybackSnapshot?.()).toBe(null);
 
     engine.destroy?.();
+  });
+
+  tester.it("classifies download and decode failures and retries only the failed derivative", async () => {
+    for (const failureStage of ["download", "decode"] as const) {
+      const audioContext = createFakeAudioContext();
+      const decodeAudioData = audioContext.decodeAudioData.bind(audioContext);
+      const fetchedUrls: string[] = [];
+      let bassFetchAttempts = 0;
+      let bassDecodeAttempts = 0;
+
+      if (failureStage === "decode") {
+        audioContext.decodeAudioData = (audioData) => {
+          const duration = new Uint8Array(audioData)[0] ?? 0;
+          if (duration === 30 && bassDecodeAttempts++ === 0) {
+            return Promise.reject(new Error("Could not decode track audio"));
+          }
+          return decodeAudioData(audioData);
+        };
+      }
+
+      const engine = createWebAudioPlaybackEngine({
+        audioContext,
+        mediaPreparationPolicy: "derivative-only",
+        fetchAudioData(url) {
+          fetchedUrls.push(url);
+          if (
+            url === "/bass/playback-derivative" &&
+            failureStage === "download" &&
+            bassFetchAttempts++ === 0
+          ) {
+            return Promise.reject(new Error("Track request interrupted"));
+          }
+          return Promise.resolve(
+            new Uint8Array([url.startsWith("/bass/") ? 30 : 60]).buffer,
+          );
+        },
+        scheduleInterval() { return {}; },
+        clearScheduledInterval() {},
+        onLoadError() {},
+      });
+
+      engine.loadMix([
+        {
+          channelNumber: 1,
+          trackId: "drums",
+          playbackDerivativeUrl: "/drums/playback-derivative",
+          originalAudioUrl: "/drums/audio",
+          volume: 1,
+          enabled: true,
+        },
+        {
+          channelNumber: 2,
+          trackId: "bass",
+          playbackDerivativeUrl: "/bass/playback-derivative",
+          originalAudioUrl: "/bass/audio",
+          volume: 1,
+          enabled: true,
+        },
+      ]);
+      for (let attempt = 0; attempt < 20; attempt += 1) {
+        if (engine.getSnapshot().preparation.status === "failed") break;
+        await Promise.resolve();
+      }
+
+      tester.expect(engine.getSnapshot().preparation.failure?.kind).toBe(
+        failureStage === "download"
+          ? "derivative-download-failed"
+          : "derivative-decode-failed",
+      );
+      tester.expect(engine.getSnapshot().hasLoadedChannels).toBe(false);
+      tester.expect(
+        fetchedUrls.filter((url) => url === "/drums/playback-derivative").length,
+      ).toBe(1);
+
+      engine.retryPreparation?.();
+      tester.expect(engine.getSnapshot().preparation.status).toBe("preparing");
+      await waitForPlaybackReady(engine);
+      tester.expect(
+        fetchedUrls.filter((url) => url === "/drums/playback-derivative").length,
+      ).toBe(1);
+      tester.expect(
+        fetchedUrls.filter((url) => url === "/bass/playback-derivative").length,
+      ).toBe(2);
+      tester.expect(fetchedUrls.some((url) => url.endsWith("/audio"))).toBe(false);
+
+      await engine.startSynchronizedRecordingPlayback?.();
+      tester.expect(engine.getSnapshot().isPlaying).toBe(true);
+      engine.destroy?.();
+    }
   });
 
   tester.it("freezes derivative backing for a recording run and promotes on the next recording run", async () => {

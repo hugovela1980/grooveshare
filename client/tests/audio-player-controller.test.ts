@@ -1315,6 +1315,9 @@ tester.describe("audio player controller playback boundary", () => {
             setMetronomeEnabled(enabled) {
                 calls.push(`metronome:${enabled}`);
             },
+            retryPreparation() {
+                calls.push("retry");
+            },
             setChannelVolume(channelNumber, volume) {
                 calls.push(`volume:${channelNumber}:${volume}`);
                 return true;
@@ -1347,6 +1350,9 @@ tester.describe("audio player controller playback boundary", () => {
         const trackNameElement = createFakeTextElement();
         const loopCheckbox = createFakeCheckbox();
         const metronomeCheckbox = createFakeCheckbox();
+        const preparationElement = { hidden: true, textContent: null as string | null };
+        const preparationMessageElement = createFakeTextElement();
+        const preparationRetryButton = createFakeButton();
 
         const controller = createAudioPlayerController({
             playbackEngine,
@@ -1360,6 +1366,9 @@ tester.describe("audio player controller playback boundary", () => {
             seekBarInput,
             seekBarButton,
             trackNameElement,
+            preparationElement,
+            preparationMessageElement,
+            preparationRetryButton,
             loopCheckbox,
             metronomeCheckbox,
         });
@@ -1374,6 +1383,65 @@ tester.describe("audio player controller playback boundary", () => {
             enabled: true,
             timelineOffsetSeconds: 3.5,
         }]);
+
+        snapshot = {
+            ...snapshot,
+            hasLoadedChannels: false,
+            preparation: {
+                status: "failed",
+                requiredChannelCount: 1,
+                readyRequiredChannelCount: 0,
+                channels: [{
+                    channelNumber: 1,
+                    trackId: "track-1",
+                    required: true,
+                    status: "failed",
+                    failureKind: "derivative-decode-failed",
+                    failureMessage: "Could not decode track audio",
+                    activeSource: null,
+                    preparedSources: {
+                        playbackDerivative: "failed",
+                        original: "unloaded",
+                    },
+                }],
+                failure: {
+                    channelNumber: 1,
+                    trackId: "track-1",
+                    kind: "derivative-decode-failed",
+                    message: "Could not decode track audio",
+                },
+            },
+        };
+        (listener as ((next: ReturnType<PlaybackEngine["getSnapshot"]>) => void) | null)?.(snapshot);
+        tester.expect(preparationMessageElement.textContent).toBe(
+            "Audio unavailable for Guitar.",
+        );
+        tester.expect(playPauseButton.disabled).toBe(true);
+        await preparationRetryButton.click();
+
+        snapshot = {
+            ...snapshot,
+            hasLoadedChannels: true,
+            preparation: {
+                status: "ready",
+                requiredChannelCount: 1,
+                readyRequiredChannelCount: 1,
+                channels: [{
+                    ...snapshot.preparation.channels[0]!,
+                    status: "ready",
+                    failureKind: null,
+                    failureMessage: null,
+                    preparedSources: {
+                        playbackDerivative: "ready",
+                        original: "failed",
+                    },
+                }],
+                failure: null,
+            },
+        };
+        (listener as ((next: ReturnType<PlaybackEngine["getSnapshot"]>) => void) | null)?.(snapshot);
+        tester.expect(preparationElement.hidden).toBe(true);
+        tester.expect(playPauseButton.disabled).toBe(false);
 
         metronomeCheckbox.checked = true;
         metronomeCheckbox.change();
@@ -1391,6 +1459,7 @@ tester.describe("audio player controller playback boundary", () => {
             "loop:false",
             "metronome:false",
             "load:1",
+            "retry",
             "metronome:true",
             "play",
             "seekBy:-5",

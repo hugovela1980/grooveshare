@@ -202,14 +202,12 @@ Handle derivative availability and failure without weakening the existing experi
 
 ### Work
 
-- Represent derivative preparation truthfully.
-- Preserve enabled-track prioritization.
-- Define fallback behavior for:
-  - missing derivative
-  - failed derivative generation
-  - failed derivative download
-- Keep original-background preparation from blocking normal derivative playback.
-- Add regression coverage for:
+- Carry the server lifecycle into the shared playback-preparation model: `pending`/`processing` are not ready, `failed` is a generation failure, and an absent derivative without lifecycle metadata is unavailable.
+- Classify derivative download and decode failures separately while keeping one presentation-independent failure contract.
+- Block Play and synchronized Record for a failed enabled derivative, keep disabled-track failures nonblocking, and retry only failed required derivatives without refetching successful channels.
+- Never use the authoritative original as a derivative fallback. Keep optional original-background download or decode failure from blocking a ready derivative.
+- Present equivalent Audio unavailable and Retry behavior on desktop and mobile.
+- Preserve regression coverage for:
   - playback readiness
   - synchronization
   - seek/loop

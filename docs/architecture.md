@@ -426,6 +426,8 @@ Both presentation clients depend on the shared `PlaybackEngine` contract rather 
 
 Playback channels identify the protected playback-derivative and authoritative-original sources separately. Required enabled derivatives determine Play and Record readiness, while disabled derivatives retain their established background/nonblocking preparation behavior. Authoritative originals never gate recording. A missing or failed required derivative uses the normal playback-preparation failure state and never falls back to the original.
 
+The shared media-source model carries the server's derivative lifecycle status into playback preparation. `pending` and `processing` are reported as not ready, `failed` as generation failure, an absent derivative without lifecycle metadata as unavailable, and fetch/decode errors as download/decode failures. Any such failure blocks Play and synchronized Record only when its channel is enabled and required. Retry resets and prepares only failed required derivatives; it neither refetches successful channels nor tries the authoritative original as a substitute. Desktop and mobile render this shared state as audio unavailable with the same retry path. Optional background-original failure remains visible only in per-source diagnostics and does not invalidate a ready derivative, including Take Review and its independent review mix.
+
 One shared `PlaybackMediaPreparationPolicy`, selected at the common client composition boundary, controls optional original preparation for both desktop and mobile:
 
 - `derivative-only` fetches, decodes, and schedules derivatives only;

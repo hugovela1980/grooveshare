@@ -15,6 +15,7 @@ import type {
   PlaybackChannel,
   PlaybackChannelPreparationStatus,
   PlaybackEngine,
+  PlaybackPreparationFailureKind,
   PlaybackPreparationSnapshot,
   PlaybackSnapshot,
   PlaybackStateListener,
@@ -107,6 +108,7 @@ type LoadedWebAudioChannel = {
   transportRunSource: PlaybackMediaRepresentation | null;
   gainNode: GainNodeLike | null;
   derivativePreparationStatus: PlaybackChannelPreparationStatus;
+  derivativeFailureKind: PlaybackPreparationFailureKind | null;
   derivativeFailureMessage: string | null;
   originalPreparationStatus: PlaybackChannelPreparationStatus;
   originalFailureMessage: string | null;
@@ -285,6 +287,7 @@ export function createWebAudioPlaybackEngine(
       trackId: loadedChannel.channel.trackId,
       required: loadedChannel.channel.enabled,
       status: loadedChannel.derivativePreparationStatus,
+      failureKind: loadedChannel.derivativeFailureKind,
       failureMessage: loadedChannel.derivativeFailureMessage,
       activeSource: loadedChannel.transportRunSource,
       preparedSources: {
@@ -316,6 +319,8 @@ export function createWebAudioPlaybackEngine(
         ? {
             channelNumber: failedRequiredChannel.channelNumber,
             trackId: failedRequiredChannel.trackId,
+            kind:
+              failedRequiredChannel.failureKind ?? "derivative-unavailable",
             message:
               failedRequiredChannel.failureMessage ??
               "This track could not be prepared for playback.",
@@ -1445,6 +1450,7 @@ export function createWebAudioPlaybackEngine(
     if (enabled) {
       if (loadedChannel.derivativePreparationStatus === "failed") {
         loadedChannel.derivativePreparationStatus = "unloaded";
+        loadedChannel.derivativeFailureKind = null;
         loadedChannel.derivativeFailureMessage = null;
       }
       if (loadedChannel.derivativePreparationStatus === "ready") {
@@ -1463,6 +1469,29 @@ export function createWebAudioPlaybackEngine(
     return error instanceof Error && error.message.trim()
       ? error.message
       : "This track could not be prepared for playback.";
+  }
+
+  function getUnavailableDerivativeFailure(
+    loadedChannel: LoadedWebAudioChannel,
+  ): { kind: PlaybackPreparationFailureKind; message: string } {
+    switch (loadedChannel.channel.playbackDerivativeStatus) {
+      case "pending":
+      case "processing":
+        return {
+          kind: "derivative-not-ready",
+          message: "This track's audio is still being prepared.",
+        };
+      case "failed":
+        return {
+          kind: "derivative-generation-failed",
+          message: "This track's audio could not be prepared.",
+        };
+      default:
+        return {
+          kind: "derivative-unavailable",
+          message: "This track's audio is unavailable.",
+        };
+    }
   }
 
   function updatePreparedMixDuration(): void {
@@ -1632,13 +1661,19 @@ export function createWebAudioPlaybackEngine(
       return;
     }
 
+    let failureKind: PlaybackPreparationFailureKind =
+      "derivative-download-failed";
+
     try {
       loadedChannel.derivativePreparationStatus = "fetching";
+      loadedChannel.derivativeFailureKind = null;
       loadedChannel.derivativeFailureMessage = null;
       handlePreparationChange(generation);
       const derivativeUrl = loadedChannel.channel.playbackDerivativeUrl;
       if (!derivativeUrl) {
-        throw new Error("Playback derivative is not available.");
+        const unavailable = getUnavailableDerivativeFailure(loadedChannel);
+        failureKind = unavailable.kind;
+        throw new Error(unavailable.message);
       }
       const audioData = await fetchAudioData(derivativeUrl);
       if (destroyed || generation !== loadGeneration) {
@@ -1647,6 +1682,7 @@ export function createWebAudioPlaybackEngine(
 
       loadedChannel.derivativePreparationStatus = "decoding";
       handlePreparationChange(generation);
+      failureKind = "derivative-decode-failed";
       const buffer = await audioContext.decodeAudioData(audioData);
       if (destroyed || generation !== loadGeneration) {
         return;
@@ -1666,6 +1702,7 @@ export function createWebAudioPlaybackEngine(
         return;
       }
       loadedChannel.derivativePreparationStatus = "failed";
+      loadedChannel.derivativeFailureKind = failureKind;
       loadedChannel.derivativeFailureMessage = getLoadFailureMessage(error);
       handlePreparationChange(generation);
       onLoadError(error);
@@ -1737,6 +1774,7 @@ export function createWebAudioPlaybackEngine(
 
     for (const loadedChannel of failedRequiredChannels) {
       loadedChannel.derivativePreparationStatus = "unloaded";
+      loadedChannel.derivativeFailureKind = null;
       loadedChannel.derivativeFailureMessage = null;
       void prepareChannel(loadedChannel, generation);
     }
@@ -1773,6 +1811,7 @@ export function createWebAudioPlaybackEngine(
       transportRunSource: null,
       gainNode: null,
       derivativePreparationStatus: "unloaded",
+      derivativeFailureKind: null,
       derivativeFailureMessage: null,
       originalPreparationStatus: "unloaded",
       originalFailureMessage: null,

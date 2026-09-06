@@ -117,6 +117,9 @@ export function createTracksService<TAudioFile>(input: {
 
       return {
         playbackDerivativeUrl,
+        ...(track.playbackDerivative
+          ? { playbackDerivativeStatus: track.playbackDerivative.status }
+          : {}),
         originalAudioUrl,
       };
     },

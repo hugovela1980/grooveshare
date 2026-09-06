@@ -278,11 +278,12 @@ tester.describe("mobile musical timeline playback", () => {
     const preparationElement = { hidden: true, textContent: null as string | null };
     const preparationMessageElement = { textContent: null as string | null };
     const preparationRetryButton = createButton();
+    const playPauseButton = createButton();
     const controller = createAudioPlayerController({
       playbackEngine: playback.engine,
       seekBackwardButton: createButton(),
       seekForwardButton: createButton(),
-      playPauseButton: createButton(),
+      playPauseButton,
       stopButton: createButton(),
       progressInput: createRangeInput(),
       timestampElement: { textContent: null },
@@ -340,11 +341,40 @@ tester.describe("mobile musical timeline playback", () => {
       },
     });
     tester.expect(preparationMessageElement.textContent).toBe(
-      "Could not prepare Bass for playback.",
+      "Audio unavailable for Bass.",
     );
     tester.expect(preparationRetryButton.hidden).toBe(false);
+    await playPauseButton.click();
+    tester.expect(playback.getPlayCalls()).toBe(0);
     await preparationRetryButton.click();
     tester.expect(playback.getRetryCalls()).toBe(1);
+
+    playback.publish({
+      ...playback.engine.getSnapshot(),
+      hasLoadedChannels: true,
+      preparation: {
+        status: "ready",
+        requiredChannelCount: 1,
+        readyRequiredChannelCount: 1,
+        channels: [{
+          channelNumber: 1,
+          trackId: "track-1",
+          required: true,
+          status: "ready",
+          failureMessage: null,
+          activeSource: null,
+          preparedSources: {
+            playbackDerivative: "ready",
+            original: "failed",
+          },
+        }],
+        failure: null,
+      },
+    });
+    tester.expect(preparationElement.hidden).toBe(true);
+    tester.expect(playPauseButton.disabled).toBe(false);
+    await playPauseButton.click();
+    tester.expect(playback.getPlayCalls()).toBe(1);
   });
 
   tester.it("renders the diagnostic musical position and bar jump controls", () => {

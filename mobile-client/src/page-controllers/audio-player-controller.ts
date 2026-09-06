@@ -197,8 +197,8 @@ export function createAudioPlayerController({
                 `Preparing playback · ${preparation.readyRequiredChannelCount}/${preparation.requiredChannelCount} tracks`;
         } else if (preparation.status === "failed") {
             preparationMessageElement.textContent = failedTrack
-                ? `Could not prepare ${failedTrack.name} for playback.`
-                : "A required track could not be prepared for playback.";
+                ? `Audio unavailable for ${failedTrack.name}.`
+                : "Audio unavailable for a required track.";
         } else if (preparation.status === "idle") {
             preparationMessageElement.textContent = loadedMixChannels.length > 0
                 ? "Enable at least one track to prepare playback."

@@ -539,6 +539,85 @@ function createPlaybackHarness({
 }
 
 tester.describe("transport-synchronized microphone recording", () => {
+  tester.it("blocks incomplete derivative backing and records after readiness recovers", async () => {
+    const recordingHarness = createRecordingPortHarness();
+    const playbackHarness = createPlaybackHarness();
+    const getPlaybackSnapshot = playbackHarness.engine.getSnapshot.bind(
+      playbackHarness.engine,
+    );
+    let derivativeReady = false;
+    playbackHarness.engine.getSnapshot = () => {
+      const snapshot = getPlaybackSnapshot();
+      return derivativeReady
+        ? snapshot
+        : {
+            ...snapshot,
+            hasLoadedChannels: false,
+            preparation: {
+              status: "failed",
+              requiredChannelCount: 1,
+              readyRequiredChannelCount: 0,
+              channels: [{
+                channelNumber: 1,
+                trackId: "failed-backing-track",
+                required: true,
+                status: "failed",
+                failureKind: "derivative-download-failed",
+                failureMessage: "Track request interrupted",
+                activeSource: null,
+                preparedSources: {
+                  playbackDerivative: "failed",
+                  original: "unloaded",
+                },
+              }],
+              failure: {
+                channelNumber: 1,
+                trackId: "failed-backing-track",
+                kind: "derivative-download-failed",
+                message: "Track request interrupted",
+              },
+            },
+          };
+    };
+    const session = createMicrophoneRecordingSession({
+      role: "contributor",
+      recordingPort: recordingHarness.port,
+      playbackEngine: playbackHarness.engine,
+      musicalTimeline: {
+        bpm: 120,
+        timeSignature: { numerator: 4, denominator: 4 },
+      },
+    });
+
+    await session.arm();
+    const blocked = await session.start();
+    tester.expect(blocked.status).toBe("failed");
+    tester.expect(recordingHarness.startCalls).toBe(0);
+    tester.expect(playbackHarness.events).toEqual([]);
+
+    derivativeReady = true;
+    await session.arm();
+    const recording = await session.start();
+    tester.expect(recording.status).toBe("recording");
+    tester.expect(recordingHarness.startCalls).toBe(1);
+    tester.expect(playbackHarness.events).toEqual([
+      "playback-start",
+      "mark-recording-start",
+    ]);
+
+    playbackHarness.setClockTime(102);
+    await session.stop();
+    tester.expect(
+      session.getSnapshot().take?.timing.transport.startProjectPositionSeconds,
+    ).toBe(0);
+    tester.expect(session.getSnapshot().take?.timing.musicalStart).toEqual({
+      bar: 1,
+      beat: 1,
+    });
+    await session.destroy();
+    playbackHarness.engine.destroy?.();
+  });
+
   tester.it("allows recording while authoritative originals are still preparing", async () => {
     const recordingHarness = createRecordingPortHarness();
     const playbackHarness = createPlaybackHarness();

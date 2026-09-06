@@ -40,9 +40,17 @@ export type PlaybackChannelPreparationStatus =
   | "ready"
   | "failed";
 
+export type PlaybackPreparationFailureKind =
+  | "derivative-not-ready"
+  | "derivative-unavailable"
+  | "derivative-generation-failed"
+  | "derivative-download-failed"
+  | "derivative-decode-failed";
+
 export type PlaybackPreparationFailure = {
   channelNumber: number;
   trackId: string;
+  kind?: PlaybackPreparationFailureKind;
   message: string;
 };
 
@@ -51,6 +59,7 @@ export type PlaybackChannelPreparationSnapshot = {
   trackId: string;
   required: boolean;
   status: PlaybackChannelPreparationStatus;
+  failureKind?: PlaybackPreparationFailureKind | null;
   failureMessage: string | null;
   /** Media representation fixed for this channel's current transport run. */
   activeSource: PlaybackMediaRepresentation | null;
