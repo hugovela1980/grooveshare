@@ -424,14 +424,14 @@ The current audio architecture is the foundation for Version 3 recording.
 
 Both presentation clients depend on the shared `PlaybackEngine` contract rather than directly controlling Web Audio nodes.
 
-Playback channels identify the protected playback-derivative and authoritative-original sources separately. A ready derivative is the immediate active `AudioBuffer`; required enabled derivatives determine playback readiness, while disabled derivatives retain their established background/nonblocking preparation behavior. A missing or failed required derivative uses the normal playback-preparation failure state and never falls back to the original.
+Playback channels identify the protected playback-derivative and authoritative-original sources separately. Required enabled derivatives determine Play and Record readiness, while disabled derivatives retain their established background/nonblocking preparation behavior. Authoritative originals never gate recording. A missing or failed required derivative uses the normal playback-preparation failure state and never falls back to the original.
 
 One shared `PlaybackMediaPreparationPolicy`, selected at the common client composition boundary, controls optional original preparation for both desktop and mobile:
 
-- `derivative-only` fetches and decodes derivatives only;
+- `derivative-only` fetches, decodes, and schedules derivatives only;
 - `derivative-plus-original` prepares derivatives first, declares playback ready from them, then fetches and decodes originals in lower-priority background work.
 
-In the second policy, the original buffer is retained separately and its failure does not invalidate derivative readiness. Completing original preparation does not replace the active derivative or alter an in-flight schedule. Future entitlement/tier code may select the policy, but the playback engine knows only the policy value and has no account or billing semantics. Original promotion/source switching remains Milestone 6.
+In the second policy, the original buffer is retained separately and its failure does not invalidate derivative readiness. At each new Play or synchronized Record transport run, the engine chooses the prepared original independently per enabled channel when available and otherwise chooses the derivative. That per-channel choice is frozen for the run: background completion, pause/resume, active seek, and loop wrap do not promote sources. Stop ends the run, so the next Play or Record reevaluates each channel. A channel enabled during a run chooses once when it joins and is not hot-swapped afterward. Future entitlement/tier code may select the policy, but the playback engine knows only the policy value and has no account or billing semantics.
 
 Current operations include:
 
@@ -451,6 +451,7 @@ Current operations include:
 `WebAudioPlaybackEngine` fetches/decodes project media into distinct derivative/original `AudioBuffer` slots and owns:
 
 - decoded channel buffers;
+- per-transport-run channel source choices;
 - per-channel `GainNode`s;
 - one-shot `AudioBufferSourceNode` lifecycle;
 - source scheduling from shared Transport instructions;
@@ -501,13 +502,13 @@ The 100 ms interval used by the engine/Transport is observational and maintenanc
 
 Each track is scheduled against that same project instruction. Persisted `musicalPlacement.start` is authoritative when present and is converted to project seconds inside `frontend-core`; legacy `timelineOffsetSeconds` remains a compatibility fallback. Tracks beginning at project time zero start at the generation boundary; tracks with a later musical start are scheduled at the corresponding future AudioContext clock time. When playback begins after a track's start, its source offset is derived from the difference between the current project position and the track start.
 
-Pause/resume and seek discard/recreate one-shot source generations from a new shared instruction. Web Audio project duration is the latest musical track end (`track start + decoded duration`), so later-starting recordings remain aligned without padding their files with artificial leading silence.
+Pause/resume and seek discard/recreate one-shot source generations from a new shared instruction while retaining the current transport run's source choice. Media representation never changes track placement, source alignment, media lead-in, project-position, or recording-anchor calculations. Web Audio project duration is the latest musical track end (`track start + decoded duration`), so later-starting recordings remain aligned without padding their files with artificial leading silence.
 
 ### Loop scheduling
 
 Loop restarts are not driven by a late `onended` callback.
 
-When looping is enabled, the Web Audio engine uses Transport to create the next generation's exact absolute clock boundary and schedules that generation ahead of time. Turning loop off cancels future scheduled loop generations without interrupting the generation currently playing.
+When looping is enabled, the Web Audio engine uses Transport to create the next generation's exact absolute clock boundary and schedules that generation ahead of time with the same frozen channel sources. Loop wrap is not a source-promotion boundary. Turning loop off cancels future scheduled loop generations without interrupting the generation currently playing.
 
 ### Recording timeline and microphone capture
 
@@ -524,7 +525,7 @@ playback state
 
 Browser microphone mechanics are implemented by `@hugovela/frontend-browser` behind the shared `MicrophoneRecordingPort`. `frontend-core` owns authorization, recording state, and transport synchronization without depending directly on `navigator`, `MediaRecorder`, `MediaStream`, or browser `Blob` behavior.
 
-For a new synchronized take from a stopped transport, browser microphone capture is started first and `MicrophoneRecordingPort.start()` does not resolve until the platform recorder reports that capture is active. Only then does the recording session ask the recording-capable playback engine to start project playback and return the authoritative scheduled start marker. This ordering prevents the first project transient from outrunning MediaRecorder startup. If the project was already playing, recording marks the existing authoritative transport position rather than restarting it.
+For a new synchronized take from a stopped transport, browser microphone capture is started first and `MicrophoneRecordingPort.start()` does not resolve until the platform recorder reports that capture is active. Only then does the recording session ask the recording-capable playback engine to start derivative-ready project playback and return the authoritative scheduled start marker. Backing-channel source choices are frozen for that recording run, and an original finishing in the background cannot replace them mid-capture. This ordering prevents the first project transient from outrunning MediaRecorder startup. If the project was already playing, recording marks the existing authoritative transport position rather than restarting it.
 
 The browser microphone adapter requests music-oriented capture by default (`echoCancellation: false`, `noiseSuppression: false`, `autoGainControl: false`) while keeping all browser APIs and constraint behavior inside `frontend-browser`. Checkpoint 5C also requests a single captured channel (`channelCount: { ideal: 1 }`). The 5D hardening pass makes that requirement enforceable rather than advisory: when a route still reports multiple channels, `frontend-browser` first applies an exact one-channel track constraint and, if the device/browser refuses it, feeds MediaRecorder from a browser-only Web Audio mono downmix stream. This keeps ordinary microphone/interface recordings genuinely mono so input 1 cannot become a left-only stereo recording while preserving browser/device mechanics outside `frontend-core`. Hardware validation remains required because capture-route behavior varies. Platform latency that remains after those constraints is treated separately from the musical timeline.
 

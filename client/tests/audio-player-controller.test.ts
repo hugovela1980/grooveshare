@@ -1224,7 +1224,7 @@ tester.describe("audio player controller", () => {
 });
 
 tester.describe("audio player controller playback boundary", () => {
-    tester.it("drives an injected PlaybackEngine without knowing HTML audio details", async () => {
+    tester.it("drives derivative-ready shared playback without waiting for an original", async () => {
         const calls: string[] = [];
         let loadedTimelineOffsetSeconds: number | undefined;
         let listener: ((snapshot: ReturnType<PlaybackEngine["getSnapshot"]>) => void) | null = null;
@@ -1254,7 +1254,18 @@ tester.describe("audio player controller playback boundary", () => {
                         status: channels.length > 0 ? "ready" : "idle",
                         requiredChannelCount: channels.length,
                         readyRequiredChannelCount: channels.length,
-                        channels: [],
+                        channels: channels.map((channel) => ({
+                            channelNumber: channel.channelNumber,
+                            trackId: channel.trackId,
+                            required: channel.enabled,
+                            status: "ready" as const,
+                            failureMessage: null,
+                            activeSource: null,
+                            preparedSources: {
+                                playbackDerivative: "ready" as const,
+                                original: "fetching" as const,
+                            },
+                        })),
                         failure: null,
                     },
                 };
@@ -1262,7 +1273,17 @@ tester.describe("audio player controller playback boundary", () => {
             },
             async play() {
                 calls.push("play");
-                snapshot = { ...snapshot, isPlaying: true };
+                snapshot = {
+                    ...snapshot,
+                    isPlaying: true,
+                    preparation: {
+                        ...snapshot.preparation,
+                        channels: snapshot.preparation.channels.map((channel) => ({
+                            ...channel,
+                            activeSource: "playback-derivative",
+                        })),
+                    },
+                };
                 listener?.(snapshot);
             },
             pause() {
@@ -1357,6 +1378,9 @@ tester.describe("audio player controller playback boundary", () => {
         metronomeCheckbox.checked = true;
         metronomeCheckbox.change();
         await playPauseButton.click();
+        tester.expect(
+            playbackEngine.getSnapshot().preparation.channels[0]?.activeSource,
+        ).toBe("playback-derivative");
         await seekBackwardButton.click();
         controller.setChannelVolume(1, 0.4);
         controller.setChannelEnabled(1, false);

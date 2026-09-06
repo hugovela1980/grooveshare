@@ -178,19 +178,21 @@ Once required derivatives are ready, allow:
 
 Recording must **not** wait for original files merely because originals are still downloading.
 
+Required enabled derivatives define the shared Play and Record readiness contract. Under `derivative-only`, every transport run schedules derivatives and originals are neither requested nor considered. Under `derivative-plus-original`, each enabled channel independently selects a prepared original when a new transport run starts and otherwise selects its derivative. Original preparation failure remains nonblocking.
+
+The selected representation is fixed for the lifetime of the transport run. Pause/resume, an active seek, and loop wrap may reschedule source nodes but retain the run's selection. Stop, natural termination, or replacement of the loaded mix ends the run; the next Play or synchronized Record reevaluates sources. A channel enabled during playback selects its best currently prepared representation once when it joins and does not hot-swap afterward.
+
 ### Validate
 
 - recording placement against derivatives is identical to placement against originals;
 - alignment/synchronization behavior remains stable;
 - derivative playback does not alter musical timeline semantics.
+- recording source selection does not alter the authoritative musical start,
+  alignment offset, media lead-in, or recording anchor.
 
 ### Original Availability
 
-When originals finish loading:
-
-- avoid unsafe mid-play hot-swaps;
-- initially prefer switching at a safe transport boundary such as Stop → Play, seek/restart, or the next transport run;
-- preserve current mix and timeline state.
+Prepared originals are promoted only at a new transport-run boundary. Original completion never causes a mid-play or mid-record hot-swap, and neither seek nor loop wrap is a promotion boundary. The current mix, scheduler, AudioContext clock, timeline, and placement math remain representation-independent. Future account or quality-tier code may choose the shared media policy externally; no entitlement concepts belong in playback core.
 
 ---
 

@@ -539,6 +539,58 @@ function createPlaybackHarness({
 }
 
 tester.describe("transport-synchronized microphone recording", () => {
+  tester.it("allows recording while authoritative originals are still preparing", async () => {
+    const recordingHarness = createRecordingPortHarness();
+    const playbackHarness = createPlaybackHarness();
+    const getPlaybackSnapshot = playbackHarness.engine.getSnapshot.bind(
+      playbackHarness.engine,
+    );
+    playbackHarness.engine.getSnapshot = () => {
+      const snapshot = getPlaybackSnapshot();
+      return {
+        ...snapshot,
+        preparation: {
+          ...snapshot.preparation,
+          channels: [{
+            channelNumber: 1,
+            trackId: "derivative-ready-track",
+            required: true,
+            status: "ready",
+            failureMessage: null,
+            activeSource: null,
+            preparedSources: {
+              playbackDerivative: "ready",
+              original: "fetching",
+            },
+          }],
+        },
+      };
+    };
+    const session = createMicrophoneRecordingSession({
+      role: "contributor",
+      recordingPort: recordingHarness.port,
+      playbackEngine: playbackHarness.engine,
+      musicalTimeline: {
+        bpm: 120,
+        timeSignature: { numerator: 4, denominator: 4 },
+      },
+    });
+
+    await session.arm();
+    const recording = await session.start();
+
+    tester.expect(recording.status).toBe("recording");
+    tester.expect(recordingHarness.startCalls).toBe(1);
+    tester.expect(playbackHarness.events).toEqual([
+      "playback-start",
+      "mark-recording-start",
+    ]);
+
+    await session.stop();
+    await session.destroy();
+    playbackHarness.engine.destroy?.();
+  });
+
   tester.it("publishes authoritative count-in beats before active recording elapsed time", async () => {
     const recordingHarness = createRecordingPortHarness();
     const playbackHarness = createPlaybackHarness({ beginInCountIn: true });

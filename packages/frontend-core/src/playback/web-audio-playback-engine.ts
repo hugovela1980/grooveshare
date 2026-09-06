@@ -29,6 +29,7 @@ import {
 import { createRecordingTimeline } from "./recording-timeline.js";
 import {
   DEFAULT_PLAYBACK_MEDIA_PREPARATION_POLICY,
+  type PlaybackMediaRepresentation,
   type PlaybackMediaPreparationPolicy,
 } from "./playback-media.js";
 
@@ -101,8 +102,9 @@ type AudioContextLike = {
 
 type LoadedWebAudioChannel = {
   channel: PlaybackChannel;
-  activePlaybackBuffer: AudioBufferLike | null;
+  preparedDerivativeBuffer: AudioBufferLike | null;
   preparedOriginalBuffer: AudioBufferLike | null;
+  transportRunSource: PlaybackMediaRepresentation | null;
   gainNode: GainNodeLike | null;
   derivativePreparationStatus: PlaybackChannelPreparationStatus;
   derivativeFailureMessage: string | null;
@@ -234,6 +236,7 @@ export function createWebAudioPlaybackEngine(
 
   let loadedChannels: LoadedWebAudioChannel[] = [];
   let sourceGenerations: ScheduledSourceGeneration[] = [];
+  let transportRunActive = false;
   let lastScheduledLoopInstruction: PlaybackScheduleInstruction | null = null;
   let metronomeEnabled = false;
   let activeMetronomeClicks: Array<{
@@ -283,9 +286,7 @@ export function createWebAudioPlaybackEngine(
       required: loadedChannel.channel.enabled,
       status: loadedChannel.derivativePreparationStatus,
       failureMessage: loadedChannel.derivativeFailureMessage,
-      activeSource: loadedChannel.activePlaybackBuffer
-        ? "playback-derivative" as const
-        : null,
+      activeSource: loadedChannel.transportRunSource,
       preparedSources: {
         playbackDerivative: loadedChannel.derivativePreparationStatus,
         original: loadedChannel.originalPreparationStatus,
@@ -364,8 +365,8 @@ export function createWebAudioPlaybackEngine(
   }
 
   function getMixDuration(): number {
-    return loadedChannels.reduce((longestDuration, { channel, activePlaybackBuffer }) => {
-      const duration = activePlaybackBuffer?.duration ?? 0;
+    return loadedChannels.reduce((longestDuration, { channel, preparedDerivativeBuffer }) => {
+      const duration = preparedDerivativeBuffer?.duration ?? 0;
 
       if (!Number.isFinite(duration) || duration <= 0) {
         return longestDuration;
@@ -387,9 +388,12 @@ export function createWebAudioPlaybackEngine(
   }
 
   function getSnapshot(): PlaybackSnapshot {
+    const transportSnapshot = transport.getSnapshot();
+    if (transportSnapshot.playbackState === "ended") {
+      endTransportRun();
+    }
     const hasLoadedChannels = hasReadyChannels();
     const preparation = getPreparationSnapshot();
-    const transportSnapshot = transport.getSnapshot();
     const hasPreparedTimeline = transportSnapshot.durationSeconds > 0;
 
     return {
@@ -581,6 +585,9 @@ export function createWebAudioPlaybackEngine(
   }
 
   const unsubscribeTransport = transport.subscribe(() => {
+    if (transport.getSnapshot().playbackState === "ended") {
+      endTransportRun();
+    }
     observePeriodicOutputClockSample();
     pruneCompletedSourceGenerations();
     maintainLoopSchedule();
@@ -759,6 +766,53 @@ export function createWebAudioPlaybackEngine(
     }
   }
 
+  function selectSourceForTransportRun(
+    loadedChannel: LoadedWebAudioChannel,
+  ): PlaybackMediaRepresentation | null {
+    if (
+      mediaPreparationPolicy === "derivative-plus-original" &&
+      loadedChannel.originalPreparationStatus === "ready" &&
+      loadedChannel.preparedOriginalBuffer
+    ) {
+      return "original";
+    }
+
+    return loadedChannel.derivativePreparationStatus === "ready" &&
+        loadedChannel.preparedDerivativeBuffer
+      ? "playback-derivative"
+      : null;
+  }
+
+  function beginTransportRun(): void {
+    if (transportRunActive) {
+      return;
+    }
+
+    transportRunActive = true;
+    for (const loadedChannel of loadedChannels) {
+      loadedChannel.transportRunSource = loadedChannel.channel.enabled
+        ? selectSourceForTransportRun(loadedChannel)
+        : null;
+    }
+  }
+
+  function endTransportRun(): void {
+    transportRunActive = false;
+    for (const loadedChannel of loadedChannels) {
+      loadedChannel.transportRunSource = null;
+    }
+  }
+
+  function getTransportRunBuffer(
+    loadedChannel: LoadedWebAudioChannel,
+  ): AudioBufferLike | null {
+    return loadedChannel.transportRunSource === "original"
+      ? loadedChannel.preparedOriginalBuffer
+      : loadedChannel.transportRunSource === "playback-derivative"
+        ? loadedChannel.preparedDerivativeBuffer
+        : null;
+  }
+
   function clearActiveSources(): void {
     for (const generation of sourceGenerations) {
       for (const { source } of generation.sources) {
@@ -806,7 +860,7 @@ export function createWebAudioPlaybackEngine(
     scheduleStartAtClockTime = instruction.startAtClockTime,
     scheduleProjectPosition = instruction.projectPositionSeconds,
   ): ActiveSource | null {
-    const buffer = loadedChannel.activePlaybackBuffer;
+    const buffer = getTransportRunBuffer(loadedChannel);
     const gainNode = loadedChannel.gainNode;
 
     if (!buffer || !gainNode) {
@@ -975,9 +1029,17 @@ export function createWebAudioPlaybackEngine(
       return null;
     }
 
+    if (transport.getSnapshot().playbackState === "ended") {
+      endTransportRun();
+    }
+    const startedNewRun = !transportRunActive;
+    beginTransportRun();
     const instruction = transport.play({ leadTimeSeconds });
 
     if (!instruction) {
+      if (startedNewRun) {
+        endTransportRun();
+      }
       return null;
     }
 
@@ -1011,6 +1073,7 @@ export function createWebAudioPlaybackEngine(
     const generation = startSources(instruction);
 
     if (!generation) {
+      endTransportRun();
       transport.complete();
       return null;
     }
@@ -1171,6 +1234,7 @@ export function createWebAudioPlaybackEngine(
     }
     clearActiveSources();
     clearAllClickCues();
+    endTransportRun();
 
     const clampedProjectStart = Math.max(
       0,
@@ -1280,6 +1344,7 @@ export function createWebAudioPlaybackEngine(
 
   function stop(): void {
     pendingSeekSeconds = null;
+    endTransportRun();
     transport.stop();
     clearActiveSources();
     clearAllClickCues();
@@ -1451,6 +1516,13 @@ export function createWebAudioPlaybackEngine(
       return;
     }
 
+    if (!loadedChannel.transportRunSource) {
+      loadedChannel.transportRunSource = selectSourceForTransportRun(loadedChannel);
+    }
+    if (!loadedChannel.transportRunSource) {
+      return;
+    }
+
     pruneCompletedSourceGenerations();
     const marker = transport.markTimelinePosition();
     const joinLeadSeconds = PLAYBACK_START_LEAD_SECONDS;
@@ -1581,7 +1653,7 @@ export function createWebAudioPlaybackEngine(
       }
 
       const gainNode = audioContext.createGain();
-      loadedChannel.activePlaybackBuffer = buffer;
+      loadedChannel.preparedDerivativeBuffer = buffer;
       loadedChannel.gainNode = gainNode;
       loadedChannel.derivativePreparationStatus = "ready";
       setGainValue(gainNode, loadedChannel.channel);
@@ -1687,6 +1759,7 @@ export function createWebAudioPlaybackEngine(
     loadGeneration = generation;
     backgroundPreparationGeneration = null;
 
+    endTransportRun();
     clearActiveSources();
     clearAllClickCues();
     disconnectLoadedChannels();
@@ -1695,8 +1768,9 @@ export function createWebAudioPlaybackEngine(
         ...channel,
         volume: clampVolume(channel.volume),
       },
-      activePlaybackBuffer: null,
+      preparedDerivativeBuffer: null,
       preparedOriginalBuffer: null,
+      transportRunSource: null,
       gainNode: null,
       derivativePreparationStatus: "unloaded",
       derivativeFailureMessage: null,

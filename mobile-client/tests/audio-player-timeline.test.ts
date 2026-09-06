@@ -511,7 +511,18 @@ tester.describe("mobile musical timeline playback", () => {
         status: "ready",
         requiredChannelCount: 1,
         readyRequiredChannelCount: 1,
-        channels: [],
+        channels: [{
+          channelNumber: 1,
+          trackId: "track-1",
+          required: true,
+          status: "ready",
+          failureMessage: null,
+          activeSource: "playback-derivative",
+          preparedSources: {
+            playbackDerivative: "ready",
+            original: "fetching",
+          },
+        }],
         failure: null,
       },
     });
@@ -756,7 +767,18 @@ tester.describe("mobile musical timeline playback", () => {
         status: "ready",
         requiredChannelCount: 1,
         readyRequiredChannelCount: 1,
-        channels: [],
+        channels: [{
+          channelNumber: 1,
+          trackId: "track-1",
+          required: true,
+          status: "ready",
+          failureMessage: null,
+          activeSource: "playback-derivative",
+          preparedSources: {
+            playbackDerivative: "ready",
+            original: "fetching",
+          },
+        }],
         failure: null,
       },
     });

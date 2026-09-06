@@ -279,12 +279,40 @@ tester.describe("WebAudioPlaybackEngine", () => {
     await waitForPlaybackReady(engine);
     const prepared = engine.getSnapshot().preparation.channels[0]!;
     tester.expect(fetchedUrls).toEqual(["/tracks/1/playback-derivative"]);
-    tester.expect(prepared.activeSource).toBe("playback-derivative");
+    tester.expect(prepared.activeSource).toBe(null);
     tester.expect(prepared.preparedSources.playbackDerivative).toBe("ready");
     tester.expect(prepared.preparedSources.original).toBe("unloaded");
 
     await engine.play();
     tester.expect(audioContext.sources[0]?.buffer?.duration).toBe(24);
+    tester.expect(
+      engine.getSnapshot().preparation.channels[0]?.activeSource,
+    ).toBe("playback-derivative");
+
+    engine.seek(3);
+    tester.expect(audioContext.sources.at(-1)?.buffer?.duration).toBe(24);
+    engine.setLoopEnabled(true);
+    tester.expect(audioContext.sources.at(-1)?.buffer?.duration).toBe(24);
+    engine.pause();
+    tester.expect(
+      engine.getSnapshot().preparation.channels[0]?.activeSource,
+    ).toBe("playback-derivative");
+    await engine.play();
+    tester.expect(audioContext.sources.at(-1)?.buffer?.duration).toBe(24);
+
+    engine.stop();
+    tester.expect(
+      engine.getSnapshot().preparation.channels[0]?.activeSource,
+    ).toBe(null);
+    await engine.play();
+    tester.expect(audioContext.sources.at(-1)?.buffer?.duration).toBe(24);
+    tester.expect(fetchedUrls).toEqual(["/tracks/1/playback-derivative"]);
+    engine.stop();
+    await engine.startSynchronizedRecordingPlayback?.();
+    tester.expect(audioContext.sources.at(-1)?.buffer?.duration).toBe(24);
+    tester.expect(
+      engine.getSnapshot().preparation.channels[0]?.activeSource,
+    ).toBe("playback-derivative");
     engine.destroy?.();
   });
 
@@ -369,7 +397,7 @@ tester.describe("WebAudioPlaybackEngine", () => {
     engine.destroy?.();
   });
 
-  tester.it("prepares originals after derivatives without replacing the active buffer", async () => {
+  tester.it("promotes an original only after Stop starts a new transport run", async () => {
     const audioContext = createFakeAudioContext();
     const fetchedUrls: string[] = [];
     let resolveOriginal: ((audioData: ArrayBuffer) => void) | null = null;
@@ -430,6 +458,74 @@ tester.describe("WebAudioPlaybackEngine", () => {
     tester.expect(afterOriginal.activeSource).toBe("playback-derivative");
     tester.expect(audioContext.sources.length).toBe(1);
     tester.expect(audioContext.sources[0]?.buffer).toBe(activeDerivativeBuffer);
+
+    engine.setLoopEnabled(true);
+    tester.expect(audioContext.sources.at(-1)?.buffer).toBe(activeDerivativeBuffer);
+
+    engine.pause();
+    tester.expect(
+      engine.getSnapshot().preparation.channels[0]?.activeSource,
+    ).toBe("playback-derivative");
+    await engine.play();
+    tester.expect(audioContext.sources.at(-1)?.buffer).toBe(activeDerivativeBuffer);
+
+    engine.seek(4);
+    tester.expect(audioContext.sources.at(-1)?.buffer).toBe(activeDerivativeBuffer);
+
+    engine.stop();
+    tester.expect(
+      engine.getSnapshot().preparation.channels[0]?.activeSource,
+    ).toBe(null);
+    await engine.play();
+    tester.expect(audioContext.sources.at(-1)?.buffer?.duration).toBe(60);
+    tester.expect(
+      engine.getSnapshot().preparation.channels[0]?.activeSource,
+    ).toBe("original");
+    engine.destroy?.();
+  });
+
+  tester.it("uses an already prepared original on the first plus-original run", async () => {
+    const audioContext = createFakeAudioContext();
+    const engine = createWebAudioPlaybackEngine({
+      audioContext,
+      mediaPreparationPolicy: "derivative-plus-original",
+      async fetchAudioData(url) {
+        return new Uint8Array([url.endsWith("/audio") ? 60 : 24]).buffer;
+      },
+      scheduleInterval() { return {}; },
+      clearScheduledInterval() {},
+      onLoadError() {},
+    });
+
+    engine.loadMix([{
+      channelNumber: 1,
+      trackId: "prepared-original-track",
+      playbackDerivativeUrl: "/tracks/1/playback-derivative",
+      originalAudioUrl: "/tracks/1/audio",
+      volume: 1,
+      enabled: true,
+      timelineOffsetSeconds: 8,
+      alignmentOffsetSeconds: -0.25,
+      mediaLeadInSeconds: 2,
+    }]);
+    await waitForPlaybackReady(engine);
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      if (
+        engine.getSnapshot().preparation.channels[0]
+          ?.preparedSources.original === "ready"
+      ) {
+        break;
+      }
+      await Promise.resolve();
+    }
+
+    await engine.play();
+    tester.expect(audioContext.sources[0]?.buffer?.duration).toBe(60);
+    tester.expect(audioContext.sources[0]?.startWhen).toBe(18.03);
+    tester.expect(audioContext.sources[0]?.startOffset).toBe(2.25);
+    tester.expect(
+      engine.getSnapshot().preparation.channels[0]?.activeSource,
+    ).toBe("original");
     engine.destroy?.();
   });
 
@@ -474,6 +570,11 @@ tester.describe("WebAudioPlaybackEngine", () => {
       snapshot.preparation.channels[0]?.preparedSources.original,
     ).toBe("failed");
     tester.expect(snapshot.preparation.failure).toBe(null);
+    await engine.play();
+    tester.expect(audioContext.sources.at(-1)?.buffer?.duration).toBe(24);
+    engine.stop();
+    await engine.startSynchronizedRecordingPlayback?.();
+    tester.expect(audioContext.sources.at(-1)?.buffer?.duration).toBe(24);
     engine.destroy?.();
   });
 
@@ -633,6 +734,9 @@ tester.describe("WebAudioPlaybackEngine", () => {
     await waitForPlaybackReady(engine);
     await engine.play();
     const playingSourceCount = audioContext.sources.length;
+    tester.expect(
+      engine.getSnapshot().preparation.channels[1]?.activeSource,
+    ).toBe(null);
 
     engine.setChannelEnabled(2, true);
     tester.expect(engine.getSnapshot().preparation.status).toBe("preparing");
@@ -646,6 +750,153 @@ tester.describe("WebAudioPlaybackEngine", () => {
     tester.expect(audioContext.sources.length).toBe(playingSourceCount + 1);
     tester.expect(audioContext.sources[0]?.stopCallCount).toBe(0);
     tester.expect(Math.abs((audioContext.sources.at(-1)?.startOffset ?? 0) - 2) < 1e-9).toBe(true);
+    tester.expect(
+      engine.getSnapshot().preparation.channels[1]?.activeSource,
+    ).toBe("playback-derivative");
+    engine.destroy?.();
+  });
+
+  tester.it("hot-joins a prepared original without changing other run sources", async () => {
+    const audioContext = createFakeAudioContext();
+    const engine = createWebAudioPlaybackEngine({
+      audioContext,
+      mediaPreparationPolicy: "derivative-plus-original",
+      async fetchAudioData(url) {
+        const duration = url === "/drums/audio"
+          ? 90
+          : url === "/bass/audio"
+            ? 45
+            : url === "/bass/playback-derivative"
+              ? 30
+              : 60;
+        return new Uint8Array([duration]).buffer;
+      },
+      scheduleInterval() { return {}; },
+      clearScheduledInterval() {},
+      onLoadError() {},
+    });
+
+    engine.loadMix([
+      {
+        channelNumber: 1,
+        trackId: "drums",
+        playbackDerivativeUrl: "/drums/playback-derivative",
+        originalAudioUrl: "/drums/audio",
+        volume: 1,
+        enabled: true,
+      },
+      {
+        channelNumber: 2,
+        trackId: "bass",
+        playbackDerivativeUrl: "/bass/playback-derivative",
+        originalAudioUrl: "/bass/audio",
+        volume: 1,
+        enabled: false,
+      },
+    ]);
+    await waitForPlaybackReady(engine);
+    for (let attempt = 0; attempt < 30; attempt += 1) {
+      if (engine.getSnapshot().preparation.channels.every((channel) =>
+        channel.preparedSources.original === "ready"
+      )) break;
+      await Promise.resolve();
+    }
+
+    await engine.play();
+    const drumsSource = audioContext.sources[0]!;
+    tester.expect(drumsSource.buffer?.duration).toBe(90);
+    tester.expect(engine.setChannelEnabled(2, true)).toBe(true);
+    const bassSource = audioContext.sources.at(-1)!;
+    tester.expect(bassSource.buffer?.duration).toBe(45);
+    tester.expect(drumsSource.stopCallCount).toBe(0);
+    tester.expect(
+      engine.getSnapshot().preparation.channels.map(({ activeSource }) => activeSource),
+    ).toEqual(["original", "original"]);
+    engine.destroy?.();
+  });
+
+  tester.it("does not hot-swap a derivative selected when a channel joins", async () => {
+    const audioContext = createFakeAudioContext();
+    let resolveBassOriginal: ((audioData: ArrayBuffer) => void) | null = null;
+    const bassOriginal = new Promise<ArrayBuffer>((resolve) => {
+      resolveBassOriginal = resolve;
+    });
+    const engine = createWebAudioPlaybackEngine({
+      audioContext,
+      mediaPreparationPolicy: "derivative-plus-original",
+      fetchAudioData(url) {
+        if (url === "/bass/audio") return bassOriginal;
+        const duration = url === "/drums/audio"
+          ? 90
+          : url === "/bass/playback-derivative"
+            ? 30
+            : 60;
+        return Promise.resolve(new Uint8Array([duration]).buffer);
+      },
+      scheduleInterval() { return {}; },
+      clearScheduledInterval() {},
+      onLoadError() {},
+    });
+
+    engine.loadMix([
+      {
+        channelNumber: 1,
+        trackId: "drums",
+        playbackDerivativeUrl: "/drums/playback-derivative",
+        originalAudioUrl: "/drums/audio",
+        volume: 1,
+        enabled: true,
+      },
+      {
+        channelNumber: 2,
+        trackId: "bass",
+        playbackDerivativeUrl: "/bass/playback-derivative",
+        originalAudioUrl: "/bass/audio",
+        volume: 1,
+        enabled: false,
+      },
+    ]);
+    await waitForPlaybackReady(engine);
+    for (let attempt = 0; attempt < 30; attempt += 1) {
+      const bass = engine.getSnapshot().preparation.channels[1];
+      if (
+        bass?.preparedSources.playbackDerivative === "ready" &&
+        bass.preparedSources.original === "fetching"
+      ) break;
+      await Promise.resolve();
+    }
+
+    await engine.play();
+    engine.setChannelEnabled(2, true);
+    const joinedDerivative = audioContext.sources.at(-1)!;
+    tester.expect(joinedDerivative.buffer?.duration).toBe(30);
+    tester.expect(
+      engine.getSnapshot().preparation.channels[1]?.activeSource,
+    ).toBe("playback-derivative");
+
+    const sourceCount = audioContext.sources.length;
+    resolveBassOriginal!(new Uint8Array([45]).buffer);
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      if (
+        engine.getSnapshot().preparation.channels[1]
+          ?.preparedSources.original === "ready"
+      ) break;
+      await Promise.resolve();
+    }
+    tester.expect(audioContext.sources.length).toBe(sourceCount);
+    tester.expect(audioContext.sources.at(-1)).toBe(joinedDerivative);
+    tester.expect(
+      engine.getSnapshot().preparation.channels[1]?.activeSource,
+    ).toBe("playback-derivative");
+
+    engine.stop();
+    await engine.play();
+    tester.expect(
+      audioContext.sources.slice(-2).map((source) => source.buffer?.duration),
+    ).toEqual([90, 45]);
+    tester.expect(
+      engine.getSnapshot().preparation.channels.map(({ activeSource }) => activeSource),
+    ).toEqual(["original", "original"]);
     engine.destroy?.();
   });
 
@@ -1105,6 +1356,84 @@ tester.describe("WebAudioPlaybackEngine", () => {
     engine.stop();
     tester.expect(engine.getSynchronizedRecordingPlaybackSnapshot?.()).toBe(null);
 
+    engine.destroy?.();
+  });
+
+  tester.it("freezes derivative backing for a recording run and promotes on the next recording run", async () => {
+    const audioContext = createFakeAudioContext();
+    let resolveOriginal: ((audioData: ArrayBuffer) => void) | null = null;
+    const originalAudio = new Promise<ArrayBuffer>((resolve) => {
+      resolveOriginal = resolve;
+    });
+    const engine = createWebAudioPlaybackEngine({
+      audioContext,
+      mediaPreparationPolicy: "derivative-plus-original",
+      fetchAudioData(url) {
+        return url.endsWith("/audio")
+          ? originalAudio
+          : Promise.resolve(new Uint8Array([24]).buffer);
+      },
+      scheduleInterval() { return {}; },
+      clearScheduledInterval() {},
+      onLoadError() {},
+    });
+
+    engine.loadMix([{
+      channelNumber: 1,
+      trackId: "recording-backing-track",
+      playbackDerivativeUrl: "/tracks/1/playback-derivative",
+      originalAudioUrl: "/tracks/1/audio",
+      volume: 1,
+      enabled: true,
+      alignmentOffsetSeconds: -0.25,
+      mediaLeadInSeconds: 2,
+    }]);
+    await waitForPlaybackReady(engine);
+    engine.seek(4);
+    const firstStart = await engine.startSynchronizedRecordingPlayback?.();
+    const derivativeBacking = audioContext.sources.at(-1)!;
+
+    tester.expect(firstStart?.marker.projectPositionSeconds).toBe(4);
+    tester.expect(firstStart?.marker.musicalPosition).toEqual({ bar: 3, beat: 1 });
+    tester.expect(derivativeBacking.buffer?.duration).toBe(24);
+    tester.expect(derivativeBacking.startOffset).toBe(6.25);
+    tester.expect(
+      engine.getSnapshot().preparation.channels[0]?.activeSource,
+    ).toBe("playback-derivative");
+
+    resolveOriginal!(new Uint8Array([60]).buffer);
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      if (
+        engine.getSnapshot().preparation.channels[0]
+          ?.preparedSources.original === "ready"
+      ) {
+        break;
+      }
+      await Promise.resolve();
+    }
+
+    tester.expect(audioContext.sources.at(-1)).toBe(derivativeBacking);
+    tester.expect(
+      engine.getSnapshot().preparation.channels[0]?.activeSource,
+    ).toBe("playback-derivative");
+
+    engine.stop();
+    engine.seek(4);
+    const secondStart = await engine.startSynchronizedRecordingPlayback?.();
+    const originalBacking = audioContext.sources.at(-1)!;
+
+    tester.expect(secondStart?.marker.projectPositionSeconds).toBe(4);
+    tester.expect(secondStart?.marker.musicalPosition).toEqual(
+      firstStart?.marker.musicalPosition,
+    );
+    tester.expect(secondStart?.mediaLeadInSeconds).toBe(
+      firstStart?.mediaLeadInSeconds,
+    );
+    tester.expect(originalBacking.buffer?.duration).toBe(60);
+    tester.expect(originalBacking.startOffset).toBe(derivativeBacking.startOffset);
+    tester.expect(
+      engine.getSnapshot().preparation.channels[0]?.activeSource,
+    ).toBe("original");
     engine.destroy?.();
   });
 

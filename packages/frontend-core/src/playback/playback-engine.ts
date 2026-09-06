@@ -52,7 +52,8 @@ export type PlaybackChannelPreparationSnapshot = {
   required: boolean;
   status: PlaybackChannelPreparationStatus;
   failureMessage: string | null;
-  activeSource: Extract<PlaybackMediaRepresentation, "playback-derivative"> | null;
+  /** Media representation fixed for this channel's current transport run. */
+  activeSource: PlaybackMediaRepresentation | null;
   preparedSources: {
     playbackDerivative: PlaybackChannelPreparationStatus;
     original: PlaybackChannelPreparationStatus;
